@@ -36,7 +36,7 @@ export async function fileExists(filePath, assets) {
   }
 }
 
-export async function readDirectory(dir, assets) {
+export async function listDirectory(dir, assets) {
   const out = new Set()
 
   async function readDir(full) {

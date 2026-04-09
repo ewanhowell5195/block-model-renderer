@@ -1,4 +1,4 @@
-import { readDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -16,8 +16,8 @@ const chunkSize = 32
 fs.mkdirSync(path.join(outputDir, "blocks"), { recursive: true })
 fs.mkdirSync(path.join(outputDir, "items"), { recursive: true })
 
-const blockstateFiles = await readDirectory("assets/minecraft/blockstates", assets).then(arr => arr.filter(f => f.endsWith(".json")))
-const itemFiles = await readDirectory("assets/minecraft/items", assets).then(arr => arr.filter(f => f.endsWith(".json")))
+const blockstateFiles = await listDirectory("assets/minecraft/blockstates", assets).then(arr => arr.filter(f => f.endsWith(".json")))
+const itemFiles = await listDirectory("assets/minecraft/items", assets).then(arr => arr.filter(f => f.endsWith(".json")))
 
 async function processChunk(files, handler) {
   for (let i = 0; i < files.length; i += chunkSize) {
