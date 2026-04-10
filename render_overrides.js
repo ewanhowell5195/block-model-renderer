@@ -1,4 +1,4 @@
-import { listDirectory, makeModelScene, render, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -40,7 +40,7 @@ async function handleBlock(file) {
     await loadModel(scene, assets, resolved, blockDisplay)
   }
   if (!override) return
-  const buffer = await render({ scene, camera })
+  const buffer = await renderModelScene(scene, camera)
   fs.writeFileSync(`${outputDir}/blocks/${modelId}.png`, buffer)
   console.log("Done block", modelId)
 }
@@ -57,7 +57,7 @@ async function handleItem(file) {
     await loadModel(scene, assets, resolved, itemDisplay)
   }
   if (!override) return
-  const buffer = await render({ scene, camera })
+  const buffer = await renderModelScene(scene, camera)
   fs.writeFileSync(`${outputDir}/items/${modelId}.png`, buffer)
   console.log("Done item", modelId)
 }

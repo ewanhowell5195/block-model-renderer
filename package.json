@@ -1,7 +1,9 @@
 {
   "type": "module",
   "dependencies": {
+    "gl": "^8.1.6",
     "headless-three": "^1.0.1",
+    "sharp": "^0.34.3",
     "skia-canvas": "^2.0.2"
   }
 }

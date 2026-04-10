@@ -1,4 +1,4 @@
-import { listDirectory, makeModelScene, render, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -28,14 +28,13 @@ async function processChunk(files, handler) {
 
 async function handleBlock(file) {
   const modelId = path.basename(file, ".json")
-  if (modelId !== "oak_stairs") return
   const { scene, camera } = makeModelScene()
   const models = await parseBlockstate(assets, modelId, {})
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, blockDisplay)
   }
-  const buffer = await render({ scene, camera })
+  const buffer = await renderModelScene(scene, camera)
   fs.writeFileSync(`${outputDir}/blocks/${modelId}.png`, buffer)
   console.log("Done block", modelId)
 }
@@ -48,10 +47,10 @@ async function handleItem(file) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, itemDisplay)
   }
-  const buffer = await render({ scene, camera })
+  const buffer = await renderModelScene(scene, camera)
   fs.writeFileSync(`${outputDir}/items/${modelId}.png`, buffer)
   console.log("Done item", modelId)
 }
 
 await processChunk(blockstateFiles, handleBlock)
-// await processChunk(itemFiles, handleItem)
+await processChunk(itemFiles, handleItem)

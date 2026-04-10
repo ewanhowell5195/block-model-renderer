@@ -1,4 +1,4 @@
-import { makeModelScene, render, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
+import { makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
 import fs from "node:fs"
 
 const assets = [
@@ -28,6 +28,6 @@ for (const model of models) {
   await loadModel(scene, assets, resolved, display)
 }
 
-const buffer = await render({ scene, camera })
+const render = await renderModelScene(scene, camera)
 
-fs.writeFileSync("model.png", buffer)
+fs.writeFileSync("model.png", render)
