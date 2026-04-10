@@ -1,14 +1,12 @@
 import { Canvas, Image, ImageData, loadImage } from "skia-canvas"
 import { fileURLToPath } from "node:url"
-import getTHREE from "node-three"
-import createContext from "gl"
+import getTHREE from "headless-three"
 import path from "node:path"
-import sharp from "sharp"
 import fs from "node:fs"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const { THREE, loadTexture } = (await getTHREE({ Canvas, Image, ImageData, fetch, Request, Response, Headers }))
+const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageData }))
 
 const missing = await loadImage(`${__dirname}/assets/fallbacks/assets/minecraft/textures/~missing.png`)
 
@@ -146,7 +144,7 @@ export async function renderBlock(args = {}) {
     await loadModel(scene, args.assets, resolved, args.display)
   }
 
-  return renderModelScene(scene, camera)
+  return render({ scene, camera })
 }
 
 export async function renderItem(args = {}) {
@@ -164,7 +162,7 @@ export async function renderItem(args = {}) {
     await loadModel(scene, args.assets, resolved, args.display)
   }
 
-  return renderModelScene(scene, camera)
+  return render({ scene, camera })
 }
 
 export async function renderModel(args) {
@@ -182,39 +180,19 @@ export async function renderModel(args) {
   const resolved = await resolveModelData(args.assets, { model: args.model})
   await loadModel(scene, args.assets, resolved, args.display)
 
-  return renderModelScene(scene, camera)
+  return render({ scene, camera })
 }
 
 export function makeModelScene() {
   const scene = new THREE.Scene()
   const camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.01, 100)
   camera.position.set(0, 0, 30)
-  camera.up = new THREE.Vector3(0, -1, 0)
   camera.lookAt(0, 0, 0)
 
   return { scene, camera }
 }
 
-export async function renderModelScene(scene, camera, outputPath, w = 1024, h = 1024) {
-  const gl = createContext(w, h)
-
-  const renderer = new THREE.WebGLRenderer({
-    context: gl,
-    preserveDrawingBuffer: true
-  })
-
-  renderer.setSize(w, h)
-  renderer.setClearColor(0x000000, 0)
-
-  renderer.render(scene, camera, new THREE.WebGLRenderTarget(w, h))
-
-  const buff = Buffer.alloc(w * h * 4)
-  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buff)
-
-  return sharp(buff, {
-    raw: { width: w, height: h, channels: 4 }
-  }).png().toBuffer()
-}
+export { render }
 
 function resolveNamespace(str) {
   const parts = str.split(":")
