@@ -1168,7 +1168,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
   
   if (model.x || model.y || model.z) {
     const x = THREE.MathUtils.degToRad(-(model?.x ?? 0))
-    const y = THREE.MathUtils.degToRad(model?.y ?? 0)
+    const y = THREE.MathUtils.degToRad(-(model?.y ?? 0))
     const z = THREE.MathUtils.degToRad(model?.z ?? 0)
     containerGroup.rotation.set(x, y, z, "ZYX")
   }
@@ -1192,7 +1192,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
       geometry.scale(scale.x, scale.y, scale.z)
     }
 
-    const faceOrder = ["west", "east", "up", "down", "south", "north"]
+    const faceOrder = ["east", "west", "up", "down", "south", "north"]
 
     const colorCount = geometry.attributes.position.count
     geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colorCount * 3), 3))
@@ -1239,10 +1239,10 @@ export async function loadModel(scene, assets, model, display = "gui") {
       }
 
       let uv = [
-        [u2, v1],
         [u1, v1],
-        [u2, v2],
-        [u1, v2]
+        [u2, v1],
+        [u1, v2],
+        [u2, v2]
       ]
 
       let rot = face.rotation ?? 0
@@ -1413,7 +1413,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
         }
       }
 
-      geometry.attributes.uv.array.set(uv.flatMap(([u, v]) => [u / 16, v / 16]), i * 8)
+      geometry.attributes.uv.array.set(uv.flatMap(([u, v]) => [u / 16, 1 - v / 16]), i * 8)
 
       // let colour
       // if (element.shade === false) {
@@ -1458,7 +1458,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
 
     const mesh = new THREE.Mesh(geometry, materials)
     mesh.position.set(
-      8 - (from.x + size.x / 2),
+      from.x + size.x / 2 - 8,
       from.y + size.y / 2 - 8,
       from.z + size.z / 2 - 8
     )
@@ -1473,7 +1473,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
       }
 
       const pivot = new THREE.Vector3(
-        8 - origin[0],
+        origin[0] - 8,
         origin[1] - 8,
         origin[2] - 8
       )
@@ -1507,15 +1507,15 @@ export async function loadModel(scene, assets, model, display = "gui") {
     if (settings.rotation) {
       const delta = new THREE.Euler(
         THREE.MathUtils.degToRad(settings.rotation[0]),
-        THREE.MathUtils.degToRad(-settings.rotation[1]),
-        THREE.MathUtils.degToRad(-settings.rotation[2]),
+        THREE.MathUtils.degToRad(settings.rotation[1]),
+        THREE.MathUtils.degToRad(settings.rotation[2]),
         displayGroup.rotation.order
       )
       displayGroup.quaternion.multiply(new THREE.Quaternion().setFromEuler(delta))
     }
     if (settings.translation) {
       displayGroup.position.set(
-        -settings.translation[0],
+        settings.translation[0],
         settings.translation[1],
         settings.translation[2]
       )
