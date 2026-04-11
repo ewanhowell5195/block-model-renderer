@@ -1437,12 +1437,13 @@ export async function loadModel(scene, assets, model, display = "gui") {
 
       geometry.attributes.uv.array.set(uv.flatMap(([u, v]) => [u / 16, v / 16]), i * 8)
 
-      let colour
-      if (element.shade === false) {
-        colour = [1, 1, 1]
-      } else {
-        colour = getFaceColour(faceName)
-      }
+      // let colour
+      // if (element.shade === false) {
+      //   colour = [1, 1, 1]
+      // } else {
+      //   colour = getFaceColour(faceName)
+      // }
+      const colour = [1, 1, 1]
 
       for (let j = 0; j < 4; j++) {
         const vertexIndex = (i * 4 + j) * 3
