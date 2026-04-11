@@ -1246,9 +1246,9 @@ export async function loadModel(scene, assets, model, display = "gui") {
       ]
 
       let rot = face.rotation ?? 0
-      if (rot === 90) uv = [uv[1], uv[3], uv[0], uv[2]]
+      if (rot === 90) uv = [uv[2], uv[0], uv[3], uv[1]]
       else if (rot === 180) uv = [uv[3], uv[2], uv[1], uv[0]]
-      else if (rot === 270) uv = [uv[2], uv[0], uv[3], uv[1]]
+      else if (rot === 270) uv = [uv[1], uv[3], uv[0], uv[2]]
 
       if (model?.uvlock) {
         let newDirection = faceName
@@ -1489,7 +1489,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
           axis === "y" ? 1 : 0,
           axis === "z" ? 1 : 0
         )
-        rotGroup.rotateOnAxis(axisVec, THREE.MathUtils.degToRad(axis === "x" ? angle : -angle))
+        rotGroup.rotateOnAxis(axisVec, THREE.MathUtils.degToRad(angle))
       } else {
         rotGroup.rotateZ(THREE.MathUtils.degToRad(-(z ?? 0)))
         rotGroup.rotateY(THREE.MathUtils.degToRad(-(y ?? 0)))
