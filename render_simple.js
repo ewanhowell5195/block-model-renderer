@@ -11,7 +11,7 @@ const block = await renderBlock({
   assets
 })
 
-fs.writeFileSync("block.png", block)
+fs.writeFileSync("renders/simple/block.png", block)
 
 
 // Render from item definition
@@ -21,7 +21,7 @@ const item = await renderItem({
   assets
 })
 
-fs.writeFileSync("item.png", item)
+fs.writeFileSync("renders/simple/item.png", item)
 
 
 // Render model json
@@ -57,4 +57,4 @@ const model = await renderModel({
   assets
 })
 
-fs.writeFileSync("model.png", model)
+fs.writeFileSync("renders/simple/model.png", model)
