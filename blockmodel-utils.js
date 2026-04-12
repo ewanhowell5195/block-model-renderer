@@ -621,7 +621,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
 
     if (type === "select") {
       const prop = normalize(def.property)
-      let value = normalize(data[prop] ?? "")
+      let value = normalize(prop === "custom_model_data" ? data["custom_model_data"]?.strings?.[def.index ?? 0] ?? "" : data[prop] ?? "")
       if (!value && prop === "display_context") {
         value = typeof display === "string" ? display : display.display
       } else if (!value && prop === "local_time" && def.pattern) {
@@ -670,8 +670,8 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
 
     if (type === "condition") {
       const prop = normalize(def.property)
-      const value = normalize(data[prop])
-      const isTruthy = value === "true"
+      const value = prop === "custom_model_data" ? data["custom_model_data"]?.flags?.[def.index ?? 0] : normalize(data[prop])
+      const isTruthy = value === true || value === "true"
       def = isTruthy ? def.on_true : def.on_false
       accTransform = currentTransform
       continue
@@ -679,7 +679,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
 
     if (type === "range_dispatch") {
       const prop = normalize(def.property)
-      const num = parseFloat(data[prop] ?? 0)
+      const num = parseFloat(prop === "custom_model_data" ? data["custom_model_data"]?.floats?.[def.index ?? 0] ?? 0 : data[prop] ?? 0)
       const scaled = (def.scale ?? 1) * num
       const entries = def.entries || []
       let chosen = def.fallback
