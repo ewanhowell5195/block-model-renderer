@@ -1098,6 +1098,16 @@ async function resolveSpecialModel(assets, data, base) {
     }
     case "shulker_box":
       model.textures = { shulker_box: `entity/shulker/${normalize(data.texture)}` }
+      if (data.openness) {
+        const lift = data.openness * 8
+        for (const el of model.elements ?? []) {
+          if (el.type === "lid") {
+            el.from = [el.from[0], el.from[1] + lift, el.from[2]]
+            el.to = [el.to[0], el.to[1] + lift, el.to[2]]
+            el.rotation.angle = data.openness * 270
+          }
+        }
+      }
       break
     case "end_cube":
       model.shader = { type: "end_portal", layers: data.effect === "gateway" ? 16 : 15 }

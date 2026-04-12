@@ -2,9 +2,10 @@
   "texture_size": [64, 64],
   "elements": [
     {
-      "name": "lid",
+      "type": "lid",
       "from": [0, 4, 0],
       "to": [16, 16, 16],
+      "rotation": {"angle": 0, "axis": "y", "origin": [8, 4, 8]},
       "faces": {
         "north": {"uv": [4, 4, 8, 7], "texture": "#shulker_box"},
         "east": {"uv": [0, 4, 4, 7], "texture": "#shulker_box"},
@@ -15,7 +16,6 @@
       }
     },
     {
-      "name": "base",
       "from": [0, 0, 0],
       "to": [16, 8, 16],
       "faces": {
