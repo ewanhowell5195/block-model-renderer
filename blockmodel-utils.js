@@ -1176,12 +1176,14 @@ export async function loadModel(scene, assets, model, display = "gui") {
       if (!face.uv) {
         const [fx, fy, fz] = element.from
         const [tx, ty, tz] = element.to
-        if (faceName === "up") { u1 = fx; u2 = tx; v1 = fz; v2 = tz }
-        else if (faceName === "down") { u1 = fx; u2 = tx; v1 = 16 - tz; v2 = 16 - fz }
-        else if (faceName === "north") { u1 = 16 - tx; u2 = 16 - fx; v1 = 16 - ty; v2 = 16 - fy }
-        else if (faceName === "south") { u1 = fx; u2 = tx; v1 = 16 - ty; v2 = 16 - fy }
-        else if (faceName === "east") { u1 = 16 - tz; u2 = 16 - fz; v1 = 16 - ty; v2 = 16 - fy }
-        else if (faceName === "west") { u1 = fz; u2 = tz; v1 = 16 - ty; v2 = 16 - fy }
+        switch (faceName) {
+          case "up":    u1 = fx; u2 = tx; v1 = fz; v2 = tz; break
+          case "down":  u1 = fx; u2 = tx; v1 = 16 - tz; v2 = 16 - fz; break
+          case "north": u1 = 16 - tx; u2 = 16 - fx; v1 = 16 - ty; v2 = 16 - fy; break
+          case "south": u1 = fx; u2 = tx; v1 = 16 - ty; v2 = 16 - fy; break
+          case "east":  u1 = 16 - tz; u2 = 16 - fz; v1 = 16 - ty; v2 = 16 - fy; break
+          case "west":  u1 = fz; u2 = tz; v1 = 16 - ty; v2 = 16 - fy; break
+        }
       }
 
       let uv = [
@@ -1211,12 +1213,14 @@ export async function loadModel(scene, assets, model, display = "gui") {
         }
 
         if (x) {
-          if (faceName === "east") rotateUV(model.x)
-          else if (faceName === "west") rotateUV(-model.x)
-          else if (faceName === "north") rotateUV(180)
-          else if (faceName === "south") rotateUV(x === 180 ? 180 : 0)
-          else if (faceName === "up") rotateUV(x === 90 ? 180 : 0)
-          else if (faceName === "down") rotateUV(x === 270 ? 180 : 0)
+          switch (faceName) {
+            case "east":  rotateUV(model.x); break
+            case "west":  rotateUV(-model.x); break
+            case "north": rotateUV(180); break
+            case "south": rotateUV(x === 180 ? 180 : 0); break
+            case "up":    rotateUV(x === 90 ? 180 : 0); break
+            case "down":  rotateUV(x === 270 ? 180 : 0); break
+          }
           for (let i = 0; i < x / 90; i++) dir = X_CYCLE[dir] ?? dir
         }
 
