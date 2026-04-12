@@ -566,6 +566,14 @@ export async function parseItemDefinition(assets, itemId, data = {}, display = "
         if (type === "dye" && data["dyed_color"] !== undefined) {
           const c = data["dyed_color"]
           tints.push(typeof c === "string" && c.startsWith("#") ? c : "#" + (c >>> 0).toString(16).padStart(8, "0").slice(2))
+        } else if (type === "custom_model_data" && data["custom_model_data"]?.colors) {
+          const c = data["custom_model_data"].colors[tint.index ?? 0]
+          if (c !== undefined) {
+            tints.push(typeof c === "string" && c.startsWith("#") ? c : "#" + (c >>> 0).toString(16).padStart(8, "0").slice(2))
+          } else {
+            const fallback = tint.default
+            tints.push(fallback !== undefined ? "#" + (fallback >>> 0).toString(16).padStart(8, "0").slice(2) : "#FFFFFF")
+          }
         } else if (type === "grass" || type === "foliage" || type === "dry_foliage") {
           tints.push(await getColorMapTint(assets, type, tint.temperature, tint.downfall))
         } else if (tint.value !== undefined || tint.default !== undefined) {
