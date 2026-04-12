@@ -550,7 +550,9 @@ export async function parseItemDefinition(assets, itemId, data = {}, display = "
   
   const json = JSON.parse(buf)
 
-  const models = await resolveItemModel(json.model, data, display)
+  const normalizedData = {}
+  for (const key in data) normalizedData[normalize(key)] = data[key]
+  const models = await resolveItemModel(json.model, normalizedData, display)
   for (let i = 0; i < models.length; i++) {
     const model = models[i]
     if (model.tints) {
@@ -574,9 +576,6 @@ export async function parseItemDefinition(assets, itemId, data = {}, display = "
 }
 
 function resolveItemModel(def, data, display, accTransform) {
-  const normalizedData = {}
-  for (const key in data) normalizedData[normalize(key)] = data[key]
-  data = normalizedData
   while (def) {
     const type = normalize(def.type)
     const currentTransform = composeTransformations(accTransform, parseTransformation(def.transformation))
