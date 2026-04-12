@@ -1,4 +1,6 @@
 {
+  "format_version": "1.21.11",
+  "credit": "By Ewan Howell",
   "texture_size": [64, 64],
   "elements": [
     {
@@ -14,8 +16,10 @@
       }
     },
     {
+      "type": "lid",
       "from": [1, 9, 1],
       "to": [15, 14, 15],
+      "rotation": {"angle": 0, "axis": "x", "origin": [0, 9, 15]},
       "faces": {
         "north": {"uv": [14, 4.75, 10.5, 3.5], "texture": "#chest"},
         "east": {"uv": [3.5, 4.75, 0, 3.5], "texture": "#chest"},
@@ -26,8 +30,10 @@
       }
     },
     {
+      "type": "lid",
       "from": [7, 7, 0],
       "to": [9, 11, 1],
+      "rotation": {"angle": 0, "axis": "x", "origin": [0, 9, 15]},
       "faces": {
         "north": {"uv": [1.5, 1.25, 1, 0.25], "texture": "#chest"},
         "east": {"uv": [0.25, 1.25, 0, 0.25], "texture": "#chest"},

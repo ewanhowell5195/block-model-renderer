@@ -1047,14 +1047,18 @@ async function resolveSpecialModel(assets, data, base) {
     data.type = `hanging_sign_${data.attachment}`
   }
 
-  const basePath = base ? "~" + resolveNamespace(base).item : null
   let modelPath
-  if (basePath && await fileExists(`assets/minecraft/models/${basePath}.json`, assets)) {
-    modelPath = basePath
-  } else if (await fileExists(`assets/minecraft/models/~item/${data.type}.json`, assets)) {
-    modelPath = `~item/${data.type}`
+  if (originalType === "chest" && data.chest_type && data.chest_type !== "single") {
+    modelPath = `~block/chest/_template_chest_${data.chest_type}`
   } else {
-    return
+    const basePath = base ? "~" + resolveNamespace(base).item : null
+    if (basePath && await fileExists(`assets/minecraft/models/${basePath}.json`, assets)) {
+      modelPath = basePath
+    } else if (await fileExists(`assets/minecraft/models/~item/${data.type}.json`, assets)) {
+      modelPath = `~item/${data.type}`
+    } else {
+      return
+    }
   }
 
   const model = await resolveModelData(assets, modelPath)
@@ -1069,20 +1073,23 @@ async function resolveSpecialModel(assets, data, base) {
       rotation = [0, 180, 0]
       break
     case "standing_sign":
-      model.textures = { sign: `entity/signs/${normalize(data.wood_type)}` }
+      model.textures = { sign: data.texture ? normalize(data.texture) : `entity/signs/${normalize(data.wood_type)}` }
       rotation = [0, 180, 0]
       break
     case "hanging_sign":
-      model.textures = { sign: `entity/signs/hanging/${normalize(data.wood_type)}` }
+      model.textures = { sign: data.texture ? normalize(data.texture) : `entity/signs/hanging/${normalize(data.wood_type)}` }
       rotation = [0, 180, 0]
       break
     case "bed":
       model.textures = { bed: `entity/bed/${normalize(data.texture)}` }
       rotation = [0, 180, 0]
       break
-    case "chest":
-      model.textures = { chest: `entity/chest/${normalize(data.texture)}` }
+    case "chest": {
+      const chestType = data.chest_type ?? "single"
+      const suffix = chestType !== "single" ? `_${chestType}` : ""
+      model.textures = { chest: `entity/chest/${normalize(data.texture)}${suffix}` }
       break
+    }
     case "shulker_box":
       model.textures = { shulker_box: `entity/shulker/${normalize(data.texture)}` }
       break

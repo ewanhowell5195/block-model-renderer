@@ -3,7 +3,6 @@ import fs from "node:fs"
 
 const assets = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.1"
 
-
 // Render from blockstate
 
 const block = await renderBlock({
@@ -12,7 +11,6 @@ const block = await renderBlock({
 })
 
 fs.writeFileSync("renders/simple/block.png", block)
-
 
 // Render from item definition
 
