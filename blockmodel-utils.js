@@ -1037,6 +1037,8 @@ export async function resolveModelData(assets, model) {
 
 
 async function resolveSpecialModel(assets, data, base) {
+  const originalType = data.type
+
   if (data.type === "head") {
     data.type = `${data.kind}_${data.kind.includes("skeleton") ? "skull" : "head"}`
   } else if (data.type === "standing_sign" && data.attachement) {
@@ -1044,6 +1046,7 @@ async function resolveSpecialModel(assets, data, base) {
   } else if (data.type === "hanging_sign" && data.attachment) {
     data.type = `hanging_sign_${data.attachment}`
   }
+
   const basePath = base ? "~" + resolveNamespace(base).item : null
   let modelPath
   if (basePath && await fileExists(`assets/minecraft/models/${basePath}.json`, assets)) {
@@ -1053,42 +1056,44 @@ async function resolveSpecialModel(assets, data, base) {
   } else {
     return
   }
+
   const model = await resolveModelData(assets, modelPath)
   let offset, rotation
-  if (data.type === "banner") {
-    model.tints = [COLOURS.dye[data.color]]
-  } else if (data.type === "book" || data.type === "bell") {
-    rotation = [0, 180, 0]
-  } else if (data.type.startsWith("standing_sign")) {
-    model.textures = { sign: `entity/signs/${normalize(data.wood_type)}` }
-    rotation = [0, 180, 0]
-  } else if (data.type.startsWith("hanging_sign")) {
-    model.textures = { sign: `entity/signs/hanging/${normalize(data.wood_type)}` }
-    rotation = [0, 180, 0]
-  } else if (data.type === "bed") {
-    model.textures = {
-      bed: `entity/bed/${normalize(data.texture)}`
-    }
-    rotation = [0, 180, 0]
-  } else if (data.type === "chest") {
-    model.textures = {
-      chest: `entity/chest/${normalize(data.texture)}`
-    }
-  } else if (data.type === "shulker_box") {
-    model.textures = {
-      shulker_box: `entity/shulker/${normalize(data.texture)}`
-    }
-  } else if (data.type === "end_cube") {
-    model.shader = {
-      type: "end_portal",
-      layers: data.effect === "gateway" ? 16 : 15
-    }
-  } else if (data.type === "copper_golem_statue") {
-    model.textures = {
-      golem: `${normalize(data.texture).slice(9).slice(0, -4)}`
-    }
-    offset = [0, -3.8]
-    rotation = [180, 180, 0]
+
+  switch (originalType) {
+    case "banner":
+      model.tints = [COLOURS.dye[data.color]]
+      break
+    case "book":
+    case "bell":
+      rotation = [0, 180, 0]
+      break
+    case "standing_sign":
+      model.textures = { sign: `entity/signs/${normalize(data.wood_type)}` }
+      rotation = [0, 180, 0]
+      break
+    case "hanging_sign":
+      model.textures = { sign: `entity/signs/hanging/${normalize(data.wood_type)}` }
+      rotation = [0, 180, 0]
+      break
+    case "bed":
+      model.textures = { bed: `entity/bed/${normalize(data.texture)}` }
+      rotation = [0, 180, 0]
+      break
+    case "chest":
+      model.textures = { chest: `entity/chest/${normalize(data.texture)}` }
+      break
+    case "shulker_box":
+      model.textures = { shulker_box: `entity/shulker/${normalize(data.texture)}` }
+      break
+    case "end_cube":
+      model.shader = { type: "end_portal", layers: data.effect === "gateway" ? 16 : 15 }
+      break
+    case "copper_golem_statue":
+      model.textures = { golem: `${normalize(data.texture).slice(9).slice(0, -4)}` }
+      offset = [0, -3.8]
+      rotation = [180, 180, 0]
+      break
   }
   return {
     model,
