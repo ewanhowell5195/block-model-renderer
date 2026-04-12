@@ -1088,6 +1088,12 @@ async function resolveSpecialModel(assets, data, base) {
       const chestType = data.chest_type ?? "single"
       const suffix = chestType !== "single" ? `_${chestType}` : ""
       model.textures = { chest: `entity/chest/${normalize(data.texture)}${suffix}` }
+      if (data.openness) {
+        const lidAngle = data.openness * 90
+        for (const el of model.elements ?? []) {
+          if (el.type === "lid") el.rotation.angle = lidAngle
+        }
+      }
       break
     }
     case "shulker_box":
