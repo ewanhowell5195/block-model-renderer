@@ -304,50 +304,23 @@ const UNIQUE_DEFAULT_BLOCKSTATES = {
   }
 }
 
+const UNIQUE_DEFAULT_PATTERNS = Object.entries(UNIQUE_DEFAULT_BLOCKSTATES).map(([key, value]) => ({
+  patterns: key.split("|").map(pattern => new RegExp("^" + pattern.replace(/\*/g, ".*") + "$")),
+  value
+}))
+
 function getUniqueDefault(blockstate) {
   if (UNIQUE_DEFAULT_BLOCKSTATES[blockstate]) return UNIQUE_DEFAULT_BLOCKSTATES[blockstate]
-
-  for (const key in UNIQUE_DEFAULT_BLOCKSTATES) {
-    const patterns = key.split("|").map(pattern =>
-      new RegExp("^" + pattern.replace(/\*/g, ".*") + "$")
-    )
-
-    if (patterns.some(regex => regex.test(blockstate))) {
-      return UNIQUE_DEFAULT_BLOCKSTATES[key]
-    }
+  for (const { patterns, value } of UNIQUE_DEFAULT_PATTERNS) {
+    if (patterns.some(regex => regex.test(blockstate))) return value
   }
-
   return {}
 }
 
-const GRASS_BLOCKS = [
-  "bush",
-  "fern",
-  "grass_block",
-  "large_fern",
-  "pink_petals",
-  "potted_fern",
-  "short_grass",
-  "sugar_cane",
-  "tall_grass",
-  "wildflowers"
-]
-const FOLIAGE_BLOCKS = [
-  "acacia_leaves",
-  "dark_oak_leaves",
-  "jungle_leaves",
-  "mangrove_leaves",
-  "oak_leaves",
-  "vine"
-]
-const DRY_FOLIAGE_BLOCKS = [
-  "leaf_litter"
-]
-const WATER_BLOCKS = [
-  "bubble_column",
-  "water_cauldron",
-  "water"
-]
+const GRASS_BLOCKS = new Set(["bush", "fern", "grass_block", "large_fern", "pink_petals", "potted_fern", "short_grass", "sugar_cane", "tall_grass", "wildflowers"])
+const FOLIAGE_BLOCKS = new Set(["acacia_leaves", "dark_oak_leaves", "jungle_leaves", "mangrove_leaves", "oak_leaves", "vine"])
+const DRY_FOLIAGE_BLOCKS = new Set(["leaf_litter"])
+const WATER_BLOCKS = new Set(["bubble_column", "water_cauldron", "water"])
 
 export async function parseBlockstate(assets, blockstate, data = {}) {
   assets = getAssets(assets)
@@ -466,16 +439,16 @@ export async function parseBlockstate(assets, blockstate, data = {}) {
 
     model.type = "block"
 
-    if (GRASS_BLOCKS.includes(item)) {
+    if (GRASS_BLOCKS.has(item)) {
       model.tints = [await getColorMapTint(assets, "grass", 0.5, 1)]
       if (item === "pink_petals" || item === "wildflowers") {
         model.tints = ["#FFFFFF", model.tints[0]]
       }
-    } else if (FOLIAGE_BLOCKS.includes(item)) {
+    } else if (FOLIAGE_BLOCKS.has(item)) {
       model.tints = [await getColorMapTint(assets, "foliage", 0.5, 1)]
-    } else if (DRY_FOLIAGE_BLOCKS.includes(item)) {
+    } else if (DRY_FOLIAGE_BLOCKS.has(item)) {
       model.tints = [await getColorMapTint(assets, "dry_foliage", 0.5, 1)]
-    } else if (WATER_BLOCKS.includes(item)) {
+    } else if (WATER_BLOCKS.has(item)) {
       model.tints = ["#3F76E4"]
     } else switch (item) {
       case "birch_leaves":
