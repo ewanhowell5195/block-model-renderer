@@ -117,12 +117,18 @@ for (const entry of Object.values(COLOURS.indexed)) {
   for (const block of entry.blocks) INDEXED_TINT_BLOCKS[block] = entry
 }
 
+function parseColor(c) {
+  if (typeof c === "string" && c.startsWith("#")) return c
+  if (typeof c === "string") c = parseInt(c, 16)
+  return "#" + (c >>> 0).toString(16).padStart(8, "0").slice(2)
+}
+
 function getPotionColor(potionName) {
   const name = normalize(potionName)
   const effects = COLOURS.potions[name]
   if (!effects || effects.length === 0) {
     const direct = COLOURS.effects[name]
-    return direct !== undefined ? "#" + (direct >>> 0).toString(16).padStart(6, "0") : null
+    return direct !== undefined ? parseColor(direct) : null
   }
   let r = 0, g = 0, b = 0, total = 0
   for (const entry of effects) {
@@ -635,19 +641,27 @@ export async function parseItemDefinition(assets, itemId, data = {}, display = "
         }
         const type = normalize(tint.type)
         if (type === "dye" && data["dyed_color"] !== undefined) {
-          const c = data["dyed_color"]
-          tints.push(typeof c === "string" && c.startsWith("#") ? c : "#" + (c >>> 0).toString(16).padStart(8, "0").slice(2))
+          tints.push(parseColor(data["dyed_color"]))
         } else if (type === "potion" && data["potion_contents"]?.potion) {
           const color = getPotionColor(data["potion_contents"].potion)
-          tints.push(color ?? "#" + ((tint.default ?? -13083194) >>> 0).toString(16).padStart(8, "0").slice(2))
+          tints.push(color ?? parseColor(tint.default ?? -13083194))
         } else if (type === "custom_model_data" && data["custom_model_data"]?.colors) {
           const c = data["custom_model_data"].colors[tint.index ?? 0]
           if (c !== undefined) {
-            tints.push(typeof c === "string" && c.startsWith("#") ? c : "#" + (c >>> 0).toString(16).padStart(8, "0").slice(2))
+            tints.push(parseColor(c))
           } else {
-            const fallback = tint.default
-            tints.push(fallback !== undefined ? "#" + (fallback >>> 0).toString(16).padStart(8, "0").slice(2) : "#FFFFFF")
+            tints.push(tint.default !== undefined ? parseColor(tint.default) : "#FFFFFF")
           }
+        } else if (type === "firework" && data["firework_explosion"]?.colors?.length) {
+          const colors = data["firework_explosion"].colors.map(c => {
+            const hex = parseColor(c)
+            const v = parseInt(hex.slice(1), 16)
+            return [(v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF]
+          })
+          const r = Math.round(colors.reduce((s, c) => s + c[0], 0) / colors.length)
+          const g = Math.round(colors.reduce((s, c) => s + c[1], 0) / colors.length)
+          const b = Math.round(colors.reduce((s, c) => s + c[2], 0) / colors.length)
+          tints.push("#" + ((r << 16 | g << 8 | b) >>> 0).toString(16).padStart(6, "0"))
         } else if (type === "grass" || type === "foliage" || type === "dry_foliage") {
           tints.push(await getColorMapTint(assets, type, tint.temperature, tint.downfall))
         } else if (tint.value !== undefined || tint.default !== undefined) {
@@ -655,7 +669,7 @@ export async function parseItemDefinition(assets, itemId, data = {}, display = "
           if (Array.isArray(color)) {
             tints.push("#" + color.map(c => Math.round(c * 255).toString(16).padStart(2, "0")).join(""))
           } else {
-            tints.push("#" + (color >>> 0).toString(16).padStart(8, "0").slice(2))
+            tints.push(parseColor(color))
           }
         } else {
           tints.push("#FFFFFF")
