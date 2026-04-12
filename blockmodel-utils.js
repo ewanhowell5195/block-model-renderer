@@ -552,7 +552,7 @@ export async function parseItemDefinition(assets, itemId, data = {}, display = "
 
   const normalizedData = {}
   for (const key in data) normalizedData[normalize(key)] = data[key]
-  const models = await resolveItemModel(json.model, normalizedData, display)
+  const models = resolveItemModel(json.model, normalizedData, display)
   for (let i = 0; i < models.length; i++) {
     const model = models[i]
     if (model.tints) {
