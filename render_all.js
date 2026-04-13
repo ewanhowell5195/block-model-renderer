@@ -3,7 +3,7 @@ import fs from "node:fs"
 import path from "node:path"
 
 const assets = [
-  "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.1"
+  "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-2"
 ]
 const outputDir = "renders/all"
 const blockDisplay = {

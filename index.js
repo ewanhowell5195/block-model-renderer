@@ -2,7 +2,7 @@ import { makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition,
 import fs from "node:fs"
 
 const assets = [
-  "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.1"
+  "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-2"
 ]
 const model = "player_head"
 const type = "block"
