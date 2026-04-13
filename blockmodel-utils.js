@@ -1208,13 +1208,13 @@ export async function loadModel(scene, assets, model, display = "gui") {
 
   const isFront = model.gui_light === "front"
   const lights = isFront ? [
-    { dir: new THREE.Vector3(-0.2176, 0.1668, 0.9617), d: 0.6004 },
-    { dir: new THREE.Vector3(-0.1961, 0.9760, 0.0951), d: 0.6733 },
+    { dir: new THREE.Vector3(-0.3641, 0.3030, 0.8807), d: 0.5754 },
+    { dir: new THREE.Vector3(-0.0006, 0.9984, 0.0572), d: 0.1704 },
   ] : [
-    { dir: new THREE.Vector3(-0.9319, 0.2646, -0.2480), d: 0.6002 },
-    { dir: new THREE.Vector3(-0.1034, 0.9764, 0.1897), d: 0.5940 },
+    { dir: new THREE.Vector3(-0.7684, 0.6194, -0.1607), d: 0.6813 },
+    { dir: new THREE.Vector3(-0.1903, 0.9213, 0.3392), d: 0.3353 },
   ]
-  const ambient = isFront ? 0.3942 : 0.4002
+  const ambient = isFront ? 0.4907 : 0.4006
 
   const containerEuler = new THREE.Euler(
     THREE.MathUtils.degToRad(-(model?.x ?? 0)),
@@ -1242,7 +1242,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
         normal.applyEuler(new THREE.Euler(
           THREE.MathUtils.degToRad(x ?? 0),
           THREE.MathUtils.degToRad(y ?? 0),
-          THREE.MathUtils.degToRad(-(z ?? 0)),
+          THREE.MathUtils.degToRad(z ?? 0),
           "ZYX"
         ))
       }
@@ -1435,7 +1435,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
       if (axis) {
         rotGroup.rotateOnAxis(AXIS_VECTORS[axis], THREE.MathUtils.degToRad(angle))
       } else {
-        rotGroup.rotateZ(THREE.MathUtils.degToRad(-(z ?? 0)))
+        rotGroup.rotateZ(THREE.MathUtils.degToRad(z ?? 0))
         rotGroup.rotateY(THREE.MathUtils.degToRad(y ?? 0))
         rotGroup.rotateX(THREE.MathUtils.degToRad(x ?? 0))
       }
