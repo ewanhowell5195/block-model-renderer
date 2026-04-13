@@ -1208,13 +1208,13 @@ export async function loadModel(scene, assets, model, display = "gui") {
 
   const isFront = model.gui_light === "front"
   const lights = isFront ? [
-    { dir: new THREE.Vector3(0.1160, 0.8658, -0.4867), d: 0.6636 },
-    { dir: new THREE.Vector3(-0.3529, 0.3155, 0.8808), d: 0.5771 },
+    { dir: new THREE.Vector3(-0.2176, 0.1668, 0.9617), d: 0.6004 },
+    { dir: new THREE.Vector3(-0.1961, 0.9760, 0.0951), d: 0.6733 },
   ] : [
     { dir: new THREE.Vector3(-0.9319, 0.2646, -0.2480), d: 0.6002 },
     { dir: new THREE.Vector3(-0.1034, 0.9764, 0.1897), d: 0.5940 },
   ]
-  const ambient = isFront ? 0.4942 : 0.4002
+  const ambient = isFront ? 0.3942 : 0.4002
 
   const containerEuler = new THREE.Euler(
     THREE.MathUtils.degToRad(-(model?.x ?? 0)),
