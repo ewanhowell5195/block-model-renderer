@@ -1202,13 +1202,13 @@ export async function loadModel(scene, assets, model, display = "gui") {
 
   const isFront = model.gui_light === "front"
   const lightConfig = isFront ? {
-    light0: [-0.2209, 0.1706, 0.9603], d0: 0.5997,
-    light1: [-0.2215, 0.9693, 0.1070], d1: 0.5816,
+    light0: [-0.2006, 0.9749, 0.0969], d0: 0.6422,
+    light1: [-0.2209, 0.1706, 0.9603], d1: 0.5997,
     ambient: 0.3968
   } : {
-    light0: [-0.8636, 0.1228, -0.4891], d0: 0.9141,
-    light1: [-0.1755, 0.9622, 0.2082], d1: 0.6169,
-    ambient: 0.4024
+    light0: [-0.1046, 0.9761, 0.1904], d0: 0.5943,
+    light1: [-0.9317, 0.2644, -0.2488], d1: 0.5992,
+    ambient: 0.4001
   }
 
   const rootGroup = new THREE.Group()
