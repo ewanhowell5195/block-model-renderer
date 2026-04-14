@@ -285,7 +285,7 @@ export async function renderBlock(args = {}) {
     await loadModel(scene, args.assets, resolved, args.display)
   }
 
-  return renderModelScene(scene, camera)
+  return renderModelScene(scene, camera, args.path, args.format)
 }
 
 export async function renderItem(args = {}) {
@@ -306,7 +306,7 @@ export async function renderItem(args = {}) {
     await loadModel(scene, args.assets, resolved, args.display)
   }
 
-  return renderModelScene(scene, camera)
+  return renderModelScene(scene, camera, args.path, args.format)
 }
 
 export async function renderModel(args) {
@@ -324,7 +324,7 @@ export async function renderModel(args) {
   const resolved = await resolveModelData(args.assets, { model: args.model})
   await loadModel(scene, args.assets, resolved, args.display)
 
-  return renderModelScene(scene, camera)
+  return renderModelScene(scene, camera, args.path, args.format)
 }
 
 export function makeModelScene() {
@@ -336,8 +336,8 @@ export function makeModelScene() {
   return { scene, camera }
 }
 
-export async function renderModelScene(scene, camera, outputPath, w = 1024, h = 1024) {
-  return render({ scene, camera, width: w, height: h, path: outputPath, colorSpace: THREE.LinearSRGBColorSpace })
+export async function renderModelScene(scene, camera, path, format, w = 1024, h = 1024) {
+  return render({ scene, camera, width: w, height: h, path, format, colorSpace: THREE.LinearSRGBColorSpace })
 }
 
 function resolveNamespace(str) {

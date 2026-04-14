@@ -34,8 +34,7 @@ async function handleBlock(file) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, blockDisplay)
   }
-  const buffer = await renderModelScene(scene, camera)
-  fs.writeFileSync(`${outputDir}/blocks/${modelId}.png`, buffer)
+  await renderModelScene(scene, camera, `${outputDir}/blocks/${modelId}.png`)
   console.log("Done block", modelId)
 }
 
@@ -47,8 +46,7 @@ async function handleItem(file) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, itemDisplay)
   }
-  const buffer = await renderModelScene(scene, camera)
-  fs.writeFileSync(`${outputDir}/items/${modelId}.png`, buffer)
+  await renderModelScene(scene, camera, `${outputDir}/items/${modelId}.png`)
   console.log("Done item", modelId)
 }
 

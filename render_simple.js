@@ -3,28 +3,28 @@ import fs from "node:fs"
 
 const assets = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-2"
 
+fs.mkdirSync("renders/simple", { recursive: true })
+
 // Render from blockstate
 
-const block = await renderBlock({
+await renderBlock({
   id: "cactus",
-  assets
+  assets,
+  path: "renders/simple/block.png"
 })
-
-fs.writeFileSync("renders/simple/block.png", block)
 
 // Render from item definition
 
-const item = await renderItem({
+await renderItem({
   id: "mace",
-  assets
+  assets,
+  path: "renders/simple/item.png"
 })
-
-fs.writeFileSync("renders/simple/item.png", item)
 
 
 // Render model json
 
-const model = await renderModel({
+await renderModel({
   model: {
     textures: {
       torch: "block/redstone_torch"
@@ -52,7 +52,6 @@ const model = await renderModel({
       }
     ]
   },
-  assets
+  assets,
+  path: "renders/simple/model.png"
 })
-
-fs.writeFileSync("renders/simple/model.png", model)

@@ -40,8 +40,7 @@ async function handleBlock(file) {
     await loadModel(scene, assets, resolved, blockDisplay)
   }
   if (!override) return
-  const buffer = await renderModelScene(scene, camera)
-  fs.writeFileSync(`${outputDir}/blocks/${modelId}.png`, buffer)
+  await renderModelScene(scene, camera, `${outputDir}/blocks/${modelId}.png`)
   console.log("Done block", modelId)
 }
 
@@ -57,8 +56,7 @@ async function handleItem(file) {
     await loadModel(scene, assets, resolved, itemDisplay)
   }
   if (!override) return
-  const buffer = await renderModelScene(scene, camera)
-  fs.writeFileSync(`${outputDir}/items/${modelId}.png`, buffer)
+  await renderModelScene(scene, camera, `${outputDir}/items/${modelId}.png`)
   console.log("Done item", modelId)
 }
 
