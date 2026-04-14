@@ -1,7 +1,5 @@
 {
   "double_sided": true,
-  "format_version": "1.21.11",
-  "credit": "By Ewan Howell",
   "texture_size": [256, 256],
   "textures": {
     "end_cube": "entity/end_portal/end_portal"

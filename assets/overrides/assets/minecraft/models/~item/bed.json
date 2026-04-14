@@ -1,7 +1,5 @@
 {
   "double_sided": true,
-  "format_version": "1.21.6",
-  "credit": "By Ewan Howell",
   "parent": "block/block",
   "texture_size": [64, 64],
   "elements": [

@@ -1,14 +1,11 @@
 {
   "double_sided": true,
-  "format_version": "1.21.6",
-  "credit": "By Ewan Howell",
   "texture_size": [64, 64],
   "textures": {
     "0": "entity/shield/shield_base_nopattern"
   },
   "elements": [
     {
-      "name": "plate",
       "from": [2, -5, -4],
       "to": [14, 17, -3],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, -5, -1]},
@@ -22,7 +19,6 @@
       }
     },
     {
-      "name": "handle",
       "from": [7, 3, -3],
       "to": [9, 9, 3],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, -5, -1]},

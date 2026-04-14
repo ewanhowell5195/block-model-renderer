@@ -1,14 +1,11 @@
 {
   "double_sided": true,
-  "format_version": "1.21.11",
-  "credit": "By Ewan Howell",
   "texture_size": [64, 32],
   "textures": {
     "book": "entity/enchantment/enchanting_table_book"
   },
   "elements": [
     {
-      "name": "cover_left_rotation",
       "from": [0, -5, 1.001],
       "to": [6, 5, 1.001],
       "rotation": {"x": 0, "y": 0, "z": -180, "origin": [3, 0, 1.001]},
@@ -22,7 +19,6 @@
       }
     },
     {
-      "name": "cover_right_rotation",
       "from": [0, -5, -1.001],
       "to": [6, 5, -1.001],
       "rotation": {"x": 180, "y": 0, "z": 0, "origin": [3, 0, -1.001]},
@@ -36,7 +32,6 @@
       }
     },
     {
-      "name": "spine_rotation",
       "from": [-1, -5, 0],
       "to": [1, 5, 0],
       "rotation": {"x": 0, "y": -90, "z": 180, "origin": [0, 0, 0]},
@@ -50,7 +45,6 @@
       }
     },
     {
-      "name": "page_left_rotation",
       "from": [0, -4, 0],
       "to": [5, 4, 1],
       "rotation": {"x": 0, "y": 0, "z": -180, "origin": [2.5, 0, 0.5]},
@@ -64,7 +58,6 @@
       }
     },
     {
-      "name": "page_right_rotation",
       "from": [0, -4, -1],
       "to": [5, 4, 0],
       "rotation": {"x": 0, "y": 0, "z": -180, "origin": [2.5, 0, -0.5]},
@@ -78,7 +71,6 @@
       }
     },
     {
-      "name": "flip_left_rotation",
       "from": [0, -4, 0],
       "to": [5, 4, 0],
       "rotation": {"x": 0, "y": 0, "z": -180, "origin": [2.5, 0, 0]},
@@ -92,7 +84,6 @@
       }
     },
     {
-      "name": "flip_right_rotation",
       "from": [0, -4, 0],
       "to": [5, 4, 0],
       "rotation": {"x": 0, "y": 0, "z": -180, "origin": [2.5, 0, 0]},

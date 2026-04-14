@@ -3,7 +3,6 @@
   "texture_size": [64, 64],
   "elements": [
     {
-      "name": "head",
       "from": [4, 11, 3],
       "to": [12, 16, 13],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
@@ -17,7 +16,6 @@
       }
     },
     {
-      "name": "head",
       "from": [7, 10, 2],
       "to": [9, 13, 4],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
@@ -31,7 +29,6 @@
       }
     },
     {
-      "name": "head",
       "from": [7.01, 16.01, 7.01],
       "to": [8.99, 19.99, 8.99],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
@@ -45,7 +42,6 @@
       }
     },
     {
-      "name": "head",
       "from": [6.01, 20.01, 6.01],
       "to": [9.99, 23.99, 9.99],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
@@ -59,7 +55,6 @@
       }
     },
     {
-      "name": "body",
       "from": [4, 5, 5],
       "to": [12, 11, 11],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
@@ -73,7 +68,6 @@
       }
     },
     {
-      "name": "left_arm",
       "from": [1, 2, 6],
       "to": [4, 12, 10],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
@@ -87,7 +81,6 @@
       }
     },
     {
-      "name": "right_arm",
       "from": [12, 2, 6],
       "to": [15, 12, 10],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
@@ -101,7 +94,6 @@
       }
     },
     {
-      "name": "left_leg",
       "from": [4.1, 0, 6],
       "to": [8.1, 5, 10],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},
@@ -115,7 +107,6 @@
       }
     },
     {
-      "name": "right_leg",
       "from": [7.9, 0, 6.01],
       "to": [11.9, 5, 10.01],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 0, 8]},

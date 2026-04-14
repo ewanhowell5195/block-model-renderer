@@ -1,7 +1,5 @@
 {
   "double_sided": true,
-  "format_version": "1.21.6",
-  "credit": "By Ewan Howell",
   "texture_size": [32, 16],
   "textures": {
     "conduit": "entity/conduit/base",
@@ -9,7 +7,6 @@
   },
   "elements": [
     {
-      "name": "base",
       "from": [5, 5, 5],
       "to": [11, 11, 11],
       "rotation": {"angle": 0, "axis": "x", "origin": [8, 8, 8]},

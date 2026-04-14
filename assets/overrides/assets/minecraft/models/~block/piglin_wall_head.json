@@ -1,6 +1,4 @@
 {
-  "format_version": "1.21.6",
-  "credit": "By Ewan Howell",
   "texture_size": [64, 64],
   "textures": {
     "head": "entity/piglin/piglin"

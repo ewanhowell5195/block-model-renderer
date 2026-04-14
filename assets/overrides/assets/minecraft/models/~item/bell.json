@@ -1,14 +1,11 @@
 {
   "double_sided": true,
-  "format_version": "1.21.11",
-  "credit": "By Ewan Howell",
   "texture_size": [32, 32],
   "textures": {
     "bell": "entity/bell/bell_body"
   },
   "elements": [
     {
-      "name": "body",
       "from": [5, 6, 5],
       "to": [11, 13, 11],
       "rotation": {"x": -180, "y": 0, "z": 0, "origin": [8, 9.5, 8]},
@@ -22,7 +19,6 @@
       }
     },
     {
-      "name": "base",
       "from": [4, 4, 4],
       "to": [12, 6, 12],
       "rotation": {"x": -180, "y": 0, "z": 0, "origin": [8, 5, 8]},

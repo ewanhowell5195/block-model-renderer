@@ -1,11 +1,8 @@
 {
   "double_sided": true,
-  "format_version": "1.21.11",
-  "credit": "By Ewan Howell",
   "texture_size": [64, 32],
   "elements": [
     {
-      "name": "board",
       "from": [-7, -4, -1],
       "to": [7, 6, 1],
       "rotation": {"x": 0, "y": 0, "z": -180, "origin": [0, 3, 0]},
@@ -19,7 +16,6 @@
       }
     },
     {
-      "name": "chains_v",
       "from": [-6, 6, 0],
       "to": [6, 12, 0],
       "rotation": {"x": 0, "y": 0, "z": -180, "origin": [0, 3, 0]},
