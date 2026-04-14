@@ -970,15 +970,21 @@ async function loadMinecraftTexture(path, assets) {
       : Math.min(image.width, image.height))
 
   const frameCount = Math.max(1, Math.floor(image.height / cropH))
-  const frames = []
+  const stripFrames = []
   for (let i = 0; i < frameCount; i++) {
     const canvas = new Canvas(cropW, cropH)
     const ctx = canvas.getContext("2d")
     ctx.drawImage(image, 0, i * cropH, cropW, cropH, 0, 0, cropW, cropH)
-    frames.push(canvas)
+    stripFrames.push(canvas)
   }
 
-  return { image: frames[0], frames, animated: frameCount > 1 }
+  let playback
+  if (Array.isArray(meta.frames)) {
+    playback = meta.frames.map(f => stripFrames[typeof f === "number" ? f : f.index]).filter(Boolean)
+  }
+  if (!playback?.length) playback = stripFrames
+
+  return { image: playback[0], frames: playback, animated: playback.length > 1 }
 }
 
 export async function resolveModelData(assets, model) {
