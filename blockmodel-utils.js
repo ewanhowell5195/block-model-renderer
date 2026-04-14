@@ -425,6 +425,8 @@ export async function renderModelScene(scene, camera, args) {
   }
 
   const frameCount = Math.max(...animatedTextures.map(t => t.userData.frames.length))
+  const driver = animatedTextures.find(t => t.userData.frames.length === frameCount)
+  const delay = Array.from({ length: frameCount }, (_, f) => (driver.userData.times?.[f] ?? 1) * 50)
 
   const glCtx = createContext(width, height)
   const renderer = new THREE.WebGLRenderer({ context: glCtx })
@@ -463,7 +465,7 @@ export async function renderModelScene(scene, camera, args) {
   let image = sharp(stacked, {
     raw: { width, height: height * frameCount, channels: 4, premultiplied: true, pages: frameCount, pageHeight: height },
   })
-  image = image[animFormat === "webp" ? "webp" : "gif"]({ loop: 0 })
+  image = image[animFormat === "webp" ? "webp" : "gif"]({ loop: 0, delay })
   const buffer = await image.toBuffer()
   if (finalPath) await fs.promises.writeFile(finalPath, buffer)
   return { buffer, format: animFormat }
@@ -971,13 +973,27 @@ async function loadMinecraftTexture(path, assets) {
     stripFrames.push(canvas)
   }
 
+  const defaultTime = meta.frametime ?? 1
   let playback
+  let playbackTimes
   if (Array.isArray(meta.frames)) {
-    playback = meta.frames.map(f => stripFrames[typeof f === "number" ? f : f.index]).filter(Boolean)
+    playback = []
+    playbackTimes = []
+    for (const entry of meta.frames) {
+      const index = typeof entry === "number" ? entry : entry.index
+      const time = typeof entry === "number" ? defaultTime : (entry.time ?? defaultTime)
+      const canvas = stripFrames[index]
+      if (!canvas) continue
+      playback.push(canvas)
+      playbackTimes.push(time)
+    }
   }
-  if (!playback?.length) playback = stripFrames
+  if (!playback?.length) {
+    playback = stripFrames
+    playbackTimes = stripFrames.map(() => defaultTime)
+  }
 
-  return { image: playback[0], frames: playback, animated: playback.length > 1 }
+  return { image: playback[0], frames: playback, times: playbackTimes, animated: playback.length > 1 }
 }
 
 export async function resolveModelData(assets, model) {
@@ -1321,6 +1337,7 @@ export async function loadModel(scene, assets, model, args) {
     const texture = await makeThreeTexture(image)
     if (loaded.animated && frames) {
       texture.userData.frames = frames
+      texture.userData.times = loaded.times
     }
 
     textureCache.set(id, texture)
