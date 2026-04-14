@@ -29,24 +29,24 @@ async function processChunk(files, handler) {
 async function handleBlock(file) {
   const modelId = path.basename(file, ".json")
   const { scene, camera } = makeModelScene()
-  const models = await parseBlockstate(assets, modelId, {})
+  const models = await parseBlockstate(assets, modelId)
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, blockDisplay)
+    await loadModel(scene, assets, resolved, { display: blockDisplay })
   }
-  await renderModelScene(scene, camera, `${outputDir}/blocks/${modelId}.png`)
+  await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png` })
   console.log("Done block", modelId)
 }
 
 async function handleItem(file) {
   const modelId = path.basename(file, ".json")
   const { scene, camera } = makeModelScene()
-  const models = await parseItemDefinition(assets, modelId, {}, itemDisplay)
+  const models = await parseItemDefinition(assets, modelId, { display: itemDisplay })
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, itemDisplay)
+    await loadModel(scene, assets, resolved, { display: itemDisplay })
   }
-  await renderModelScene(scene, camera, `${outputDir}/items/${modelId}.png`)
+  await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png` })
   console.log("Done item", modelId)
 }
 

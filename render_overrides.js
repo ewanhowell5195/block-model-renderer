@@ -32,15 +32,15 @@ async function handleBlock(file) {
   if (skip(file)) return
   const modelId = path.basename(file, ".json")
   const { scene, camera } = makeModelScene()
-  const models = await parseBlockstate(assets, modelId, {})
+  const models = await parseBlockstate(assets, modelId)
   let override
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
     if (resolved.overridden || !resolved.elements) override = true
-    await loadModel(scene, assets, resolved, blockDisplay)
+    await loadModel(scene, assets, resolved, { display: blockDisplay })
   }
   if (!override) return
-  await renderModelScene(scene, camera, `${outputDir}/blocks/${modelId}.png`)
+  await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png` })
   console.log("Done block", modelId)
 }
 
@@ -48,15 +48,15 @@ async function handleItem(file) {
   if (skip(file)) return
   const modelId = path.basename(file, ".json")
   const { scene, camera } = makeModelScene()
-  const models = await parseItemDefinition(assets, modelId, {}, itemDisplay)
+  const models = await parseItemDefinition(assets, modelId, { display: itemDisplay })
   let override
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
     if (resolved.overridden || !resolved.elements) override = true
-    await loadModel(scene, assets, resolved, itemDisplay)
+    await loadModel(scene, assets, resolved, { display: itemDisplay })
   }
   if (!override) return
-  await renderModelScene(scene, camera, `${outputDir}/items/${modelId}.png`)
+  await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png` })
   console.log("Done item", modelId)
 }
 

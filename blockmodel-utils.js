@@ -278,14 +278,14 @@ export async function renderBlock(args = {}) {
 
   const { scene, camera } = makeModelScene()
 
-  const models = await parseBlockstate(args.assets, args.id, args.blockstates)
+  const models = await parseBlockstate(args.assets, args.id, { data: args.blockstates })
 
   for (const model of models) {
     const resolved = await resolveModelData(args.assets, model)
-    await loadModel(scene, args.assets, resolved, args.display)
+    await loadModel(scene, args.assets, resolved, { display: args.display })
   }
 
-  return renderModelScene(scene, camera, args.path, args.format)
+  return renderModelScene(scene, camera, { path: args.path, format: args.format })
 }
 
 export async function renderItem(args = {}) {
@@ -299,14 +299,14 @@ export async function renderItem(args = {}) {
 
   const { scene, camera } = makeModelScene()
 
-  const models = await parseItemDefinition(args.assets, args.id, args.properties, args.display)
+  const models = await parseItemDefinition(args.assets, args.id, { data: args.properties, display: args.display })
 
   for (const model of models) {
     const resolved = await resolveModelData(args.assets, model)
-    await loadModel(scene, args.assets, resolved, args.display)
+    await loadModel(scene, args.assets, resolved, { display: args.display })
   }
 
-  return renderModelScene(scene, camera, args.path, args.format)
+  return renderModelScene(scene, camera, { path: args.path, format: args.format })
 }
 
 export async function renderModel(args) {
@@ -324,7 +324,7 @@ export async function renderModel(args) {
   const resolved = await resolveModelData(args.assets, { model: args.model})
   await loadModel(scene, args.assets, resolved, args.display)
 
-  return renderModelScene(scene, camera, args.path, args.format)
+  return renderModelScene(scene, camera, { path: args.path, format: args.format })
 }
 
 export function makeModelScene() {
@@ -336,8 +336,16 @@ export function makeModelScene() {
   return { scene, camera }
 }
 
-export async function renderModelScene(scene, camera, path, format, w = 1024, h = 1024) {
-  return render({ scene, camera, width: w, height: h, path, format, colorSpace: THREE.LinearSRGBColorSpace })
+export async function renderModelScene(scene, camera, args) {
+  return render({
+    scene,
+    camera,
+    width: args?.width ?? 1024,
+    height: args?.height ?? 1024,
+    path: args?.path,
+    format: args?.format,
+    colorSpace: THREE.LinearSRGBColorSpace,
+  })
 }
 
 function resolveNamespace(str) {
@@ -456,7 +464,8 @@ function getUniqueDefault(blockstate) {
   return {}
 }
 
-export async function parseBlockstate(assets, blockstate, data = {}) {
+export async function parseBlockstate(assets, blockstate, args) {
+  const data = args?.data ?? {}
   assets = getAssets(assets)
 
   const { namespace, item } = resolveNamespace(blockstate)
@@ -623,7 +632,9 @@ async function getColorMapTint(assets, mapName, temperature, downfall) {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase()
 }
 
-export async function parseItemDefinition(assets, itemId, data = {}, display = "gui") {
+export async function parseItemDefinition(assets, itemId, args) {
+  const data = args?.data ?? {}
+  const display = args?.display ?? "gui"
   assets = getAssets(assets)
 
   const { namespace, item } = resolveNamespace(itemId)
@@ -801,7 +812,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
     if (type === "bundle/selected_item") {
       const selectedItem = data["bundle/selected_item"]
       if (!selectedItem) return []
-      return await parseItemDefinition(assets, selectedItem, {}, display)
+      return await parseItemDefinition(assets, selectedItem, { display })
     }
 
     return []
@@ -1140,7 +1151,8 @@ async function makeThreeTexture(img) {
   return texture
 }
 
-export async function loadModel(scene, assets, model, display = "gui") {
+export async function loadModel(scene, assets, model, args) {
+  const display = args?.display ?? "gui"
   assets = getAssets(assets)
 
   const textureCache = new Map()
@@ -1356,7 +1368,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
       let { origin, axis, angle, x, y, z } = element.rotation
       if (!isNaN(angle) || axis) {
         if (isNaN(angle) || !axis) {
-          await loadModel(scene, assets, await resolveModelData(assets, "~missing"), display)
+          await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
           return
         }
       }
