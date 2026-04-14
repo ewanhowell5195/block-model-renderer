@@ -1232,6 +1232,9 @@ export async function loadModel(scene, assets, model, display = "gui") {
     const from = new THREE.Vector3().fromArray(element.from)
     const to = new THREE.Vector3().fromArray(element.to)
     const size = new THREE.Vector3().subVectors(to, from)
+    size.x ||= 0.001
+    size.y ||= 0.001
+    size.z ||= 0.001
 
     const geometry = new THREE.BoxGeometry(size.x, size.y, size.z)
 
@@ -1244,15 +1247,6 @@ export async function loadModel(scene, assets, model, display = "gui") {
     }
 
     const faceOrder = ["east", "west", "up", "down", "south", "north"]
-    const faceNormalValues = [1,0,0, -1,0,0, 0,1,0, 0,-1,0, 0,0,1, 0,0,-1]
-    for (let f = 0; f < 6; f++) {
-      for (let v = 0; v < 4; v++) {
-        geometry.attributes.normal.array[(f * 4 + v) * 3] = faceNormalValues[f * 3]
-        geometry.attributes.normal.array[(f * 4 + v) * 3 + 1] = faceNormalValues[f * 3 + 1]
-        geometry.attributes.normal.array[(f * 4 + v) * 3 + 2] = faceNormalValues[f * 3 + 2]
-      }
-    }
-    geometry.attributes.normal.needsUpdate = true
 
     for (let i = 0; i < faceOrder.length; i++) {
       const faceName = faceOrder[i]
