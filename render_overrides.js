@@ -40,7 +40,7 @@ async function handleBlock(file) {
     await loadModel(scene, assets, resolved, { display: blockDisplay })
   }
   if (!override) return
-  await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png`, animated: true })
+  await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png`, animated: true, animatedWidth: 256, animatedHeight: 256 })
   console.log("Done block", modelId)
 }
 
@@ -56,7 +56,7 @@ async function handleItem(file) {
     await loadModel(scene, assets, resolved, { display: itemDisplay })
   }
   if (!override) return
-  await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png`, animated: true })
+  await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png`, animated: true, animatedWidth: 256, animatedHeight: 256 })
   console.log("Done item", modelId)
 }
 

@@ -427,30 +427,44 @@ export async function renderModelScene(scene, camera, args) {
   const width = args?.animatedWidth ?? baseWidth
   const height = args?.animatedHeight ?? baseHeight
 
-  const schedules = animatedTextures.map(tex => {
-    const times = tex.userData.times ?? tex.userData.frames.map(() => 1)
-    const total = times.reduce((s, t) => s + t, 0)
-    const boundaries = [0]
-    let acc = 0
-    for (const t of times) {
-      acc += t
-      boundaries.push(acc)
-    }
-    return { tex, times, total, boundaries }
-  })
-  const totalDuration = Math.max(...schedules.map(s => s.total))
+  const sharpPixelLimit = 268402689
+  const maxFrameCount = Math.floor(sharpPixelLimit / (width * height))
 
-  const eventSet = new Set()
-  for (const s of schedules) {
-    for (let loop = 0; loop * s.total < totalDuration; loop++) {
-      for (const b of s.boundaries) {
-        const t = loop * s.total + b
-        if (t < totalDuration) eventSet.add(t)
+  let schedules, totalDuration, events, frameCount
+  for (let maxSubFrames = 8; maxSubFrames >= 1; maxSubFrames--) {
+    schedules = animatedTextures.map(tex => {
+      let frames = tex.userData.frames
+      let times = tex.userData.times ?? frames.map(() => 1)
+      if (tex.userData.interpolate) {
+        const exp = expandInterpolated(frames, times, maxSubFrames)
+        frames = exp.frames
+        times = exp.times
+      }
+      const total = times.reduce((s, t) => s + t, 0)
+      const boundaries = [0]
+      let acc = 0
+      for (const t of times) {
+        acc += t
+        boundaries.push(acc)
+      }
+      return { tex, frames, times, total, boundaries }
+    })
+    totalDuration = Math.max(...schedules.map(s => s.total))
+
+    const eventSet = new Set()
+    for (const s of schedules) {
+      for (let loop = 0; loop * s.total < totalDuration; loop++) {
+        for (const b of s.boundaries) {
+          const t = loop * s.total + b
+          if (t < totalDuration) eventSet.add(t)
+        }
       }
     }
+    events = [...eventSet].sort((a, b) => a - b)
+    frameCount = events.length
+
+    if (frameCount <= maxFrameCount) break
   }
-  const events = [...eventSet].sort((a, b) => a - b)
-  const frameCount = events.length
 
   const delay = []
   let delayAcc = 0
@@ -489,7 +503,7 @@ export async function renderModelScene(scene, camera, args) {
           break
         }
       }
-      s.tex.image = s.tex.userData.frames[frameIdx]
+      s.tex.image = s.frames[frameIdx]
       s.tex.needsUpdate = true
     }
 
@@ -1036,26 +1050,24 @@ async function loadMinecraftTexture(path, assets) {
     playbackTimes = stripFrames.map(() => defaultTime)
   }
 
-  if (meta.interpolate) {
-    const maxSubFrames = 8
-    const expanded = []
-    const expandedTimes = []
-    for (let i = 0; i < playback.length; i++) {
-      const a = playback[i]
-      const b = playback[(i + 1) % playback.length]
-      const time = playbackTimes[i]
-      const steps = Math.min(time, maxSubFrames)
-      const subTime = time / steps
-      for (let t = 0; t < steps; t++) {
-        expanded.push(interpolateFrames(a, b, t / steps))
-        expandedTimes.push(subTime)
-      }
-    }
-    playback = expanded
-    playbackTimes = expandedTimes
-  }
+  return { image: playback[0], frames: playback, times: playbackTimes, interpolate: !!meta.interpolate, animated: playback.length > 1 }
+}
 
-  return { image: playback[0], frames: playback, times: playbackTimes, animated: playback.length > 1 }
+function expandInterpolated(frames, times, maxSubFrames) {
+  const expanded = []
+  const expandedTimes = []
+  for (let i = 0; i < frames.length; i++) {
+    const a = frames[i]
+    const b = frames[(i + 1) % frames.length]
+    const time = times[i]
+    const steps = Math.min(time, maxSubFrames)
+    const subTime = time / steps
+    for (let t = 0; t < steps; t++) {
+      expanded.push(interpolateFrames(a, b, t / steps))
+      expandedTimes.push(subTime)
+    }
+  }
+  return { frames: expanded, times: expandedTimes }
 }
 
 function interpolateFrames(a, b, ratio) {
@@ -1417,6 +1429,7 @@ export async function loadModel(scene, assets, model, args) {
     if (loaded.animated && frames) {
       texture.userData.frames = frames
       texture.userData.times = loaded.times
+      texture.userData.interpolate = loaded.interpolate
     }
 
     textureCache.set(id, texture)

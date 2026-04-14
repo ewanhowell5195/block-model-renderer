@@ -34,7 +34,7 @@ async function handleBlock(file) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, { display: blockDisplay })
   }
-  await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png`, animated: true })
+  await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png`, animated: true, animatedWidth: 256, animatedHeight: 256 })
   console.log("Done block", modelId)
 }
 
@@ -46,7 +46,7 @@ async function handleItem(file) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, { display: itemDisplay })
   }
-  await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png`, animated: true })
+  await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png`, animated: true, animatedWidth: 256, animatedHeight: 256 })
   console.log("Done item", modelId)
 }
 

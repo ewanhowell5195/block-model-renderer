@@ -11,7 +11,9 @@ await renderBlock({
   id: "cactus",
   assets,
   path: "renders/simple/block.png",
-  animated: true
+  animated: true,
+  animatedWidth: 256,
+  animatedHeight: 256
 })
 
 // Render from item definition
@@ -20,7 +22,9 @@ await renderItem({
   id: "mace",
   assets,
   path: "renders/simple/item.png",
-  animated: true
+  animated: true,
+  animatedWidth: 256,
+  animatedHeight: 256
 })
 
 // Render model json
@@ -55,5 +59,7 @@ await renderModel({
   },
   assets,
   path: "renders/simple/model.png",
-  animated: true
+  animated: true,
+  animatedWidth: 256,
+  animatedHeight: 256
 })
