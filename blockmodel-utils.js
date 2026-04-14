@@ -1197,62 +1197,15 @@ export async function loadModel(scene, assets, model, display = "gui") {
   }
   rotation = rotation.map(e => e + 0.00001)
 
-  const cardinalNormals = {
-    east:  new THREE.Vector3(1, 0, 0),
-    west:  new THREE.Vector3(-1, 0, 0),
-    up:    new THREE.Vector3(0, 1, 0),
-    down:  new THREE.Vector3(0, -1, 0),
-    south: new THREE.Vector3(0, 0, 1),
-    north: new THREE.Vector3(0, 0, -1)
-  }
-
   const isFront = model.gui_light === "front"
-  const lights = isFront ? [
-    { dir: new THREE.Vector3(-0.3581, 0.3038, 0.8829), d: 0.5740 },
-    { dir: new THREE.Vector3(-0.0235, 0.9981, 0.0568), d: 0.1716 },
-  ] : [
-    { dir: new THREE.Vector3(-0.9552, 0.1488, -0.2560), d: 0.5867 },
-    { dir: new THREE.Vector3(-0.1018, 0.9771, 0.1868), d: 0.6025 },
-  ]
-  const ambient = isFront ? 0.4907 : 0.4001
-
-  const containerEuler = new THREE.Euler(
-    THREE.MathUtils.degToRad(-(model?.x ?? 0)),
-    THREE.MathUtils.degToRad(-(model?.y ?? 0)),
-    THREE.MathUtils.degToRad(model?.z ?? 0),
-    "ZYX"
-  )
-  const containerQuat = new THREE.Quaternion().setFromEuler(containerEuler)
-
-  const displayEuler = new THREE.Euler(
-    THREE.MathUtils.degToRad(rotation[0]),
-    THREE.MathUtils.degToRad(rotation[1]),
-    THREE.MathUtils.degToRad(rotation[2]),
-    "XYZ"
-  )
-  const displayQuat = new THREE.Quaternion().setFromEuler(displayEuler)
-
-  const getFaceColour = (faceName, elementRotation) => {
-    const normal = cardinalNormals[faceName].clone()
-    if (elementRotation) {
-      const { axis, angle, x, y, z } = elementRotation
-      if (axis) {
-        normal.applyAxisAngle(AXIS_VECTORS[axis], THREE.MathUtils.degToRad(angle))
-      } else {
-        normal.applyEuler(new THREE.Euler(
-          THREE.MathUtils.degToRad(x ?? 0),
-          THREE.MathUtils.degToRad(y ?? 0),
-          THREE.MathUtils.degToRad(z ?? 0),
-          "ZYX"
-        ))
-      }
-    }
-    normal.applyQuaternion(containerQuat)
-    normal.applyQuaternion(displayQuat)
-    let v = ambient
-    for (const light of lights) v += light.d * Math.max(0, normal.dot(light.dir))
-    v = Math.min(1, v)
-    return [v, v, v]
+  const lightConfig = isFront ? {
+    light0: [0.5746, -0.7830, -0.2380], d0: 0.4674,
+    light1: [-0.3204, 0.4495, 0.8338], d1: 1.0087,
+    ambient: 0.2469
+  } : {
+    light0: [-0.9299, 0.2700, -0.2499], d0: 0.6022,
+    light1: [-0.1040, 0.9760, 0.1912], d1: 0.5926,
+    ambient: 0.4001
   }
 
   const rootGroup = new THREE.Group()
@@ -1288,9 +1241,15 @@ export async function loadModel(scene, assets, model, display = "gui") {
     }
 
     const faceOrder = ["east", "west", "up", "down", "south", "north"]
-
-    const colorCount = geometry.attributes.position.count
-    geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colorCount * 3), 3))
+    const faceNormalValues = [1,0,0, -1,0,0, 0,1,0, 0,-1,0, 0,0,1, 0,0,-1]
+    for (let f = 0; f < 6; f++) {
+      for (let v = 0; v < 4; v++) {
+        geometry.attributes.normal.array[(f * 4 + v) * 3] = faceNormalValues[f * 3]
+        geometry.attributes.normal.array[(f * 4 + v) * 3 + 1] = faceNormalValues[f * 3 + 1]
+        geometry.attributes.normal.array[(f * 4 + v) * 3 + 2] = faceNormalValues[f * 3 + 2]
+      }
+    }
+    geometry.attributes.normal.needsUpdate = true
 
     for (let i = 0; i < faceOrder.length; i++) {
       const faceName = faceOrder[i]
@@ -1363,23 +1322,8 @@ export async function loadModel(scene, assets, model, display = "gui") {
       }
 
       geometry.attributes.uv.array.set(uv.flatMap(([u, v]) => [u / 16, 1 - v / 16]), i * 8)
-
-      let colour
-      if (element.shade === false) {
-        colour = [1, 1, 1]
-      } else {
-        colour = getFaceColour(faceName, element.rotation)
-      }
-
-      for (let j = 0; j < 4; j++) {
-        const vertexIndex = (i * 4 + j) * 3
-        geometry.attributes.color.array[vertexIndex] = colour[0]
-        geometry.attributes.color.array[vertexIndex + 1] = colour[1]
-        geometry.attributes.color.array[vertexIndex + 2] = colour[2]
-      }
     }
     geometry.attributes.uv.needsUpdate = true
-    geometry.attributes.color.needsUpdate = true
 
     const materials = []
     for (const faceName of faceOrder) {
@@ -1401,7 +1345,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
         texRef = model.textures?.[texRef.slice(1)]
       }
 
-      materials.push(await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, model.double_sided))
+      materials.push(await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, model.double_sided, element.shade !== false, lightConfig))
     }
 
     const mesh = new THREE.Mesh(geometry, materials)
@@ -1482,7 +1426,7 @@ export async function loadModel(scene, assets, model, display = "gui") {
   scene.add(rootGroup)
 }
 
-async function makeMaterial(texture, assets, shader, doubleSided) {
+async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig) {
   if (shader?.type === "end_portal") {
     const skyPath = await fileExists(`assets/minecraft/textures/environment/end_sky.png`, assets)
     return new THREE.ShaderMaterial({
@@ -1578,11 +1522,46 @@ async function makeMaterial(texture, assets, shader, doubleSided) {
       `
     })
   }
-  return new THREE.MeshBasicMaterial({
-    map: texture,
-    vertexColors: true,
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: texture },
+      light0: { value: new THREE.Vector3(...(lightConfig?.light0 ?? [0, 0, 1])) },
+      light1: { value: new THREE.Vector3(...(lightConfig?.light1 ?? [0, 1, 0])) },
+      d0: { value: lightConfig?.d0 ?? 0.6 },
+      d1: { value: lightConfig?.d1 ?? 0.6 },
+      ambient: { value: lightConfig?.ambient ?? 0.4 },
+      shadeEnabled: { value: shadeEnabled !== false },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      void main() {
+        vUv = uv;
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D map;
+      uniform vec3 light0;
+      uniform vec3 light1;
+      uniform float d0;
+      uniform float d1;
+      uniform float ambient;
+      uniform bool shadeEnabled;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      void main() {
+        vec4 texColor = texture2D(map, vUv);
+        if (texColor.a < 0.01) discard;
+        float shade = 1.0;
+        if (shadeEnabled) {
+          shade = min(1.0, ambient + d0 * max(0.0, dot(vNormal, light0)) + d1 * max(0.0, dot(vNormal, light1)));
+        }
+        gl_FragColor = vec4(texColor.rgb * shade, texColor.a);
+      }
+    `,
     transparent: true,
-    alphaTest: 0.01,
-    side: doubleSided ? THREE.DoubleSide : THREE.FrontSide
+    side: doubleSided ? THREE.DoubleSide : THREE.FrontSide,
   })
 }
