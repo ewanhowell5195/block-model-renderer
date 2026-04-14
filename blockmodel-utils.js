@@ -1421,6 +1421,21 @@ export async function loadModel(scene, assets, model, display = "gui") {
   }
 
   scene.add(rootGroup)
+
+  rootGroup.updateMatrixWorld(true)
+  rootGroup.traverse(obj => {
+    if (obj.isMesh) {
+      const positions = obj.geometry.attributes.position
+      let maxZ = -Infinity
+      const v = new THREE.Vector3()
+      for (let i = 0; i < positions.count; i++) {
+        v.fromBufferAttribute(positions, i)
+        v.applyMatrix4(obj.matrixWorld)
+        if (v.z > maxZ) maxZ = v.z
+      }
+      obj.renderOrder = maxZ
+    }
+  })
 }
 
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig) {
