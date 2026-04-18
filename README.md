@@ -412,6 +412,40 @@ const buffer = await renderModelScene(scene, camera, {
 })
 ```
 
+## Custom extensions
+
+In a few places the renderer accepts fields that aren't part of vanilla Minecraft's model or item format. They exist because the renderer needs a way to pass data from blockstates down into models, apply arbitrary tints, mark models as double-sided, and a few other things vanilla doesn't expose. They're primarily used internally, but they're fully usable by you too. You can set these fields on your own models and blockstates to get the same behaviour.
+
+### Model JSON
+
+| Field | Example | Description |
+|---|---|---|
+| `x`, `y`, `z` | `90` | Rotation angles (in degrees) applied to the whole model around each axis. Normally set by a blockstate variant, but can be set on a model directly too |
+| `uvlock` | `true` | Keep face UVs aligned to world space when the model is rotated by `x`/`y`/`z`. Normally set by a blockstate variant |
+| `offset` | `[8, 0, 8]` | `[x, y, z]` translation applied to the whole model before rendering |
+| `ignore_rotations` | `true` | Skip the display rotation for this model |
+| `double_sided` | `true` | Render all faces from both sides |
+| `tints` | `["#FF0000", "#00FF00"]` | Array of hex colour strings. Faces with a `tintindex` look up their tint from this array |
+| `shader` | `{ type: "end_portal", layers: 15 }` | Apply the end portal / end gateway shader to the model |
+
+### Blockstate JSON
+
+| Field | Example | Description |
+|---|---|---|
+| `allow_invalid_rotations` | `true` | Allow variant `x`/`y`/`z` rotation values that aren't multiples of 90 |
+
+### Item components
+
+Extra fields that can be passed through the `components` arg on `renderItem`, or the `data` arg on `parseItemDefinition`. These aren't real Minecraft item components, they stand in for runtime context that the game would normally provide:
+
+| Field | Example | Description |
+|---|---|---|
+| `team` | `"red"` | Team colour context used by the `minecraft:team` tint source |
+| `context_entity_type` | `"pig"` | The entity type holding the item, used by `minecraft:context_entity_type` selects |
+| `context_dimension` | `"the_nether"` | The dimension the item is rendered in, used by `minecraft:context_dimension` selects |
+
+Any future non-component select properties vanilla adds will work without renderer updates. The renderer looks up the property by name in `components` and checks whether its value equals any of the select's listed cases, so as long as the property is a plain string and you pass it in `components`, it resolves correctly.
+
 ## License
 
 MIT © [Ewan Howell](https://ewanhowell.com/)
