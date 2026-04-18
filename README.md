@@ -440,9 +440,9 @@ Extra fields that can be passed through the `components` arg on `renderItem`, or
 
 | Field | Example | Description |
 |---|---|---|
-| `team` | `"red"` | Team colour context used by the `minecraft:team` tint source |
-| `context_entity_type` | `"pig"` | The entity type holding the item, used by `minecraft:context_entity_type` selects |
-| `context_dimension` | `"the_nether"` | The dimension the item is rendered in, used by `minecraft:context_dimension` selects |
+| `team` | `"red"` | Team colour context used by the `team` tint source |
+| `context_entity_type` | `"pig"` | The entity type holding the item, used by `context_entity_type` selects |
+| `context_dimension` | `"the_nether"` | The dimension the item is rendered in, used by `context_dimension` selects |
 
 Any future non-component select properties vanilla adds will work without renderer updates. The renderer looks up the property by name in `components` and checks whether its value equals any of the select's listed cases, so as long as the property is a plain string and you pass it in `components`, it resolves correctly.
 
