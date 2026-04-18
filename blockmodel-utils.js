@@ -315,7 +315,7 @@ export async function renderBlock(args = {}) {
 export async function renderItem(args = {}) {
   args.id ??= ""
   args.assets ??= []
-  args.properties ??= {}
+  args.components ??= {}
   args.display ??= {
     type: "fallback",
     display: "gui"
@@ -324,7 +324,7 @@ export async function renderItem(args = {}) {
   args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()
 
-  const models = await parseItemDefinition(args.assets, args.id, { data: args.properties, display: args.display })
+  const models = await parseItemDefinition(args.assets, args.id, { data: args.components, display: args.display })
 
   for (const model of models) {
     const resolved = await resolveModelData(args.assets, model)

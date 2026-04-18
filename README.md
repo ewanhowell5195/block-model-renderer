@@ -99,7 +99,7 @@ Renders an item by id using its item definition.
 |---|---|---|
 | `id` | `""` | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `assets` | `[]` | The assets source |
-| `properties` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn) |
+| `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn) |
 | `display` | `{ type: "fallback", display: "gui" }` | Display transform. See [Display transforms](#display-transforms) |
 | `path`, `format`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `background` | | Same as `renderBlock` |
 
