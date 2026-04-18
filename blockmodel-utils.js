@@ -196,9 +196,9 @@ function splitResourcePath(filePath) {
   return { namespace: "minecraft", path: filePath }
 }
 
-function isBlocked(entry, filePath) {
+async function isBlocked(entry, filePath) {
   if (!entry) return false
-  if (typeof entry.filter === "function") return !!entry.filter(filePath)
+  if (typeof entry.filter === "function") return !!(await entry.filter(filePath))
   if (Array.isArray(entry.filter) && entry.filter.length) {
     const { namespace, path: rest } = splitResourcePath(filePath)
     for (const p of entry.filter) {
@@ -210,9 +210,9 @@ function isBlocked(entry, filePath) {
   return false
 }
 
-function isFilteredByHigher(entries, index, filePath) {
+async function isFilteredByHigher(entries, index, filePath) {
   for (let j = 0; j < index; j++) {
-    if (isBlocked(entries[j], filePath)) return true
+    if (await isBlocked(entries[j], filePath)) return true
   }
   return false
 }
@@ -255,7 +255,7 @@ export async function listDirectory(dir, assets) {
       files = (await entry.list(dir)) ?? []
     }
     for (const f of files) {
-      if (isFilteredByHigher(assets, i, `${dir}/${f}`)) continue
+      if (await isFilteredByHigher(assets, i, `${dir}/${f}`)) continue
       out.add(f)
     }
   }
@@ -267,7 +267,7 @@ export async function readFile(file, assets, hint) {
   const range = hint !== undefined ? [hint] : assets.map((_, i) => i)
   for (const i of range) {
     const entry = assets[i]
-    if (isFilteredByHigher(assets, i, file)) continue
+    if (await isFilteredByHigher(assets, i, file)) continue
     if (entry.path) {
       try {
         const buf = await fs.promises.readFile(path.join(entry.path, file))
@@ -1466,8 +1466,8 @@ export async function loadModel(scene, assets, model, args) {
 
   let settings
   if (typeof display === "object") {
-    if (display.type === "fallback" && model.display?.[display.display]) {
-      settings = model.display[display.display]
+    if (display.type === "fallback" && model.display?.[display.display ?? "gui"]) {
+      settings = model.display[display.display ?? "gui"]
     } else {
       settings = structuredClone(display)
     }
