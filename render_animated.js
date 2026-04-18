@@ -1,4 +1,4 @@
-import { listDirectory, fileExists, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
+import { listDirectory, readFile, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -31,10 +31,10 @@ async function hasAnimatedTexture(resolved) {
   for (const value of Object.values(resolved.textures)) {
     if (typeof value !== "string" || value.startsWith("#")) continue
     const texPath = `assets/minecraft/textures/${value.replace(/^minecraft:/, "")}.png.mcmeta`
-    const resolvedPath = await fileExists(texPath, assets)
-    if (!resolvedPath) continue
+    const buf = await readFile(texPath, assets)
+    if (!buf) continue
     try {
-      const meta = JSON.parse(fs.readFileSync(resolvedPath, "utf8"))
+      const meta = JSON.parse(buf)
       if (meta.animation) return true
     } catch {}
   }

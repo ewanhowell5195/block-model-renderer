@@ -174,76 +174,78 @@ function composeTransformations(parent, child) {
   return new THREE.Matrix4().copy(parent).multiply(child)
 }
 
-export async function fileExists(filePath, assets) {
-  if (assets) {
-    if (Array.isArray(assets)) {
-      for (const folder of assets) {
-        try {
-          const joined = path.join(folder, filePath)
-          await fs.promises.access(joined)
-          return joined
-        } catch {}
+export async function fileExists(filePath, assets, hint) {
+  const entries = Array.isArray(assets) ? assets : assets ? [assets] : [null]
+  const range = hint !== undefined ? [hint] : entries.map((e, i) => i)
+  for (const i of range) {
+    const entry = entries[i]
+    if (entry === null || entry === undefined) {
+      try {
+        await fs.promises.access(filePath)
+        return { path: filePath, hintIndex: i }
+      } catch {}
+    } else if (typeof entry === "string") {
+      try {
+        await fs.promises.access(path.join(entry, filePath))
+        return { path: filePath, hintIndex: i }
+      } catch {}
+    } else if (typeof entry === "object") {
+      if (entry.exists ? await entry.exists(filePath) : await entry.read(filePath).catch(() => null)) {
+        return { path: filePath, hintIndex: i }
       }
-      return false
-    } else {
-      filePath = path.join(assets, filePath)
     }
   }
-
-  try {
-    await fs.promises.access(filePath)
-    return filePath
-  } catch {
-    return false
-  }
+  return false
 }
 
 export async function listDirectory(dir, assets) {
   const out = new Set()
-
-  async function readDir(full) {
-    try {
-      const files = await fs.promises.readdir(full)
-      for (const file of files) out.add(file)
-    } catch {}
-  }
-
-  if (!assets) {
-    await readDir(dir)
-  } else if (Array.isArray(assets)) {
-    for (const folder of assets) {
-      await readDir(path.join(folder, dir))
+  const entries = Array.isArray(assets) ? assets : assets ? [assets] : [null]
+  for (const entry of entries) {
+    if (entry === null) {
+      try {
+        for (const f of await fs.promises.readdir(dir)) out.add(f)
+      } catch {}
+    } else if (typeof entry === "string") {
+      try {
+        for (const f of await fs.promises.readdir(path.join(entry, dir))) out.add(f)
+      } catch {}
+    } else if (entry && typeof entry === "object" && entry.list) {
+      for (const f of (await entry.list(dir)) ?? []) out.add(f)
     }
-  } else {
-    await readDir(path.join(assets, dir))
   }
-
   return Array.from(out)
 }
 
-async function readFile(file, assets) {
-  if (assets) {
-    if (Array.isArray(assets)) {
-      for (const folder of assets) {
-        const full = path.join(folder, file)
-        try {
-          await fs.promises.access(full)
-          const buf = await fs.promises.readFile(full)
-          buf.path = full
-          return buf
-        } catch {}
-      }
-      return
+export async function readFile(file, assets, hint) {
+  const entries = Array.isArray(assets) ? assets : assets ? [assets] : [null]
+  const range = hint !== undefined ? [hint] : entries.map((_, i) => i)
+  for (const i of range) {
+    const entry = entries[i]
+    if (entry === null || entry === undefined) {
+      try {
+        const buf = await fs.promises.readFile(file)
+        buf.path = file
+        buf.hintIndex = i
+        return buf
+      } catch {}
+    } else if (typeof entry === "string") {
+      try {
+        const buf = await fs.promises.readFile(path.join(entry, file))
+        buf.path = file
+        buf.hintIndex = i
+        return buf
+      } catch {}
+    } else if (typeof entry === "object") {
+      try {
+        const data = await entry.read(file)
+        if (data === undefined || data === null || data === false) continue
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data)
+        buf.path = file
+        buf.hintIndex = i
+        return buf
+      } catch {}
     }
-    file = path.join(assets, file)
-  }
-  try {
-    await fs.promises.access(file)
-    const buf = await fs.promises.readFile(file)
-    buf.path = file
-    return buf
-  } catch {
-    return
   }
 }
 
@@ -792,10 +794,10 @@ function normalize(val) {
 async function getColorMapTint(assets, mapName, temperature, downfall) {
   if (isNaN(temperature) || isNaN(downfall)) return "#FF00FF"
 
-  const filePath = await fileExists(`assets/minecraft/textures/colormap/${mapName}.png`, assets)
-  if (!filePath) return "#FFFFFF"
+  const buf = await readFile(`assets/minecraft/textures/colormap/${mapName}.png`, assets)
+  if (!buf) return "#FFFFFF"
 
-  const image = await loadImage(filePath)
+  const image = await loadImage(buf)
   const canvas = new Canvas(256, 256)
   const ctx = canvas.getContext("2d")
 
@@ -1001,14 +1003,14 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
 }
 
 async function loadMinecraftTexture(path, assets) {
-  const resolved = await fileExists(path, assets)
-  if (!resolved) return { image: missing }
+  const buf = await readFile(path, assets)
+  if (!buf) return { image: missing }
 
-  const image = await loadImage(resolved)
+  const image = await loadImage(buf)
 
   let meta
   try {
-    meta = JSON.parse(await readFile(resolved + ".mcmeta")).animation ?? {}
+    meta = JSON.parse(await readFile(path + ".mcmeta", assets, buf.hintIndex)).animation ?? {}
   } catch {
     return { image }
   }
@@ -1701,14 +1703,14 @@ export async function loadModel(scene, assets, model, args) {
 
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig) {
   if (shader?.type === "end_portal") {
-    const skyPath = await fileExists(`assets/minecraft/textures/environment/end_sky.png`, assets)
+    const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
     return new THREE.ShaderMaterial({
       uniforms: {
         GameTime: {
           value: 0.727
         },
         Sampler0: {
-          value: await makeThreeTexture(await loadImage(skyPath))
+          value: await makeThreeTexture(await loadImage(skyBuf))
         },
         Sampler1: {
           value: texture
