@@ -73,7 +73,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 
 | Option | Default | Description |
 |---|---|---|
-| `id` | `""` | The block id (e.g. `"oak_log"`, `"water"`). Namespace optional |
+| `id` | `""` | The block id (e.g. `"oak_log"`, `"stone"`). Namespace optional |
 | `assets` | `[]` | The assets source, see [Assets](#assets) |
 | `blockstates` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `display` | see below | Display transform applied to the rendered block. See [Display transforms](#display-transforms) |
@@ -97,7 +97,7 @@ Renders an item by id using its item definition.
 
 | Option | Default | Description |
 |---|---|---|
-| `id` | `""` | The item id |
+| `id` | `""` | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `assets` | `[]` | The assets source |
 | `properties` | `{}` | Item components used by the item definition (e.g. `minecraft:damage`, `minecraft:enchantments`) |
 | `display` | `{ type: "fallback", display: "gui" }` | Display transform. See [Display transforms](#display-transforms) |
@@ -218,10 +218,10 @@ Minecraft textures with an accompanying `.mcmeta` animation block are supported 
 
 ```js
 await renderBlock({
-  id: "water",
+  id: "magma_block",
   assets,
   animated: true,
-  path: "water.gif"
+  path: "magma_block.gif"
 })
 ```
 
