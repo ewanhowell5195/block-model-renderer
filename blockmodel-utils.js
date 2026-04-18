@@ -287,7 +287,7 @@ export async function renderBlock(args = {}) {
     await loadModel(scene, args.assets, resolved, { display: args.display })
   }
 
-  return renderModelScene(scene, camera, { path: args.path, format: args.format, animated: args.animated, background: args.background })
+  return renderModelScene(scene, camera, args)
 }
 
 export async function renderItem(args = {}) {
@@ -308,7 +308,7 @@ export async function renderItem(args = {}) {
     await loadModel(scene, args.assets, resolved, { display: args.display })
   }
 
-  return renderModelScene(scene, camera, { path: args.path, format: args.format, animated: args.animated, background: args.background })
+  return renderModelScene(scene, camera, args)
 }
 
 export async function renderModel(args) {
@@ -326,7 +326,7 @@ export async function renderModel(args) {
   const resolved = await resolveModelData(args.assets, { model: args.model})
   await loadModel(scene, args.assets, resolved, { display: args.display })
 
-  return renderModelScene(scene, camera, { path: args.path, format: args.format, animated: args.animated, background: args.background })
+  return renderModelScene(scene, camera, args)
 }
 
 function resolveAnimatedFormat(animated, format) {
@@ -1013,6 +1013,10 @@ async function loadMinecraftTexture(path, assets) {
     return { image }
   }
 
+  return buildAnimation(image, meta)
+}
+
+function buildAnimation(image, meta) {
   const defaultSize = Math.min(image.width, image.height)
   const cropW = meta.width ?? defaultSize
   const cropH = meta.height ?? defaultSize
@@ -1051,6 +1055,18 @@ async function loadMinecraftTexture(path, assets) {
   }
 
   return { image: playback[0], frames: playback, times: playbackTimes, interpolate: !!meta.interpolate, animated: playback.length > 1 }
+}
+
+function applyTint(img, tint) {
+  const canvas = new Canvas(img.width, img.height)
+  const ctx = canvas.getContext("2d")
+  ctx.drawImage(img, 0, 0)
+  ctx.globalCompositeOperation = "multiply"
+  ctx.fillStyle = COLOURS.dye[tint] ?? tint
+  ctx.fillRect(0, 0, img.width, img.height)
+  ctx.globalCompositeOperation = "destination-in"
+  ctx.drawImage(img, 0, 0)
+  return canvas
 }
 
 function expandInterpolated(frames, times, maxSubFrames) {
@@ -1408,21 +1424,9 @@ export async function loadModel(scene, assets, model, args) {
 
     let image = loaded.image
     let frames = loaded.frames
-    const applyTint = img => {
-      const canvas = new Canvas(img.width, img.height)
-      const ctx = canvas.getContext("2d")
-      ctx.drawImage(img, 0, 0)
-      ctx.globalCompositeOperation = "multiply"
-      ctx.fillStyle = COLOURS.dye[tint] ?? tint
-      ctx.fillRect(0, 0, img.width, img.height)
-      ctx.globalCompositeOperation = "destination-in"
-      ctx.drawImage(img, 0, 0)
-      return canvas
-    }
-
     if (tint) {
-      image = applyTint(image)
-      if (frames) frames = frames.map(applyTint)
+      image = applyTint(image, tint)
+      if (frames) frames = frames.map(f => applyTint(f, tint))
     }
 
     const texture = await makeThreeTexture(image)
