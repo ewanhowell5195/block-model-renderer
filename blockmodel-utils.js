@@ -193,7 +193,7 @@ function splitResourcePath(filePath) {
   if ((parts[0] === "assets" || parts[0] === "data") && parts.length > 2) {
     return { namespace: parts[1], path: parts.slice(2).join("/") }
   }
-  return { namespace: "", path: filePath }
+  return { namespace: "minecraft", path: filePath }
 }
 
 function isBlocked(entry, filePath) {
