@@ -229,19 +229,18 @@ function getAssets(assets) {
   let arr
   if (Array.isArray(assets)) {
     arr = assets.slice()
-  } else {
+  } else if (assets) {
     arr = [assets]
+  } else {
+    arr = []
   }
   const overridesPath = path.join(__dirname, "assets/overrides")
   const fallbacksPath = path.join(__dirname, "assets/fallbacks")
   const resolvedOverrides = path.resolve(overridesPath)
   const resolvedFallbacks = path.resolve(fallbacksPath)
-  if (!arr.some(p => path.resolve(p) === resolvedOverrides)) {
-    arr.unshift(overridesPath)
-  }
-  if (!arr.some(p => path.resolve(p) === resolvedFallbacks)) {
-    arr.push(fallbacksPath)
-  }
+  const hasFolder = (resolved) => arr.some(p => typeof p === "string" && path.resolve(p) === resolved)
+  if (!hasFolder(resolvedOverrides)) arr.unshift(overridesPath)
+  if (!hasFolder(resolvedFallbacks)) arr.push(fallbacksPath)
   return arr
 }
 
