@@ -174,45 +174,108 @@ function composeTransformations(parent, child) {
   return new THREE.Matrix4().copy(parent).multiply(child)
 }
 
+async function loadFolderFilter(folder) {
+  try {
+    const data = await fs.promises.readFile(path.join(folder, "pack.mcmeta"), "utf8")
+    const parsed = JSON.parse(data)
+    const patterns = parsed?.filter?.block ?? []
+    return patterns.map(p => ({
+      namespaceRegex: p.namespace ? new RegExp(`^(?:${p.namespace})$`) : null,
+      pathRegex: p.path ? new RegExp(`^(?:${p.path})$`) : null
+    }))
+  } catch {
+    return []
+  }
+}
+
+function splitResourcePath(filePath) {
+  const parts = filePath.split("/")
+  if ((parts[0] === "assets" || parts[0] === "data") && parts.length > 2) {
+    return { namespace: parts[1], path: parts.slice(2).join("/") }
+  }
+  return { namespace: "", path: filePath }
+}
+
+function isBlocked(entry, filePath) {
+  if (!entry) return false
+  if (typeof entry.filter === "function") return !!entry.filter(filePath)
+  if (Array.isArray(entry.filter) && entry.filter.length) {
+    const { namespace, path: rest } = splitResourcePath(filePath)
+    for (const p of entry.filter) {
+      const nsMatch = !p.namespaceRegex || p.namespaceRegex.test(namespace)
+      const pathMatch = !p.pathRegex || p.pathRegex.test(rest)
+      if (nsMatch && pathMatch) return true
+    }
+  }
+  return false
+}
+
+function isFilteredByHigher(entries, index, filePath) {
+  for (let j = 0; j < index; j++) {
+    if (isBlocked(entries[j], filePath)) return true
+  }
+  return false
+}
+
+export async function prepareAssets(assets) {
+  if (Array.isArray(assets) && assets.prepared) return assets
+
+  let arr
+  if (Array.isArray(assets)) arr = assets.slice()
+  else if (assets) arr = [assets]
+  else arr = []
+
+  const overridesPath = path.join(__dirname, "assets/overrides")
+  const fallbacksPath = path.join(__dirname, "assets/fallbacks")
+  const resolvedOverrides = path.resolve(overridesPath)
+  const resolvedFallbacks = path.resolve(fallbacksPath)
+  const hasFolder = (resolved) => arr.some(p => typeof p === "string" && path.resolve(p) === resolved)
+  if (!hasFolder(resolvedOverrides)) arr.unshift(overridesPath)
+  if (!hasFolder(resolvedFallbacks)) arr.push(fallbacksPath)
+
+  const prepared = await Promise.all(arr.map(async entry => {
+    if (typeof entry === "string") {
+      return { path: entry, filter: await loadFolderFilter(entry) }
+    }
+    return entry
+  }))
+  prepared.prepared = true
+  return prepared
+}
+
 export async function listDirectory(dir, assets) {
+  assets = await prepareAssets(assets)
   const out = new Set()
-  const entries = Array.isArray(assets) ? assets : assets ? [assets] : [null]
-  for (const entry of entries) {
-    if (entry === null) {
-      try {
-        for (const f of await fs.promises.readdir(dir)) out.add(f)
-      } catch {}
-    } else if (typeof entry === "string") {
-      try {
-        for (const f of await fs.promises.readdir(path.join(entry, dir))) out.add(f)
-      } catch {}
-    } else if (entry && typeof entry === "object" && entry.list) {
-      for (const f of (await entry.list(dir)) ?? []) out.add(f)
+  for (let i = 0; i < assets.length; i++) {
+    const entry = assets[i]
+    let files = []
+    if (entry.path) {
+      try { files = await fs.promises.readdir(path.join(entry.path, dir)) } catch {}
+    } else if (entry.list) {
+      files = (await entry.list(dir)) ?? []
+    }
+    for (const f of files) {
+      if (isFilteredByHigher(assets, i, `${dir}/${f}`)) continue
+      out.add(f)
     }
   }
   return Array.from(out)
 }
 
 export async function readFile(file, assets, hint) {
-  const entries = Array.isArray(assets) ? assets : assets ? [assets] : [null]
-  const range = hint !== undefined ? [hint] : entries.map((_, i) => i)
+  assets = await prepareAssets(assets)
+  const range = hint !== undefined ? [hint] : assets.map((_, i) => i)
   for (const i of range) {
-    const entry = entries[i]
-    if (entry === null || entry === undefined) {
+    const entry = assets[i]
+    if (isFilteredByHigher(assets, i, file)) continue
+    if (entry.path) {
       try {
-        const buf = await fs.promises.readFile(file)
+        const buf = await fs.promises.readFile(path.join(entry.path, file))
         buf.path = file
         buf.hintIndex = i
         return buf
       } catch {}
-    } else if (typeof entry === "string") {
-      try {
-        const buf = await fs.promises.readFile(path.join(entry, file))
-        buf.path = file
-        buf.hintIndex = i
-        return buf
-      } catch {}
-    } else if (typeof entry === "object") {
+    } else if (entry.read) {
       try {
         const data = await entry.read(file)
         if (data === undefined || data === null || data === false) continue
@@ -223,25 +286,6 @@ export async function readFile(file, assets, hint) {
       } catch {}
     }
   }
-}
-
-function getAssets(assets) {
-  let arr
-  if (Array.isArray(assets)) {
-    arr = assets.slice()
-  } else if (assets) {
-    arr = [assets]
-  } else {
-    arr = []
-  }
-  const overridesPath = path.join(__dirname, "assets/overrides")
-  const fallbacksPath = path.join(__dirname, "assets/fallbacks")
-  const resolvedOverrides = path.resolve(overridesPath)
-  const resolvedFallbacks = path.resolve(fallbacksPath)
-  const hasFolder = (resolved) => arr.some(p => typeof p === "string" && path.resolve(p) === resolved)
-  if (!hasFolder(resolvedOverrides)) arr.unshift(overridesPath)
-  if (!hasFolder(resolvedFallbacks)) arr.push(fallbacksPath)
-  return arr
 }
 
 export async function renderBlock(args = {}) {
@@ -255,6 +299,7 @@ export async function renderBlock(args = {}) {
     display: "gui"
   }
 
+  args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()
 
   const models = await parseBlockstate(args.assets, args.id, { data: args.blockstates })
@@ -276,6 +321,7 @@ export async function renderItem(args = {}) {
     display: "gui"
   }
 
+  args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()
 
   const models = await parseItemDefinition(args.assets, args.id, { data: args.properties, display: args.display })
@@ -298,6 +344,7 @@ export async function renderModel(args) {
     display: "gui"
   }
 
+  args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()
 
   const resolved = await resolveModelData(args.assets, { model: args.model})
@@ -623,7 +670,7 @@ function getUniqueDefault(blockstate) {
 
 export async function parseBlockstate(assets, blockstate, args) {
   const data = args?.data ?? {}
-  assets = getAssets(assets)
+  assets = await prepareAssets(assets)
 
   const { namespace, item } = resolveNamespace(blockstate)
 
@@ -792,7 +839,7 @@ async function getColorMapTint(assets, mapName, temperature, downfall) {
 export async function parseItemDefinition(assets, itemId, args) {
   const data = args?.data ?? {}
   const display = args?.display ?? "gui"
-  assets = getAssets(assets)
+  assets = await prepareAssets(assets)
 
   const { namespace, item } = resolveNamespace(itemId)
 
@@ -1081,7 +1128,7 @@ function interpolateFrames(a, b, ratio) {
 }
 
 export async function resolveModelData(assets, model) {
-  assets = getAssets(assets)
+  assets = await prepareAssets(assets)
 
   let merged = {}
 
@@ -1379,7 +1426,7 @@ async function makeThreeTexture(img) {
 
 export async function loadModel(scene, assets, model, args) {
   const display = args?.display ?? "gui"
-  assets = getAssets(assets)
+  assets = await prepareAssets(assets)
 
   const textureCache = new Map()
 

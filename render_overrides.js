@@ -1,10 +1,10 @@
-import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./blockmodel-utils.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets } from "./blockmodel-utils.js"
 import fs from "node:fs"
 import path from "node:path"
 
-const assets = [
+const assets = await prepareAssets([
   "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-3"
-]
+])
 const outputDir = "renders/overrides"
 const blockDisplay = {
   rotation: [30, 225, 0],
