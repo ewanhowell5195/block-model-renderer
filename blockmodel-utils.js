@@ -1263,62 +1263,73 @@ export async function resolveModelData(assets, model) {
     }
   }
 
-  if (normalize(stack[stack.length - 1].parent) === "builtin/generated" && !merged.elements) {
-    merged.elements = []
-    for (const [key, texRef] of Object.entries(merged.textures)) {
-      const match = key.match(/^layer(\d+)$/)
-      if (match) {
-        const tintIndex = Number(match[1])
-        const texId = "#" + key
-        const { namespace, item } = resolveNamespace(texRef)
-        const loaded = await loadMinecraftTexture(`assets/${namespace}/textures/${item}.png`, assets)
-        const image = loaded.image
-        const width = image.width
-        const height = image.height
-        const depth = 16 / Math.max(width, height)
-        const elements = []
-        const canvas = new Canvas(width, height)
-        const ctx = canvas.getContext("2d")
-        ctx.drawImage(image, 0, 0, width, height)
-        const imageData = ctx.getImageData(0, 0, width, height).data
-        
-        function isOpaque(x, y) {
-          if (x < 0 || x >= width || y < 0 || y >= height) return false
-          const i = (y * width + x) * 4
-          return imageData[i + 3] >= 1
-        }
+  if (normalize(stack[stack.length - 1].parent) === "builtin/generated") {
+    if (!merged.gui_light) {
+      merged.gui_light = "front"
+    }
 
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const i = (y * width + x) * 4
-            const alpha = imageData[i + 3]
-            if (alpha === 0) continue
-            
-            const x1 = x * depth
-            const y1 = 16 - (y + 1) * depth
-            const x2 = x1 + depth
-            const y2 = y1 + depth
-            
-            const u1 = x / width * 16
-            const v1 = y / height * 16
-            const u2 = (x + 1) / width * 16
-            const v2 = (y + 1) / height * 16
-            
-            const faces = {}
-            
-            if (!isOpaque(x, y - 1)) faces.up = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-            if (!isOpaque(x, y + 1)) faces.down = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-            if (!isOpaque(x - 1, y)) faces.west = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-            if (!isOpaque(x + 1, y)) faces.east = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-            
-            faces.north = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-            faces.south = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-            
-            merged.elements.push({
-              from: [x1, y1, 8 - depth / 2],
-              to: [x2, y2, 8 + depth / 2],
-              faces: faces
-            })
+    if (!merged.elements) {
+      merged.elements = []
+      for (const [key, texRef] of Object.entries(merged.textures)) {
+        const match = key.match(/^layer(\d+)$/)
+        if (match) {
+          const tintIndex = Number(match[1])
+          const texId = "#" + key
+          const { namespace, item } = resolveNamespace(texRef)
+          const loaded = await loadMinecraftTexture(`assets/${namespace}/textures/${item}.png`, assets)
+          const image = loaded.image
+          const width = image.width
+          const height = image.height
+          const depth = 16 / Math.max(width, height)
+          const elements = []
+          const alphaMask = new Uint8Array(width * height)
+          const sourceFrames = loaded.frames ?? [image]
+          const probe = new Canvas(width, height)
+          const pctx = probe.getContext("2d")
+          for (const frame of sourceFrames) {
+            pctx.clearRect(0, 0, width, height)
+            pctx.drawImage(frame, 0, 0, width, height)
+            const fdata = pctx.getImageData(0, 0, width, height).data
+            for (let p = 0; p < width * height; p++) {
+              if (fdata[p * 4 + 3] >= 1) alphaMask[p] = 1
+            }
+          }
+
+          function isOpaque(x, y) {
+            if (x < 0 || x >= width || y < 0 || y >= height) return false
+            return alphaMask[y * width + x] === 1
+          }
+
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              if (!isOpaque(x, y)) continue
+              
+              const x1 = x * depth
+              const y1 = 16 - (y + 1) * depth
+              const x2 = x1 + depth
+              const y2 = y1 + depth
+              
+              const u1 = x / width * 16
+              const v1 = y / height * 16
+              const u2 = (x + 1) / width * 16
+              const v2 = (y + 1) / height * 16
+              
+              const faces = {}
+              
+              if (!isOpaque(x, y - 1)) faces.up = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
+              if (!isOpaque(x, y + 1)) faces.down = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
+              if (!isOpaque(x - 1, y)) faces.west = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
+              if (!isOpaque(x + 1, y)) faces.east = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
+              
+              faces.north = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
+              faces.south = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
+              
+              merged.elements.push({
+                from: [x1, y1, 8 - depth / 2],
+                to: [x2, y2, 8 + depth / 2],
+                faces: faces
+              })
+            }
           }
         }
       }
@@ -1453,7 +1464,8 @@ export async function loadModel(scene, assets, model, args) {
   }
 
   async function loadModelTexture(id, tint) {
-    if (textureCache.has(id)) return textureCache.get(id)
+    const cacheKey = `${id ?? ""}\0${tint ?? ""}`
+    if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)
 
     let loaded
     if (id) {
@@ -1477,7 +1489,7 @@ export async function loadModel(scene, assets, model, args) {
       texture.userData.interpolate = loaded.interpolate
     }
 
-    textureCache.set(id, texture)
+    textureCache.set(cacheKey, texture)
     return texture
   }
 
