@@ -73,7 +73,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 
 | Option | Default | Description |
 |---|---|---|
-| `id` | `""` | The block id (e.g. `"oak_log"`, `"stone"`). Namespace optional |
+| `id` | | The block id (e.g. `"oak_log"`, `"stone"`). Namespace optional |
 | `assets` | `[]` | The assets source, see [Assets](#assets) |
 | `blockstates` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `display` | see below | Display transform applied to the rendered block. See [Display transforms](#display-transforms) |
@@ -99,7 +99,7 @@ Renders an item by id using its item definition.
 
 | Option | Default | Description |
 |---|---|---|
-| `id` | `""` | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
+| `id` | | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `assets` | `[]` | The assets source |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn) |
 | `display` | `{ type: "fallback", display: "gui" }` | Display transform. See [Display transforms](#display-transforms) |
