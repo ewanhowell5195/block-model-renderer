@@ -1190,10 +1190,9 @@ export async function resolveModelData(assets, model) {
     const resolved = await resolveSpecialModel(assets, merged.special, merged.model)
     if (resolved) {
       stack.push(resolved.model)
-      merged.y = 180
       if (resolved.rotation) {
         merged.x = resolved.rotation[0]
-        merged.y += resolved.rotation[1]
+        merged.y = resolved.rotation[1]
         merged.z = resolved.rotation[2]
       }
       if (resolved.offset) {
@@ -1356,20 +1355,17 @@ async function resolveSpecialModel(assets, data, base) {
   switch (originalType) {
     case "banner":
       model.tints = [COLOURS.dye[data.color]]
-      break
-    case "book":
-    case "bell":
-      rotation = [0, 180, 0]
+      rotation = [0, 0, 180]
+      offset = [-8, 0, 8]
       break
     case "standing_sign":
       model.textures = { sign: data.texture ? normalize(data.texture) : `entity/signs/${normalize(data.wood_type)}` }
-      rotation = [0, 180, 0]
       break
     case "hanging_sign":
       model.textures = { sign: data.texture ? normalize(data.texture) : `entity/signs/hanging/${normalize(data.wood_type)}` }
-      rotation = [0, 180, 0]
       break
     case "chest": {
+      rotation = [0, 180, 0]
       const chestType = data.chest_type ?? "single"
       const suffix = chestType !== "single" ? `_${chestType}` : ""
       model.textures = { chest: `entity/chest/${normalize(data.texture)}${suffix}` }
@@ -1382,6 +1378,8 @@ async function resolveSpecialModel(assets, data, base) {
       break
     }
     case "shulker_box":
+      rotation = [0, 0, 180]
+      offset = [-8, 24, 8]
       model.textures = { shulker_box: `entity/shulker/${normalize(data.texture)}` }
       if (data.openness) {
         const lift = data.openness * 8
@@ -1399,8 +1397,7 @@ async function resolveSpecialModel(assets, data, base) {
       break
     case "copper_golem_statue":
       model.textures = { golem: `${normalize(data.texture).slice(9).slice(0, -4)}` }
-      offset = [8, 0, 8]
-      rotation = [180, 180, 0]
+      offset = [0, 24, 0]
       break
   }
   return {
