@@ -362,7 +362,7 @@ export async function renderModel(args) {
 
 function resolveAnimatedFormat(animated, format) {
   if (!animated) return null
-  if (animated === true) return format === "webp" ? "webp" : "gif"
+  if (animated === true) return format === "gif" ? "gif" : "webp"
   return animated
 }
 

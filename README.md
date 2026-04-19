@@ -10,7 +10,7 @@ Render any block, item, or custom model JSON to an image, with full support for 
 
 * Renders blocks, items, and custom models from a resource pack
 * Full vanilla model, blockstate, and item-definition support, with accurate lighting and tints
-* Animated textures with GIF and WebP output
+* Animated textures with WebP and GIF output
 * Stack multiple resource packs with higher ones overriding lower ones, just like in Minecraft
 * Virtual asset handlers, serve files from memory, zips, HTTP, anywhere
 * Bundled overrides for block entities that Minecraft renders dynamically (signs, banners, chests, heads, and more)
@@ -120,7 +120,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 
 All three render functions return:
 * A `Buffer` when `animated` is `false` (default)
-* An object `{ buffer, format }` when `animated` is truthy. The `format` field tells you what was actually produced. For example, `animated: true` produces `"gif"` if the model has animated textures, or `"png"` if it doesn't
+* An object `{ buffer, format }` when `animated` is truthy. The `format` field tells you what was actually produced. For example, `animated: true` produces `"webp"` if the model has animated textures, or `"png"` if it doesn't
 
 ## Assets
 
@@ -223,18 +223,18 @@ await renderBlock({
   id: "magma_block",
   assets,
   animated: true,
-  path: "magma_block.gif"
+  path: "magma_block.webp"
 })
 ```
 
 | Value | Result |
 |---|---|
 | `false` | Single-frame PNG (default). Renders frame 0 of any animated textures |
-| `true` | GIF if the model has animated textures, PNG otherwise |
-| `"gif"` | Same as `true` |
-| `"webp"` | WebP if the model has animated textures, PNG otherwise (recommended for translucent content) |
+| `true` | WebP if the model has animated textures, PNG otherwise |
+| `"webp"` | Same as `true` |
+| `"gif"` | GIF if the model has animated textures, PNG otherwise |
 
-> **Note:** GIF doesn't handle semi-transparent pixels well. For textures like water, kelp, or fire, use `animated: "webp"` for correct output.
+> **Note:** GIF doesn't handle semi-transparent pixels well. For textures like water or nether portals, stich with WebP.
 
 ## Background
 
