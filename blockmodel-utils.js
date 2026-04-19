@@ -159,7 +159,8 @@ function parseTransformation(t) {
     return new THREE.Matrix4().fromArray(t)
   }
   const mat = new THREE.Matrix4()
-  const T = new THREE.Matrix4().makeTranslation(...(t.translation || [0, 0, 0]))
+  const [tx, ty, tz] = t.translation || [0, 0, 0]
+  const T = new THREE.Matrix4().makeTranslation(tx * 16, ty * 16, tz * 16)
   const L = new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion(...(t.left_rotation || [0, 0, 0, 1])))
   const S = new THREE.Matrix4().makeScale(...(t.scale || [1, 1, 1]))
   const R = new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion(...(t.right_rotation || [0, 0, 0, 1])))
@@ -923,7 +924,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
       }
       model.special = def.model
       model.special.type = normalize(model.special.type)
-      if (currentTransform) model.transformation = currentTransform
+      if (currentTransform) model.transformation = currentTransform.elements
       return [model]
     }
 
@@ -1009,7 +1010,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
     }
 
     if (type === "model") {
-      if (currentTransform) def = { ...def, transformation: currentTransform }
+      if (currentTransform) def = { ...def, transformation: currentTransform.elements }
       return [def]
     }
 
@@ -1702,7 +1703,7 @@ export async function loadModel(scene, assets, model, args) {
     const mat = model.transformation instanceof THREE.Matrix4
       ? model.transformation
       : parseTransformation(model.transformation)
-    if (mat) rootGroup.applyMatrix4(mat)
+    if (mat) containerGroup.applyMatrix4(mat)
   }
 
   scene.add(rootGroup)
