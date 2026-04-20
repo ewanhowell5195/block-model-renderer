@@ -631,7 +631,7 @@ const UNIQUE_DEFAULT_BLOCKSTATES = {
   "*campfire|redstone_torch|redstone_wall_torch": {
     lit: true
   },
-  "glow_lichen|sculk_vein|resin_clump": {
+  "glow_lichen|sculk_vein|resin_clump|chorus_plant": {
     up: false,
     down: true
   },
@@ -678,6 +678,9 @@ const UNIQUE_DEFAULT_BLOCKSTATES = {
   "*_leaves": {
     persistent: false,
     distance: 1
+  },
+  "bamboo": {
+    "leaves": "none"
   }
 }
 
@@ -685,6 +688,20 @@ const UNIQUE_DEFAULT_PATTERNS = Object.entries(UNIQUE_DEFAULT_BLOCKSTATES).map((
   patterns: key.split("|").map(pattern => new RegExp("^" + pattern.replace(/\*/g, ".*") + "$")),
   value
 }))
+
+function getMultipartDefaults(multipart) {
+  const first = {}
+  const walk = when => {
+    if (!when) return
+    if (when.OR)  { walk(when.OR[0]); return }
+    if (when.AND) { for (const s of when.AND) walk(s); return }
+    for (const [k, v] of Object.entries(when)) {
+      if (!(k in first)) first[k] = String(v).split("|")[0]
+    }
+  }
+  for (const part of multipart) walk(part.when)
+  return first
+}
 
 function getUniqueDefault(blockstate) {
   if (UNIQUE_DEFAULT_BLOCKSTATES[blockstate]) return UNIQUE_DEFAULT_BLOCKSTATES[blockstate]
@@ -739,7 +756,8 @@ export async function parseBlockstate(assets, blockstate, args) {
     }
   } else if (json.multipart) {
     const ranges = new Set
-    
+    const multipartDefaults = getMultipartDefaults(json.multipart)
+
     const scoredParts = json.multipart.map((part, index) => {
       const when = part.when
       if (!when) return { score: 0, values: [], part, index, match: true }
@@ -755,7 +773,7 @@ export async function parseBlockstate(assets, blockstate, args) {
       for (const cond of conds) {
         const matches = Object.entries(cond).every(([k, v]) => {
           const allowed = v.toString().split("|")
-          const raw = data[k] ?? getUniqueDefault(blockstate)[k] ?? DEFAULT_BLOCKSTATES[k]
+          const raw = data[k] ?? getUniqueDefault(blockstate)[k] ?? DEFAULT_BLOCKSTATES[k] ?? multipartDefaults[k]
           let actuals
           if (Array.isArray(raw)) {
             actuals = raw.map(e => e.toString())
