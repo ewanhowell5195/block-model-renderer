@@ -592,11 +592,9 @@ const DEFAULT_BLOCKSTATES = {
   facing: "north",
   half: ["bottom", "lower"],
   attachment: "floor",
-  up: true,
   shape: ["straight", "north_south"],
   age: [7, 6, 5, 4, 3, 2, 1, 0],
   tilt: "none",
-  bottom: false,
   north: false,
   east: false,
   south: false,
@@ -604,7 +602,6 @@ const DEFAULT_BLOCKSTATES = {
   axis: "y",
   face: "wall",
   orientation: "north_up",
-  side_chain: "unconnected",
   powered: false,
   segment_amount: 4,
   flower_amount: 4,
@@ -617,12 +614,7 @@ const UNIQUE_DEFAULT_BLOCKSTATES = {
     north: true,
     east: true,
     south: true,
-    west: true,
-    up: true,
-    down: true
-  },
-  fire: {
-    up: false
+    west: true
   },
   "*_stairs|*_glazed_terracotta|cocoa|repeater|comparator": {
     facing: "south"
@@ -641,11 +633,7 @@ const UNIQUE_DEFAULT_BLOCKSTATES = {
     face: "floor"
   },
   vine: {
-    up: false,
     south: true
-  },
-  pale_moss_carpet: {
-    bottom: true
   },
   hopper: {
     facing: "down"
