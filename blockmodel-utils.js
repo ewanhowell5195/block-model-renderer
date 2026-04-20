@@ -205,7 +205,7 @@ function splitResourcePath(filePath) {
 }
 
 async function isBlocked(entry, filePath) {
-  if (!entry) return false
+  if (!entry) return
   if (typeof entry.filter === "function") return !!(await entry.filter(filePath))
   if (Array.isArray(entry.filter) && entry.filter.length) {
     const { namespace, path: rest } = splitResourcePath(filePath)
@@ -215,14 +215,12 @@ async function isBlocked(entry, filePath) {
       if (nsMatch && pathMatch) return true
     }
   }
-  return false
 }
 
 async function isFilteredByHigher(entries, index, filePath) {
   for (let j = 0; j < index; j++) {
     if (await isBlocked(entries[j], filePath)) return true
   }
-  return false
 }
 
 export async function prepareAssets(assets) {
@@ -252,65 +250,59 @@ export async function prepareAssets(assets) {
   return prepared
 }
 
-async function loadPackAtlasSources(entry) {
-  const out = []
+async function readEntryText(entry, file) {
   if (entry.path) {
-    let namespaces = []
-    try { namespaces = await fs.promises.readdir(path.join(entry.path, "assets")) } catch {}
-    for (const ns of namespaces) {
-      for (const name of ["blocks.json", "items.json"]) {
-        try {
-          const data = await fs.promises.readFile(path.join(entry.path, "assets", ns, "atlases", name), "utf8")
-          const parsed = JSON.parse(data)
-          if (Array.isArray(parsed?.sources)) out.push(...parsed.sources)
-        } catch {}
-      }
-    }
-  } else if (entry.read) {
-    for (const name of ["blocks.json", "items.json"]) {
-      try {
-        const data = await entry.read(`assets/minecraft/atlases/${name}`)
-        if (!data) continue
-        const parsed = JSON.parse(Buffer.isBuffer(data) ? data.toString("utf8") : data)
-        if (Array.isArray(parsed?.sources)) out.push(...parsed.sources)
-      } catch {}
-    }
+    try { return await fs.promises.readFile(path.join(entry.path, file), "utf8") } catch { return null }
   }
-  return out
+  if (entry.read) {
+    try {
+      const d = await entry.read(file)
+      if (d === undefined || d === null || d === false) return null
+      return Buffer.isBuffer(d) ? d.toString("utf8") : d
+    } catch { return null }
+  }
+  return null
 }
 
 async function loadAtlases(assets) {
+  const namespaces = await listDirectory("assets", assets)
+  const atlasesByNs = new Map()
+  for (const ns of namespaces) {
+    const files = await listDirectory(`assets/${ns}/atlases`, assets)
+    const ids = files.filter(f => f.endsWith(".json")).map(f => f.slice(0, -5))
+    if (ids.length) atlasesByNs.set(ns, ids)
+  }
+
   for (let i = 0; i < assets.length; i++) {
     const entry = assets[i]
-    const sources = await loadPackAtlasSources(entry)
+    const byAtlas = new Map()
+    for (const [ns, ids] of atlasesByNs) {
+      for (const id of ids) {
+        const text = await readEntryText(entry, `assets/${ns}/atlases/${id}.json`)
+        if (!text) continue
+        let parsed
+        try { parsed = JSON.parse(text) } catch { continue }
+        if (!Array.isArray(parsed?.sources)) continue
+        let arr = byAtlas.get(id)
+        if (!arr) byAtlas.set(id, arr = [])
+        arr.push(...parsed.sources)
+      }
+    }
+    entry.atlasSources = byAtlas
+
     const sprites = new Map()
-    const filters = []
-    for (const src of sources) {
-      const type = normalize(src.type ?? "")
-      if (type === "unstitch") applyUnstitchSource(src, sprites, assets)
-      else if (type === "paletted_permutations") applyPalettedPermutationsSource(src, sprites, assets)
-      else if (type === "filter") applyFilterSource(src, sprites, filters)
-      else if (type === "directory") applyDirectorySource(src, sprites, entry)
-      else if (type === "single") applySingleSource(src, sprites, entry)
+    for (const [, sources] of byAtlas) {
+      for (const src of sources) {
+        const type = normalize(src.type ?? "")
+        if (type === "unstitch") applyUnstitchSource(src, sprites, assets)
+        else if (type === "paletted_permutations") applyPalettedPermutationsSource(src, sprites, assets)
+        else if (type === "filter") applyFilterSource(src, sprites)
+        else if (type === "directory") applyDirectorySource(src, sprites, entry)
+        else if (type === "single") applySingleSource(src, sprites, entry)
+      }
     }
     entry.virtualSprites = sprites
-    entry.spriteFilters = filters
   }
-}
-
-function matchesAnyFilter(filters, file) {
-  if (!filters || !filters.length) return false
-  const m = file.match(/^assets\/([^/]+)\/textures\/(.+)\.png$/)
-  if (!m) return false
-  const [, ns, p] = m
-  for (const { nsRe, pathRe } of filters) {
-    if ((!nsRe || nsRe.test(ns)) && (!pathRe || pathRe.test(p))) return true
-  }
-  return false
-}
-
-function setVirtual(sprites, filePath, fn) {
-  sprites.set(filePath, fn)
 }
 
 function layerDisk(sprites, filePath, fn) {
@@ -372,7 +364,7 @@ function applyUnstitchSource(src, sprites, assets) {
         return await getMissingTexturePng(assets)
       }
     })
-    setVirtual(sprites, outPath, generator)
+    sprites.set(outPath, generator)
   }
 }
 
@@ -438,7 +430,7 @@ function applyPalettedPermutationsSource(src, sprites, assets) {
           return await getMissingTexturePng(assets)
         }
       })
-      setVirtual(sprites, outPath, generator)
+      sprites.set(outPath, generator)
     }
   }
 }
@@ -466,11 +458,10 @@ function applySingleSource(src, sprites, entry) {
   layerDisk(sprites, outPath, makeEntryReader(entry, diskPath))
 }
 
-function applyFilterSource(src, sprites, filters) {
+function applyFilterSource(src, sprites) {
   const pattern = src.pattern ?? {}
   const nsRe = pattern.namespace ? new RegExp(pattern.namespace) : null
   const pathRe = pattern.path ? new RegExp(pattern.path) : null
-  filters.push({ nsRe, pathRe })
   for (const filePath of [...sprites.keys()]) {
     const m = filePath.match(/^assets\/([^/]+)\/textures\/(.+)\.png$/)
     if (!m) continue
@@ -479,6 +470,110 @@ function applyFilterSource(src, sprites, filters) {
       sprites.delete(filePath)
     }
   }
+}
+
+function sourceEmitsSprite(src, decomposed, entry) {
+  const type = normalize(src.type ?? "")
+  const { namespace, spriteId } = decomposed
+  if (type === "single") {
+    const spriteRef = normalize(src.sprite ?? src.resource ?? "")
+    if (!spriteRef) return
+    const { namespace: ns, item } = resolveNamespace(spriteRef)
+    return ns === namespace && item === spriteId
+  }
+  if (type === "unstitch") {
+    if (!Array.isArray(src.regions)) return
+    for (const region of src.regions) {
+      if (!region?.sprite) continue
+      const { namespace: ns, item } = resolveNamespace(normalize(region.sprite))
+      if (ns === namespace && item === spriteId) return true
+    }
+    return
+  }
+  if (type === "paletted_permutations") {
+    const separator = src.separator ?? "_"
+    const textures = src.textures ?? []
+    const permutations = src.permutations ?? {}
+    for (const tex of textures) {
+      const { namespace: ns, item } = resolveNamespace(normalize(tex))
+      if (ns !== namespace) continue
+      for (const suffix of Object.keys(permutations)) {
+        if (`${item}${separator}${suffix}` === spriteId) return true
+      }
+    }
+    return
+  }
+  if (type === "directory") {
+    const source = (src.source ?? "").replace(/\/$/, "")
+    const prefix = src.prefix ?? ""
+    if (!spriteId.startsWith(prefix)) return
+    const rel = spriteId.slice(prefix.length)
+    const diskPath = `assets/${namespace}/textures/${source ? source + "/" : ""}${rel}.png`
+    return entryHasFile(entry, diskPath)
+  }
+}
+
+function entryHasFile(entry, diskPath) {
+  entry.__fileExistsCache ??= new Map()
+  if (entry.__fileExistsCache.has(diskPath)) return entry.__fileExistsCache.get(diskPath)
+  const p = (async () => {
+    if (entry.path) {
+      try { await fs.promises.access(path.join(entry.path, diskPath)); return true } catch {}
+      return
+    }
+    if (entry.read) {
+      try {
+        const data = await entry.read(diskPath)
+        if (data !== undefined && data !== null && data !== false) return true
+      } catch {}
+    }
+  })()
+  entry.__fileExistsCache.set(diskPath, p)
+  return p
+}
+
+function filterMatchesSprite(src, decomposed) {
+  const pattern = src.pattern ?? {}
+  const nsRe = pattern.namespace ? new RegExp(pattern.namespace) : null
+  const pathRe = pattern.path ? new RegExp(pattern.path) : null
+  if (nsRe && !nsRe.test(decomposed.namespace)) return
+  if (pathRe && !pathRe.test(decomposed.spriteId)) return
+  return true
+}
+
+async function isSpriteInAtlas(atlasId, spritePath, assets) {
+  const m = spritePath.match(/^assets\/([^/]+)\/textures\/(.+)\.png$/)
+  if (!m) return
+  const decomposed = { namespace: m[1], spriteId: m[2] }
+  let present = false
+  for (let i = assets.length - 1; i >= 0; i--) {
+    const entry = assets[i]
+    const sources = entry.atlasSources?.get(atlasId)
+    if (!sources) continue
+    for (const src of sources) {
+      const type = normalize(src.type ?? "")
+      if (type === "filter") {
+        if (filterMatchesSprite(src, decomposed)) present = false
+      } else {
+        const emits = sourceEmitsSprite(src, decomposed, entry)
+        const result = typeof emits?.then === "function" ? await emits : emits
+        if (result) present = true
+      }
+    }
+  }
+  return present
+}
+
+async function getAtlasesContaining(spritePath, assets) {
+  const atlases = new Set()
+  const ids = new Set()
+  for (const entry of assets) {
+    if (entry.atlasSources) for (const id of entry.atlasSources.keys()) ids.add(id)
+  }
+  await Promise.all([...ids].map(async id => {
+    if (await isSpriteInAtlas(id, spritePath, assets)) atlases.add(id)
+  }))
+  return atlases
 }
 
 export async function listDirectory(dir, assets) {
@@ -516,12 +611,6 @@ export async function readFile(file, assets, hint) {
   for (const i of range) {
     const entry = assets[i]
     if (await isFilteredByHigher(assets, i, file)) continue
-
-    let filtered = false
-    for (let j = 0; j <= i; j++) {
-      if (matchesAnyFilter(assets[j].spriteFilters, file)) { filtered = true; break }
-    }
-    if (filtered) continue
 
     const resolver = entry.virtualSprites?.get(file)
     if (resolver) {
@@ -572,7 +661,6 @@ export async function renderBlock(args = {}) {
   const models = await parseBlockstate(args.assets, args.id, { data: args.blockstates })
 
   for (const model of models) {
-    model.type = "block"
     const resolved = await resolveModelData(args.assets, model)
     await loadModel(scene, args.assets, resolved, { display: args.display })
   }
@@ -595,7 +683,6 @@ export async function renderItem(args = {}) {
   const models = await parseItemDefinition(args.assets, args.id, { data: args.components, display: args.display })
 
   for (const model of models) {
-    model.type = "item"
     const resolved = await resolveModelData(args.assets, model)
     await loadModel(scene, args.assets, resolved, { display: args.display })
   }
@@ -1141,9 +1228,9 @@ export async function parseItemDefinition(assets, itemId, args) {
   const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
 
   if (!buf) {
-    return [{ type: "model", model: "~missing" }]
+    return [{ type: "item", model: "~missing" }]
   }
-  
+
   const json = JSON.parse(buf)
 
   const normalizedData = {}
@@ -1151,6 +1238,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   const models = await resolveItemModel(assets, json.model, normalizedData, display)
   for (let i = 0; i < models.length; i++) {
     const model = models[i]
+    model.type = "item"
     if (model.tints) {
       const tints = []
       for (const tint of model.tints) {
@@ -1333,6 +1421,12 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
 }
 
 async function loadMinecraftTexture(path, assets, type) {
+  if (type === "block" || type === "item") {
+    const atlases = await getAtlasesContaining(path, assets)
+    const allowed = type === "block" ? ["blocks"] : ["blocks", "items"]
+    if (![...atlases].some(a => allowed.includes(a))) return { image: missing }
+  }
+
   const buf = await readFile(path, assets)
   if (!buf) return { image: missing }
 
@@ -1596,7 +1690,7 @@ export async function resolveModelData(assets, model) {
           }
 
           function isOpaque(x, y) {
-            if (x < 0 || x >= width || y < 0 || y >= height) return false
+            if (x < 0 || x >= width || y < 0 || y >= height) return
             return alphaMask[y * width + x] === 1
           }
 
@@ -1752,9 +1846,46 @@ async function makeThreeTexture(img) {
   return texture
 }
 
+async function modelPassesAtlasRules(model, assets) {
+  if (model.type !== "block" && model.type !== "item") return true
+  const textures = model.textures ?? {}
+  const entries = []
+  for (const [, value] of Object.entries(textures)) {
+    if (typeof value !== "string" || !value || value.startsWith("#")) continue
+    const { namespace, item } = resolveNamespace(value)
+    entries.push(`assets/${namespace}/textures/${item}.png`)
+  }
+  if (!entries.length) return true
+
+  const memberships = await Promise.all(entries.map(p => getAtlasesContaining(p, assets)))
+
+  let anyInItems = false
+  let anyBlocksOnly = false
+  for (const atlases of memberships) {
+    if (atlases.size === 0) continue
+    if (model.type === "block") {
+      if (!(atlases.size === 1 && atlases.has("blocks"))) return
+    } else {
+      const extras = [...atlases].filter(a => a !== "blocks" && a !== "items")
+      if (extras.length) return
+      if (atlases.has("items")) anyInItems = true
+      else anyBlocksOnly = true
+    }
+  }
+  if (model.type === "item" && anyInItems && anyBlocksOnly) return
+  return true
+}
+
+
 export async function loadModel(scene, assets, model, args) {
   const display = args?.display ?? "gui"
   assets = await prepareAssets(assets)
+
+  if (!(await modelPassesAtlasRules(model, assets))) {
+    const missing = await resolveModelData(assets, { model: "~missing" })
+    for (const k of Object.keys(model)) delete model[k]
+    Object.assign(model, missing)
+  }
 
   const textureCache = new Map()
 

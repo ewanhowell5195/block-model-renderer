@@ -170,7 +170,7 @@ await renderBlock({ id: "stone", assets: handler, path: "out.png" })
 | Method | Required | Description |
 |---|---|---|
 | `read(filePath)` | yes | Return file contents (`Buffer`, `Uint8Array`, or `string`), or `null` / `undefined` if the file doesn't exist |
-| `list(dir)` | conditional | Return an array of filenames in the given directory. Required if you use the `listDirectory` function |
+| `list(dir)` | yes | Return an array of filenames in the given directory |
 | `filter(filePath)` | no | Return `true` to hide this file from lower-priority entries |
 
 ### `prepareAssets(assets)`
@@ -431,6 +431,7 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 | `double_sided` | `true` | Render all faces from both sides |
 | `tints` | `["#FF0000", "#00FF00"]` | Array of hex colour strings. Faces with a `tintindex` look up their tint from this array |
 | `shader` | `{ type: "end_portal", layers: 15 }` | Apply the end portal / end gateway shader to the model |
+| `type` | `"block"`, `"item"` | Which atlas rules to enforce |
 
 ### Blockstate JSON
 
