@@ -946,7 +946,11 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
 
     if (type === "select") {
       const prop = normalize(def.property)
-      let value = normalize(prop === "custom_model_data" ? data["custom_model_data"]?.strings?.[def.index ?? 0] ?? "" : data[prop] ?? "")
+      let raw
+      if (prop === "custom_model_data") raw = data["custom_model_data"]?.strings?.[def.index ?? 0]
+      else if (prop === "component") raw = data[normalize(def.component)]
+      else raw = data[prop]
+      let value = normalize(raw ?? "")
       if (!value && prop === "display_context") {
         value = typeof display === "string" ? display : display.display
       } else if (!value && prop === "local_time" && def.pattern) {
@@ -1004,7 +1008,8 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
 
     if (type === "range_dispatch") {
       const prop = normalize(def.property)
-      const num = parseFloat(prop === "custom_model_data" ? data["custom_model_data"]?.floats?.[def.index ?? 0] ?? 0 : data[prop] ?? 0)
+      const defaultValue = prop === "count" ? 1 : 0
+      const num = parseFloat(prop === "custom_model_data" ? data["custom_model_data"]?.floats?.[def.index ?? 0] ?? defaultValue : data[prop] ?? defaultValue)
       const scaled = (def.scale ?? 1) * num
       const entries = def.entries || []
       let chosen = def.fallback

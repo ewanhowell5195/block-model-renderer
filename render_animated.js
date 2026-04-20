@@ -30,11 +30,13 @@ async function hasAnimatedTexture(resolved) {
   if (!resolved?.textures) return false
   for (const value of Object.values(resolved.textures)) {
     if (typeof value !== "string" || value.startsWith("#")) continue
-    const texPath = `assets/minecraft/textures/${value.replace(/^minecraft:/, "")}.png.mcmeta`
-    const buf = await readFile(texPath, assets)
-    if (!buf) continue
+    const base = `assets/minecraft/textures/${value.replace(/^minecraft:/, "")}.png`
+    const png = await readFile(base, assets)
+    if (!png) continue
+    const mcmeta = await readFile(`${base}.mcmeta`, assets, png.hintIndex)
+    if (!mcmeta) continue
     try {
-      const meta = JSON.parse(buf)
+      const meta = JSON.parse(mcmeta)
       if (meta.animation) return true
     } catch {}
   }
