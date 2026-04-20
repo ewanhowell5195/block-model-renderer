@@ -589,7 +589,7 @@ function resolveNamespace(str) {
 
 const DEFAULT_BLOCKSTATES = {
   facing: "north",
-  half: "bottom",
+  half: ["bottom", "lower"],
   attachment: "floor",
   up: true,
   shape: ["straight", "north_south"],
@@ -1606,11 +1606,24 @@ export async function loadModel(scene, assets, model, args) {
     const geometry = new THREE.BoxGeometry(size.x, size.y, size.z)
 
     if (element.rotation?.rescale) {
-      const angle = Math.abs(element.rotation.angle)
-      const rescale = 1 / Math.cos(THREE.MathUtils.degToRad(angle > 45 ? 90 - angle : angle))
-      const scale = new THREE.Vector3(rescale, rescale, rescale)
-      scale[element.rotation.axis || "y"] = 1
-      geometry.scale(scale.x, scale.y, scale.z)
+      let rescaleAxis = element.rotation.axis
+      let rescaleAngle = element.rotation.angle
+      if (rescaleAngle === undefined) {
+        for (const a of ["x", "y", "z"]) {
+          if (element.rotation[a]) {
+            rescaleAxis = a
+            rescaleAngle = element.rotation[a]
+            break
+          }
+        }
+      }
+      if (rescaleAngle) {
+        const angle = Math.abs(rescaleAngle)
+        const rescale = 1 / Math.cos(THREE.MathUtils.degToRad(angle > 45 ? 90 - angle : angle))
+        const scale = new THREE.Vector3(rescale, rescale, rescale)
+        scale[rescaleAxis || "y"] = 1
+        geometry.scale(scale.x, scale.y, scale.z)
+      }
     }
 
     const faceOrder = ["east", "west", "up", "down", "south", "north"]
