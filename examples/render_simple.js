@@ -1,18 +1,18 @@
-import { renderBlock, renderItem, renderModel, prepareAssets } from "./index.js"
+import { renderBlock, renderItem, renderModel, prepareAssets } from "../index.js"
 import fs from "node:fs"
 
 const assets = await prepareAssets([
   "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-3"
 ])
 
-fs.mkdirSync("renders/simple", { recursive: true })
+fs.mkdirSync(`${import.meta.dirname}/renders/simple`, { recursive: true })
 
 // Render from blockstate
 
 await renderBlock({
   id: "cactus",
   assets,
-  path: "renders/simple/block.png"
+  path: `${import.meta.dirname}/renders/simple/block.png`
 })
 
 // Render from item definition
@@ -20,7 +20,7 @@ await renderBlock({
 await renderItem({
   id: "mace",
   assets,
-  path: "renders/simple/item.png"
+  path: `${import.meta.dirname}/renders/simple/item.png`
 })
 
 // Render model json
@@ -54,5 +54,5 @@ await renderModel({
     ]
   },
   assets,
-  path: "renders/simple/model.png"
+  path: `${import.meta.dirname}/renders/simple/model.png`
 })

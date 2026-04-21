@@ -28,6 +28,14 @@
     "model",
     "resource-pack"
   ],
+  "scripts": {
+    "all": "node examples/render_all.js",
+    "animated": "node examples/render_animated.js",
+    "fixed": "node examples/render_fixed.js",
+    "overrides": "node examples/render_overrides.js",
+    "simple": "node examples/render_simple.js",
+    "full": "npm run all && npm run animated && npm run fixed && npm run overrides && npm run simple"
+  },
   "dependencies": {
     "headless-three": "^1.4.1",
     "sharp": "^0.34.5",

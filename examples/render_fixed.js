@@ -1,9 +1,9 @@
-import { renderModel } from "./index.js"
+import { renderModel } from "../index.js"
 import fs from "node:fs"
 
 const packRoot = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-3"
 
-fs.mkdirSync("renders/fixed", { recursive: true })
+fs.mkdirSync(`${import.meta.dirname}/renders/fixed`, { recursive: true })
 
 await renderModel({
   assets: {
@@ -31,5 +31,5 @@ await renderModel({
       }
     ]
   },
-  path: "renders/fixed/oak_log.png"
+  path: `${import.meta.dirname}/renders/fixed/oak_log.png`
 })
