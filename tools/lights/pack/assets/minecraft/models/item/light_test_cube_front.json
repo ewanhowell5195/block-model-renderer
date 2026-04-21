@@ -1,0 +1,4 @@
+{
+  "parent": "minecraft:item/light_test_base_cube",
+  "gui_light": "front"
+}
