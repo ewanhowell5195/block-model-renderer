@@ -9,7 +9,7 @@ Render any block, item, or custom model JSON to an image, with full support for 
 ## Features
 
 * Renders blocks, items, and custom models from a resource pack
-* Full vanilla model, blockstate, and item-definition support, with accurate lighting and tints
+* Full vanilla model, blockstate, item-definition, and texture atlas support, with accurate lighting and tints
 * Animated textures with WebP and GIF output
 * Stack multiple resource packs with higher ones overriding lower ones, just like in Minecraft
 * Virtual asset handlers, serve files from memory, zips, HTTP, anywhere
