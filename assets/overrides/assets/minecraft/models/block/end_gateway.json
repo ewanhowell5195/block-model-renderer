@@ -1,4 +1,5 @@
 {
+  "ignore_atlas_restrictions": true,
   "textures": {
     "portal": "entity/end_portal/end_portal"
   },

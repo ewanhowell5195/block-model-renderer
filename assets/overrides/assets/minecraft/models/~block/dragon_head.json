@@ -1,4 +1,5 @@
 {
+  "ignore_atlas_restrictions": true,
   "double_sided": true,
   "texture_size": [256, 256],
   "textures": {

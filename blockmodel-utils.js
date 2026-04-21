@@ -438,7 +438,7 @@ function applyPalettedPermutationsSource(src, sprites, assets) {
 function applyDirectorySource(src, sprites, entry) {
   const source = (src.source ?? "").replace(/\/$/, "")
   const prefix = src.prefix ?? ""
-  for (const filePath of [...sprites.keys()]) {
+  for (const filePath of sprites.keys()) {
     const m = filePath.match(/^assets\/([^/]+)\/textures\/(.+)\.png$/)
     if (!m) continue
     const [, ns, spriteId] = m
@@ -462,7 +462,7 @@ function applyFilterSource(src, sprites) {
   const pattern = src.pattern ?? {}
   const nsRe = pattern.namespace ? new RegExp(pattern.namespace) : null
   const pathRe = pattern.path ? new RegExp(pattern.path) : null
-  for (const filePath of [...sprites.keys()]) {
+  for (const filePath of sprites.keys()) {
     const m = filePath.match(/^assets\/([^/]+)\/textures\/(.+)\.png$/)
     if (!m) continue
     const [, ns, p] = m
@@ -570,7 +570,7 @@ async function getAtlasesContaining(spritePath, assets) {
   for (const entry of assets) {
     if (entry.atlasSources) for (const id of entry.atlasSources.keys()) ids.add(id)
   }
-  await Promise.all([...ids].map(async id => {
+  await Promise.all(Array.from(ids, async id => {
     if (await isSpriteInAtlas(id, spritePath, assets)) atlases.add(id)
   }))
   return atlases
@@ -841,7 +841,7 @@ export async function renderModelScene(scene, camera, args) {
         }
       }
     }
-    events = [...eventSet].sort((a, b) => a - b)
+    events = Array.from(eventSet).sort((a, b) => a - b)
     frameCount = events.length
 
     if (frameCount <= maxFrameCount) break
@@ -1424,7 +1424,7 @@ async function loadMinecraftTexture(path, assets, type) {
   if (type === "block" || type === "item") {
     const atlases = await getAtlasesContaining(path, assets)
     const allowed = type === "block" ? ["blocks"] : ["blocks", "items"]
-    if (![...atlases].some(a => allowed.includes(a))) return { image: missing }
+    if (!allowed.some(a => atlases.has(a))) return { image: missing }
   }
 
   const buf = await readFile(path, assets)
@@ -1848,6 +1848,7 @@ async function makeThreeTexture(img) {
 
 async function modelPassesAtlasRules(model, assets) {
   if (model.type !== "block" && model.type !== "item") return true
+  if (model.ignore_atlas_restrictions) return true
   const textures = model.textures ?? {}
   const entries = []
   for (const [, value] of Object.entries(textures)) {
@@ -1866,8 +1867,7 @@ async function modelPassesAtlasRules(model, assets) {
     if (model.type === "block") {
       if (!(atlases.size === 1 && atlases.has("blocks"))) return
     } else {
-      const extras = [...atlases].filter(a => a !== "blocks" && a !== "items")
-      if (extras.length) return
+      for (const a of atlases) if (a !== "blocks" && a !== "items") return
       if (atlases.has("items")) anyInItems = true
       else anyBlocksOnly = true
     }
@@ -1901,7 +1901,7 @@ export async function loadModel(scene, assets, model, args) {
     let loaded
     if (id) {
       const path = resolveTexturePath(id)
-      loaded = await loadMinecraftTexture(path, assets, model.type)
+      loaded = await loadMinecraftTexture(path, assets, model.ignore_atlas_restrictions ? undefined : model.type)
     } else {
       loaded = { image: missing }
     }

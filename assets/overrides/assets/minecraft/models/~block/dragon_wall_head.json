@@ -1,4 +1,5 @@
 {
+  "ignore_atlas_restrictions": true,
   "texture_size": [256, 256],
   "textures": {
     "head": "entity/enderdragon/dragon"

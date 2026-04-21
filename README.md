@@ -432,6 +432,7 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 | `tints` | `["#FF0000", "#00FF00"]` | Array of hex colour strings. Faces with a `tintindex` look up their tint from this array |
 | `shader` | `{ type: "end_portal", layers: 15 }` | Apply the end portal / end gateway shader to the model |
 | `type` | `"block"`, `"item"` | Which atlas rules to enforce |
+| `ignore_atlas_restrictions` | `true` | Skip atlas membership checks for this model, letting it reference textures from any atlas |
 
 ### Blockstate JSON
 
