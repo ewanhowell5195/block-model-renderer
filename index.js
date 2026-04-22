@@ -1421,8 +1421,17 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
 
     if (type === "condition") {
       const prop = normalize(def.property)
-      const value = prop === "custom_model_data" ? data["custom_model_data"]?.flags?.[def.index ?? 0] : normalize(data[prop])
-      const isTruthy = value === true || value === "true"
+      let isTruthy
+      if (prop === "custom_model_data") {
+        const v = data["custom_model_data"]?.flags?.[def.index ?? 0]
+        isTruthy = v === true || v === "true"
+      } else if (prop === "has_component") {
+        const component = normalize(def.component ?? "")
+        isTruthy = component in data && data[component] !== undefined && data[component] !== null
+      } else {
+        const v = normalize(data[prop])
+        isTruthy = v === true || v === "true"
+      }
       def = isTruthy ? def.on_true : def.on_false
       accTransform = currentTransform
       continue
