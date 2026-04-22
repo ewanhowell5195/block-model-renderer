@@ -137,6 +137,22 @@ for (const entry of Object.values(COLOURS.indexed)) {
   for (const block of entry.blocks) INDEXED_TINT_BLOCKS[block] = entry
 }
 
+const WATERLOGGABLE_SUFFIXES = [
+  "_slab", "_stairs", "_wall", "_trapdoor", "_fence", "_shelf", "_leaves",
+  "_bars", "_chain", "_grate", "_golem_statue", "copper_lantern",
+  "sign", "candle", "glass_pane", "_coral", "_coral_fan", "_coral_wall_fan",
+  "rail", "chest", "lightning_rod",
+  "amethyst_bud", "dripleaf", "campfire", "sculk_sensor"
+]
+
+const WATERLOGGABLE_EXACT = new Set([
+  "amethyst_cluster", "barrier", "big_dripleaf_stem", "conduit", "decorated_pot",
+  "dried_ghast", "glow_lichen", "hanging_roots", "heavy_core", "ladder", "lantern",
+  "light", "mangrove_propagule", "mangrove_roots", "pointed_dripstone",
+  "resin_clump", "scaffolding", "sculk_shrieker", "sculk_vein", "sea_pickle",
+  "soul_lantern", "sulfur_spike"
+])
+
 function parseColor(c) {
   if (typeof c === "string" && c.startsWith("#")) return c
   if (typeof c === "string") c = parseInt(c, 16)
@@ -1065,9 +1081,9 @@ export async function parseBlockstate(assets, blockstate, args) {
   const data = args?.data ?? {}
   assets = await prepareAssets(assets)
 
-  const { namespace, item } = resolveNamespace(blockstate)
+  const { namespace, item: block } = resolveNamespace(blockstate)
 
-  const buf = await readFile(`assets/${namespace}/blockstates/${item}.json`, assets)
+  const buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
 
   if (!buf) {
     return [{ type: "block", model: "~missing" }]
@@ -1180,24 +1196,32 @@ export async function parseBlockstate(assets, blockstate, args) {
 
     model.type = "block"
 
-    if (COLORMAP_BLOCKS[item]) {
-      const tint = await getColorMapTint(assets, COLORMAP_BLOCKS[item], 0.5, 1)
-      const index = COLOURS.tintindex[item] ?? 0
+    if (COLORMAP_BLOCKS[block]) {
+      const tint = await getColorMapTint(assets, COLORMAP_BLOCKS[block], 0.5, 1)
+      const index = COLOURS.tintindex[block] ?? 0
       model.tints = []
       for (let t = 0; t <= index; t++) model.tints.push(t === index ? tint : "#FFFFFF")
-    } else if (FIXED_TINT_BLOCKS[item]) {
-      model.tints = [FIXED_TINT_BLOCKS[item]]
-    } else if (INDEXED_TINT_BLOCKS[item]) {
-      const entry = INDEXED_TINT_BLOCKS[item]
+    } else if (FIXED_TINT_BLOCKS[block]) {
+      model.tints = [FIXED_TINT_BLOCKS[block]]
+    } else if (INDEXED_TINT_BLOCKS[block]) {
+      const entry = INDEXED_TINT_BLOCKS[block]
       model.tints = [entry.colors[data[entry.property] ?? entry.default]]
     }
 
-    if (item === "end_portal" || item == "end_gateway") {
+    if (block === "end_portal" || block == "end_gateway") {
       model.shader = {
         type: "end_portal",
-        layers: item === "end_portal" ? 15 : 16
+        layers: block === "end_portal" ? 15 : 16
       }
     }
+  }
+
+  if (data?.waterlogged && (WATERLOGGABLE_EXACT.has(block) || WATERLOGGABLE_SUFFIXES.some(s => block.endsWith(s)))) {
+    models.push({
+      model: "minecraft:block/water",
+      type: "block",
+      tints: ["#3F76E4"]
+    })
   }
 
   return models
