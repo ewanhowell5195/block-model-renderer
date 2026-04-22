@@ -1669,11 +1669,11 @@ export async function resolveModelData(assets, model) {
   }
 
   function handleNestedTexture(key) {
-    if (typeof merged.textures[key] !== "string") {
-      merged.textures[key] = merged.textures[key].sprite
-      if (!merged.textures[key] || merged.textures[key].startsWith("#")) {
-        delete merged.textures[key]
-      }
+    const v = merged.textures[key]
+    if (v == null || typeof v === "string") return
+    merged.textures[key] = v.sprite
+    if (!merged.textures[key] || merged.textures[key].startsWith("#")) {
+      delete merged.textures[key]
     }
   }
 
@@ -1880,8 +1880,8 @@ async function makeThreeTexture(img) {
   texture.colorSpace = THREE.NoColorSpace
   texture.magFilter = THREE.NearestFilter
   texture.minFilter = THREE.NearestFilter
-  texture.wrapS = THREE.RepeatWrapping
-  texture.wrapT = THREE.RepeatWrapping
+  texture.wrapS = THREE.ClampToEdgeWrapping
+  texture.wrapT = THREE.ClampToEdgeWrapping
   return texture
 }
 
@@ -2371,6 +2371,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec2 vUv;
       varying vec3 vNormal;
       void main() {
+        if (vUv.x < 0.0 || vUv.x > 1.0 || vUv.y < 0.0 || vUv.y > 1.0) discard;
         vec4 texColor = texture2D(map, vUv);
         if (texColor.a < 0.01) discard;
         float shade = 1.0;
