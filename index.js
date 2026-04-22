@@ -721,39 +721,6 @@ function resolveAnimatedFormat(animated, format) {
   return animated
 }
 
-function parseBackground(bg) {
-  if (bg === undefined || bg === null) return { clearColor: undefined, clearAlpha: undefined }
-  if (typeof bg === "number") return { clearColor: bg, clearAlpha: 1 }
-  if (typeof bg === "object") {
-    const r = bg.r ?? 0, g = bg.g ?? 0, b = bg.b ?? 0
-    const a = bg.a ?? 1
-    return { clearColor: (r << 16) | (g << 8) | b, clearAlpha: a }
-  }
-  if (typeof bg !== "string") return { clearColor: undefined, clearAlpha: undefined }
-
-  if (bg.startsWith("#")) {
-    let hex = bg.slice(1)
-    if (hex.length === 3 || hex.length === 4) hex = hex.split("").map(c => c + c).join("")
-    if (hex.length !== 6 && hex.length !== 8) return { clearColor: undefined, clearAlpha: undefined }
-    const r = parseInt(hex.slice(0, 2), 16)
-    const g = parseInt(hex.slice(2, 4), 16)
-    const b = parseInt(hex.slice(4, 6), 16)
-    const a = hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1
-    return { clearColor: (r << 16) | (g << 8) | b, clearAlpha: a }
-  }
-
-  const rgbMatch = bg.match(/^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/i)
-  if (rgbMatch) {
-    const r = parseInt(rgbMatch[1])
-    const g = parseInt(rgbMatch[2])
-    const b = parseInt(rgbMatch[3])
-    const a = rgbMatch[4] !== undefined ? parseFloat(rgbMatch[4]) : 1
-    return { clearColor: (r << 16) | (g << 8) | b, clearAlpha: a }
-  }
-
-  return { clearColor: undefined, clearAlpha: undefined }
-}
-
 function adjustPathForFormat(filePath, format, explicitFormat) {
   if (!filePath || explicitFormat) return filePath
   const formatExt = format === "jpeg" ? "jpg" : format
@@ -789,7 +756,6 @@ function fitCameraToAspect(camera, aspect) {
 export async function renderModelScene(scene, camera, args) {
   const baseWidth = args?.width ?? 256
   const baseHeight = args?.height ?? 256
-  const { clearColor, clearAlpha } = parseBackground(args?.background)
 
   fitCameraToAspect(camera, baseWidth / baseHeight)
 
@@ -821,9 +787,8 @@ export async function renderModelScene(scene, camera, args) {
       path: finalPath,
       format: finalFormat,
       output: args?.output ?? OUTPUT_DEFAULTS[finalFormat],
-      clearColor,
-      clearAlpha,
-      colorSpace: THREE.LinearSRGBColorSpace,
+      background: args?.background,
+      colorSpace: THREE.LinearSRGBColorSpace
     })
     return args?.animated ? { buffer, format: "png" } : buffer
   }
@@ -908,8 +873,9 @@ export async function renderModelScene(scene, camera, args) {
   const renderer = new THREE.WebGLRenderer({ context: glCtx })
   renderer.setSize(width, height)
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace
-  if (clearColor !== undefined || clearAlpha !== undefined) {
-    renderer.setClearColor(clearColor ?? 0x000000, clearAlpha ?? 0)
+  if (args?.background != null) {
+    const parsed = THREE.headless.parseColor(args.background)
+    if (parsed) renderer.setClearColor(parsed.color, parsed.alpha)
   }
 
   camera.projectionMatrix.elements[5] *= -1
@@ -1884,11 +1850,11 @@ async function resolveSpecialModel(assets, data, base) {
 
 async function makeThreeTexture(img) {
   const texture = await loadTexture(img)
+  texture.colorSpace = THREE.NoColorSpace
   texture.magFilter = THREE.NearestFilter
   texture.minFilter = THREE.NearestFilter
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
-  texture.needsUpdate = true
   return texture
 }
 

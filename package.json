@@ -38,7 +38,7 @@
     "full": "npm run example && npm run all && npm run animated && npm run fixed && npm run overrides && npm run simple"
   },
   "dependencies": {
-    "headless-three": "^1.5.0",
+    "headless-three": "^1.8.0",
     "sharp": "^0.34.5",
     "skia-canvas": "^3.0.8"
   }
