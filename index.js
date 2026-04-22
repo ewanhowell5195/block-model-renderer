@@ -1889,8 +1889,17 @@ async function modelPassesAtlasRules(model, assets) {
   if (model.type !== "block" && model.type !== "item") return true
   if (model.ignore_atlas_restrictions) return true
   const textures = model.textures ?? {}
+  const usedSlots = new Set()
+  for (const el of model.elements ?? []) {
+    for (const face of Object.values(el.faces ?? {})) {
+      if (typeof face?.texture === "string" && face.texture.startsWith("#")) {
+        usedSlots.add(face.texture.slice(1))
+      }
+    }
+  }
   const entries = []
-  for (const [, value] of Object.entries(textures)) {
+  for (const slot of usedSlots) {
+    const value = textures[slot]
     if (typeof value !== "string" || !value || value.startsWith("#")) continue
     const { namespace, item } = resolveNamespace(value)
     entries.push(`assets/${namespace}/textures/${item}.png`)
