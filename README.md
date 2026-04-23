@@ -87,6 +87,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `animatedHeight` | Inherits from `height` | Height of the rendered output image when the output is animated, in pixels |
 | `animatedOutput` | | Options passed directly to the sharp encoder when the output is animated |
 | `maxAnimationFrames` | `4096` | Maximum number of frames in animated output. If a model's textures can't all loop cleanly within this many frames, the loop is truncated and shorter textures may get cut short |
+| `ignoreAtlases` | `false` | Render without enforcing texture atlas rules |
 | `background` | transparent | See [Background](#background) |
 
 Default display:
@@ -104,7 +105,7 @@ Renders an item by id using its item definition.
 | `assets` | `[]` | The assets source |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn) |
 | `display` | `{ type: "fallback", display: "gui" }` | Display transform. See [Display transforms](#display-transforms) |
-| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `background` | | Same as `renderBlock` |
+| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `background` | | Same as `renderBlock` |
 
 ### `renderModel(args)`
 
@@ -115,7 +116,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 | `model` | `{}` | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
 | `assets` | `[]` | The assets source |
 | `display` | Same as `renderBlock` | Display transform. See [Display transforms](#display-transforms) |
-| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `background` | | Same as `renderBlock` |
+| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `background` | | Same as `renderBlock` |
 
 ### Return value
 
@@ -128,9 +129,9 @@ All three render functions return:
 The `assets` option tells the renderer where to find resource pack files. It can be any of:
 
 * A **string**, a path to a resource pack folder on disk
-* A **prepared handle**, an array returned by `prepareAssets()`
 * A **virtual handler object**, see [Virtual handlers](#virtual-handlers)
 * An **array** of any combination of the above
+* **Prepared assets**, the return value of `prepareAssets()`
 
 When given an array, entries are checked in order: the first entry that has a file wins (higher-priority packs override lower-priority ones). This lets you layer packs on top of vanilla, just like Minecraft does.
 
@@ -308,6 +309,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `assets` | The assets source |
 | `id` | The blockstate id |
 | `args.data` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
+| `args.ignoreAtlases` | Skip atlas membership rules for the returned models |
 
 Returns a list of model references, one per matching model.
 
@@ -321,6 +323,7 @@ Resolves an item definition to a list of model references, walking conditions, s
 | `id` | The item id |
 | `args.data` | Item components used by the definition |
 | `args.display` | Display context, used by tint colour resolution |
+| `args.ignoreAtlases` | Skip atlas membership rules for the returned models |
 
 Returns a list of model references.
 
@@ -346,6 +349,8 @@ The returned camera has a `fitAspect = true` flag that tells `renderModelScene` 
 ### `loadModel(scene, assets, model, args?)`
 
 Adds a resolved model's geometry and materials to an existing scene.
+
+Atlas rules are enforced here: if `model.type` is `"block"` or `"item"` and `model.ignore_atlas_restrictions` isn't set, the model is replaced with the missing-model placeholder when any face texture is in the wrong atlas. Set `model.ignore_atlas_restrictions = true` on the model to bypass.
 
 | Argument | Description |
 |---|---|

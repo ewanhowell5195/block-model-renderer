@@ -660,7 +660,7 @@ export async function renderBlock(args = {}) {
   args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()
 
-  const models = await parseBlockstate(args.assets, args.id, { data: args.blockstates })
+  const models = await parseBlockstate(args.assets, args.id, { data: args.blockstates, ignoreAtlases: args.ignoreAtlases })
 
   for (const model of models) {
     const resolved = await resolveModelData(args.assets, model)
@@ -682,7 +682,7 @@ export async function renderItem(args = {}) {
   args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()
 
-  const models = await parseItemDefinition(args.assets, args.id, { data: args.components, display: args.display })
+  const models = await parseItemDefinition(args.assets, args.id, { data: args.components, display: args.display, ignoreAtlases: args.ignoreAtlases })
 
   for (const model of models) {
     const resolved = await resolveModelData(args.assets, model)
@@ -1069,7 +1069,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   const buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
 
   if (!buf) {
-    return [{ type: "block", model: "~missing" }]
+    return [{ type: "block", model: "~missing", ...(args?.ignoreAtlases && { ignore_atlas_restrictions: true }) }]
   }
 
   const json = JSON.parse(buf)
@@ -1178,6 +1178,7 @@ export async function parseBlockstate(assets, blockstate, args) {
     }
 
     model.type = "block"
+    if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
 
     if (COLORMAP_BLOCKS[block]) {
       const tint = await getColorMapTint(assets, COLORMAP_BLOCKS[block], 0.5, 1)
@@ -1248,7 +1249,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
 
   if (!buf) {
-    return [{ type: "item", model: "~missing" }]
+    return [{ type: "item", model: "~missing", ...(args?.ignoreAtlases && { ignore_atlas_restrictions: true }) }]
   }
 
   const json = JSON.parse(buf)
@@ -1259,6 +1260,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   for (let i = 0; i < models.length; i++) {
     const model = models[i]
     model.type = "item"
+    if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
     if (model.tints) {
       const tints = []
       for (const tint of model.tints) {
