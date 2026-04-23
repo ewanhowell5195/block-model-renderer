@@ -15,10 +15,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ewanhowell5195/BlockModelRenderer.git"
+    "url": "git+https://github.com/ewanhowell5195/block-model-renderer.git"
   },
   "bugs": {
-    "url": "https://github.com/ewanhowell5195/BlockModelRenderer/issues"
+    "url": "https://github.com/ewanhowell5195/block-model-renderer/issues"
   },
   "keywords": [
     "minecraft",
