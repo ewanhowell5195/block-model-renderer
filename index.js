@@ -153,6 +153,12 @@ const WATERLOGGABLE_EXACT = new Set([
   "soul_lantern", "sulfur_spike"
 ])
 
+export function isWaterloggable(block) {
+  if (!block) return false
+  const id = normalize(block)
+  return WATERLOGGABLE_EXACT.has(id) || WATERLOGGABLE_SUFFIXES.some(s => id.endsWith(s))
+}
+
 function parseColor(c) {
   if (typeof c === "string" && c.startsWith("#")) return c
   if (typeof c === "string") c = parseInt(c, 16)
@@ -1200,7 +1206,7 @@ export async function parseBlockstate(assets, blockstate, args) {
     }
   }
 
-  if (data?.waterlogged && (WATERLOGGABLE_EXACT.has(block) || WATERLOGGABLE_SUFFIXES.some(s => block.endsWith(s)))) {
+  if (data?.waterlogged && isWaterloggable(block)) {
     models.push({
       model: "minecraft:block/water",
       type: "block",

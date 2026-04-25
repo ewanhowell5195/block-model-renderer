@@ -422,6 +422,23 @@ const buffer = await renderModelScene(scene, camera, {
 })
 ```
 
+### `isWaterloggable(id)`
+
+Checks whether the renderer recognises a block id as waterloggable. When `true`, passing `{ waterlogged: true }` in the blockstate properties to `renderBlock` or `parseBlockstate` will add a water layer to the returned model. When `false`, the `waterlogged` property has no effect.
+
+| Argument | Description |
+|---|---|
+| `id` | The block id (e.g. `"oak_stairs"`, `"minecraft:lantern"`). Namespace optional |
+
+Returns `true` if the block is waterloggable, `false` otherwise.
+
+```js
+import { isWaterloggable } from "block-model-renderer"
+
+isWaterloggable("oak_stairs") // true
+isWaterloggable("stone")      // false
+```
+
 ## Custom extensions
 
 In a few places the renderer accepts fields that aren't part of vanilla Minecraft's model or item format. They exist because the renderer needs a way to pass data from blockstates down into models, apply arbitrary tints, mark models as double-sided, and a few other things vanilla doesn't expose. They're primarily used internally, but they're fully usable by you too. You can set these fields on your own models and blockstates to get the same behaviour.
