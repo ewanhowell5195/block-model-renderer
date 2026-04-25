@@ -348,18 +348,18 @@ The returned camera has a `fitAspect = true` flag that tells `renderModelScene` 
 
 ### `loadModel(scene, assets, model, args?)`
 
-Adds a resolved model's geometry and materials to an existing scene.
+Builds a resolved model's geometry and materials as a three.js group. If `scene` is non-null, the group is also added to it; pass `null` to just get the group back without touching any scene.
 
 Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` and `model.ignore_atlas_restrictions` isn't set, the model is replaced with the missing-model placeholder when any face texture is in the wrong atlas. Set `model.ignore_atlas_restrictions = true` on the model to bypass.
 
 | Argument | Description |
 |---|---|
-| `scene` | The three.js scene to add meshes to |
+| `scene` | The three.js scene to add the model to, or `null` to skip adding it |
 | `assets` | The assets source |
 | `model` | A resolved model (from `resolveModelData`) |
 | `args.display` | Display transform to apply to the model |
 
-Returns nothing.
+Returns a `THREE.Group` containing the loaded model.
 
 ### `renderModelScene(scene, camera, args?)`
 

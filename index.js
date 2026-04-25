@@ -2165,8 +2165,7 @@ export async function loadModel(scene, assets, model, args) {
       let { origin, axis, angle, x, y, z } = element.rotation
       if (!isNaN(angle) || axis) {
         if (isNaN(angle) || !axis) {
-          await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
-          return
+          return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
         }
       }
 
@@ -2235,7 +2234,7 @@ export async function loadModel(scene, assets, model, args) {
     }
   }
 
-  scene.add(rootGroup)
+  if (scene) scene.add(rootGroup)
 
   rootGroup.updateMatrixWorld(true)
   rootGroup.traverse(obj => {
@@ -2251,6 +2250,8 @@ export async function loadModel(scene, assets, model, args) {
       obj.renderOrder = maxZ
     }
   })
+
+  return rootGroup
 }
 
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig) {
