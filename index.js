@@ -666,7 +666,7 @@ export async function renderBlock(args = {}) {
   args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()
 
-  const models = await parseBlockstate(args.assets, args.id, { data: args.blockstates, ignoreAtlases: args.ignoreAtlases })
+  const models = await parseBlockstate(args.assets, args.id, { data: args.blockstates, ignoreAtlases: args.ignoreAtlases, version: args.version })
 
   for (const model of models) {
     const resolved = await resolveModelData(args.assets, model)
@@ -688,7 +688,7 @@ export async function renderItem(args = {}) {
   args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()
 
-  const models = await parseItemDefinition(args.assets, args.id, { data: args.components, display: args.display, ignoreAtlases: args.ignoreAtlases })
+  const models = await parseItemDefinition(args.assets, args.id, { data: args.components, display: args.display, ignoreAtlases: args.ignoreAtlases, version: args.version })
 
   for (const model of models) {
     const resolved = await resolveModelData(args.assets, model)
@@ -1075,7 +1075,10 @@ export async function parseBlockstate(assets, blockstate, args) {
   const buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
 
   if (!buf) {
-    return [{ type: "block", model: "~missing", ...(args?.ignoreAtlases && { ignore_atlas_restrictions: true }) }]
+    const m = { type: "block", model: "~missing" }
+    if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
+    if (args?.version) m.version = args.version
+    return [m]
   }
 
   const json = JSON.parse(buf)
@@ -1185,6 +1188,13 @@ export async function parseBlockstate(assets, blockstate, args) {
 
     model.type = "block"
     if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
+    if (args?.version) model.version = args.version
+    if (args?.version && isBefore(args.version, "1.13")) {
+      const i = model.model.indexOf(":") + 1
+      if (!model.model.slice(i).includes("/")) {
+        model.model = model.model.slice(0, i) + "block/" + model.model.slice(i)
+      }
+    }
 
     if (COLORMAP_BLOCKS[block]) {
       const tint = await getColorMapTint(assets, COLORMAP_BLOCKS[block], 0.5, 1)
@@ -1195,7 +1205,7 @@ export async function parseBlockstate(assets, blockstate, args) {
       model.tints = [FIXED_TINT_BLOCKS[block]]
     } else if (INDEXED_TINT_BLOCKS[block]) {
       const entry = INDEXED_TINT_BLOCKS[block]
-      model.tints = [entry.colors[data[entry.property] ?? entry.default]]
+      model.tints = [entry.colors[data[entry.property]] ?? entry.colors[entry.default]]
     }
 
     if (block === "end_portal" || block == "end_gateway") {
@@ -1255,7 +1265,10 @@ export async function parseItemDefinition(assets, itemId, args) {
   const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
 
   if (!buf) {
-    return [{ type: "item", model: "~missing", ...(args?.ignoreAtlases && { ignore_atlas_restrictions: true }) }]
+    const m = { type: "item", model: "~missing" }
+    if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
+    if (args?.version) m.version = args.version
+    return [m]
   }
 
   const json = JSON.parse(buf)
@@ -1267,6 +1280,7 @@ export async function parseItemDefinition(assets, itemId, args) {
     const model = models[i]
     model.type = "item"
     if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
+    if (args?.version) model.version = args.version
     if (model.tints) {
       const tints = []
       for (const tint of model.tints) {
@@ -1884,9 +1898,23 @@ async function makeThreeTexture(img) {
   return texture
 }
 
+function isBefore(version, target) {
+  const parse = s => s.split("-")[0].split(".").map(n => +n || 0)
+  const a = parse(version), b = parse(target)
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const av = a[i] ?? 0, bv = b[i] ?? 0
+    if (av !== bv) return av < bv
+  }
+  return false
+}
+
+function shouldIgnoreAtlases(model) {
+  return model.ignore_atlas_restrictions || (model.version && isBefore(model.version, "1.19.3"))
+}
+
 async function modelPassesAtlasRules(model, assets) {
   if (model.type !== "block" && model.type !== "item") return true
-  if (model.ignore_atlas_restrictions) return true
+  if (shouldIgnoreAtlases(model)) return true
   const textures = model.textures ?? {}
   const usedSlots = new Set()
   for (const el of model.elements ?? []) {
@@ -1926,6 +1954,7 @@ async function modelPassesAtlasRules(model, assets) {
 
 export async function loadModel(scene, assets, model, args) {
   const display = args?.display ?? "gui"
+  if (args?.version && !model.version) model.version = args.version
   assets = await prepareAssets(assets)
 
   if (!(await modelPassesAtlasRules(model, assets))) {
@@ -1948,7 +1977,7 @@ export async function loadModel(scene, assets, model, args) {
     let loaded
     if (id) {
       const path = resolveTexturePath(id)
-      loaded = await loadMinecraftTexture(path, assets, model.ignore_atlas_restrictions ? undefined : model.type)
+      loaded = await loadMinecraftTexture(path, assets, shouldIgnoreAtlases(model) ? undefined : model.type)
     } else {
       loaded = { image: await getMissingImage(assets) }
     }

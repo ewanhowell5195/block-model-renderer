@@ -88,6 +88,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `animatedOutput` | | Options passed directly to the sharp encoder when the output is animated |
 | `maxAnimationFrames` | `4096` | Maximum number of frames in animated output. If a model's textures can't all loop cleanly within this many frames, the loop is truncated and shorter textures may get cut short |
 | `ignoreAtlases` | `false` | Render without enforcing texture atlas rules |
+| `version` | | Minecraft version the assets are for. Enables era-appropriate behaviour (see [Legacy Minecraft versions](#legacy-minecraft-versions)) |
 | `background` | transparent | See [Background](#background) |
 
 Default display:
@@ -105,7 +106,7 @@ Renders an item by id using its item definition.
 | `assets` | `[]` | The assets source |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn) |
 | `display` | `{ type: "fallback", display: "gui" }` | Display transform. See [Display transforms](#display-transforms) |
-| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `background` | | Same as `renderBlock` |
+| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `version`, `background` | | Same as `renderBlock` |
 
 ### `renderModel(args)`
 
@@ -116,7 +117,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 | `model` | `{}` | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
 | `assets` | `[]` | The assets source |
 | `display` | Same as `renderBlock` | Display transform. See [Display transforms](#display-transforms) |
-| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `background` | | Same as `renderBlock` |
+| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `version`, `background` | | Same as `renderBlock` |
 
 ### Return value
 
@@ -296,6 +297,27 @@ display: {
 }
 ```
 
+## Legacy Minecraft versions
+
+The `version` option tells the renderer what Minecraft version the assets are for, so it can apply era-appropriate behaviour automatically. Older versions had quirks that modern ones don't, and this lets the renderer handle them transparently.
+
+```js
+await renderBlock({
+  id: "cactus",
+  assets,
+  version: "1.8.9",
+  path: "cactus.png"
+})
+```
+
+`version` accepts release-style version strings like `"1.8"`, `"1.16.5"`, or `"26.1.2"`. Trailing segments are optional and treated as `0` (so `"26"` compares as `"26.0.0"`). Anything after a `-` is ignored, so snapshot, pre-release, and release-candidate suffixes work too: `"1.21-pre1"`, `"1.21-rc2"`, `"26.1.2-snapshot-2"`.
+
+Currently triggered behaviours:
+- **Pre-1.13**: prepends `block/` to bare blockstate model refs (e.g. `"model": "cactus"` resolves to `block/cactus`, matching the implicit prefix the game used before the 1.13 flattening)
+- **Pre-1.19.3**: skips texture atlas membership rules (atlases didn't exist yet)
+
+The option is accepted by every entry point (`renderBlock`, `renderItem`, `renderModel`, `parseBlockstate`, `parseItemDefinition`, `loadModel`) and is also propagated onto model objects as `model.version`, so manually constructed models can carry it through too.
+
 ## Low-level API
 
 For custom rendering pipelines, lower-level functions are available.
@@ -310,6 +332,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `id` | The blockstate id |
 | `args.data` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
+| `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](#legacy-minecraft-versions) |
 
 Returns a list of model references, one per matching model.
 
@@ -324,6 +347,7 @@ Resolves an item definition to a list of model references, walking conditions, s
 | `args.data` | Item components used by the definition |
 | `args.display` | Display context, used by tint colour resolution |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
+| `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](#legacy-minecraft-versions) |
 
 Returns a list of model references.
 
@@ -358,6 +382,7 @@ Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` 
 | `assets` | The assets source |
 | `model` | A resolved model (from `resolveModelData`) |
 | `args.display` | Display transform to apply to the model |
+| `args.version` | Minecraft version the assets are for. Sets `model.version` if not already present. See [Legacy Minecraft versions](#legacy-minecraft-versions) |
 
 Returns a `THREE.Group` containing the loaded model.
 
@@ -458,6 +483,7 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 | `shader` | `{ type: "end_portal", layers: 15 }` | Apply the end portal / end gateway shader to the model |
 | `type` | `"block"`, `"item"` | Which texture atlas rules to enforce. Block-type models use only the manually provided display settings. Model-defined displays are ignored since they are meant to apply to items, not blocks |
 | `ignore_atlas_restrictions` | `true` | Skip texture atlas membership checks for this model, letting it reference textures from any atlas |
+| `version` | `"1.8.9"` | Minecraft version the model is for. Enables era-appropriate behaviour, see [Legacy Minecraft versions](#legacy-minecraft-versions) |
 
 ### Blockstate JSON
 
