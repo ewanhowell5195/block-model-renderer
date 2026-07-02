@@ -3,7 +3,7 @@ import fs from "node:fs"
 import path from "node:path"
 
 const assets = await prepareAssets([
-  "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-3"
+  "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2"
 ])
 const outputDir = `${import.meta.dirname}/renders/animated`
 const blockDisplay = {

@@ -1,7 +1,7 @@
 import { renderModel } from "../index.js"
 import fs from "node:fs"
 
-const packRoot = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-3"
+const packRoot = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2"
 
 fs.mkdirSync(`${import.meta.dirname}/renders/fixed`, { recursive: true })
 
