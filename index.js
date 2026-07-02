@@ -2276,13 +2276,18 @@ export async function loadModel(scene, assets, model, args) {
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig) {
   if (shader?.type === "end_portal") {
     const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
+    const skyTexture = await makeThreeTexture(await loadImage(skyBuf))
+    for (const t of [skyTexture, texture]) {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping
+      t.needsUpdate = true
+    }
     return new THREE.ShaderMaterial({
       uniforms: {
         GameTime: {
           value: 0.727
         },
         Sampler0: {
-          value: await makeThreeTexture(await loadImage(skyBuf))
+          value: skyTexture
         },
         Sampler1: {
           value: texture
