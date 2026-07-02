@@ -13,7 +13,7 @@ Render any block, item, or custom model JSON to an image, with full support for 
 * Animated textures with WebP and GIF output
 * Stack multiple resource packs with higher ones overriding lower ones, just like in Minecraft
 * Virtual asset handlers, serve files from memory, zips, HTTP, anywhere
-* Bundled overrides for block entities that Minecraft renders dynamically (signs, banners, chests, heads, and more)
+* Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, and more)
 * PNG, JPEG, WebP, GIF, and AVIF output
 
 ## Install
@@ -209,7 +209,6 @@ The following categories are covered:
 * End Portal & End Gateway
 * Mob Heads and Skulls
 * Shulker boxes
-* Signs
 * Water & Lava
 * Technical blocks (barrier, light, structure void, moving piston)
 

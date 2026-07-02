@@ -1,6 +1,0 @@
-{
-  "parent": "~block/sign/_template_hanging_sign_attached",
-  "textures": {
-    "sign": "entity/signs/hanging/acacia"
-  }
-}

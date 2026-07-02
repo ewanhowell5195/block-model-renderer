@@ -1,6 +1,0 @@
-{
-  "parent": "~block/sign/_template_wall_sign",
-  "textures": {
-    "sign": "entity/signs/spruce"
-  }
-}

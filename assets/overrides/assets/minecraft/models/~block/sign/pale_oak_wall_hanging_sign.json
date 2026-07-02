@@ -1,6 +1,0 @@
-{
-  "parent": "~block/sign/_template_wall_hanging_sign",
-  "textures": {
-    "sign": "entity/signs/hanging/pale_oak"
-  }
-}

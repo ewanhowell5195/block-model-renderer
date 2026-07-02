@@ -1794,10 +1794,6 @@ async function resolveSpecialModel(assets, data, base) {
 
   if (data.type === "head") {
     data.type = `${data.kind}_${data.kind.includes("skeleton") ? "skull" : "head"}`
-  } else if (data.type === "standing_sign" && data.attachement) {
-    data.type = `standing_sign_${data.attachement}`
-  } else if (data.type === "hanging_sign" && data.attachment) {
-    data.type = `hanging_sign_${data.attachment}`
   }
 
   let modelPath
@@ -1825,12 +1821,6 @@ async function resolveSpecialModel(assets, data, base) {
       rotation = [0, 0, 180]
       scale = [1.5, 1.5, 1.5]
       model.tints = [COLOURS.dye[data.color]]
-      break
-    case "standing_sign":
-      model.textures = { sign: data.texture ? normalize(data.texture) : `entity/signs/${normalize(data.wood_type)}` }
-      break
-    case "hanging_sign":
-      model.textures = { sign: data.texture ? normalize(data.texture) : `entity/signs/hanging/${normalize(data.wood_type)}` }
       break
     case "chest": {
       rotation = [0, 180, 0]
