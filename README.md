@@ -253,6 +253,8 @@ document.body.append(player.canvas)
 
 The player keeps painting frames into its canvas on Minecraft's 50ms tick clock. All players share one page-global clock (everything stays in phase, like game time) and one rAF scheduler, and pause automatically while offscreen via IntersectionObserver (opt out with `pauseOffscreen: false`).
 
+To freeze everything at once, pause the clock itself with `pauseAnimations()` and continue with `resumeAnimations()`. Unlike `player.pause()` (which snaps back onto the running clock when resumed, to stay in phase with everything else), pausing the clock resumes seamlessly from the frozen moment: every player and `loadModel` scene picks up exactly where it stopped, still in phase with each other.
+
 | Member | Description |
 |---|---|
 | `canvas` | The canvas being painted (the one you passed, or a new one) |
@@ -330,6 +332,7 @@ The bundled block entity overrides are fetched once as a single `assets.zip` res
 | `configure({ three, assetsUrl })` | Optional overrides, call before first use |
 | `getThree()` | Resolves and returns the three instance the library uses |
 | `THREE` | The same instance as a live binding (populated after first use) |
+| `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. See [Animated renders](#animated-renders) |
 
 `makeModelScene()` is async on web (three resolves lazily), unlike Node where it's sync.
 

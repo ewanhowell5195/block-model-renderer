@@ -179,7 +179,20 @@ function blit(target, source, width, height, snapshot) {
 }
 
 const players = new Set()
-const epoch = typeof performance !== "undefined" ? performance.now() : 0
+let epoch = typeof performance !== "undefined" ? performance.now() : 0
+let clockPausedAt = null
+const clockNow = () => (clockPausedAt ?? performance.now()) - epoch
+
+export function pauseAnimations() {
+  clockPausedAt ??= performance.now()
+}
+
+export function resumeAnimations() {
+  if (clockPausedAt === null) return
+  epoch += performance.now() - clockPausedAt
+  clockPausedAt = null
+}
+
 let rafId = null
 
 const FRAME_BUDGET_MS = 8
@@ -189,7 +202,7 @@ let queueTick = null
 function schedulerLoop() {
   rafId = null
   const now = performance.now()
-  const tick = (now - epoch) / 50
+  const tick = clockNow() / 50
   const whole = Math.floor(tick)
 
   if (whole !== queueTick) {
@@ -386,7 +399,7 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
   }
 
   if (player.animated) {
-    evaluate(Math.floor((performance.now() - epoch) / 50))
+    evaluate(Math.floor(clockNow() / 50))
     draw()
     players.add(player)
     player.play()
@@ -527,7 +540,7 @@ function attachAutoAnimation(root) {
   if (!textures.length && !shaders.length) return
   const schedules = buildSchedules(textures)
   root.traverse(obj => {
-    if (obj.isMesh) obj.onBeforeRender = () => evaluateAnimation(schedules, shaders, (performance.now() - epoch) / 50)
+    if (obj.isMesh) obj.onBeforeRender = () => evaluateAnimation(schedules, shaders, clockNow() / 50)
   })
 }
 export const zipAssets = wrap("zipAssets")
@@ -544,7 +557,7 @@ export function createAnimator(root) {
   return {
     get animated() { return schedules.length > 0 || shaders.length > 0 },
     update(timeMs) {
-      const tick = (timeMs ?? performance.now() - epoch) / 50
+      const tick = (timeMs ?? clockNow()) / 50
       return evaluateAnimation(schedules, shaders, tick)
     }
   }
