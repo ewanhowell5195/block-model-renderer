@@ -762,34 +762,39 @@ export async function resolveModelData(assets, model) {
             }
           })
 
+          const addRun = (face, x1, y1, x2, y2, u1, v1, u2, v2) => merged.elements.push({
+            from: [x1, y1, 8 - depth / 2],
+            to: [x2, y2, 8 + depth / 2],
+            faces: { [face]: { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex } }
+          })
+
           for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-              if (!isOpaque(x, y)) continue
+            for (const [face, dy] of [["up", -1], ["down", 1]]) {
+              let start = -1
+              for (let x = 0; x <= width; x++) {
+                const edge = x < width && isOpaque(x, y) && !isOpaque(x, y + dy)
+                if (edge && start === -1) start = x
+                else if (!edge && start !== -1) {
+                  addRun(face, start * depth, 16 - (y + 1) * depth, x * depth, 16 - y * depth,
+                    start / width * 16, y / height * 16, x / width * 16, (y + 1) / height * 16)
+                  start = -1
+                }
+              }
+            }
+          }
 
-              const x1 = x * depth
-              const y1 = 16 - (y + 1) * depth
-              const x2 = x1 + depth
-              const y2 = y1 + depth
-
-              const u1 = x / width * 16
-              const v1 = y / height * 16
-              const u2 = (x + 1) / width * 16
-              const v2 = (y + 1) / height * 16
-
-              const faces = {}
-
-              if (!isOpaque(x, y - 1)) faces.up = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-              if (!isOpaque(x, y + 1)) faces.down = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-              if (!isOpaque(x - 1, y)) faces.west = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-              if (!isOpaque(x + 1, y)) faces.east = { texture: texId, uv: [u1, v1, u2, v2], tintindex: tintIndex }
-
-              if (!Object.keys(faces).length) continue
-
-              merged.elements.push({
-                from: [x1, y1, 8 - depth / 2],
-                to: [x2, y2, 8 + depth / 2],
-                faces: faces
-              })
+          for (let x = 0; x < width; x++) {
+            for (const [face, dx] of [["west", -1], ["east", 1]]) {
+              let start = -1
+              for (let y = 0; y <= height; y++) {
+                const edge = y < height && isOpaque(x, y) && !isOpaque(x + dx, y)
+                if (edge && start === -1) start = y
+                else if (!edge && start !== -1) {
+                  addRun(face, x * depth, 16 - y * depth, (x + 1) * depth, 16 - start * depth,
+                    x / width * 16, start / height * 16, (x + 1) / width * 16, y / height * 16)
+                  start = -1
+                }
+              }
             }
           }
         }
