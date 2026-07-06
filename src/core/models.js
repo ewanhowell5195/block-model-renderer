@@ -585,6 +585,16 @@ function applyTint(img, tint) {
   return canvas
 }
 
+export function isCrossModel(models) {
+  const elements = (Array.isArray(models) ? models : [models]).flatMap(m => m?.elements ?? [])
+  return elements.length > 0 && elements.every(el => {
+    const r = el.rotation
+    if (!r) return false
+    const y = r.axis ? (r.axis === "y" ? r.angle : null) : (r.x || r.z ? null : r.y ?? null)
+    return y != null && (((y % 90) + 90) % 90) === 45
+  })
+}
+
 export async function resolveModelData(assets, model) {
   assets = await prepareAssets(assets)
 

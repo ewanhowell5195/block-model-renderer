@@ -744,6 +744,29 @@ isWaterloggable("oak_stairs") // true
 isWaterloggable("stone")      // false
 ```
 
+### `isCrossModel(models)`
+
+Checks whether resolved model data is a cross model (flowers, saplings, cobwebs: flat planes rotated 45° around Y). Takes one resolved model or an array of them and returns `true` when every element sits on the diagonal. Cross models render edge-on at the standard gui angle, so rotate the display 45° when this hits:
+
+```js
+import { parseBlockstate, resolveModelData, isCrossModel } from "block-model-renderer"
+
+const resolved = []
+for (const model of await parseBlockstate(assets, "fern")) {
+  resolved.push(await resolveModelData(assets, model))
+}
+
+await renderBlock({
+  id: "fern",
+  assets,
+  path: "fern.png",
+  display: {
+    rotation: [30, isCrossModel(resolved) ? 180 : 225, 0],
+    scale: [0.625, 0.625, 0.625]
+  }
+})
+```
+
 ## Custom extensions
 
 In a few places the renderer accepts fields that aren't part of vanilla Minecraft's model or item format: ways to pass data from blockstates into models, apply arbitrary tints, mark models double-sided, and a few other things vanilla doesn't expose. They're used internally, but you can set them on your own models and blockstates too.

@@ -142,7 +142,7 @@ export {
   COLOURS, isWaterloggable, getCullFaces, prepareAssets, disposeCache, listDirectory, readFile,
   renderBlock, renderItem, renderModel,
   makeModelScene, renderModelScene,
-  parseBlockstate, parseItemDefinition, resolveModelData, loadModel,
+  parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel,
   zipAssets
 } from "./core.js"
 export { parseZip } from "./zip.js"

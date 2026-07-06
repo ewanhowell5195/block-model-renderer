@@ -563,4 +563,4 @@ export function createAnimator(root) {
   }
 }
 
-export { COLOURS, isWaterloggable, disposeCache } from "./core.js"
+export { COLOURS, isWaterloggable, isCrossModel, disposeCache } from "./core.js"
