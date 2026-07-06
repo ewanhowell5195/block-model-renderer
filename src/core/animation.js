@@ -84,7 +84,7 @@ export function buildAnimation(image, meta) {
     const sx = (i % cols) * cropW
     const sy = Math.floor(i / cols) * cropH
     const canvas = new Canvas(cropW, cropH)
-    const ctx = canvas.getContext("2d")
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })
     ctx.drawImage(image, sx, sy, cropW, cropH, 0, 0, cropW, cropH)
     stripFrames.push(canvas)
   }
@@ -209,8 +209,8 @@ export function evaluateAnimation(schedules, shaders, tickTime) {
 export function interpolateFrames(a, b, ratio) {
   const canvas = new Canvas(a.width, a.height)
   const ctx = canvas.getContext("2d")
-  const da = a.getContext("2d").getImageData(0, 0, a.width, a.height).data
-  const db = b.getContext("2d").getImageData(0, 0, b.width, b.height).data
+  const da = a.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, a.width, a.height).data
+  const db = b.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, b.width, b.height).data
   const out = ctx.createImageData(a.width, a.height)
   const inv = 1 - ratio
   for (let i = 0; i < out.data.length; i += 4) {
