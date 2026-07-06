@@ -155,6 +155,21 @@ export function disposeCache(assets) {
   c.occlusion.clear()
 }
 
+export async function readFileAll(file, assets) {
+  assets = await prepareAssets(assets)
+  const found = []
+  for (let i = 0; i < assets.length; i++) {
+    const entry = assets[i]
+    if (!entry.read) continue
+    if (await isFilteredByHigher(assets, i, file)) continue
+    try {
+      const data = await entry.read(file)
+      if (data !== undefined && data !== null && data !== false) found.push(toBytes(data))
+    } catch {}
+  }
+  return found
+}
+
 async function readEntryText(entry, file) {
   if (!entry.read) return null
   try {

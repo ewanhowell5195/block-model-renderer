@@ -806,6 +806,34 @@ Extra fields that can be passed through the `components` arg on `renderItem`, or
 
 Any future non-component select properties vanilla adds will work without renderer updates. The renderer looks up the property by name in `components` and checks whether its value equals any of the select's listed cases, so as long as the property is a plain string and you pass it in `components`, it resolves correctly.
 
+### Default blockstates
+
+Blockstate properties you don't pass to `renderBlock` fall back to sensible defaults (stairs face the camera, campfires are lit, mushroom blocks show caps on all sides). The defaults merge with whatever `blockstates` you do provide, per property. Those rules live in a pack file, so any pack can extend or override them by shipping its own:
+
+```
+assets/block-model-renderer/default_blockstates.json
+```
+
+```json
+{
+  "properties": {
+    "facing": "north",
+    "half": ["bottom", "lower"]
+  },
+  "blocks": [
+    { "match": "*_stairs|*_glazed_terracotta", "defaults": { "facing": "south" } },
+    { "match": "my_mod_block", "defaults": { "open": true } }
+  ]
+}
+```
+
+* `properties` are per-property fallbacks used for any block. A value can be an array of candidates tried in order (the first one the blockstate actually has wins)
+* `blocks` is an ordered rule list. `match` matches block ids with `*` wildcards and `|` alternatives; the first matching rule's `defaults` are used whole
+* Files from every pack merge, higher packs win: per property for `properties`, and higher packs' rules go first for `blocks` (a matching rule in a higher pack completely replaces lower ones)
+* The library's own rules ship in its bundled fallback pack at the very bottom of the stack, so anything a pack defines beats them
+
+Lookup order for a property: the `blockstates` option → the first matching `blocks` rule → `properties`.
+
 ## License
 
 MIT © [Ewan Howell](https://ewanhowell.com/)

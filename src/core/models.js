@@ -1,6 +1,6 @@
 import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { COLOURS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, parseColor, getPotionColor } from "./colours.js"
-import { prepareAssets, readFile, getMissingImage, getAtlasesContaining } from "./assets.js"
+import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
 
 const X_CYCLE = { north: "up", up: "south", south: "down", down: "north" }
@@ -34,99 +34,36 @@ function composeTransformations(parent, child) {
   return new THREE.Matrix4().copy(parent).multiply(child)
 }
 
-const DEFAULT_BLOCKSTATES = {
-  facing: "north",
-  half: ["bottom", "lower"],
-  attachment: "floor",
-  shape: ["straight", "north_south"],
-  age: [7, 6, 5, 4, 3, 2, 1, 0],
-  tilt: "none",
-  north: false,
-  east: false,
-  south: false,
-  west: false,
-  axis: "y",
-  face: "wall",
-  orientation: "north_up",
-  powered: false,
-  segment_amount: 4,
-  flower_amount: 4,
-  rotation: 8,
-  lit: false
+async function defaultBlockstates(assets) {
+  return assets.defaultBlockstates ??= (async () => {
+    const properties = {}
+    const rules = []
+    for (const buf of await readFileAll("assets/block-model-renderer/default_blockstates.json", assets)) {
+      let json
+      try { json = parseJson(buf) } catch { continue }
+      for (const [key, value] of Object.entries(json.properties ?? {})) {
+        if (!(key in properties)) properties[key] = value
+      }
+      for (const rule of json.blocks ?? []) {
+        if (!rule?.match || !rule.defaults) continue
+        rules.push({
+          patterns: rule.match.split("|").map(pattern => new RegExp("^" + pattern.replace(/\*/g, ".*") + "$")),
+          value: rule.defaults
+        })
+      }
+    }
+    const matched = new Map()
+    const unique = block => {
+      let hit = matched.get(block)
+      if (hit === undefined) {
+        hit = rules.find(rule => rule.patterns.some(regex => regex.test(block)))?.value ?? {}
+        matched.set(block, hit)
+      }
+      return hit
+    }
+    return { properties, unique }
+  })()
 }
-
-const UNIQUE_DEFAULT_BLOCKSTATES = {
-  "*_mushroom_block|mushroom_stem": {
-    north: true,
-    east: true,
-    south: true,
-    west: true
-  },
-  "*_stairs|*_glazed_terracotta|cocoa|repeater|comparator": {
-    facing: "south"
-  },
-  "*_amethyst_bud|amethyst_cluster|barrel|end_rod|*lightning_rod|*piston*|*shulker_box": {
-    facing: "up"
-  },
-  "*campfire|redstone_torch|redstone_wall_torch": {
-    lit: true
-  },
-  "glow_lichen|sculk_vein|resin_clump|chorus_plant": {
-    up: false,
-    down: true
-  },
-  grindstone: {
-    face: "floor"
-  },
-  vine: {
-    south: true
-  },
-  hopper: {
-    facing: "down"
-  },
-  brewing_stand: {
-    has_bottle_0: false,
-    has_bottle_1: false,
-    has_bottle_2: false
-  },
-  redstone_wire: {
-    north: "side",
-    south: "side",
-    east: "side",
-    west: "side",
-    power: 0
-  },
-  "*cauldron": {
-    level: 3
-  },
-  "*_bed": {
-    part: "foot",
-    facing: "south"
-  },
-  chiseled_bookshelf: {
-    slot_0_occupied: false,
-    slot_1_occupied: false,
-    slot_2_occupied: false,
-    slot_3_occupied: false,
-    slot_4_occupied: false,
-    slot_5_occupied: false
-  },
-  "*_leaves": {
-    persistent: false,
-    distance: 1
-  },
-  "bamboo": {
-    "leaves": "none"
-  },
-  "light": {
-    level: 15
-  }
-}
-
-const UNIQUE_DEFAULT_PATTERNS = Object.entries(UNIQUE_DEFAULT_BLOCKSTATES).map(([key, value]) => ({
-  patterns: key.split("|").map(pattern => new RegExp("^" + pattern.replace(/\*/g, ".*") + "$")),
-  value
-}))
 
 function getMultipartDefaults(multipart) {
   const first = {}
@@ -142,17 +79,10 @@ function getMultipartDefaults(multipart) {
   return first
 }
 
-function getUniqueDefault(blockstate) {
-  if (UNIQUE_DEFAULT_BLOCKSTATES[blockstate]) return UNIQUE_DEFAULT_BLOCKSTATES[blockstate]
-  for (const { patterns, value } of UNIQUE_DEFAULT_PATTERNS) {
-    if (patterns.some(regex => regex.test(blockstate))) return value
-  }
-  return {}
-}
-
 export async function parseBlockstate(assets, blockstate, args) {
   const data = args?.data ?? {}
   assets = await prepareAssets(assets)
+  const defaults = await defaultBlockstates(assets)
 
   const { namespace, item: block } = resolveNamespace(blockstate)
 
@@ -180,7 +110,7 @@ export async function parseBlockstate(assets, blockstate, args) {
         const parts = key.split(",").map(s => s.trim())
         score = parts.reduce((acc, part) => {
           const [k, v] = part.split("=")
-          const raw = data[k] ?? getUniqueDefault(blockstate)[k] ?? DEFAULT_BLOCKSTATES[k]
+          const raw = data[k] ?? defaults.unique(blockstate)[k] ?? defaults.properties[k]
           const actuals = Array.isArray(raw) ? raw.map(e => e.toString()) : [raw?.toString()]
           const index = actuals.indexOf(v)
           if (index === -1) return acc
@@ -215,7 +145,7 @@ export async function parseBlockstate(assets, blockstate, args) {
       for (const cond of conds) {
         const matches = Object.entries(cond).every(([k, v]) => {
           const allowed = v.toString().split("|")
-          const raw = data[k] ?? getUniqueDefault(blockstate)[k] ?? DEFAULT_BLOCKSTATES[k] ?? multipartDefaults[k]
+          const raw = data[k] ?? defaults.unique(blockstate)[k] ?? defaults.properties[k] ?? multipartDefaults[k]
           let actuals
           if (Array.isArray(raw)) {
             actuals = raw.map(e => e.toString())
