@@ -1,4 +1,4 @@
-import { renderBlock, renderItem, renderModel, prepareAssets } from "../index.js"
+import { renderBlock, renderItem, renderModel, prepareAssets } from "../../index.js"
 import fs from "node:fs"
 
 const assets = await prepareAssets([

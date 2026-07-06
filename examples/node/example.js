@@ -2,7 +2,7 @@ import {
   renderBlock, renderItem, renderModel, prepareAssets,
   makeModelScene, renderModelScene,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel
-} from "../index.js"
+} from "../../index.js"
 import fs from "node:fs"
 import sharp from "sharp"
 

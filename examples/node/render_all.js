@@ -1,11 +1,11 @@
-import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets } from "../index.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets } from "../../index.js"
 import fs from "node:fs"
 import path from "node:path"
 
 const assets = await prepareAssets([
   "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2"
 ])
-const outputDir = `${import.meta.dirname}/renders/overrides`
+const outputDir = `${import.meta.dirname}/renders/all`
 const blockDisplay = {
   rotation: [30, 225, 0],
   scale: [0.625, 0.625, 0.625]
@@ -26,36 +26,26 @@ async function processChunk(files, handler) {
   }
 }
 
-const skip = file => ["air.json", "cave_air.json", "void_air.json"].includes(file)
-
 async function handleBlock(file) {
-  if (skip(file)) return
   const modelId = path.basename(file, ".json")
   const { scene, camera } = makeModelScene()
   const models = await parseBlockstate(assets, modelId)
-  let override
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    if (resolved.overridden || !resolved.elements) override = true
     await loadModel(scene, assets, resolved, { display: blockDisplay })
   }
-  if (!override) return
   await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png`, animated: true })
   console.log("Done block", modelId)
 }
 
 async function handleItem(file) {
-  if (skip(file)) return
   const modelId = path.basename(file, ".json")
   const { scene, camera } = makeModelScene()
   const models = await parseItemDefinition(assets, modelId, { display: itemDisplay })
-  let override
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    if (resolved.overridden || !resolved.elements) override = true
     await loadModel(scene, assets, resolved, { display: itemDisplay })
   }
-  if (!override) return
   await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png`, animated: true })
   console.log("Done item", modelId)
 }

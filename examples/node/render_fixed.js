@@ -1,4 +1,4 @@
-import { renderModel } from "../index.js"
+import { renderModel } from "../../index.js"
 import fs from "node:fs"
 
 const packRoot = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2"

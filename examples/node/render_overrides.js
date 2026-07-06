@@ -1,11 +1,11 @@
-import { listDirectory, readFile, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets } from "../index.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets } from "../../index.js"
 import fs from "node:fs"
 import path from "node:path"
 
 const assets = await prepareAssets([
   "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2"
 ])
-const outputDir = `${import.meta.dirname}/renders/animated`
+const outputDir = `${import.meta.dirname}/renders/overrides`
 const blockDisplay = {
   rotation: [30, 225, 0],
   scale: [0.625, 0.625, 0.625]
@@ -26,59 +26,36 @@ async function processChunk(files, handler) {
   }
 }
 
-async function hasAnimatedTexture(resolved) {
-  if (!resolved?.textures) return false
-  for (const value of Object.values(resolved.textures)) {
-    if (typeof value !== "string" || value.startsWith("#")) continue
-    const base = `assets/minecraft/textures/${value.replace(/^minecraft:/, "")}.png`
-    const png = await readFile(base, assets)
-    if (!png) continue
-    const mcmeta = await readFile(`${base}.mcmeta`, assets, png.hintIndex)
-    if (!mcmeta) continue
-    try {
-      const meta = JSON.parse(mcmeta)
-      if (meta.animation) return true
-    } catch {}
-  }
-  return false
-}
+const skip = file => ["air.json", "cave_air.json", "void_air.json"].includes(file)
 
 async function handleBlock(file) {
+  if (skip(file)) return
   const modelId = path.basename(file, ".json")
+  const { scene, camera } = makeModelScene()
   const models = await parseBlockstate(assets, modelId)
-  let animated = false
-  const resolvedModels = []
+  let override
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    resolvedModels.push(resolved)
-    if (await hasAnimatedTexture(resolved)) animated = true
-  }
-  if (!animated) return
-
-  const { scene, camera } = makeModelScene()
-  for (const resolved of resolvedModels) {
+    if (resolved.overridden || !resolved.elements) override = true
     await loadModel(scene, assets, resolved, { display: blockDisplay })
   }
+  if (!override) return
   await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png`, animated: true })
   console.log("Done block", modelId)
 }
 
 async function handleItem(file) {
+  if (skip(file)) return
   const modelId = path.basename(file, ".json")
+  const { scene, camera } = makeModelScene()
   const models = await parseItemDefinition(assets, modelId, { display: itemDisplay })
-  let animated = false
-  const resolvedModels = []
+  let override
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    resolvedModels.push(resolved)
-    if (await hasAnimatedTexture(resolved)) animated = true
-  }
-  if (!animated) return
-
-  const { scene, camera } = makeModelScene()
-  for (const resolved of resolvedModels) {
+    if (resolved.overridden || !resolved.elements) override = true
     await loadModel(scene, assets, resolved, { display: itemDisplay })
   }
+  if (!override) return
   await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png`, animated: true })
   console.log("Done item", modelId)
 }
