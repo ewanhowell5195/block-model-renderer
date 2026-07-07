@@ -6,7 +6,7 @@ import {
 import fs from "node:fs"
 import sharp from "sharp"
 
-const vanillaPackPath = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.2-snapshot-3"
+const vanillaPackPath = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.3-snapshot-3"
 const assets = await prepareAssets(vanillaPackPath)
 
 const outDir = `${import.meta.dirname}/renders/example`
