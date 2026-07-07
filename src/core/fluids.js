@@ -116,7 +116,15 @@ export async function fluidHeights(assets, type, getBlock) {
     west: await overlayAt(-1, 0),
     east: await overlayAt(1, 0)
   }
-  return { nw, ne, sw, se, full: self >= 1, angle, overlay }
+  const same = {
+    north: typeAt(0, 0, -1) === type,
+    south: typeAt(0, 0, 1) === type,
+    west: typeAt(-1, 0, 0) === type,
+    east: typeAt(1, 0, 0) === type,
+    up: typeAt(0, 1, 0) === type,
+    down: typeAt(0, -1, 0) === type
+  }
+  return { nw, ne, sw, se, full: self >= 1, angle, overlay, same }
 }
 
 const FACE_AXES = { west: [0, 0], east: [0, 16], north: [2, 0], south: [2, 16] }

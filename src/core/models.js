@@ -1086,6 +1086,13 @@ export async function loadModel(scene, assets, model, args) {
       for (const [corner, [fu, fv]] of Object.entries(flowUV)) uv.setXY(vertIdx[corner], fu, 1 - fv)
     }
     uv.needsUpdate = true
+    if (heights.same) {
+      const hidden = new THREE.MeshBasicMaterial({ visible: false })
+      const FACE_INDEX = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 }
+      for (const dir in FACE_INDEX) {
+        if (heights.same[dir]) mesh.material[FACE_INDEX[dir]] = hidden
+      }
+    }
     if (!heights.full) mesh.userData.cullface[2] = null
   }
 
