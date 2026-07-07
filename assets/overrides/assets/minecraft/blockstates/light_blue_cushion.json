@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "block/light_blue_cushion"
+    },
+    "facing=east": {
+      "model": "block/light_blue_cushion",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "block/light_blue_cushion",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "block/light_blue_cushion",
+      "y": 270
+    }
+  }
+}
