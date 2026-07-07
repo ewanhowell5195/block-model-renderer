@@ -12,6 +12,11 @@ const CULL_VECS = {
   south: [0, 0, 1], north: [0, 0, -1], top: [0, 1, 0], bottom: [0, -1, 0]
 }
 
+const SHADE_DIR_VECS = {
+  east: [1, 0, 0], west: [-1, 0, 0], up: [0, 1, 0], down: [0, -1, 0],
+  south: [0, 0, 1], north: [0, 0, -1]
+}
+
 function parseTransformation(t) {
   if (!t) return null
   if (Array.isArray(t)) {
@@ -1215,11 +1220,12 @@ export async function loadModel(scene, assets, model, args) {
         texRef = model.textures?.[texRef.slice(1)]
       }
 
-      const shade = element.shade !== false
-      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}`
+      const shadeDir = SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
+      const shade = element.shade !== false || !!shadeDir
+      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}`
       let material = materialCache.get(mkey)
       if (!material) {
-        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, model.double_sided, shade, lightConfig, lighting)
+        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, model.double_sided, shade, lightConfig, lighting, shadeDir)
         materialCache.set(mkey, material)
       }
       materials.push(material)
@@ -1329,7 +1335,7 @@ export async function loadModel(scene, assets, model, args) {
   return rootGroup
 }
 
-async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting) {
+async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir) {
   if ((lighting === "scene" || lighting === "off") && shader?.type !== "end_portal") {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.needsUpdate = true
@@ -1447,6 +1453,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       d1: { value: lightConfig?.d1 ?? 0.6 },
       ambient: { value: lightConfig?.ambient ?? 0.4 },
       shadeEnabled: { value: shadeEnabled !== false },
+      shadeOverride: { value: new THREE.Vector3(...(SHADE_DIR_VECS[shadeDir] ?? [0, 0, 0])) },
       worldShade: { value: lighting === "world" },
     },
     vertexShader: `
@@ -1474,6 +1481,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform float d1;
       uniform float ambient;
       uniform bool shadeEnabled;
+      uniform vec3 shadeOverride;
       uniform bool worldShade;
       varying vec2 vUv;
       varying vec3 vNormal;
@@ -1484,18 +1492,21 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         if (texColor.a < 0.01) discard;
         float shade = 1.0;
         if (shadeEnabled) {
+          bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
           if (worldShade) {
             // in-world daytime face shading (Level/CardinalLighting DEFAULT):
             // up 1.0, down 0.5, north/south 0.8, west/east 0.6 - flat per world face
-            vec3 a = abs(vWorldNormal);
-            shade = (a.y >= a.x && a.y >= a.z) ? (vWorldNormal.y >= 0.0 ? 1.0 : 0.5) : (a.z >= a.x ? 0.8 : 0.6);
+            vec3 wn = hasOverride ? shadeOverride : vWorldNormal;
+            vec3 a = abs(wn);
+            shade = (a.y >= a.x && a.y >= a.z) ? (wn.y >= 0.0 ? 1.0 : 0.5) : (a.z >= a.x ? 0.8 : 0.6);
           } else {
             // gui/inventory shading: two directional lights + ambient. light dirs
             // are world space, rotated into view space so they stay fixed as the
             // camera orbits. in snapshots the camera is axis-aligned, so
             // mat3(viewMatrix) is identity and this matches the old view-space math
             mat3 v = mat3(viewMatrix);
-            shade = min(1.0, ambient + d0 * max(0.0, dot(vNormal, v * light0)) + d1 * max(0.0, dot(vNormal, v * light1)));
+            vec3 n = hasOverride ? normalize(v * shadeOverride) : vNormal;
+            shade = min(1.0, ambient + d0 * max(0.0, dot(n, v * light0)) + d1 * max(0.0, dot(n, v * light1)));
           }
         }
         gl_FragColor = vec4(texColor.rgb * shade, texColor.a);
