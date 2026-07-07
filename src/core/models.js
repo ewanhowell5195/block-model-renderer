@@ -1,5 +1,6 @@
 import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { COLOURS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, parseColor, getPotionColor } from "./colours.js"
+import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
 
@@ -1219,7 +1220,8 @@ export async function loadModel(scene, assets, model, args) {
       from.z + size.z / 2 - 8
     )
 
-    if (model.fluid && args?.fluidHeights) await applyFluidHeights(mesh, args.fluidHeights)
+    const fh = args?.fluidHeights ?? (model.fluid && args?.neighbors ? fluidHeights(model.fluid, args.neighbors) : null)
+    if (model.fluid && fh) await applyFluidHeights(mesh, fh)
 
     if (element.rotation) {
       let { origin, axis, angle, x, y, z } = element.rotation
