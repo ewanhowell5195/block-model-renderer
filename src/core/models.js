@@ -1391,9 +1391,15 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec3 vWorldNormal;
       void main() {
         vUv = uv;
-        vNormal = normalize(normalMatrix * normal);
-        vWorldNormal = normalize(mat3(modelMatrix) * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec4 pos = vec4(position, 1.0);
+        vec3 nrm = normal;
+        #ifdef USE_INSTANCING
+          pos = instanceMatrix * pos;
+          nrm = mat3(instanceMatrix) * nrm;
+        #endif
+        vNormal = normalize(normalMatrix * nrm);
+        vWorldNormal = normalize(mat3(modelMatrix) * nrm);
+        gl_Position = projectionMatrix * modelViewMatrix * pos;
       }
     `,
     fragmentShader: `
