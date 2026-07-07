@@ -104,17 +104,44 @@ export async function fluidHeights(assets, type, getBlock) {
     }
   }
   const angle = fx || fz ? Math.atan2(fz, fx) - Math.PI / 2 : null
-  const overlayAt = (dx, dz) => {
+  const overlayAt = async (dx, dz) => {
     const c = getBlock(dx, 0, dz)
-    return !!c && OVERLAY_NEIGHBOR.test(c.id ?? "")
+    if (!c || fluidTypeOf(c.id, c.properties)) return false
+    const dir = dx === 1 ? "west" : dx === -1 ? "east" : dz === 1 ? "north" : "south"
+    return faceIsFullToward(assets, c.id, c.properties, dir)
   }
   const overlay = {
-    north: overlayAt(0, -1),
-    south: overlayAt(0, 1),
-    west: overlayAt(-1, 0),
-    east: overlayAt(1, 0)
+    north: await overlayAt(0, -1),
+    south: await overlayAt(0, 1),
+    west: await overlayAt(-1, 0),
+    east: await overlayAt(1, 0)
   }
   return { nw, ne, sw, se, full: self >= 1, angle, overlay }
 }
 
-const OVERLAY_NEIGHBOR = /(^|:)(\w*(glass|leaves)|(frosted_)?ice|slime_block|honey_block)$/
+const FACE_AXES = { west: [0, 0], east: [0, 16], north: [2, 0], south: [2, 16] }
+async function faceIsFullToward(assets, id, properties, dir) {
+  const cache = assets?.cache ? (assets.cache.fluidFullFaces ??= new Map()) : null
+  const key = id + "|" + JSON.stringify(properties ?? null) + "|" + dir
+  if (cache?.has(key)) return cache.get(key)
+  const [axis, bound] = FACE_AXES[dir]
+  const [t1, t2] = [0, 1, 2].filter(a => a !== axis)
+  let full = false
+  try {
+    outer: for (const model of await parseBlockstate(assets, id, { data: properties ?? {}, ignoreAtlases: true })) {
+      if (model.fluid) continue
+      const data = await resolveModelData(assets, model)
+      for (const el of data?.elements ?? []) {
+        const touches = bound === 0 ? Math.min(el.from[axis], el.to[axis]) <= 0 : Math.max(el.from[axis], el.to[axis]) >= 16
+        if (touches
+          && Math.min(el.from[t1], el.to[t1]) <= 0 && Math.max(el.from[t1], el.to[t1]) >= 16
+          && Math.min(el.from[t2], el.to[t2]) <= 0 && Math.max(el.from[t2], el.to[t2]) >= 16) {
+          full = true
+          break outer
+        }
+      }
+    }
+  } catch {}
+  cache?.set(key, full)
+  return full
+}
