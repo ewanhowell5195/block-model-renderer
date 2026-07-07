@@ -1,0 +1,244 @@
+{
+  "variants": {
+    "color=white,facing=north": {
+      "model": "block/white_cushion"
+    },
+    "color=white,facing=east": {
+      "model": "block/white_cushion",
+      "y": 90
+    },
+    "color=white,facing=south": {
+      "model": "block/white_cushion",
+      "y": 180
+    },
+    "color=white,facing=west": {
+      "model": "block/white_cushion",
+      "y": 270
+    },
+    "color=light_gray,facing=north": {
+      "model": "block/light_gray_cushion"
+    },
+    "color=light_gray,facing=east": {
+      "model": "block/light_gray_cushion",
+      "y": 90
+    },
+    "color=light_gray,facing=south": {
+      "model": "block/light_gray_cushion",
+      "y": 180
+    },
+    "color=light_gray,facing=west": {
+      "model": "block/light_gray_cushion",
+      "y": 270
+    },
+    "color=gray,facing=north": {
+      "model": "block/gray_cushion"
+    },
+    "color=gray,facing=east": {
+      "model": "block/gray_cushion",
+      "y": 90
+    },
+    "color=gray,facing=south": {
+      "model": "block/gray_cushion",
+      "y": 180
+    },
+    "color=gray,facing=west": {
+      "model": "block/gray_cushion",
+      "y": 270
+    },
+    "color=black,facing=north": {
+      "model": "block/black_cushion"
+    },
+    "color=black,facing=east": {
+      "model": "block/black_cushion",
+      "y": 90
+    },
+    "color=black,facing=south": {
+      "model": "block/black_cushion",
+      "y": 180
+    },
+    "color=black,facing=west": {
+      "model": "block/black_cushion",
+      "y": 270
+    },
+    "color=brown,facing=north": {
+      "model": "block/brown_cushion"
+    },
+    "color=brown,facing=east": {
+      "model": "block/brown_cushion",
+      "y": 90
+    },
+    "color=brown,facing=south": {
+      "model": "block/brown_cushion",
+      "y": 180
+    },
+    "color=brown,facing=west": {
+      "model": "block/brown_cushion",
+      "y": 270
+    },
+    "color=red,facing=north": {
+      "model": "block/red_cushion"
+    },
+    "color=red,facing=east": {
+      "model": "block/red_cushion",
+      "y": 90
+    },
+    "color=red,facing=south": {
+      "model": "block/red_cushion",
+      "y": 180
+    },
+    "color=red,facing=west": {
+      "model": "block/red_cushion",
+      "y": 270
+    },
+    "color=orange,facing=north": {
+      "model": "block/orange_cushion"
+    },
+    "color=orange,facing=east": {
+      "model": "block/orange_cushion",
+      "y": 90
+    },
+    "color=orange,facing=south": {
+      "model": "block/orange_cushion",
+      "y": 180
+    },
+    "color=orange,facing=west": {
+      "model": "block/orange_cushion",
+      "y": 270
+    },
+    "color=yellow,facing=north": {
+      "model": "block/yellow_cushion"
+    },
+    "color=yellow,facing=east": {
+      "model": "block/yellow_cushion",
+      "y": 90
+    },
+    "color=yellow,facing=south": {
+      "model": "block/yellow_cushion",
+      "y": 180
+    },
+    "color=yellow,facing=west": {
+      "model": "block/yellow_cushion",
+      "y": 270
+    },
+    "color=lime,facing=north": {
+      "model": "block/lime_cushion"
+    },
+    "color=lime,facing=east": {
+      "model": "block/lime_cushion",
+      "y": 90
+    },
+    "color=lime,facing=south": {
+      "model": "block/lime_cushion",
+      "y": 180
+    },
+    "color=lime,facing=west": {
+      "model": "block/lime_cushion",
+      "y": 270
+    },
+    "color=green,facing=north": {
+      "model": "block/green_cushion"
+    },
+    "color=green,facing=east": {
+      "model": "block/green_cushion",
+      "y": 90
+    },
+    "color=green,facing=south": {
+      "model": "block/green_cushion",
+      "y": 180
+    },
+    "color=green,facing=west": {
+      "model": "block/green_cushion",
+      "y": 270
+    },
+    "color=cyan,facing=north": {
+      "model": "block/cyan_cushion"
+    },
+    "color=cyan,facing=east": {
+      "model": "block/cyan_cushion",
+      "y": 90
+    },
+    "color=cyan,facing=south": {
+      "model": "block/cyan_cushion",
+      "y": 180
+    },
+    "color=cyan,facing=west": {
+      "model": "block/cyan_cushion",
+      "y": 270
+    },
+    "color=light_blue,facing=north": {
+      "model": "block/light_blue_cushion"
+    },
+    "color=light_blue,facing=east": {
+      "model": "block/light_blue_cushion",
+      "y": 90
+    },
+    "color=light_blue,facing=south": {
+      "model": "block/light_blue_cushion",
+      "y": 180
+    },
+    "color=light_blue,facing=west": {
+      "model": "block/light_blue_cushion",
+      "y": 270
+    },
+    "color=blue,facing=north": {
+      "model": "block/blue_cushion"
+    },
+    "color=blue,facing=east": {
+      "model": "block/blue_cushion",
+      "y": 90
+    },
+    "color=blue,facing=south": {
+      "model": "block/blue_cushion",
+      "y": 180
+    },
+    "color=blue,facing=west": {
+      "model": "block/blue_cushion",
+      "y": 270
+    },
+    "color=purple,facing=north": {
+      "model": "block/purple_cushion"
+    },
+    "color=purple,facing=east": {
+      "model": "block/purple_cushion",
+      "y": 90
+    },
+    "color=purple,facing=south": {
+      "model": "block/purple_cushion",
+      "y": 180
+    },
+    "color=purple,facing=west": {
+      "model": "block/purple_cushion",
+      "y": 270
+    },
+    "color=magenta,facing=north": {
+      "model": "block/magenta_cushion"
+    },
+    "color=magenta,facing=east": {
+      "model": "block/magenta_cushion",
+      "y": 90
+    },
+    "color=magenta,facing=south": {
+      "model": "block/magenta_cushion",
+      "y": 180
+    },
+    "color=magenta,facing=west": {
+      "model": "block/magenta_cushion",
+      "y": 270
+    },
+    "color=pink,facing=north": {
+      "model": "block/pink_cushion"
+    },
+    "color=pink,facing=east": {
+      "model": "block/pink_cushion",
+      "y": 90
+    },
+    "color=pink,facing=south": {
+      "model": "block/pink_cushion",
+      "y": 180
+    },
+    "color=pink,facing=west": {
+      "model": "block/pink_cushion",
+      "y": 270
+    }
+  }
+}
