@@ -1,0 +1,57 @@
+:root {
+  --bg: #17171b;
+  --panel: #1f1f25;
+  --panel-border: #33333c;
+  --input: #2a2a32;
+  --input-border: #44444f;
+  --text: #e8e8ec;
+  --muted: #9a9aa6;
+  --accent: #4c8dff;
+  --green: #3fa66a;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; display: flex; }
+
+aside {
+  width: 252px; flex: none; background: var(--panel); border-right: 1px solid var(--panel-border);
+  padding: 14px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+}
+aside h1 { font-size: 14px; margin: 0; display: flex; align-items: baseline; gap: 8px; }
+aside h1 small { color: var(--muted); font-weight: normal; font-size: 11px; }
+main { flex: 1; min-width: 0; }
+
+section { display: flex; flex-direction: column; gap: 7px; }
+section > h2 {
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  margin: 0; display: flex; align-items: center; justify-content: space-between;
+}
+
+.row { display: flex; gap: 6px; align-items: center; }
+.row > * { flex: 1; min-width: 0; }
+.row > label { flex: initial; }
+.fields { display: grid; grid-template-columns: auto 1fr; gap: 7px 6px; align-items: center; }
+
+input[type="text"], input[type="number"], select, textarea {
+  width: 100%; background: var(--input); color: var(--text);
+  border: 1px solid var(--input-border); border-radius: 6px; padding: 5px 8px; font: inherit;
+}
+input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+textarea { resize: vertical; min-height: 4em; }
+
+button {
+  background: var(--input); color: var(--text); border: 1px solid var(--input-border);
+  border-radius: 6px; padding: 5px 10px; font: inherit; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled, input:disabled, select:disabled, textarea:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.active { background: var(--green); border-color: var(--green); color: #fff; }
+button.icon { background: none; border: none; padding: 0; color: var(--muted); display: flex; align-items: center; }
+button.icon:hover:not(:disabled) { color: var(--accent); border: none; }
+
+label.check { display: flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; user-select: none; }
+
+#packstatus { color: var(--muted); font-size: 12px; }
+#packfile { display: none; }

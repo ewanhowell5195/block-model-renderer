@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Viewer - block-model-renderer</title>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+    }
+  }
+</script>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { overflow: hidden; }
+  main { position: relative; }
+  #view { width: 100%; height: 100%; display: block; }
+  .row > .icon { flex: initial; font-size: 16px; line-height: 1; padding: 4px 6px; margin: -4px -2px; justify-content: center; }
+  #cull { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+  #props, #proprows { display: flex; flex-direction: column; gap: 7px; }
+  #proprows:empty { display: none; }
+  #status {
+    position: absolute; left: 12px; bottom: 12px; max-width: min(60ch, calc(100% - 24px));
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px;
+    padding: 6px 10px; color: #f88; display: none;
+  }
+  #status.show { display: block; }
+  #hint { color: var(--muted); font-size: 11px; margin: 0; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Model Viewer <small>block-model-renderer</small></h1>
+
+  <section>
+    <h2>Pack</h2>
+    <div class="row">
+      <button id="release">Release</button>
+      <button id="snapshot">Snapshot</button>
+    </div>
+    <button id="open">Select Resource Pack or Mod…</button>
+    <input type="file" id="packfile" accept=".zip,.jar">
+    <span id="packstatus">Loading…</span>
+  </section>
+
+  <section>
+    <h2>Model
+      <button id="random" class="icon" title="Random model" aria-label="Random model" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 3 21 3 21 8"/>
+          <line x1="4" y1="20" x2="21" y2="3"/>
+          <polyline points="21 16 21 21 16 21"/>
+          <line x1="15" y1="15" x2="21" y2="21"/>
+          <line x1="4" y1="4" x2="9" y2="9"/>
+        </svg>
+      </button>
+    </h2>
+    <div class="row">
+      <select id="kind">
+        <option value="block">Block</option>
+        <option value="item">Item</option>
+      </select>
+      <input type="text" id="id" value="grass_block" placeholder="ID" list="idlist" style="flex: 2">
+      <datalist id="idlist"></datalist>
+    </div>
+    <div id="props">
+      <div id="proprows"></div>
+      <button id="addprop">Add Blockstate</button>
+    </div>
+    <button id="load" class="primary" disabled>Load</button>
+  </section>
+
+  <section>
+    <h2>Appearance</h2>
+    <div class="row" id="displayrow" hidden>
+      <label for="display">Display</label>
+      <select id="display" style="flex: 2">
+        <option value="none">None</option>
+        <option value="gui">GUI</option>
+        <option value="ground">Ground</option>
+        <option value="fixed">Fixed</option>
+        <option value="head">Head</option>
+        <option value="firstperson_righthand">First Person Right</option>
+        <option value="firstperson_lefthand">First Person Left</option>
+        <option value="thirdperson_righthand">Third Person Right</option>
+        <option value="thirdperson_lefthand">Third Person Left</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="lighting">Lighting</label>
+      <select id="lighting" style="flex: 2">
+        <option value="item">Item</option>
+        <option value="world" selected>World</option>
+        <option value="off">Off</option>
+      </select>
+    </div>
+    <label class="check" id="animaterow"><input type="checkbox" id="animate" checked> Animate textures</label>
+  </section>
+
+  <section id="cullsection">
+    <h2>Cull Faces</h2>
+    <div id="cull">
+      <label class="check"><input type="checkbox" data-dir="up"> Up</label>
+      <label class="check"><input type="checkbox" data-dir="down"> Down</label>
+      <label class="check"><input type="checkbox" data-dir="north"> North</label>
+      <label class="check"><input type="checkbox" data-dir="south"> South</label>
+      <label class="check"><input type="checkbox" data-dir="east"> East</label>
+      <label class="check"><input type="checkbox" data-dir="west"> West</label>
+    </div>
+    <p id="hint">Drops faces as if a solid block sat on that side</p>
+  </section>
+
+  <section>
+    <h2>Camera</h2>
+    <div class="row">
+      <button id="icon">Icon View</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="ortho"> Orthographic</label>
+      <label class="check"><input type="checkbox" id="grid" checked> Grid</label>
+    </div>
+    <label class="check"><input type="checkbox" id="wireframe"> Wireframe</label>
+  </section>
+</aside>
+
+<main>
+  <canvas id="view"></canvas>
+  <div id="status"></div>
+</main>
+
+<script type="module">
+  const LIB = "http://localhost:8080"
+  const BUST = Date.now()
+
+  const { getThree, prepareAssets, listDirectory, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createAnimator } = await import(`${LIB}/src/web.js?${BUST}`)
+  const { loadMojangJar } = await import(`${LIB}/examples/web/mojang-pack.js?${BUST}`)
+  const { OrbitControls } = await import("three/addons/controls/OrbitControls.js")
+
+  const $ = id => document.getElementById(id)
+  const THREE = await getThree()
+
+  const status = msg => {
+    $("status").textContent = msg ?? ""
+    $("status").classList.toggle("show", !!msg)
+  }
+
+  let assets = null
+  let channel = null
+  const idLists = {}
+
+  async function ensureIds(kind) {
+    if (!idLists[kind]) {
+      const sub = kind === "item" ? "items" : "blockstates"
+      const lists = []
+      for (const ns of await listDirectory("assets", assets)) {
+        const files = (await listDirectory(`assets/${ns}/${sub}`, assets)).filter(f => f.endsWith(".json"))
+        if (files.length) lists.push([ns, files])
+      }
+      const prefix = lists.length > 1
+      const ids = []
+      for (const [ns, files] of lists) {
+        for (const f of files) ids.push(prefix ? `${ns}:${f.slice(0, -5)}` : f.slice(0, -5))
+      }
+      idLists[kind] = ids.sort()
+    }
+    return idLists[kind]
+  }
+
+  async function syncIdList() {
+    if (!assets) return
+    const kind = $("kind").value
+    const ids = await ensureIds(kind)
+    if (kind !== $("kind").value) return
+    $("idlist").replaceChildren(...ids.map(id => Object.assign(document.createElement("option"), { value: id })))
+  }
+
+  function useAssets(prepared, chan = null) {
+    assets = prepared
+    channel = chan
+    delete idLists.block
+    delete idLists.item
+    $("packstatus").textContent = ""
+    $("load").disabled = false
+    $("random").disabled = false
+    $("release").classList.toggle("active", chan === "release")
+    $("snapshot").classList.toggle("active", chan === "snapshot")
+    $("open").textContent = userFile ? userFile.name : "Select Resource Pack or Mod…"
+    syncIdList()
+  }
+
+  let baseBytes = null
+  let userFile = null
+
+  const sources = () => [userFile, baseBytes].filter(Boolean)
+  async function loadChannel(chan) {
+    status()
+    $("release").disabled = $("snapshot").disabled = true
+    try {
+      const { bytes } = await loadMojangJar((got, total, ver) => {
+        $("packstatus").textContent = `Downloading ${ver}… ${(got / 1048576).toFixed(0)}/${(total / 1048576).toFixed(0)}MB`
+      }, chan)
+      baseBytes = bytes
+      useAssets(await prepareAssets(sources()), chan)
+      if (current) reload()
+      else load()
+    } catch (err) {
+      $("packstatus").textContent = "Pack failed - open a zip"
+      status(String(err))
+    }
+    $("release").disabled = $("snapshot").disabled = false
+  }
+
+  $("release").addEventListener("click", () => loadChannel("release"))
+  $("snapshot").addEventListener("click", () => loadChannel("snapshot"))
+  $("open").addEventListener("click", () => $("packfile").click())
+  $("packfile").addEventListener("change", async () => {
+    const file = $("packfile").files[0]
+    if (!file) return
+    status()
+    try {
+      userFile = file
+      useAssets(await prepareAssets(sources()), channel)
+      if (current) reload()
+    } catch (err) {
+      status(String(err))
+    }
+  })
+
+  const canvas = $("view")
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio * 2, 4))
+  const scene = new THREE.Scene()
+
+  const FOV = 45
+  const VIEW_DIST = 55
+  const perspCam = new THREE.PerspectiveCamera(FOV, 1, 0.1, 1000)
+  perspCam.position.set(-34, 25, -34)
+  const orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000)
+  let camera = perspCam
+  const controls = new OrbitControls(camera, canvas)
+  controls.enableDamping = true
+
+  let orthoHalfH = 20
+  function updateProjection() {
+    const aspect = (canvas.clientWidth || 1) / (canvas.clientHeight || 1)
+    if (camera.isPerspectiveCamera) {
+      camera.aspect = aspect
+    } else {
+      camera.top = orthoHalfH
+      camera.bottom = -orthoHalfH
+      camera.left = -orthoHalfH * aspect
+      camera.right = orthoHalfH * aspect
+    }
+    camera.updateProjectionMatrix()
+  }
+
+  function setOrtho(on, halfH) {
+    const to = on ? orthoCam : perspCam
+    if (to !== camera) {
+      to.position.copy(camera.position)
+      to.up.copy(camera.up)
+      to.zoom = camera.zoom
+      camera = to
+      controls.object = to
+    }
+    if (on) orthoHalfH = halfH ?? camera.position.distanceTo(controls.target) * Math.tan(THREE.MathUtils.degToRad(FOV / 2))
+    updateProjection()
+    controls.update()
+    $("ortho").checked = on
+  }
+
+  let orthoManual = false
+  $("ortho").addEventListener("change", () => {
+    orthoManual = $("ortho").checked
+    setOrtho(orthoManual)
+  })
+  controls.addEventListener("start", () => {
+    if (camera === orthoCam && !orthoManual) setOrtho(false)
+  })
+
+  const GRID_COLOR = 0x555555
+  const grid = new THREE.GridHelper(24, 24, 0x333333, 0x333333)
+  grid.position.y = -8.01
+  scene.add(grid)
+
+  const blockOutline = new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-8, 0, -12), new THREE.Vector3(-8, 0, 12),
+      new THREE.Vector3(8, 0, -12), new THREE.Vector3(8, 0, 12),
+      new THREE.Vector3(-12, 0, -8), new THREE.Vector3(12, 0, -8),
+      new THREE.Vector3(-12, 0, 8), new THREE.Vector3(12, 0, 8)
+    ]),
+    new THREE.LineBasicMaterial({ color: GRID_COLOR })
+  )
+  blockOutline.position.y = -8.005
+  scene.add(blockOutline)
+
+  const northCanvas = document.createElement("canvas")
+  northCanvas.width = northCanvas.height = 64
+  {
+    const cx = northCanvas.getContext("2d")
+    cx.font = "bold 52px sans-serif"
+    cx.textAlign = "center"
+    cx.textBaseline = "middle"
+    cx.fillStyle = "#" + GRID_COLOR.toString(16).padStart(6, "0")
+    cx.fillText("N", 32, 34)
+  }
+  const north = new THREE.Mesh(
+    new THREE.PlaneGeometry(4, 4),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(northCanvas), transparent: true, depthWrite: false })
+  )
+  north.rotation.x = -Math.PI / 2
+  north.position.set(0, -8, -15)
+  scene.add(north)
+
+  const wireMat = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x9a9aa6 })
+  function syncView() {
+    const wire = $("wireframe").checked
+    scene.overrideMaterial = wire ? wireMat : null
+    grid.visible = north.visible = blockOutline.visible = $("grid").checked && !wire
+  }
+  $("grid").addEventListener("change", syncView)
+  $("wireframe").addEventListener("change", syncView)
+
+  function syncKind() {
+    const item = $("kind").value === "item"
+    $("displayrow").hidden = !item
+    $("props").hidden = item
+    $("cullsection").hidden = item
+    syncIdList()
+  }
+  $("kind").addEventListener("change", syncKind)
+
+  let lastW = 0
+  let lastH = 0
+  function resize() {
+    const w = canvas.clientWidth
+    const h = canvas.clientHeight
+    if (w !== lastW || h !== lastH) {
+      lastW = w
+      lastH = h
+      renderer.setSize(w, h, false)
+      updateProjection()
+    }
+  }
+  new ResizeObserver(resize).observe(canvas)
+
+  let modelGroup = null
+  let current = null
+
+  function disposeGroup(group) {
+    group.traverse(obj => {
+      if (!obj.isMesh) return
+      obj.geometry?.dispose()
+      for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
+        if (!mat) continue
+        for (const uniform of Object.values(mat.uniforms ?? {})) {
+          if (uniform?.value?.isTexture) uniform.value.dispose()
+        }
+        mat.dispose()
+      }
+    })
+  }
+
+  function syncAddProp() {
+    $("addprop").disabled = [...$("proprows").children].some(row => {
+      const [key, value] = row.querySelectorAll("input")
+      return !key.value.trim() || !value.value.trim()
+    })
+  }
+
+  function addPropRow(key = "", value = "") {
+    const row = document.createElement("div")
+    row.className = "row"
+    for (const [placeholder, val] of [["Key", key], ["Value", value]]) {
+      const input = document.createElement("input")
+      input.type = "text"
+      input.placeholder = placeholder
+      input.value = val
+      input.addEventListener("keydown", e => { if (e.key === "Enter") userLoad() })
+      input.addEventListener("input", syncAddProp)
+      row.append(input)
+    }
+    const remove = document.createElement("button")
+    remove.className = "icon"
+    remove.title = "Remove"
+    remove.textContent = "×"
+    remove.addEventListener("click", () => {
+      row.remove()
+      syncAddProp()
+    })
+    row.append(remove)
+    $("proprows").append(row)
+    syncAddProp()
+  }
+
+  function setProps(pairs) {
+    $("proprows").replaceChildren()
+    for (const [key, value] of pairs) addPropRow(key, value)
+    syncAddProp()
+  }
+
+  const propsData = () => {
+    const data = {}
+    for (const row of $("proprows").children) {
+      const [key, value] = row.querySelectorAll("input")
+      if (key.value.trim() && value.value.trim()) data[key.value.trim()] = value.value.trim()
+    }
+    return data
+  }
+
+  const serializeProps = () => Object.entries(propsData()).map(([k, v]) => `${k}=${v}`).join(",")
+
+  $("addprop").addEventListener("click", () => addPropRow())
+
+  const cullBoxes = [...document.querySelectorAll("#cull input")]
+  const cullDirs = () => cullBoxes.filter(b => b.checked).map(b => b.dataset.dir)
+
+  function syncUrl() {
+    const url = new URL(location)
+    const set = (k, v) => v ? url.searchParams.set(k, v) : url.searchParams.delete(k)
+    set("kind", current.kind === "item" ? "item" : "")
+    set("id", current.id)
+    set("props", current.kind === "block" ? serializeProps() : "")
+    set("display", current.kind === "item" && $("display").value !== "none" ? $("display").value : "")
+    set("lighting", $("lighting").value !== "world" ? $("lighting").value : "")
+    set("cull", current.kind === "block" ? cullDirs().join(",") : "")
+    set("static", $("animate").checked ? "" : "1")
+    history.replaceState(null, "", url)
+  }
+
+  async function build(kind, id) {
+    const displaySel = $("display").value
+    const display = kind === "item" && displaySel !== "none" ? displaySel : {}
+    const lighting = $("lighting").value
+    const cull = kind === "block" ? Object.fromEntries(cullDirs().map(d => [d, true])) : undefined
+    const animate = $("animate").checked
+
+    const models = kind === "item"
+      ? await parseItemDefinition(assets, id, { display: typeof display === "string" ? display : "gui" })
+      : await parseBlockstate(assets, id, { data: propsData() })
+
+    const group = new THREE.Group()
+    for (const model of models) {
+      const resolved = await resolveModelData(assets, model)
+      await loadModel(group, assets, resolved, { display, lighting, cull, animate })
+    }
+
+    if (modelGroup) {
+      modelGroup.removeFromParent()
+      disposeGroup(modelGroup)
+    }
+    modelGroup = group
+    scene.add(group)
+    current = { kind, id }
+    $("animaterow").hidden = !createAnimator(group).animated
+    syncUrl()
+  }
+
+  async function load() {
+    if (!assets) return
+    status()
+    $("load").disabled = true
+    try {
+      await build($("kind").value, $("id").value.trim())
+    } catch (err) {
+      status(String(err))
+    }
+    $("load").disabled = false
+  }
+
+  async function reload() {
+    if (!current) return
+    status()
+    try {
+      await build(current.kind, current.id)
+    } catch (err) {
+      status(String(err))
+    }
+  }
+
+  function resetToggles() {
+    $("animate").checked = true
+    $("wireframe").checked = false
+    for (const box of cullBoxes) box.checked = false
+    syncView()
+  }
+
+  const userLoad = () => {
+    resetToggles()
+    load()
+  }
+
+  $("load").addEventListener("click", userLoad)
+  $("id").addEventListener("keydown", e => { if (e.key === "Enter") userLoad() })
+  $("display").addEventListener("change", reload)
+  $("lighting").addEventListener("change", reload)
+  $("animate").addEventListener("change", reload)
+  for (const box of cullBoxes) box.addEventListener("change", reload)
+
+  $("random").addEventListener("click", async () => {
+    if (!assets) return
+    try {
+      const pool = [
+        ...(await ensureIds("block")).map(id => ({ kind: "block", id })),
+        ...(await ensureIds("item")).map(id => ({ kind: "item", id }))
+      ]
+      if (!pool.length) {
+        status("Nothing found in this pack")
+        return
+      }
+      const pick = pool[Math.floor(Math.random() * pool.length)]
+      $("kind").value = pick.kind
+      syncKind()
+      $("id").value = pick.id
+      setProps([])
+      userLoad()
+    } catch (err) {
+      status(String(err))
+    }
+  })
+
+  const FRAME_HALF = VIEW_DIST * Math.tan(THREE.MathUtils.degToRad(FOV / 2))
+  $("icon").addEventListener("click", () => {
+    const kind = current?.kind ?? $("kind").value
+    camera.up.set(0, 1, 0)
+    camera.zoom = 1
+    if (kind === "block") {
+      const q = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(THREE.MathUtils.degToRad(30), THREE.MathUtils.degToRad(225), 0, "XYZ")
+      ).invert()
+      camera.position.set(0, 0, VIEW_DIST).applyQuaternion(q)
+    } else {
+      camera.position.set(0, 0, VIEW_DIST)
+    }
+    controls.target.set(0, 0, 0)
+    camera.lookAt(0, 0, 0)
+    setOrtho(true, FRAME_HALF)
+    camera.zoom = 1
+    updateProjection()
+    controls.update()
+  })
+
+  $("reset").addEventListener("click", () => {
+    orthoManual = false
+    setOrtho(false)
+    camera.up.set(0, 1, 0)
+    camera.zoom = 1
+    camera.position.set(-34, 25, -34)
+    controls.target.set(0, 0, 0)
+    camera.lookAt(0, 0, 0)
+    updateProjection()
+    controls.update()
+  })
+
+  function frame() {
+    requestAnimationFrame(frame)
+    resize()
+    controls.update()
+    renderer.render(scene, camera)
+  }
+  frame()
+
+  const params = new URLSearchParams(location.search)
+  if (params.get("kind") === "item") $("kind").value = "item"
+  if (params.has("id")) $("id").value = params.get("id")
+  setProps((params.get("props") ?? "").split(",").filter(kv => kv.includes("=")).map(kv => {
+    const i = kv.indexOf("=")
+    return [kv.slice(0, i), kv.slice(i + 1)]
+  }))
+  if (params.has("display")) $("display").value = params.get("display")
+  if (params.has("lighting")) $("lighting").value = params.get("lighting")
+  if (params.has("static")) $("animate").checked = false
+  for (const dir of (params.get("cull") ?? "").split(",")) {
+    const box = cullBoxes.find(b => b.dataset.dir === dir)
+    if (box) box.checked = true
+  }
+  syncKind()
+
+  loadChannel("release")
+</script>
+</body>
+</html>

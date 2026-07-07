@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render Gallery - block-model-renderer</title>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js"
+    }
+  }
+</script>
+<link rel="stylesheet" href="style.css">
+<style>
+  main { overflow-y: auto; }
+  #status { color: #f88; font-size: 12px; overflow-wrap: anywhere; }
+  #progress { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--accent); z-index: 1; }
+  #grid { display: grid; gap: 12px; padding: 14px; }
+  #empty { grid-column: 1 / -1; color: var(--muted); text-align: center; padding: 24px 0; }
+  figure {
+    margin: 0; background: var(--panel); border: 1px solid var(--panel-border);
+    border-radius: 10px; padding: 10px; text-align: center;
+  }
+  figure canvas { image-rendering: pixelated; }
+  figcaption { color: var(--muted); font-size: 11px; margin-top: 6px; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Render Gallery <small>block-model-renderer</small></h1>
+
+  <section>
+    <h2>Pack</h2>
+    <div class="row">
+      <button id="release">Release</button>
+      <button id="snapshot">Snapshot</button>
+    </div>
+    <button id="open">Select Resource Pack or Mod…</button>
+    <input type="file" id="packfile" accept=".zip,.jar">
+    <span id="packstatus">Loading…</span>
+  </section>
+
+  <section>
+    <h2>Render</h2>
+    <textarea id="ids" rows="5">chest, magma_block, sea_lantern, campfire, crafting_table, prismarine, conduit, blast_furnace, jack_o_lantern, white_banner, enchanting_table, beacon</textarea>
+    <div class="fields">
+      <label for="size">Size</label>
+      <select id="size">
+        <option>64</option>
+        <option>128</option>
+        <option selected>256</option>
+        <option>512</option>
+      </select>
+      <label for="count">Count</label>
+      <input type="number" id="count" value="24" min="1">
+    </div>
+    <div class="row">
+      <button id="randomise" disabled>Randomise</button>
+      <button id="renderall" disabled>Render All</button>
+    </div>
+    <button id="render" class="primary" disabled>Render</button>
+  </section>
+
+  <section>
+    <h2>Filters</h2>
+    <div class="fields">
+      <label for="fnamespace">Namespace</label>
+      <select id="fnamespace">
+        <option value="">All</option>
+      </select>
+      <label for="fstarts">Starts with</label>
+      <input type="text" id="fstarts">
+      <label for="fends">Ends with</label>
+      <input type="text" id="fends">
+      <label for="fcontains">Contains</label>
+      <input type="text" id="fcontains">
+    </div>
+    <label class="check" id="fanimatedrow"><input type="checkbox" id="fanimated"> Animated only</label>
+  </section>
+
+  <section>
+    <h2>Animations</h2>
+    <label class="check"><input type="checkbox" id="animenable" checked> Enable animations</label>
+    <button id="playpause" hidden>Pause All</button>
+  </section>
+  <span id="status"></span>
+</aside>
+
+<main>
+  <div id="grid"></div>
+</main>
+<div id="progress"></div>
+
+<script type="module">
+  const LIB = "http://localhost:8080"
+  const BUST = Date.now()
+
+  const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, parseBlockstate, resolveModelData, isCrossModel } = await import(`${LIB}/src/web.js?${BUST}`)
+  const { loadMojangJar } = await import(`${LIB}/examples/web/mojang-pack.js?${BUST}`)
+
+  const $ = id => document.getElementById(id)
+
+  let assets = null
+  let channel = null
+  let baseBytes = null
+  let userFile = null
+  let blockIds = null
+
+  const sources = () => [userFile, baseBytes].filter(Boolean)
+  function useAssets(prepared, chan) {
+    clear()
+    const prev = assets
+    assets = prepared
+    channel = chan
+    blockIds = null
+    $("packstatus").textContent = ""
+    $("render").disabled = $("randomise").disabled = $("renderall").disabled = false
+    $("release").classList.toggle("active", chan === "release")
+    $("snapshot").classList.toggle("active", chan === "snapshot")
+    $("open").textContent = userFile ? userFile.name : "Select Resource Pack or Mod…"
+    if (prev && prev !== prepared) disposeCache(prev)
+    syncNamespaces()
+  }
+
+  async function loadChannel(chan) {
+    $("status").textContent = ""
+    $("release").disabled = $("snapshot").disabled = true
+    try {
+      const { bytes } = await loadMojangJar((got, total, ver) => {
+        $("packstatus").textContent = `Downloading ${ver}… ${(got / 1048576).toFixed(0)}/${(total / 1048576).toFixed(0)}MB`
+      }, chan)
+      baseBytes = bytes
+      useAssets(await prepareAssets(sources(), { cache: true }), chan)
+    } catch (err) {
+      $("packstatus").textContent = "Pack failed"
+      $("status").textContent = String(err)
+    }
+    $("release").disabled = $("snapshot").disabled = false
+  }
+
+  $("release").addEventListener("click", () => loadChannel("release"))
+  $("snapshot").addEventListener("click", () => loadChannel("snapshot"))
+  $("open").addEventListener("click", () => $("packfile").click())
+  $("packfile").addEventListener("change", async () => {
+    const file = $("packfile").files[0]
+    if (!file) return
+    $("status").textContent = ""
+    try {
+      userFile = file
+      useAssets(await prepareAssets(sources(), { cache: true }), channel)
+    } catch (err) {
+      $("status").textContent = String(err)
+    }
+  })
+
+  let players = []
+  let playing = true
+  let runId = 0
+  let running = false
+
+  function clear() {
+    for (const p of players) p.dispose()
+    players = []
+    $("grid").replaceChildren()
+    $("playpause").hidden = true
+  }
+
+  function setRunning(on) {
+    running = on
+    for (const id of ["ids", "size", "count", "randomise", "renderall", "release", "snapshot", "open"]) $(id).disabled = on
+    $("render").textContent = on ? "Cancel" : "Render"
+    if (!on) {
+      $("packstatus").textContent = ""
+      $("playpause").hidden = !players.length
+      $("progress").style.width = "0"
+    }
+  }
+
+  function showEmpty(message) {
+    const empty = document.createElement("div")
+    empty.id = "empty"
+    empty.textContent = message
+    $("grid").append(empty)
+  }
+
+  async function render(requested) {
+    const run = ++runId
+    clear()
+    setRunning(true)
+    $("status").textContent = ""
+    const size = +$("size").value
+    const animate = $("animenable").checked
+    const animatedOnly = animate && $("fanimated").checked
+    $("grid").style.gridTemplateColumns = `repeat(auto-fill, minmax(${size + 22}px, 1fr))`
+
+    const known = new Set((await blockList()).ids)
+    const exists = id => known.has(id) || known.has(id.startsWith("minecraft:") ? id.slice(10) : `minecraft:${id}`)
+    const ids = requested.filter(exists)
+    if (ids.length < requested.length && ids.length) {
+      $("status").textContent = `Skipped ${requested.length - ids.length} ID(s) not in the pack`
+    }
+
+    let done = 0
+    for (const id of ids) {
+      if (run !== runId) return
+      const figure = document.createElement("figure")
+      const caption = document.createElement("figcaption")
+      caption.textContent = id
+      let skip = false
+      try {
+        const resolved = []
+        for (const model of await parseBlockstate(assets, id)) resolved.push(await resolveModelData(assets, model))
+        const result = await renderBlock({
+          id,
+          assets,
+          width: size,
+          height: size,
+          animated: animate,
+          display: {
+            rotation: [30, isCrossModel(resolved) ? 180 : 225, 0],
+            scale: [0.625, 0.625, 0.625],
+            type: "fallback",
+            display: "gui"
+          }
+        })
+        const player = animate ? result : null
+        const canvas = animate ? result.canvas : result
+        if (run !== runId) {
+          player?.dispose()
+          return
+        }
+        if (animatedOnly && !player.animated) {
+          player.dispose()
+          skip = true
+        } else {
+          canvas.style.width = canvas.style.height = size + "px"
+          figure.append(canvas, caption)
+          if (player?.animated) {
+            players.push(player)
+            figure.classList.add("animated")
+          } else {
+            player?.dispose()
+          }
+        }
+      } catch (err) {
+        caption.textContent = `${id}: ${err.message}`
+        figure.append(caption)
+      }
+      if (!skip) $("grid").append(figure)
+      done++
+      $("progress").style.width = done / ids.length * 100 + "%"
+      if (ids.length > 50) $("packstatus").textContent = `Rendering ${done}/${ids.length}…`
+    }
+    if (run === runId) {
+      if (!$("grid").children.length) {
+        showEmpty(requested.length && !ids.length
+          ? "None of the requested IDs were found in the loaded pack"
+          : "No matches were found for the current filters")
+      }
+      setRunning(false)
+    }
+  }
+
+  const listOf = id => $(id).value.split(",").map(s => s.trim()).filter(Boolean)
+
+  function filterPredicate() {
+    const starts = listOf("fstarts")
+    const ends = listOf("fends")
+    const contains = listOf("fcontains")
+    const namespace = $("fnamespace").value
+    return id => {
+      const i = id.indexOf(":")
+      const ns = i === -1 ? "minecraft" : id.slice(0, i)
+      const name = i === -1 ? id : id.slice(i + 1)
+      if (starts.length && !starts.some(s => name.startsWith(s))) return false
+      if (ends.length && !ends.some(s => name.endsWith(s))) return false
+      if (contains.length && !contains.some(s => name.includes(s))) return false
+      if (namespace && ns !== namespace) return false
+      return true
+    }
+  }
+
+  const renderFromInput = () => {
+    const ids = $("ids").value.split(/[\n,]/).map(s => s.trim()).filter(Boolean).filter(filterPredicate())
+    const count = Math.max(1, +$("count").value || ids.length)
+    render(ids.slice(0, count))
+  }
+
+  $("render").addEventListener("click", () => {
+    if (running) {
+      runId++
+      setRunning(false)
+    } else {
+      renderFromInput()
+    }
+  })
+  $("ids").addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      renderFromInput()
+    }
+  })
+
+  async function blockList() {
+    if (!blockIds) {
+      const lists = []
+      for (const ns of await listDirectory("assets", assets)) {
+        const files = (await listDirectory(`assets/${ns}/blockstates`, assets)).filter(f => f.endsWith(".json"))
+        if (files.length) lists.push([ns, files])
+      }
+      const prefix = lists.length > 1
+      const ids = []
+      for (const [ns, files] of lists) {
+        for (const f of files) ids.push(prefix ? `${ns}:${f.slice(0, -5)}` : f.slice(0, -5))
+      }
+      blockIds = { ids: ids.sort(), namespaces: lists.map(([ns]) => ns).sort() }
+    }
+    return blockIds
+  }
+
+  const allBlockIds = async () => (await blockList()).ids
+
+  async function syncNamespaces() {
+    const { namespaces } = await blockList()
+    const select = $("fnamespace")
+    const previous = select.value
+    select.replaceChildren(
+      Object.assign(document.createElement("option"), { value: "", textContent: "All" }),
+      ...namespaces.map(ns => Object.assign(document.createElement("option"), { value: ns, textContent: ns }))
+    )
+    if (namespaces.includes(previous)) select.value = previous
+    const solo = namespaces.length < 2
+    select.hidden = solo
+    document.querySelector('label[for="fnamespace"]').hidden = solo
+    if (solo) select.value = ""
+  }
+
+  $("randomise").addEventListener("click", async () => {
+    const ids = (await allBlockIds()).filter(filterPredicate())
+    if (!ids.length) {
+      $("status").textContent = "No blocks match the filters"
+      return
+    }
+    const count = Math.max(1, Math.min(+$("count").value || 24, ids.length))
+    const picks = new Set()
+    while (picks.size < count) {
+      picks.add(ids[Math.floor(Math.random() * ids.length)])
+    }
+    $("ids").value = [...picks].join(", ")
+    renderFromInput()
+  })
+
+  $("renderall").addEventListener("click", async () => {
+    const ids = (await allBlockIds()).filter(filterPredicate())
+    if (!ids.length) {
+      $("status").textContent = "No blocks match the filters"
+      return
+    }
+    $("count").value = ids.length
+    $("ids").value = ids.join(", ")
+    renderFromInput()
+  })
+
+  $("animenable").addEventListener("change", () => {
+    $("fanimatedrow").hidden = !$("animenable").checked
+  })
+
+  $("playpause").addEventListener("click", () => {
+    playing = !playing
+    playing ? resumeAnimations() : pauseAnimations()
+    $("playpause").textContent = playing ? "Pause All" : "Play All"
+  })
+
+  addEventListener("pagehide", () => {
+    clear()
+    if (assets) disposeCache(assets)
+  })
+
+  loadChannel("release").then(() => {
+    if (assets) renderFromInput()
+  })
+</script>
+</body>
+</html>
