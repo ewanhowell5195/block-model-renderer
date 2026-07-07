@@ -228,12 +228,16 @@ export async function parseBlockstate(assets, blockstate, args) {
         layers: block === "end_portal" ? 15 : 16
       }
     }
+
+    if (block === "water" || block === "flowing_water") model.fluid = "water"
+    else if (block === "lava" || block === "flowing_lava") model.fluid = "lava"
   }
 
   if ((data?.waterlogged === true || data?.waterlogged === "true") && isWaterloggable(block)) {
     models.push({
       model: "minecraft:block/water",
       type: "block",
+      fluid: "water",
       tints: ["#3F76E4"],
       scale: [0.999, 0.999, 0.999]
     })
@@ -1023,6 +1027,49 @@ export async function loadModel(scene, assets, model, args) {
     containerGroup.scale.set(...model.scale)
   }
 
+  async function applyFluidHeights(mesh, heights) {
+    const geo = mesh.geometry
+    const pos = geo.attributes.position, uv = geo.attributes.uv
+    const H = { nw: heights.nw, ne: heights.ne, sw: heights.sw, se: heights.se }
+    const cornerOf = i => (pos.getZ(i) < 0 ? (pos.getX(i) < 0 ? "nw" : "ne") : (pos.getX(i) < 0 ? "sw" : "se"))
+    for (let i = 0; i < pos.count; i++) {
+      if (pos.getY(i) > 0) pos.setY(i, H[cornerOf(i)] * 16 - 7)
+    }
+    pos.needsUpdate = true
+    for (const start of [0, 4, 16, 20]) {
+      for (let i = start; i < start + 4; i++) {
+        uv.setY(i, pos.getY(i) > -6.99 ? 1 - (1 - H[cornerOf(i)]) * 0.5 : 0.5)
+      }
+    }
+    const vertIdx = {}
+    for (let i = 8; i < 12; i++) vertIdx[cornerOf(i)] = i
+    const order = [vertIdx.nw, vertIdx.sw, vertIdx.se, vertIdx.nw, vertIdx.se, vertIdx.ne]
+    for (let k = 0; k < 6; k++) geo.index.setX(geo.groups[2].start + k, order[k])
+    geo.index.needsUpdate = true
+    if (heights.angle != null) {
+      let texRef = "#flow"
+      while (texRef && texRef.startsWith("#")) texRef = model.textures?.[texRef.slice(1)]
+      const tint = model.tints?.[0]
+      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0true`
+      let material = materialCache.get(mkey)
+      if (!material) {
+        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, model.double_sided, true, lightConfig, lighting)
+        materialCache.set(mkey, material)
+      }
+      mesh.material[2] = material
+      const c = Math.cos(heights.angle) * 0.25, s = Math.sin(heights.angle) * 0.25
+      const flowUV = {
+        nw: [0.5 - c - s, 0.5 - c + s],
+        sw: [0.5 - c + s, 0.5 + c + s],
+        se: [0.5 + c + s, 0.5 + c - s],
+        ne: [0.5 + c - s, 0.5 - c - s]
+      }
+      for (const [corner, [fu, fv]] of Object.entries(flowUV)) uv.setXY(vertIdx[corner], fu, 1 - fv)
+    }
+    uv.needsUpdate = true
+    if (!heights.full) mesh.userData.cullface[2] = null
+  }
+
   for (const element of model.elements || []) {
     const from = new THREE.Vector3().fromArray(element.from)
     const to = new THREE.Vector3().fromArray(element.to)
@@ -1171,6 +1218,8 @@ export async function loadModel(scene, assets, model, args) {
       from.y + size.y / 2 - 8,
       from.z + size.z / 2 - 8
     )
+
+    if (model.fluid && args?.fluidHeights) await applyFluidHeights(mesh, args.fluidHeights)
 
     if (element.rotation) {
       let { origin, axis, angle, x, y, z } = element.rotation
