@@ -1042,6 +1042,19 @@ export async function loadModel(scene, assets, model, args) {
         uv.setY(i, pos.getY(i) > -6.99 ? 1 - (1 - H[cornerOf(i)]) * 0.5 : 0.5)
       }
     }
+    if (model.fluid === "water" && heights.overlay) {
+      for (const [face, mi] of [["east", 0], ["west", 1], ["south", 4], ["north", 5]]) {
+        if (!heights.overlay[face]) continue
+        const tint = model.tints?.[0]
+        const mkey = `minecraft:block/water_overlay\0${tint ?? ""}\0true`
+        let material = materialCache.get(mkey)
+        if (!material) {
+          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay", tint), assets, model.shader, model.double_sided, true, lightConfig, lighting)
+          materialCache.set(mkey, material)
+        }
+        mesh.material[mi] = material
+      }
+    }
     const vertIdx = {}
     for (let i = 8; i < 12; i++) vertIdx[cornerOf(i)] = i
     const order = [vertIdx.nw, vertIdx.sw, vertIdx.se, vertIdx.nw, vertIdx.se, vertIdx.ne]

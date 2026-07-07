@@ -76,5 +76,17 @@ export function fluidHeights(type, getBlock) {
     }
   }
   const angle = fx || fz ? Math.atan2(fz, fx) - Math.PI / 2 : null
-  return { nw, ne, sw, se, full: self >= 1, angle }
+  const overlayAt = (dx, dz) => {
+    const c = getBlock(dx, 0, dz)
+    return !!c && OVERLAY_NEIGHBOR.test(c.id ?? "")
+  }
+  const overlay = {
+    north: overlayAt(0, -1),
+    south: overlayAt(0, 1),
+    west: overlayAt(-1, 0),
+    east: overlayAt(1, 0)
+  }
+  return { nw, ne, sw, se, full: self >= 1, angle, overlay }
 }
+
+const OVERLAY_NEIGHBOR = /(^|:)(\w*(glass|leaves)|(frosted_)?ice|slime_block|honey_block)$/
