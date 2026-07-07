@@ -10,6 +10,7 @@ const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east:
 async function buildBlockModel(assets, id, props, version) {
   const g = new THREE.Group()
   for (const model of await parseBlockstate(assets, id, { data: props ?? {}, ignoreAtlases: true, version })) {
+    if (model.model === "~missing") return null
     await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false })
   }
   return g
@@ -27,8 +28,10 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     const key = stateKey(bid, props)
     let m = occCache.get(key)
     if (m === undefined) {
-      try { m = occludingFaces(await buildBlockModel(assets, bid, props, version), bid) }
-      catch { m = null }
+      try {
+        const g = await buildBlockModel(assets, bid, props, version)
+        m = g ? occludingFaces(g, bid) : null
+      } catch { m = null }
       occCache.set(key, m)
     }
     return m
