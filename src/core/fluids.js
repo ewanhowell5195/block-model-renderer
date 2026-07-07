@@ -1,8 +1,9 @@
-import { canOcclude } from "./culling.js"
-
 
 const strip = id => (id ?? "").replace(/^minecraft:/, "")
 const TYPE = { water: "water", flowing_water: "water", lava: "lava", flowing_lava: "lava" }
+
+const NON_SOLID = /(^|:)(air|cave_air|void_air|structure_void|fire|soul_fire|snow|vine|glow_lichen|sculk_vein|ladder|lever|cobweb|scaffolding|redstone_wire|repeater|comparator|torch|soul_torch|redstone_torch|rail|powered_rail|detector_rail|activator_rail|tripwire|tripwire_hook|flower_pot|kelp|kelp_plant|seagrass|tall_seagrass|sea_pickle|bamboo_sapling|sweet_berry_bush|wheat|carrots|potatoes|beetroots|nether_wart|short_grass|tall_grass|fern|large_fern|dead_bush|dandelion|poppy|allium|azure_bluet|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|sunflower|lilac|rose_bush|peony|torchflower|red_mushroom|brown_mushroom|crimson_fungus|warped_fungus|crimson_roots|warped_roots|nether_sprouts|hanging_roots|spore_blossom|big_dripleaf_stem|\w+_(sapling|torch|button|pressure_plate|banner|wall_banner|sign|hanging_sign|carpet|coral|coral_fan|wall_fan|orchid|tulip|head|skull))$/
+const isSolid = id => !NON_SOLID.test(strip(id))
 
 export function fluidTypeOf(id, properties) {
   const t = TYPE[strip(id)]
@@ -27,7 +28,7 @@ export function fluidHeights(type, getBlock) {
     if (c && fluidTypeOf(c.id, c.properties) === type) {
       return typeAt(x, 1, z) === type ? 1 : ownHeight(c.id, c.properties)
     }
-    return c && canOcclude(strip(c.id)) ? -1 : 0
+    return c && isSolid(c.id) ? -1 : 0
   }
   const self = heightAt(0, 0)
   let nw = 1, ne = 1, sw = 1, se = 1
@@ -64,7 +65,7 @@ export function fluidHeights(type, getBlock) {
     let dist = 0
     if (t === type) dist = selfOwn - ownHeight(c.id, c.properties)
     else if (t) continue
-    else if (!c || !canOcclude(strip(c.id))) {
+    else if (!c || !isSolid(c.id)) {
       const below = getBlock(dx, -1, dz)
       if (below && fluidTypeOf(below.id, below.properties) === type) {
         dist = selfOwn - (ownHeight(below.id, below.properties) - 8 / 9)
