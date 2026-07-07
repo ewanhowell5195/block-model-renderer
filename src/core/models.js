@@ -1233,7 +1233,7 @@ export async function loadModel(scene, assets, model, args) {
       from.z + size.z / 2 - 8
     )
 
-    const fh = args?.fluidHeights ?? (model.fluid && args?.neighbors ? fluidHeights(model.fluid, args.neighbors) : null)
+    const fh = args?.fluidHeights ?? (model.fluid && args?.neighbors ? await fluidHeights(assets, model.fluid, args.neighbors) : null)
     if (model.fluid && fh) await applyFluidHeights(mesh, fh)
 
     if (element.rotation) {

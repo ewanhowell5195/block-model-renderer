@@ -1,9 +1,32 @@
+import { parseBlockstate, resolveModelData } from "./models.js"
+
 
 const strip = id => (id ?? "").replace(/^minecraft:/, "")
 const TYPE = { water: "water", flowing_water: "water", lava: "lava", flowing_lava: "lava" }
 
-const NON_SOLID = /(^|:)(air|cave_air|void_air|structure_void|fire|soul_fire|snow|vine|glow_lichen|sculk_vein|ladder|lever|cobweb|scaffolding|redstone_wire|repeater|comparator|torch|soul_torch|redstone_torch|rail|powered_rail|detector_rail|activator_rail|tripwire|tripwire_hook|flower_pot|kelp|kelp_plant|seagrass|tall_seagrass|sea_pickle|bamboo_sapling|sweet_berry_bush|wheat|carrots|potatoes|beetroots|nether_wart|short_grass|tall_grass|fern|large_fern|dead_bush|dandelion|poppy|allium|azure_bluet|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|sunflower|lilac|rose_bush|peony|torchflower|red_mushroom|brown_mushroom|crimson_fungus|warped_fungus|crimson_roots|warped_roots|nether_sprouts|hanging_roots|spore_blossom|big_dripleaf_stem|\w+_(sapling|torch|button|pressure_plate|banner|wall_banner|sign|hanging_sign|carpet|coral|coral_fan|wall_fan|orchid|tulip|head|skull))$/
-const isSolid = id => !NON_SOLID.test(strip(id))
+async function blockIsSolid(assets, id, properties) {
+  const cache = assets?.cache ? (assets.cache.fluidSolidity ??= new Map()) : null
+  const key = id + "|" + JSON.stringify(properties ?? null)
+  if (cache?.has(key)) return cache.get(key)
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]
+  let any3d = false
+  try {
+    for (const model of await parseBlockstate(assets, id, { data: properties ?? {}, ignoreAtlases: true })) {
+      if (model.fluid) continue
+      const data = await resolveModelData(assets, model)
+      for (const el of data?.elements ?? []) {
+        if (el.from[0] !== el.to[0] && el.from[1] !== el.to[1] && el.from[2] !== el.to[2]) any3d = true
+        for (let i = 0; i < 3; i++) {
+          lo[i] = Math.min(lo[i], el.from[i], el.to[i])
+          hi[i] = Math.max(hi[i], el.from[i], el.to[i])
+        }
+      }
+    }
+  } catch {}
+  const solid = any3d && ((hi[0] - lo[0] + hi[1] - lo[1] + hi[2] - lo[2]) / 48 >= 0.7291666666666666 || hi[1] - lo[1] >= 16)
+  cache?.set(key, solid)
+  return solid
+}
 
 export function fluidTypeOf(id, properties) {
   const t = TYPE[strip(id)]
@@ -18,23 +41,27 @@ function ownHeight(id, properties) {
   return (level >= 1 && level <= 7 ? 8 - level : 8) / 9
 }
 
-export function fluidHeights(type, getBlock) {
+export async function fluidHeights(assets, type, getBlock) {
   const typeAt = (x, y, z) => {
     const c = getBlock(x, y, z)
     return c ? fluidTypeOf(c.id, c.properties) : null
   }
-  const heightAt = (x, z) => {
+  const solidAt = async (x, z) => {
+    const c = getBlock(x, 0, z)
+    return !!c && await blockIsSolid(assets, c.id, c.properties)
+  }
+  const heightAt = async (x, z) => {
     const c = getBlock(x, 0, z)
     if (c && fluidTypeOf(c.id, c.properties) === type) {
       return typeAt(x, 1, z) === type ? 1 : ownHeight(c.id, c.properties)
     }
-    return c && isSolid(c.id) ? -1 : 0
+    return await solidAt(x, z) ? -1 : 0
   }
-  const self = heightAt(0, 0)
+  const self = await heightAt(0, 0)
   let nw = 1, ne = 1, sw = 1, se = 1
   if (self < 1) {
-    const n = heightAt(0, -1), s = heightAt(0, 1), w = heightAt(-1, 0), e = heightAt(1, 0)
-    const corner = (a, b, dx, dz) => {
+    const n = await heightAt(0, -1), s = await heightAt(0, 1), w = await heightAt(-1, 0), e = await heightAt(1, 0)
+    const corner = async (a, b, dx, dz) => {
       if (a >= 1 || b >= 1) return 1
       let sum = 0, weight = 0
       const add = h => {
@@ -42,7 +69,7 @@ export function fluidHeights(type, getBlock) {
         else if (h >= 0) { sum += h; weight++ }
       }
       if (a > 0 || b > 0) {
-        const d = heightAt(dx, dz)
+        const d = await heightAt(dx, dz)
         if (d >= 1) return 1
         add(d)
       }
@@ -51,10 +78,10 @@ export function fluidHeights(type, getBlock) {
       add(b)
       return sum / weight
     }
-    nw = corner(n, w, -1, -1)
-    ne = corner(n, e, 1, -1)
-    sw = corner(s, w, -1, 1)
-    se = corner(s, e, 1, 1)
+    nw = await corner(n, w, -1, -1)
+    ne = await corner(n, e, 1, -1)
+    sw = await corner(s, w, -1, 1)
+    se = await corner(s, e, 1, 1)
   }
   const selfCell = getBlock(0, 0, 0)
   const selfOwn = selfCell ? ownHeight(selfCell.id, selfCell.properties) : 8 / 9
@@ -65,7 +92,7 @@ export function fluidHeights(type, getBlock) {
     let dist = 0
     if (t === type) dist = selfOwn - ownHeight(c.id, c.properties)
     else if (t) continue
-    else if (!c || !isSolid(c.id)) {
+    else if (!c || !await blockIsSolid(assets, c.id, c.properties)) {
       const below = getBlock(dx, -1, dz)
       if (below && fluidTypeOf(below.id, below.properties) === type) {
         dist = selfOwn - (ownHeight(below.id, below.properties) - 8 / 9)
