@@ -12,6 +12,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageData }))
 
+let frameCtx = null, frameRenderer = null, frameSize = null
+
 async function makeFolderEntry(folderPath) {
   const entry = {
     path: folderPath,
@@ -93,14 +95,21 @@ setPlatform({
   },
 
   createFrameRenderer({ width, height, background, camera }) {
-    const glCtx = createContext(width, height)
-    const renderer = new THREE.WebGLRenderer({ context: glCtx })
-    renderer.setSize(width, height)
-    renderer.outputColorSpace = THREE.LinearSRGBColorSpace
-    if (background != null) {
-      const parsed = THREE.headless.parseColor(background)
-      if (parsed) renderer.setClearColor(parsed.color, parsed.alpha)
+    if (!frameCtx) {
+      frameCtx = createContext(width, height)
+      frameRenderer = new THREE.WebGLRenderer({ context: frameCtx })
+      frameRenderer.outputColorSpace = THREE.LinearSRGBColorSpace
+      frameSize = { width, height }
+    } else if (frameSize.width !== width || frameSize.height !== height) {
+      frameCtx.getExtension("STACKGL_resize_drawingbuffer").resize(width, height)
+      frameSize = { width, height }
     }
+    const glCtx = frameCtx
+    const renderer = frameRenderer
+    renderer.setSize(width, height)
+    const parsed = background != null ? THREE.headless.parseColor(background) : null
+    if (parsed) renderer.setClearColor(parsed.color, parsed.alpha)
+    else renderer.setClearColor(0x000000, 0)
 
     camera.projectionMatrix.elements[5] *= -1
     const gl = renderer.getContext()
@@ -119,8 +128,6 @@ setPlatform({
       dispose() {
         gl.frontFace(currentFrontFace)
         camera.projectionMatrix.elements[5] *= -1
-        renderer.dispose()
-        glCtx.getExtension("STACKGL_destroy_context")?.destroy()
       }
     }
   },
