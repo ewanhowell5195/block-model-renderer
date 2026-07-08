@@ -1189,10 +1189,10 @@ export async function loadModel(scene, assets, model, args) {
       let texRef = "#flow"
       while (texRef && texRef.startsWith("#")) texRef = model.textures?.[texRef.slice(1)]
       const tint = model.tints?.[0]
-      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0true`
+      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0true\0flow`
       let material = materialCache.get(mkey)
       if (!material) {
-        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, model.double_sided, true, lightConfig, lighting)
+        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, true, true, lightConfig, lighting)
         materialCache.set(mkey, material)
       }
       mesh.material[2] = material
@@ -1351,10 +1351,11 @@ export async function loadModel(scene, assets, model, args) {
       const modernShade = !model.version || !isBefore(model.version, "26.3")
       const shadeDir = modernShade && SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
       const shade = (legacyShade ? element.shade !== false : true) || !!shadeDir
-      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}`
+      const doubleSided = model.double_sided || (model.fluid && faceName === "up")
+      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}\0${doubleSided}`
       let material = materialCache.get(mkey)
       if (!material) {
-        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, model.double_sided, shade, lightConfig, lighting, shadeDir)
+        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, doubleSided, shade, lightConfig, lighting, shadeDir)
         if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
         materialCache.set(mkey, material)
       }
