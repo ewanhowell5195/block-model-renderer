@@ -636,7 +636,7 @@ await renderBlock({
 Currently triggered behaviours:
 - **Pre-1.9**: `display.gui` entries compose onto the era's built-in gui base (rotation `[30, 225, 0]`, scale `0.625`) the way the old pipeline applied them, instead of being the whole transform like today. The old `thirdperson`/`firstperson` display names convert to their modern `_righthand` forms
 - **Pre-1.13**: prepends `block/` to bare blockstate model refs (e.g. `"model": "cactus"` resolves to `block/cactus`, matching the implicit prefix the game used before the 1.13 flattening)
-- **Pre-1.15**: mirrored display scales (an odd number of negative components) render solid like the old pipeline compensated them. From 1.15 the game renders them inside out (MC-177619), which is what unversioned and 1.15+ renders do
+- **Pre-1.15**: mirrored display scales (an odd number of negative components) render solid like the old pipeline compensated them. From 1.15 the game renders them inside out (MC-176864), which is what unversioned and 1.15+ renders do
 - **Pre-1.21.4**: items with no [item definition](#parseitemdefinitionassets-id-args) fall back to the classic `models/item/<id>.json`
 - **Pre-1.21.6**: element rotation angles that aren't multiples of 22.5 make the model render as missing, like the game rejected them
 - **Pre-1.21.11**: skips texture atlas membership rules (the block/item atlas restriction only began in 1.21.11). Element rotations outside ±45, or using the multi-axis `x`/`y`/`z` form, make the model render as missing. Blockstate variant `z` rotations are ignored (the game didn't read the field yet)
