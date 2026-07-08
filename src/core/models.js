@@ -4,6 +4,8 @@ import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
 
+const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
+
 const X_CYCLE = { north: "up", up: "south", south: "down", down: "north" }
 const Y_CYCLE = { north: "east", east: "south", south: "west", west: "north" }
 
@@ -285,7 +287,8 @@ export async function parseItemDefinition(assets, itemId, args) {
   const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
 
   if (!buf) {
-    const m = { type: "item", model: "~missing" }
+    const legacy = await readFile(`assets/${namespace}/models/item/${item}.json`, assets)
+    const m = { type: "item", model: legacy ? `${namespace}:item/${item}` : "~missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (args?.version) m.version = args.version
     return [m]
@@ -382,7 +385,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
     }
 
     if (type === "select") {
-      const prop = normalize(def.property)
+      const prop = LEGACY_ITEM_PROPS[normalize(def.property)] ?? normalize(def.property)
       let raw
       if (prop === "custom_model_data") raw = data["custom_model_data"]?.strings?.[def.index ?? 0]
       else if (prop === "component") raw = data[normalize(def.component)]
@@ -443,7 +446,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
     }
 
     if (type === "condition") {
-      const prop = normalize(def.property)
+      const prop = LEGACY_ITEM_PROPS[normalize(def.property)] ?? normalize(def.property)
       let isTruthy
       if (prop === "custom_model_data") {
         const v = data["custom_model_data"]?.flags?.[def.index ?? 0]
@@ -461,7 +464,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
     }
 
     if (type === "range_dispatch") {
-      const prop = normalize(def.property)
+      const prop = LEGACY_ITEM_PROPS[normalize(def.property)] ?? normalize(def.property)
       const defaultValue = prop === "count" ? 1 : 0
       const num = parseFloat(prop === "custom_model_data" ? data["custom_model_data"]?.floats?.[def.index ?? 0] ?? defaultValue : data[prop] ?? defaultValue)
       const scaled = (def.scale ?? 1) * num
@@ -664,6 +667,10 @@ export async function resolveModelData(assets, model) {
     if (!merged.textures[key]) {
       delete merged.textures[key]
     }
+  }
+
+  if (merged.display) {
+    convertLegacyDisplay(merged)
   }
 
   if (normalize(stack[stack.length - 1].parent) === "builtin/generated") {
@@ -869,8 +876,48 @@ function isBefore(version, target) {
   return false
 }
 
+function convertLegacyDisplay(merged) {
+  const d = merged.display
+  if (d.gui && merged.version && isBefore(merged.version, "1.9")) {
+    const g = d.gui
+    const r = g.rotation ?? [0, 0, 0]
+    const t = g.translation ?? [0, 0, 0]
+    const s = g.scale ?? [1, 1, 1]
+    d.gui = {
+      rotation: [30 - r[0], 225 - r[1], r[2]],
+      translation: t,
+      scale: [0.625 * s[0], 0.625 * s[1], 0.625 * s[2]]
+    }
+  }
+  if (d.thirdperson && !d.thirdperson_righthand) {
+    const o = d.thirdperson
+    const converted = { ...o }
+    if (o.rotation) {
+      const e = new THREE.Euler(
+        THREE.MathUtils.degToRad(o.rotation[0]),
+        THREE.MathUtils.degToRad(o.rotation[1]),
+        THREE.MathUtils.degToRad(o.rotation[2]),
+        "XYZ"
+      )
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2)
+        .multiply(new THREE.Quaternion().setFromEuler(e))
+      const out = new THREE.Euler().setFromQuaternion(q, "XYZ")
+      converted.rotation = [out.x, out.y, out.z].map(r => Math.round(THREE.MathUtils.radToDeg(r) * 100) / 100)
+    }
+    if (o.translation) {
+      converted.translation = [o.translation[0], -o.translation[2], o.translation[1]]
+    }
+    d.thirdperson_righthand = converted
+    delete d.thirdperson
+  }
+  if (d.firstperson && !d.firstperson_righthand) {
+    d.firstperson_righthand = { ...d.firstperson }
+    delete d.firstperson
+  }
+}
+
 function shouldIgnoreAtlases(model) {
-  return model.ignore_atlas_restrictions || (model.version && isBefore(model.version, "1.19.3"))
+  return model.ignore_atlas_restrictions || (model.version && isBefore(model.version, "1.21.11"))
 }
 
 async function modelPassesAtlasRules(model, assets) {
@@ -1258,6 +1305,15 @@ export async function loadModel(scene, assets, model, args) {
           return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
         }
       }
+      if (model.version) {
+        const preMultiAxis = isBefore(model.version, "1.21.11")
+        if (axis && preMultiAxis && (Math.abs(angle) > 45 || (isBefore(model.version, "1.21.6") && angle % 22.5 !== 0))) {
+          return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
+        }
+        if (!axis && preMultiAxis) {
+          return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
+        }
+      }
 
       const pivot = new THREE.Vector3(
         origin[0] - 8,
@@ -1352,16 +1408,16 @@ export async function loadModel(scene, assets, model, args) {
     }
     if (settings.translation) {
       displayGroup.position.set(
-        settings.translation[0],
-        settings.translation[1],
-        settings.translation[2]
+        Math.max(-80, Math.min(80, settings.translation[0])),
+        Math.max(-80, Math.min(80, settings.translation[1])),
+        Math.max(-80, Math.min(80, settings.translation[2]))
       )
     }
     if (settings.scale) {
       displayGroup.scale.set(
-        settings.scale[0],
-        settings.scale[1],
-        settings.scale[2]
+        Math.max(-4, Math.min(4, settings.scale[0])),
+        Math.max(-4, Math.min(4, settings.scale[1])),
+        Math.max(-4, Math.min(4, settings.scale[2]))
       )
     }
   }
