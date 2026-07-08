@@ -202,6 +202,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   }
 
   for (const model of models) {
+    if (args?.version && isBefore(args.version, "1.21.11")) delete model.z
     if (json.allow_invalid_rotations) {
       model.allow_invalid_rotations = true
     } else if (model.x && model.x % 90 !== 0 || model.y && model.y % 90 !== 0 || model.z && model.z % 90 !== 0) {
@@ -278,7 +279,13 @@ async function getColorMapTint(assets, mapName, temperature, downfall) {
 }
 
 export async function parseItemDefinition(assets, itemId, args) {
-  const data = args?.data ?? {}
+  const data = { ...(args?.data ?? {}) }
+  if (data.custom_model_data != null && typeof data.custom_model_data !== "object") {
+    data.custom_model_data = { floats: [Number(data.custom_model_data)] }
+  }
+  if (data.dyed_color != null && typeof data.dyed_color === "object" && "rgb" in data.dyed_color) {
+    data.dyed_color = data.dyed_color.rgb
+  }
   const display = args?.display ?? "gui"
   assets = await prepareAssets(assets)
 
@@ -287,7 +294,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
 
   if (!buf) {
-    const legacy = await readFile(`assets/${namespace}/models/item/${item}.json`, assets)
+    const legacy = (!args?.version || isBefore(args.version, "1.21.4")) && await readFile(`assets/${namespace}/models/item/${item}.json`, assets)
     const m = { type: "item", model: legacy ? `${namespace}:item/${item}` : "~missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (args?.version) m.version = args.version
@@ -298,7 +305,7 @@ export async function parseItemDefinition(assets, itemId, args) {
 
   const normalizedData = {}
   for (const key in data) normalizedData[normalize(key)] = data[key]
-  const models = await resolveItemModel(assets, json.model, normalizedData, display)
+  const models = await resolveItemModel(assets, json.model, normalizedData, display, undefined, args?.version)
   for (let i = 0; i < models.length; i++) {
     const model = models[i]
     model.type = "item"
@@ -360,7 +367,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   return models
 }
 
-async function resolveItemModel(assets, def, data, display, accTransform) {
+async function resolveItemModel(assets, def, data, display, accTransform, version) {
   while (def) {
     const type = normalize(def.type)
     const currentTransform = composeTransformations(accTransform, parseTransformation(def.transformation))
@@ -378,14 +385,14 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
     if (type === "composite") {
       const result = []
       for (const model of def.models) {
-        const nested = await resolveItemModel(assets, model, data, display, currentTransform)
+        const nested = await resolveItemModel(assets, model, data, display, currentTransform, version)
         result.push(...nested)
       }
       return result
     }
 
     if (type === "select") {
-      const prop = LEGACY_ITEM_PROPS[normalize(def.property)] ?? normalize(def.property)
+      const prop = (version ? null : LEGACY_ITEM_PROPS[normalize(def.property)]) ?? normalize(def.property)
       let raw
       if (prop === "custom_model_data") raw = data["custom_model_data"]?.strings?.[def.index ?? 0]
       else if (prop === "component") raw = data[normalize(def.component)]
@@ -446,7 +453,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
     }
 
     if (type === "condition") {
-      const prop = LEGACY_ITEM_PROPS[normalize(def.property)] ?? normalize(def.property)
+      const prop = (version ? null : LEGACY_ITEM_PROPS[normalize(def.property)]) ?? normalize(def.property)
       let isTruthy
       if (prop === "custom_model_data") {
         const v = data["custom_model_data"]?.flags?.[def.index ?? 0]
@@ -464,7 +471,7 @@ async function resolveItemModel(assets, def, data, display, accTransform) {
     }
 
     if (type === "range_dispatch") {
-      const prop = LEGACY_ITEM_PROPS[normalize(def.property)] ?? normalize(def.property)
+      const prop = (version ? null : LEGACY_ITEM_PROPS[normalize(def.property)]) ?? normalize(def.property)
       const defaultValue = prop === "count" ? 1 : 0
       const num = parseFloat(prop === "custom_model_data" ? data["custom_model_data"]?.floats?.[def.index ?? 0] ?? defaultValue : data[prop] ?? defaultValue)
       const scaled = (def.scale ?? 1) * num
@@ -889,7 +896,8 @@ function convertLegacyDisplay(merged) {
       scale: [0.625 * s[0], 0.625 * s[1], 0.625 * s[2]]
     }
   }
-  if (d.thirdperson && !d.thirdperson_righthand) {
+  const legacyNames = !merged.version || isBefore(merged.version, "1.9")
+  if (legacyNames && d.thirdperson && !d.thirdperson_righthand) {
     const o = d.thirdperson
     const converted = { ...o }
     if (o.rotation) {
@@ -910,7 +918,7 @@ function convertLegacyDisplay(merged) {
     d.thirdperson_righthand = converted
     delete d.thirdperson
   }
-  if (d.firstperson && !d.firstperson_righthand) {
+  if (legacyNames && d.firstperson && !d.firstperson_righthand) {
     d.firstperson_righthand = { ...d.firstperson }
     delete d.firstperson
   }
