@@ -883,6 +883,49 @@ function isBefore(version, target) {
   return false
 }
 
+function bakeMirroredScale(displayGroup, solid) {
+  const sign = new THREE.Matrix4().makeScale(
+    Math.sign(displayGroup.scale.x),
+    Math.sign(displayGroup.scale.y),
+    Math.sign(displayGroup.scale.z)
+  )
+  displayGroup.updateWorldMatrix(false, true)
+  const invDisp = displayGroup.matrixWorld.clone().invert()
+  const v = new THREE.Vector3()
+  displayGroup.traverse(o => {
+    if (!o.isMesh) return
+    const rel = invDisp.clone().multiply(o.matrixWorld)
+    const bake = rel.clone().invert().multiply(sign).multiply(rel)
+    const nm = new THREE.Matrix3().getNormalMatrix(bake)
+    const pos = o.geometry.attributes.position
+    const nrm = o.geometry.attributes.normal
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(bake)
+      pos.setXYZ(i, v.x, v.y, v.z)
+      if (nrm) {
+        v.fromBufferAttribute(nrm, i).applyMatrix3(nm).normalize()
+        nrm.setXYZ(i, v.x, v.y, v.z)
+      }
+    }
+    pos.needsUpdate = true
+    if (nrm) nrm.needsUpdate = true
+    if (solid && o.geometry.index) {
+      const idx = o.geometry.index
+      for (let i = 0; i + 2 < idx.count; i += 3) {
+        const a = idx.getX(i)
+        idx.setX(i, idx.getX(i + 2))
+        idx.setX(i + 2, a)
+      }
+      idx.needsUpdate = true
+    }
+  })
+  displayGroup.scale.set(
+    Math.abs(displayGroup.scale.x),
+    Math.abs(displayGroup.scale.y),
+    Math.abs(displayGroup.scale.z)
+  )
+}
+
 function convertLegacyDisplay(merged) {
   const d = merged.display
   if (d.gui && merged.version && isBefore(merged.version, "1.9")) {
@@ -1441,6 +1484,10 @@ export async function loadModel(scene, assets, model, args) {
         .multiply(new THREE.Matrix4().makeTranslation(8, 8, 8))
       containerGroup.applyMatrix4(wrapped)
     }
+  }
+
+  if (displayGroup.scale.x * displayGroup.scale.y * displayGroup.scale.z < 0) {
+    bakeMirroredScale(displayGroup, model.version && isBefore(model.version, "1.15"))
   }
 
   if (scene) scene.add(rootGroup)
