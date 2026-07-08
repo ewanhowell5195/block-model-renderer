@@ -1190,6 +1190,7 @@ export async function loadModel(scene, assets, model, args) {
           materialCache.set(mkey, material)
         }
         mesh.material[mi] = material
+        mesh.material[mi + 6] = new THREE.MeshBasicMaterial({ visible: false })
       }
     }
     const vertIdx = {}
@@ -1201,13 +1202,15 @@ export async function loadModel(scene, assets, model, args) {
       let texRef = "#flow"
       while (texRef && texRef.startsWith("#")) texRef = model.textures?.[texRef.slice(1)]
       const tint = model.tints?.[0]
-      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0true\0flow`
-      let material = materialCache.get(mkey)
-      if (!material) {
-        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, true, true, lightConfig, lighting)
-        materialCache.set(mkey, material)
+      for (const [idx, side] of [[2, false], [8, "back"]]) {
+        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${side}\0flow`
+        let material = materialCache.get(mkey)
+        if (!material) {
+          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, true, lightConfig, lighting)
+          materialCache.set(mkey, material)
+        }
+        mesh.material[idx] = material
       }
-      mesh.material[2] = material
       const c = Math.cos(heights.angle) * 0.25, s = Math.sin(heights.angle) * 0.25
       const flowUV = {
         nw: [0.5 - c - s, 0.5 - c + s],
@@ -1222,10 +1225,16 @@ export async function loadModel(scene, assets, model, args) {
       const hidden = new THREE.MeshBasicMaterial({ visible: false })
       const FACE_INDEX = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 }
       for (const dir in FACE_INDEX) {
-        if (heights.same[dir]) mesh.material[FACE_INDEX[dir]] = hidden
+        if (heights.same[dir]) {
+          mesh.material[FACE_INDEX[dir]] = hidden
+          mesh.material[FACE_INDEX[dir] + 6] = hidden
+        }
       }
     }
-    if (!heights.full) mesh.userData.cullface[2] = null
+    if (!heights.full) {
+      mesh.userData.cullface[2] = null
+      mesh.userData.cullface[8] = null
+    }
   }
 
   async function buildElement(element, target) {
@@ -1338,40 +1347,53 @@ export async function loadModel(scene, assets, model, args) {
     }
     geometry.attributes.uv.needsUpdate = true
 
-    const materials = []
-    for (let i = 0; i < faceOrder.length; i++) {
-      const faceName = faceOrder[i]
-      const face = element.faces?.[faceName]
-      if (!face || !face.texture || (cull && cullDirs[i] && cull.has(cullDirs[i]) && !(model.fluid && faceName === "up"))) {
-        materials.push(new THREE.MeshBasicMaterial({ visible: false }))
-        continue
-      }
+    async function faceMaterials(back) {
+      const out = []
+      for (let i = 0; i < faceOrder.length; i++) {
+        const faceName = faceOrder[i]
+        const face = element.faces?.[faceName]
+        if (!face || !face.texture || (cull && cullDirs[i] && cull.has(cullDirs[i]) && !(model.fluid && faceName === "up"))) {
+          out.push(new THREE.MeshBasicMaterial({ visible: false }))
+          continue
+        }
 
-      let texRef = face.texture
-      if (texRef && !texRef.startsWith("#")) texRef = "#" + texRef
+        let texRef = face.texture
+        if (texRef && !texRef.startsWith("#")) texRef = "#" + texRef
 
-      let tint
-      if (model.tints) {
-        tint = model.tints[face.tintindex]
-      }
+        let tint
+        if (model.tints) {
+          tint = model.tints[face.tintindex]
+        }
 
-      while (texRef && texRef.startsWith("#")) {
-        texRef = model.textures?.[texRef.slice(1)]
-      }
+        while (texRef && texRef.startsWith("#")) {
+          texRef = model.textures?.[texRef.slice(1)]
+        }
 
-      const legacyShade = !model.version || isBefore(model.version, "26.3")
-      const modernShade = !model.version || !isBefore(model.version, "26.3")
-      const shadeDir = modernShade && SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
-      const shade = (legacyShade ? element.shade !== false : true) || !!shadeDir
-      const doubleSided = model.double_sided || !!model.fluid
-      const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}\0${doubleSided}`
-      let material = materialCache.get(mkey)
-      if (!material) {
-        material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, doubleSided, shade, lightConfig, lighting, shadeDir)
-        if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
-        materialCache.set(mkey, material)
+        const legacyShade = !model.version || isBefore(model.version, "26.3")
+        const modernShade = !model.version || !isBefore(model.version, "26.3")
+        const shadeDir = modernShade && SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
+        const shade = (legacyShade ? element.shade !== false : true) || !!shadeDir
+        const side = back ? "back" : model.double_sided
+        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}\0${side}`
+        let material = materialCache.get(mkey)
+        if (!material) {
+          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, shade, lightConfig, lighting, shadeDir)
+          if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
+          materialCache.set(mkey, material)
+        }
+        out.push(material)
       }
-      materials.push(material)
+      return out
+    }
+
+    const materials = await faceMaterials(false)
+    if (model.fluid) {
+      materials.push(...await faceMaterials("back"))
+      const groups = geometry.groups.map(g => ({ ...g }))
+      geometry.clearGroups()
+      for (const g of groups) geometry.addGroup(g.start, g.count, g.materialIndex + 6)
+      for (const g of groups) geometry.addGroup(g.start, g.count, g.materialIndex)
+      cullDirs.push(...cullDirs)
     }
 
     const mesh = new THREE.Mesh(geometry, materials)
@@ -1584,7 +1606,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
   if ((lighting === "scene" || lighting === "off") && shader?.type !== "end_portal") {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.needsUpdate = true
-    const side = doubleSided ? THREE.DoubleSide : THREE.FrontSide
+    const side = doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide
     return lighting === "scene"
       ? new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: 0.5, side })
       : new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.5, side })
@@ -1755,6 +1777,6 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       }
     `,
     transparent: texture?.userData?.translucent === true,
-    side: doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+    side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
   })
 }
