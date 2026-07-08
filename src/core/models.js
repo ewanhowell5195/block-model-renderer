@@ -1174,7 +1174,7 @@ export async function loadModel(scene, assets, model, args) {
         const mkey = `minecraft:block/water_overlay\0${tint ?? ""}\0true`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay", tint), assets, model.shader, model.double_sided, true, lightConfig, lighting)
+          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay", tint), assets, model.shader, true, true, lightConfig, lighting)
           materialCache.set(mkey, material)
         }
         mesh.material[mi] = material
@@ -1351,7 +1351,7 @@ export async function loadModel(scene, assets, model, args) {
       const modernShade = !model.version || !isBefore(model.version, "26.3")
       const shadeDir = modernShade && SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
       const shade = (legacyShade ? element.shade !== false : true) || !!shadeDir
-      const doubleSided = model.double_sided || (model.fluid && faceName === "up")
+      const doubleSided = model.double_sided || !!model.fluid
       const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}\0${doubleSided}`
       let material = materialCache.get(mkey)
       if (!material) {
