@@ -212,7 +212,7 @@ function schedulerLoop() {
     for (const p of players) {
       if (p.playing && p._visible && !starved.has(p)) fresh.push(p)
     }
-    queue = [...queue.filter(p => p.playing && p._visible), ...fresh]
+    queue = queue.filter(p => p.playing && p._visible).concat(fresh)
   }
 
   const deadline = now + FRAME_BUDGET_MS

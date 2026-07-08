@@ -124,7 +124,7 @@ export function buildZip(files, deflate) {
   const total = offset + centralSize + eocd.length
   const out = new Uint8Array(total)
   let pos = 0
-  for (const part of [...localParts, ...centralParts, eocd]) {
+  for (const part of localParts.concat(centralParts, eocd)) {
     out.set(part, pos)
     pos += part.length
   }
