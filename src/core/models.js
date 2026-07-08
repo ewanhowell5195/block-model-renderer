@@ -1171,10 +1171,10 @@ export async function loadModel(scene, assets, model, args) {
       for (const [face, mi] of [["east", 0], ["west", 1], ["south", 4], ["north", 5]]) {
         if (!heights.overlay[face] || mesh.material[mi].visible === false) continue
         const tint = model.tints?.[0]
-        const mkey = `minecraft:block/water_overlay\0${tint ?? ""}\0true`
+        const mkey = `minecraft:block/water_overlay\0${tint ?? ""}\0false`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay", tint), assets, model.shader, true, true, lightConfig, lighting)
+          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay", tint), assets, model.shader, false, true, lightConfig, lighting)
           materialCache.set(mkey, material)
         }
         mesh.material[mi] = material
