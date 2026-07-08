@@ -639,7 +639,7 @@ Currently triggered behaviours:
 - **Pre-26.3**: ignores the element `shade_direction_override` field (it didn't exist yet)
 - **26.3+**: ignores the element `shade` field (26.3 removed it in favour of `shade_direction_override`)
 
-Without a `version`, both `shade` and `shade_direction_override` are honoured, so unversioned packs from either era shade correctly. If an element carries both, `shade_direction_override` wins over `shade: false`.
+Without a `version`, everything that can coexist works at once: when the format replaces one field with another, both the old and new forms are supported simultaneously, and the newer form wins if a model carries both. Only behaviours that directly conflict fall back to the modern rules.
 
 The option is accepted by every entry point (`renderBlock`, `renderItem`, `renderModel`, `parseBlockstate`, `parseItemDefinition`, `loadModel`) and is also propagated onto model objects as `model.version`, so manually constructed models can carry it through too.
 
