@@ -634,10 +634,14 @@ await renderBlock({
 `version` accepts release-style version strings like `"1.8"`, `"1.16.5"`, or `"26.1.2"`. Trailing segments are optional and treated as `0` (so `"26"` compares as `"26.0.0"`). Anything after a `-` is ignored, so snapshot, pre-release, and release-candidate suffixes work too: `"1.21-pre1"`, `"1.21-rc2"`, `"26.1.2-snapshot-2"`.
 
 Currently triggered behaviours:
+- **Pre-1.9**: `display.gui` entries compose onto the era's built-in gui base (rotation `[30, 225, 0]`, scale `0.625`) the way the old pipeline applied them, instead of being the whole transform like today
 - **Pre-1.13**: prepends `block/` to bare blockstate model refs (e.g. `"model": "cactus"` resolves to `block/cactus`, matching the implicit prefix the game used before the 1.13 flattening)
-- **Pre-1.19.3**: skips texture atlas membership rules (atlases didn't exist yet)
+- **Pre-1.21.6**: element rotation angles that aren't multiples of 22.5 make the model render as missing, like the game rejected them
+- **Pre-1.21.11**: skips texture atlas membership rules (the block/item atlas restriction only began in 1.21.11). Element rotations outside ±45, or using the multi-axis `x`/`y`/`z` form, make the model render as missing
 - **Pre-26.3**: ignores the element `shade_direction_override` field (it didn't exist yet)
 - **26.3+**: ignores the element `shade` field (26.3 removed it in favour of `shade_direction_override`)
+
+A few legacy behaviours don't conflict with anything, so they apply even without a `version`: items with no [item definition](#parseitemdefinitionassets-id-args) fall back to the classic `models/item/<id>.json` (the pre-1.21.4 world), the pre-1.9 `thirdperson`/`firstperson` display names map to their modern `_righthand` forms, and renamed item definition properties (`holder_type`, `shift_down`) resolve as their current names.
 
 Without a `version`, everything that can coexist works at once: when the format replaces one field with another, both the old and new forms are supported simultaneously, and the newer form wins if a model carries both. Only behaviours that directly conflict fall back to the modern rules.
 
