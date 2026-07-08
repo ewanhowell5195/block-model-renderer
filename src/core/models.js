@@ -536,6 +536,17 @@ function applyTint(img, tint) {
   return canvas
 }
 
+function imageIsTranslucent(img) {
+  const canvas = new Canvas(img.width, img.height)
+  const ctx = canvas.getContext("2d")
+  ctx.drawImage(img, 0, 0)
+  const data = ctx.getImageData(0, 0, img.width, img.height).data
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] > 5 && data[i] < 250) return true
+  }
+  return false
+}
+
 export function isCrossModel(models) {
   const elements = (Array.isArray(models) ? models : [models]).flatMap(m => m?.elements ?? [])
   return elements.length > 0 && elements.every(el => {
@@ -1073,6 +1084,7 @@ export async function loadModel(scene, assets, model, args) {
     }
 
     const texture = await makeThreeTexture(image)
+    texture.userData.translucent = imageIsTranslucent(image)
     if (loaded.animated && frames) {
       texture.userData.frames = frames
       texture.userData.times = loaded.times
@@ -1742,7 +1754,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         gl_FragColor = vec4(texColor.rgb * shade, texColor.a);
       }
     `,
-    transparent: true,
+    transparent: texture?.userData?.translucent === true,
     side: doubleSided ? THREE.DoubleSide : THREE.FrontSide,
   })
 }
