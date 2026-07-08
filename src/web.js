@@ -528,7 +528,7 @@ export const resolveModelData = wrap("resolveModelData")
 export const renderModelScene = wrap("renderModelScene")
 export const getCullFaces = wrap("getCullFaces")
 
-export const loadModel = async (scene, assets, model, args) => {
+export async function loadModel(scene, assets, model, args) {
   await init()
   const group = await core.loadModel(scene, assets, model, args)
   if (args?.animate !== false) attachAutoAnimation(group)

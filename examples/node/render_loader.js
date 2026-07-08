@@ -26,7 +26,7 @@ ModelLoader.register({
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3))
       geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2))
-      geometry.setIndex([...Array(pos.length / 3).keys()])
+      geometry.setIndex(Array.from(Array(pos.length / 3).keys()))
       geometry.computeVertexNormals()
       const texture = helpers.resolveTexture(polygon.texture ?? "#texture") ?? "block/stone"
       group.add(new THREE.Mesh(geometry, await helpers.createMaterial(texture)))
@@ -49,7 +49,7 @@ ModelLoader.register({
   match: model => (model.loader === "forge:obj" || model.loader === "neoforge:obj") && typeof model.model === "string" && model.model.endsWith(".obj"),
   async build({ group, model, helpers }) {
     const { THREE } = helpers
-    const objPath = ref => {
+    function objPath(ref) {
       const [ns, path] = ref.includes(":") ? ref.split(":") : ["minecraft", ref]
       return `assets/${ns}/models/${path}`
     }
@@ -92,7 +92,7 @@ ModelLoader.register({
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3))
       geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2))
-      geometry.setIndex([...Array(pos.length / 3).keys()])
+      geometry.setIndex(Array.from(Array(pos.length / 3).keys()))
       geometry.computeVertexNormals()
       const texture = helpers.resolveTexture(materials.get(mtlName) ?? "#texture") ?? "block/stone"
       group.add(new THREE.Mesh(geometry, await helpers.createMaterial(texture)))

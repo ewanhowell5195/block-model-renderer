@@ -19,12 +19,12 @@ async function buildBlockModel(assets, id, props, version) {
 export async function getCullFaces({ id, blockstates, neighbors, assets, version } = {}) {
   assets = scopedCache(await prepareAssets(assets))
   const occCache = assets.cache.occlusion
-  const stateKey = (bid, props) => {
+  function stateKey(bid, props) {
     let key = bid
     if (props) for (const k of Object.keys(props).sort()) key += "," + k + "=" + props[k]
     return key
   }
-  const masksFor = async (bid, props) => {
+  async function masksFor(bid, props) {
     const key = stateKey(bid, props)
     let m = occCache.get(key)
     if (m === undefined) {
@@ -36,7 +36,7 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     }
     return m
   }
-  const selfMasksFor = async () => {
+  async function selfMasksFor() {
     const key = "self\0" + stateKey(id, blockstates)
     let m = occCache.get(key)
     if (m === undefined) {

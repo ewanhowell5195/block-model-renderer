@@ -41,7 +41,7 @@ function ownHeight(id, properties) {
   return (level >= 1 && level <= 7 ? 8 - level : 8) / 9
 }
 
-const cellKey = (x, y, z) => {
+function cellKey(x, y, z) {
   if (!x && !y && !z) return "self"
   let k = y === 1 ? "up" : y === -1 ? "down" : ""
   if (z === -1) k += (k ? "_" : "") + "north"
@@ -52,22 +52,22 @@ const cellKey = (x, y, z) => {
 }
 
 export async function fluidHeights(assets, type, neighbors) {
-  const getBlock = (x, y, z) => {
+  function getBlock(x, y, z) {
     const v = neighbors?.[cellKey(x, y, z)] ?? (!x && !y && !z ? type : null)
     if (!v) return null
     if (typeof v === "string") return { id: v }
     const { id, ...properties } = v
     return { id, properties }
   }
-  const typeAt = (x, y, z) => {
+  function typeAt(x, y, z) {
     const c = getBlock(x, y, z)
     return c ? fluidTypeOf(c.id, c.properties) : null
   }
-  const solidAt = async (x, z) => {
+  async function solidAt(x, z) {
     const c = getBlock(x, 0, z)
     return !!c && await blockIsSolid(assets, c.id, c.properties)
   }
-  const heightAt = async (x, z) => {
+  async function heightAt(x, z) {
     const c = getBlock(x, 0, z)
     if (c && fluidTypeOf(c.id, c.properties) === type) {
       return typeAt(x, 1, z) === type ? 1 : ownHeight(c.id, c.properties)
@@ -78,10 +78,10 @@ export async function fluidHeights(assets, type, neighbors) {
   let nw = 1, ne = 1, sw = 1, se = 1
   if (self < 1) {
     const n = await heightAt(0, -1), s = await heightAt(0, 1), w = await heightAt(-1, 0), e = await heightAt(1, 0)
-    const corner = async (a, b, dx, dz) => {
+    async function corner(a, b, dx, dz) {
       if (a >= 1 || b >= 1) return 1
       let sum = 0, weight = 0
-      const add = h => {
+      function add(h) {
         if (h >= 0.8) { sum += h * 10; weight += 10 }
         else if (h >= 0) { sum += h; weight++ }
       }
@@ -121,7 +121,7 @@ export async function fluidHeights(assets, type, neighbors) {
     }
   }
   const angle = fx || fz ? Math.atan2(fz, fx) - Math.PI / 2 : null
-  const overlayAt = async (dx, dz) => {
+  async function overlayAt(dx, dz) {
     const c = getBlock(dx, 0, dz)
     if (!c || fluidTypeOf(c.id, c.properties)) return false
     const dir = dx === 1 ? "west" : dx === -1 ? "east" : dz === 1 ? "north" : "south"

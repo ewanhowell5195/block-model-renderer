@@ -13,6 +13,6 @@ export const ModelLoader = {
     return true
   },
   list() {
-    return [...modelLoaders]
+    return Array.from(modelLoaders)
   }
 }

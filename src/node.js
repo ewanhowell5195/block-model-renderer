@@ -59,7 +59,7 @@ setPlatform({
   async addBundledEntries(arr) {
     const overridesPath = path.join(__dirname, "../assets/overrides")
     const fallbacksPath = path.join(__dirname, "../assets/fallbacks")
-    const find = target => {
+    function find(target) {
       const resolved = path.resolve(target)
       return arr.find(e => typeof e?.path === "string" && path.resolve(e.path) === resolved)
     }

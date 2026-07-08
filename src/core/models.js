@@ -62,7 +62,7 @@ async function defaultBlockstates(assets) {
       }
     }
     const matched = new Map()
-    const unique = block => {
+    function unique(block) {
       let hit = matched.get(block)
       if (hit === undefined) {
         hit = rules.find(rule => rule.patterns.some(regex => regex.test(block)))?.value ?? {}
@@ -76,7 +76,7 @@ async function defaultBlockstates(assets) {
 
 function getMultipartDefaults(multipart) {
   const first = {}
-  const walk = when => {
+  function walk(when) {
     if (!when) return
     if (when.OR)  { walk(when.OR[0]); return }
     if (when.AND) { for (const s of when.AND) walk(s); return }
@@ -1287,7 +1287,7 @@ export async function loadModel(scene, assets, model, args) {
         let dir = faceName
         let x = ((model.x ?? 0) % 360 + 360) % 360
 
-        const rotateUV = angle => {
+        function rotateUV(angle) {
           if (!angle) return
           const rad = THREE.MathUtils.degToRad(angle)
           uv = uv.map(([u, v]) => {
@@ -1422,7 +1422,7 @@ export async function loadModel(scene, assets, model, args) {
     const norm = new THREE.Vector3()
     const matrix = new THREE.Matrix4()
     const normalMatrix = new THREE.Matrix3()
-    for (const child of [...containerGroup.children]) {
+    for (const child of Array.from(containerGroup.children)) {
       const mesh = child.isMesh ? child : child.children.length === 1 && child.children[0].isMesh ? child.children[0] : null
       if (!mesh) continue
       child.updateMatrix()
@@ -1463,7 +1463,7 @@ export async function loadModel(scene, assets, model, args) {
         geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.positions, 3))
         geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.normals, 3))
         geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.uvs, 2))
-        geo.setIndex([...Array(acc.positions.length / 3).keys()])
+        geo.setIndex(Array.from(Array(acc.positions.length / 3).keys()))
         const mesh = new THREE.Mesh(geo, material)
         mesh.userData.cullface = [dir]
         containerGroup.add(mesh)
