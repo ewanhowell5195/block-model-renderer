@@ -1777,6 +1777,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       }
     `,
     transparent: texture?.userData?.translucent === true,
+    depthWrite: texture?.userData?.translucent !== true,
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
   })
 }
