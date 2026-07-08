@@ -14,5 +14,15 @@ export const ModelLoader = {
   },
   list() {
     return Array.from(modelLoaders)
+  },
+  variantKey(model, block) {
+    let key = null
+    for (const loader of modelLoaders) {
+      if (loader.variantKey && loader.match?.(model)) {
+        const k = loader.variantKey(model, block)
+        if (k != null) key = key === null ? String(k) : `${key}\0${k}`
+      }
+    }
+    return key
   }
 }

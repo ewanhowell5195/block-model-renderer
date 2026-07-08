@@ -1216,8 +1216,7 @@ export async function loadModel(scene, assets, model, args) {
     if (!heights.full) mesh.userData.cullface[2] = null
   }
 
-  const replaceElements = modelLoaders.some(l => l.replaceElements && l.match?.(model))
-  for (const element of replaceElements ? [] : model.elements || []) {
+  async function buildElement(element, target) {
     const from = new THREE.Vector3().fromArray(element.from)
     const to = new THREE.Vector3().fromArray(element.to)
     const size = new THREE.Vector3().subVectors(to, from)
@@ -1377,16 +1376,16 @@ export async function loadModel(scene, assets, model, args) {
       let { origin, axis, angle, x, y, z } = element.rotation
       if (!isNaN(angle) || axis) {
         if (isNaN(angle) || !axis) {
-          return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
+          return false
         }
       }
       if (model.version) {
         const preMultiAxis = isBefore(model.version, "1.21.11")
         if (axis && preMultiAxis && (Math.abs(angle) > 45 || (isBefore(model.version, "1.21.6") && angle % 22.5 !== 0))) {
-          return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
+          return false
         }
         if (!axis && preMultiAxis) {
-          return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
+          return false
         }
       }
 
@@ -1410,19 +1409,27 @@ export async function loadModel(scene, assets, model, args) {
         rotGroup.rotateX(THREE.MathUtils.degToRad(x ?? 0))
       }
 
-      containerGroup.add(rotGroup)
+      target.add(rotGroup)
     } else {
-      containerGroup.add(mesh)
+      target.add(mesh)
+    }
+    return true
+  }
+
+  const replaceElements = modelLoaders.some(l => l.replaceElements && l.match?.(model))
+  for (const element of replaceElements ? [] : model.elements || []) {
+    if (!(await buildElement(element, containerGroup))) {
+      return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
     }
   }
 
-  if (!model.fluid && (model.elements?.length ?? 0) > 1) {
+  function mergeElementMeshes(group) {
     const buckets = new Map()
     const vert = new THREE.Vector3()
     const norm = new THREE.Vector3()
     const matrix = new THREE.Matrix4()
     const normalMatrix = new THREE.Matrix3()
-    for (const child of Array.from(containerGroup.children)) {
+    for (const child of Array.from(group.children)) {
       const mesh = child.isMesh ? child : child.children.length === 1 && child.children[0].isMesh ? child.children[0] : null
       if (!mesh) continue
       child.updateMatrix()
@@ -1454,7 +1461,7 @@ export async function loadModel(scene, assets, model, args) {
           acc.uvs.push(uv.getX(a), uv.getY(a))
         }
       }
-      containerGroup.remove(child)
+      group.remove(child)
       geo.dispose()
     }
     for (const [material, dirs] of buckets) {
@@ -1466,10 +1473,12 @@ export async function loadModel(scene, assets, model, args) {
         geo.setIndex(Array.from(Array(acc.positions.length / 3).keys()))
         const mesh = new THREE.Mesh(geo, material)
         mesh.userData.cullface = [dir]
-        containerGroup.add(mesh)
+        group.add(mesh)
       }
     }
   }
+
+  if (!model.fluid && (model.elements?.length ?? 0) > 1) mergeElementMeshes(containerGroup)
 
   for (const loader of modelLoaders) {
     if (loader.build && loader.match?.(model)) {
@@ -1478,11 +1487,18 @@ export async function loadModel(scene, assets, model, args) {
         model,
         assets,
         args,
+        block: args?.block ?? null,
         helpers: {
           THREE,
           lighting,
           readFile: (path, hint) => readFile(path, assets, hint),
           loadTexture: (id, tint) => loadModelTexture(id, tint),
+          buildElements: async (elements = []) => {
+            const g = new THREE.Group()
+            for (const element of elements) await buildElement(element, g)
+            if (!model.fluid && elements.length > 1) mergeElementMeshes(g)
+            return g
+          },
           resolveTexture: ref => {
             let t = ref
             while (typeof t === "string" && t.startsWith("#")) t = model.textures?.[t.slice(1)]

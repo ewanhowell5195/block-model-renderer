@@ -963,7 +963,7 @@ ModelLoader.register({
   // add three.js objects to the model's group. runs after the standard
   // elements build, so vanilla elements and loader geometry coexist; display
   // transforms, lighting modes, and mirroring all apply to it automatically
-  async build({ group, model, assets, args, helpers }) {
+  async build({ group, model, assets, args, block, helpers }) {
     const material = await helpers.createMaterial("block/glowstone", { shade: false })
     const mesh = new helpers.THREE.Mesh(new helpers.THREE.BoxGeometry(4, 4, 4), material)
     group.add(mesh)
@@ -980,6 +980,7 @@ The `helpers` object keeps loader-built geometry consistent with everything else
 | `readFile(path, hint?)` | Read any file from the asset stack (obj files, custom json, whatever the format needs) |
 | `loadTexture(id, tint?)` | Load a texture by id with the standard caching, animation frames, and optional tint |
 | `resolveTexture(ref)` | Follow `#slot` references through the model's texture map |
+| `buildElements(elements)` | Run an array of vanilla-format elements through the standard cube pipeline (uv defaults, face rotation, uvlock, cullfaces, rotation with rescale, mesh merging) and get back a group to add. For formats that are "vanilla elements, chosen differently", so they don't reimplement cube building |
 | `createMaterial(id, opts?)` | A material matching the active lighting mode. `opts`: `tint`, `shade` (false = unshaded in world mode, the pre-26.3 element field), `shade_direction` (shade as if facing this direction, the 26.3+ replacement; see [Legacy Minecraft versions](#legacy-minecraft-versions)), `double_sided`, `shader` |
 
 Geometry added through `build` participates in [culling masks](#culling-hidden-faces) automatically (occlusion rasterizes real triangles), and meshes can tag `userData.cullface = [dir]` to make their faces droppable per placement like element faces.
@@ -989,6 +990,15 @@ A few more mechanics:
 * **Claimed keys are kept.** A key that a loader merges through `mergeKey` stays on the resolved model, including `parent` and `model`, which are otherwise stripped as pipeline plumbing. That's how the Forge OBJ convention works here: claiming `model` keeps the `.obj` path readable in `match` and `build`
 * **Per-file decisions.** `mergeKey` receives a fourth argument: the raw json layers of the parent chain, child first. Use it when a key should only count from files that opted into your format
 * **Replacing vanilla geometry.** A loader with `replaceElements: true` suppresses the standard `elements` build for the models it matches, so a format can fully own its geometry instead of adding alongside
+
+### Placement-aware models
+
+Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbours). Two pieces support that:
+
+* **`block` context.** `build` receives a `block` argument: `{ id, properties, neighbors }`, in the same shape as [culling neighbours](#culling-hidden-faces). `renderBlock` fills it in automatically from its `id`/`blockstates`/`neighbors` args; when calling `loadModel` directly, pass it as `block` in the options. It's `null` when the caller didn't provide placement info, so loaders should fall back to a sensible default variant
+* **`variantKey(model, block)`.** A loader whose output varies by placement declares this hook returning a short string (e.g. `"connected_east"`) identifying which variant a placement gets. Consumers that cache or instance built models call `ModelLoader.variantKey(model, block)`, which combines the keys from every matching loader (or returns `null` when no loader varies), and mix it into their cache keys so different variants don't share a mesh
+
+Note that `mergeKey` is the wrong place for placement decisions: resolved models are cached per model reference, so the merge must stay placement-independent. Pick variants in `build`.
 
 Two worked loaders ship in `examples/node/render_loader.js`: a from-scratch polygon model format with concatenating inheritance, and the (Neo)Forge OBJ format (`"loader": "forge:obj"`, mtl materials resolving `#slot` textures, `flip_v`).
 
