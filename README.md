@@ -85,7 +85,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `id` | | The block id (e.g. `"oak_log"`, `"stone"`). Namespace optional |
 | `assets` | `[]` | The assets source, see [Assets](#assets) |
 | `blockstates` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
-| `neighbors` | | The blocks surrounding this one; faces they hide are dropped. See [Culling hidden faces](#culling-hidden-faces) |
+| `neighbors` | | The blocks surrounding this one; faces they hide are dropped, and fluid surfaces shape themselves from it. See [Culling hidden faces](#culling-hidden-faces) and [Fluids](#fluids) |
 | `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](#culling-hidden-faces) |
 | `lighting` | `"item"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`). See [Lighting modes](#lighting-modes) |
 | `shaderScale` | `1` | Density multiplier for screen-space shader effects (the end portal). The pattern is sized as if the block filled the viewport, so raise this when the block renders small in a larger scene. Exposed as the `Scale` uniform on the shader material, so it can also be updated live |
@@ -474,7 +474,7 @@ for (const model of await parseBlockstate(assets, "water", { data: { level: "2" 
 }
 ```
 
-The object uses the same per-direction values as `renderBlock`'s culling `neighbors` (a block id string, or `{ id, ...properties }`), extended with diagonal and vertical keys since the surface shape needs them. Anything missing counts as air. Non-fluid models ignore it.
+The object uses the same per-direction values as `renderBlock`'s culling `neighbors` (a block id string, or `{ id, ...properties }`), extended with diagonal and vertical keys since the surface shape needs them. Anything missing counts as air. Non-fluid models ignore it. `renderBlock` forwards its `neighbors` here automatically, so a fluid rendered through it gets both culling and surface shaping from the one object.
 
 | Key | Used for |
 |---|---|

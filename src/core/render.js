@@ -100,7 +100,7 @@ export async function renderBlock(args = {}) {
   const block = { id: args.id, properties: args.blockstates, neighbors: args.neighbors ?? null }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull, block, lighting: args.lighting, shaderScale: args.shaderScale })
+    await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale })
   }
 
   return renderModelScene(scene, camera, args)

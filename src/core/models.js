@@ -1330,7 +1330,7 @@ export async function loadModel(scene, assets, model, args) {
     for (let i = 0; i < faceOrder.length; i++) {
       const faceName = faceOrder[i]
       const face = element.faces?.[faceName]
-      if (!face || !face.texture || (cull && cullDirs[i] && cull.has(cullDirs[i]))) {
+      if (!face || !face.texture || (cull && cullDirs[i] && cull.has(cullDirs[i]) && !(model.fluid && faceName === "up"))) {
         materials.push(new THREE.MeshBasicMaterial({ visible: false }))
         continue
       }
