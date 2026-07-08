@@ -1227,8 +1227,10 @@ export async function loadModel(scene, assets, model, args) {
         texRef = model.textures?.[texRef.slice(1)]
       }
 
-      const shadeDir = SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
-      const shade = element.shade !== false || !!shadeDir
+      const legacyShade = !model.version || isBefore(model.version, "26.3")
+      const modernShade = !model.version || !isBefore(model.version, "26.3")
+      const shadeDir = modernShade && SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
+      const shade = (legacyShade ? element.shade !== false : true) || !!shadeDir
       const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}`
       let material = materialCache.get(mkey)
       if (!material) {
@@ -1498,23 +1500,24 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         vec4 texColor = texture2D(map, vUv);
         if (texColor.a < 0.01) discard;
         float shade = 1.0;
-        if (shadeEnabled) {
-          bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
-          if (worldShade) {
-            // in-world daytime face shading (Level/CardinalLighting DEFAULT):
-            // up 1.0, down 0.5, north/south 0.8, west/east 0.6 - flat per world face
+        if (worldShade) {
+          // in-world daytime face shading (Level/CardinalLighting DEFAULT):
+          // up 1.0, down 0.5, north/south 0.8, west/east 0.6 - flat per world
+          // face. shade false and shade_direction_override only exist here,
+          // like vanilla's BlockModelLighter; the item pipeline ignores both
+          if (shadeEnabled) {
+            bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
             vec3 wn = hasOverride ? shadeOverride : vWorldNormal;
             vec3 a = abs(wn);
             shade = (a.y >= a.x && a.y >= a.z) ? (wn.y >= 0.0 ? 1.0 : 0.5) : (a.z >= a.x ? 0.8 : 0.6);
-          } else {
-            // gui/inventory shading: two directional lights + ambient. light dirs
-            // are world space, rotated into view space so they stay fixed as the
-            // camera orbits. in snapshots the camera is axis-aligned, so
-            // mat3(viewMatrix) is identity and this matches the old view-space math
-            mat3 v = mat3(viewMatrix);
-            vec3 n = hasOverride ? normalize(v * shadeOverride) : vNormal;
-            shade = min(1.0, ambient + d0 * max(0.0, dot(n, v * light0)) + d1 * max(0.0, dot(n, v * light1)));
           }
+        } else {
+          // gui/inventory shading: two directional lights + ambient. light dirs
+          // are world space, rotated into view space so they stay fixed as the
+          // camera orbits. in snapshots the camera is axis-aligned, so
+          // mat3(viewMatrix) is identity and this matches the old view-space math
+          mat3 v = mat3(viewMatrix);
+          shade = min(1.0, ambient + d0 * max(0.0, dot(vNormal, v * light0)) + d1 * max(0.0, dot(vNormal, v * light1)));
         }
         gl_FragColor = vec4(texColor.rgb * shade, texColor.a);
       }
