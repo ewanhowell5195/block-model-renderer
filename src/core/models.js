@@ -1285,6 +1285,61 @@ export async function loadModel(scene, assets, model, args) {
     }
   }
 
+  if (!model.fluid && (model.elements?.length ?? 0) > 1) {
+    const buckets = new Map()
+    const vert = new THREE.Vector3()
+    const norm = new THREE.Vector3()
+    const matrix = new THREE.Matrix4()
+    const normalMatrix = new THREE.Matrix3()
+    for (const child of [...containerGroup.children]) {
+      const mesh = child.isMesh ? child : child.children.length === 1 && child.children[0].isMesh ? child.children[0] : null
+      if (!mesh) continue
+      child.updateMatrix()
+      if (mesh === child) {
+        matrix.copy(child.matrix)
+      } else {
+        mesh.updateMatrix()
+        matrix.multiplyMatrices(child.matrix, mesh.matrix)
+      }
+      normalMatrix.getNormalMatrix(matrix)
+      const geo = mesh.geometry
+      const pos = geo.attributes.position
+      const nrm = geo.attributes.normal
+      const uv = geo.attributes.uv
+      for (const group of geo.groups) {
+        const material = mesh.material[group.materialIndex]
+        if (!material || material.visible === false) continue
+        const dir = mesh.userData.cullface?.[group.materialIndex] ?? null
+        let dirs = buckets.get(material)
+        if (!dirs) buckets.set(material, dirs = new Map())
+        let acc = dirs.get(dir)
+        if (!acc) dirs.set(dir, acc = { positions: [], normals: [], uvs: [] })
+        for (let i = group.start; i < group.start + group.count; i++) {
+          const a = geo.index.getX(i)
+          vert.fromBufferAttribute(pos, a).applyMatrix4(matrix)
+          norm.fromBufferAttribute(nrm, a).applyMatrix3(normalMatrix).normalize()
+          acc.positions.push(vert.x, vert.y, vert.z)
+          acc.normals.push(norm.x, norm.y, norm.z)
+          acc.uvs.push(uv.getX(a), uv.getY(a))
+        }
+      }
+      containerGroup.remove(child)
+      geo.dispose()
+    }
+    for (const [material, dirs] of buckets) {
+      for (const [dir, acc] of dirs) {
+        const geo = new THREE.BufferGeometry()
+        geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.positions, 3))
+        geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.normals, 3))
+        geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.uvs, 2))
+        geo.setIndex([...Array(acc.positions.length / 3).keys()])
+        const mesh = new THREE.Mesh(geo, material)
+        mesh.userData.cullface = [dir]
+        containerGroup.add(mesh)
+      }
+    }
+  }
+
   if (settings) {
     if (settings.rotation) {
       const delta = new THREE.Euler(
