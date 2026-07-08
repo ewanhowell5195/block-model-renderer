@@ -36,8 +36,20 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     }
     return m
   }
+  const selfMasksFor = async () => {
+    const key = "self\0" + stateKey(id, blockstates)
+    let m = occCache.get(key)
+    if (m === undefined) {
+      try {
+        const g = await buildBlockModel(assets, id, blockstates, version)
+        m = g ? occludingFaces(g, null, true) : null
+      } catch { m = null }
+      occCache.set(key, m)
+    }
+    return m
+  }
   let selfP
-  const selfMasks = () => selfP ??= masksFor(id, blockstates)
+  const selfMasks = () => selfP ??= selfMasksFor()
   const cull = new Set()
   for (const dir in OPPOSITE) {
     const n = neighbors?.[dir]

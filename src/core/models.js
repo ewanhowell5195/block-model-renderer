@@ -1169,7 +1169,7 @@ export async function loadModel(scene, assets, model, args) {
     }
     if (model.fluid === "water" && heights.overlay) {
       for (const [face, mi] of [["east", 0], ["west", 1], ["south", 4], ["north", 5]]) {
-        if (!heights.overlay[face]) continue
+        if (!heights.overlay[face] || mesh.material[mi].visible === false) continue
         const tint = model.tints?.[0]
         const mkey = `minecraft:block/water_overlay\0${tint ?? ""}\0true`
         let material = materialCache.get(mkey)

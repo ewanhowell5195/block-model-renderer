@@ -51,9 +51,9 @@ function rasterize(mask, ax, a, b, c) {
   }
 }
 
-export function occludingFaces(model, id) {
+export function occludingFaces(model, id, geometric) {
   const masks = EMPTY_MASKS()
-  if (id != null && !canOcclude(id)) return masks
+  if (!geometric && id != null && !canOcclude(id)) return masks
   if (!_va) { _va = new THREE.Vector3(); _vb = new THREE.Vector3(); _vc = new THREE.Vector3() }
   model.updateMatrixWorld(true)
   model.traverse(o => {
@@ -64,7 +64,7 @@ export function occludingFaces(model, id) {
     const groups = geo.groups.length ? geo.groups : [{ start: 0, count: idx.count, materialIndex: 0 }]
     for (const g of groups) {
       const mat = array ? o.material[g.materialIndex ?? 0] : o.material
-      if (!mat || mat.visible === false || !isOpaque(matMap(mat))) continue
+      if (!mat || mat.visible === false || (!geometric && !isOpaque(matMap(mat)))) continue
       for (let i = g.start, end = g.start + g.count; i + 2 < end; i += 3) {
         _va.fromBufferAttribute(pos, idx.getX(i)).applyMatrix4(o.matrixWorld)
         _vb.fromBufferAttribute(pos, idx.getX(i + 1)).applyMatrix4(o.matrixWorld)
