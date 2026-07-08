@@ -88,6 +88,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `neighbors` | | The blocks surrounding this one; faces they hide are dropped. See [Culling hidden faces](#culling-hidden-faces) |
 | `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](#culling-hidden-faces) |
 | `lighting` | `"item"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`). See [Lighting modes](#lighting-modes) |
+| `shaderScale` | `1` | Density multiplier for screen-space shader effects (the end portal). The pattern is sized as if the block filled the viewport, so raise this when the block renders small in a larger scene. Exposed as the `Scale` uniform on the shader material, so it can also be updated live |
 | `display` | see below | Display transform applied to the rendered block. See [Display transforms](#display-transforms) |
 | `path` | | Node only. If provided, saves the output to this file path. Format inferred from the extension |
 | `format` | | Node only. Output format (`"png"`, `"jpeg"`, `"webp"`, etc.). Overrides extension inference. See [sharp's output docs](https://sharp.pixelplumbing.com/api-output) for the full list of supported formats |
@@ -119,7 +120,7 @@ Renders an item by id using its item definition.
 | `assets` | `[]` | The assets source |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn) |
 | `display` | `{ type: "fallback", display: "gui" }` | Display transform. See [Display transforms](#display-transforms) |
-| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `version`, `background`, `cull`, `lighting` | | Same as `renderBlock` |
+| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `version`, `background`, `cull`, `lighting`, `shaderScale` | | Same as `renderBlock` |
 
 ### `renderModel(args)`
 
@@ -130,7 +131,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 | `model` | `{}` | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
 | `assets` | `[]` | The assets source |
 | `display` | Same as `renderBlock` | Display transform. See [Display transforms](#display-transforms) |
-| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `version`, `background`, `cull`, `lighting` | | Same as `renderBlock` |
+| `path`, `format`, `output`, `width`, `height`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `ignoreAtlases`, `version`, `background`, `cull`, `lighting`, `shaderScale` | | Same as `renderBlock` |
 
 ### Return value
 
@@ -712,6 +713,7 @@ Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` 
 | `model` | A resolved model (from `resolveModelData`) |
 | `args.display` | Display transform to apply to the model |
 | `args.lighting` | Lighting mode (`"item"` (default), `"world"`, `"scene"`, `"off"`). See [Lighting modes](#lighting-modes) |
+| `args.shaderScale` | Density multiplier for screen-space shader effects, as in `renderBlock` |
 | `args.cull` | Face directions to drop, as a `Set` from [`getCullFaces`](#getcullfacesargs) or a plain object like `{ north: true }`. Faces whose `cullface` points at a culled direction are skipped |
 | `args.neighbors` | Fluid models only: the surrounding blocks as a direction-keyed object (`north`, `north_east`, `up`, `self`, ...), used to shape the surface. See [Fluids](#fluids) |
 | `args.fluidHeights` | Fluid models only: a precomputed [`fluidHeights`](#fluidheightsassets-type-neighbors) result, reused instead of deriving it from `neighbors` again |

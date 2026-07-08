@@ -87,7 +87,7 @@ export async function renderBlock(args = {}) {
 
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull, lighting: args.lighting })
+    await loadModel(scene, assets, resolved, { display: args.display, cull, lighting: args.lighting, shaderScale: args.shaderScale })
   }
 
   return renderModelScene(scene, camera, args)
@@ -111,7 +111,7 @@ export async function renderItem(args = {}) {
 
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting })
+    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale })
   }
 
   return renderModelScene(scene, camera, args)
@@ -132,7 +132,7 @@ export async function renderModel(args) {
   scene.userData.ephemeral = true
 
   const resolved = await resolveModelData(args.assets, { model: args.model})
-  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting })
+  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale })
 
   return renderModelScene(scene, camera, args)
 }

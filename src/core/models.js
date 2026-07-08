@@ -1333,6 +1333,7 @@ export async function loadModel(scene, assets, model, args) {
       let material = materialCache.get(mkey)
       if (!material) {
         material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, model.double_sided, shade, lightConfig, lighting, shadeDir)
+        if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
         materialCache.set(mkey, material)
       }
       materials.push(material)
@@ -1531,6 +1532,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         GameTime: {
           value: 0.727
         },
+        Scale: {
+          value: 1
+        },
         Sampler0: {
           value: skyTexture
         },
@@ -1558,6 +1562,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         varying vec4 texProj0;
 
         uniform float GameTime;
+        uniform float Scale;
         uniform sampler2D Sampler0;
         uniform sampler2D Sampler1;
 
@@ -1610,9 +1615,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         }
 
         void main() {
-          vec3 color = texture2DProj(Sampler0, texProj0).rgb * getColor(0);
+          vec3 color = texture2DProj(Sampler0, texProj0 * vec4(Scale, Scale, 1.0, 1.0)).rgb * getColor(0);
           for (int i = 0; i < ${shader.layers ?? 15}; i++) {
-            color += texture2DProj(Sampler1, texProj0 * vec4(1.0, 16.0 / 9.0, 1.0, 1.0) * end_portal_layer(float(i + 1))).rgb * getColor(i);
+            color += texture2DProj(Sampler1, texProj0 * vec4(Scale, Scale * 16.0 / 9.0, 1.0, 1.0) * end_portal_layer(float(i + 1))).rgb * getColor(i);
           }
           gl_FragColor = vec4(color, 1.0);
         }
