@@ -563,4 +563,4 @@ export function createAnimator(root) {
   }
 }
 
-export { COLOURS, isWaterloggable, isCrossModel, disposeCache, fluidHeights, fluidTypeOf } from "./core.js"
+export { COLOURS, isWaterloggable, isCrossModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader } from "./core.js"

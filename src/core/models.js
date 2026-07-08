@@ -3,6 +3,7 @@ import { COLOURS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWat
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
+import { modelLoaders } from "./loaders.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
@@ -625,26 +626,47 @@ export async function resolveModelData(assets, model) {
     delete merged.special
   }
 
+  const collected = new Map()
   for (const layer of stack) {
     for (const key in layer) {
-      if (key === "textures") {
-        merged.textures ??= {}
-        for (const [key, value] of Object.entries(layer.textures)) {
-          if (!(key in merged.textures)) {
-            merged.textures[key] = value
+      let values = collected.get(key)
+      if (!values) collected.set(key, values = [])
+      values.push(layer[key])
+    }
+  }
+
+  const modelType = merged.type ?? collected.get("type")?.find(v => v)
+  const loaderOwned = new Set()
+  for (const [key, values] of collected) {
+    let value
+    for (const loader of modelLoaders) {
+      value = await loader.mergeKey?.(key, values, merged, stack)
+      if (value !== undefined) break
+    }
+    if (value !== undefined) {
+      merged[key] = value
+      loaderOwned.add(key)
+    } else if (key === "textures") {
+      merged.textures ??= {}
+      for (const layerTextures of values) {
+        for (const [slot, tex] of Object.entries(layerTextures)) {
+          if (!(slot in merged.textures)) {
+            merged.textures[slot] = tex
           }
         }
-      } else if (key === "display") {
-        if (merged.type === "block") continue
-        merged.display ??= {}
-        for (const [key, value] of Object.entries(layer.display)) {
-          if (!(key in merged.display)) {
-            merged.display[key] = value
-          }
-        }
-      } else if (!merged[key]) {
-        merged[key] = layer[key]
       }
+    } else if (key === "display") {
+      if (modelType === "block") continue
+      merged.display ??= {}
+      for (const layerDisplay of values) {
+        for (const [slot, entry] of Object.entries(layerDisplay)) {
+          if (!(slot in merged.display)) {
+            merged.display[slot] = entry
+          }
+        }
+      }
+    } else if (!merged[key]) {
+      merged[key] = values.find(v => v) ?? values[values.length - 1]
     }
   }
 
@@ -766,8 +788,8 @@ export async function resolveModelData(assets, model) {
     }
   }
 
-  delete merged.parent
-  delete merged.model
+  if (!loaderOwned.has("parent")) delete merged.parent
+  if (!loaderOwned.has("model")) delete merged.model
   if (merged.type === "block") delete merged.display
 
   if (cacheKey) modelCache.set(cacheKey, structuredClone(merged))
@@ -1194,7 +1216,8 @@ export async function loadModel(scene, assets, model, args) {
     if (!heights.full) mesh.userData.cullface[2] = null
   }
 
-  for (const element of model.elements || []) {
+  const replaceElements = modelLoaders.some(l => l.replaceElements && l.match?.(model))
+  for (const element of replaceElements ? [] : model.elements || []) {
     const from = new THREE.Vector3().fromArray(element.from)
     const to = new THREE.Vector3().fromArray(element.to)
     const size = new THREE.Vector3().subVectors(to, from)
@@ -1448,6 +1471,38 @@ export async function loadModel(scene, assets, model, args) {
     }
   }
 
+  for (const loader of modelLoaders) {
+    if (loader.build && loader.match?.(model)) {
+      await loader.build({
+        group: containerGroup,
+        model,
+        assets,
+        args,
+        helpers: {
+          THREE,
+          lighting,
+          readFile: (path, hint) => readFile(path, assets, hint),
+          loadTexture: (id, tint) => loadModelTexture(id, tint),
+          resolveTexture: ref => {
+            let t = ref
+            while (typeof t === "string" && t.startsWith("#")) t = model.textures?.[t.slice(1)]
+            return t
+          },
+          createMaterial: async (id, opts = {}) => {
+            const shadeDir = SHADE_DIR_VECS[opts.shade_direction] ? opts.shade_direction : null
+            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}`
+            let material = materialCache.get(key)
+            if (!material) {
+              material = await makeMaterial(await loadModelTexture(id, opts.tint), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir)
+              materialCache.set(key, material)
+            }
+            return material
+          }
+        }
+      })
+    }
+  }
+
   if (settings) {
     if (settings.rotation) {
       const delta = new THREE.Euler(
@@ -1672,21 +1727,13 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         if (texColor.a < 0.01) discard;
         float shade = 1.0;
         if (worldShade) {
-          // in-world daytime face shading (Level/CardinalLighting DEFAULT):
-          // up 1.0, down 0.5, north/south 0.8, west/east 0.6 - flat per world
-          // face. shade false and shade_direction_override only exist here,
-          // like vanilla's BlockModelLighter; the item pipeline ignores both
           if (shadeEnabled) {
             bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
             vec3 wn = hasOverride ? shadeOverride : vWorldNormal;
-            vec3 a = abs(wn);
-            shade = (a.y >= a.x && a.y >= a.z) ? (wn.y >= 0.0 ? 1.0 : 0.5) : (a.z >= a.x ? 0.8 : 0.6);
+            vec3 n2 = wn * wn;
+            shade = (n2.y * (wn.y >= 0.0 ? 1.0 : 0.5) + n2.z * 0.8 + n2.x * 0.6) / (n2.x + n2.y + n2.z);
           }
         } else {
-          // gui/inventory shading: two directional lights + ambient. light dirs
-          // are world space, rotated into view space so they stay fixed as the
-          // camera orbits. in snapshots the camera is axis-aligned, so
-          // mat3(viewMatrix) is identity and this matches the old view-space math
           mat3 v = mat3(viewMatrix);
           shade = min(1.0, ambient + d0 * max(0.0, dot(vNormal, v * light0)) + d1 * max(0.0, dot(vNormal, v * light1)));
         }

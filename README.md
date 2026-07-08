@@ -940,6 +940,58 @@ assets/block-model-renderer/default_blockstates.json
 
 Lookup order for a property: the `blockstates` option → the first matching `blocks` rule → `properties`.
 
+## Custom model loaders
+
+Mods extend the model format in their own ways: extra keys on standard models, embedded mesh data, references to other formats entirely. `ModelLoader.register` lets you plug that in without forking the pipeline. Loaders are global and identical on Node and web. They're consulted by `priority` (a number, default `0`, higher first; ties keep registration order). Give a loader a `name` to identify it later: `ModelLoader.remove(loaderOrName)` unregisters (by the object or its name), and `ModelLoader.list()` returns the current loaders in consultation order. To reprioritise, remove and re-register with a new `priority`.
+
+```js
+import { ModelLoader } from "block-model-renderer"
+
+ModelLoader.register({
+  // offered EVERY model json key during parent-chain merging, with the values
+  // from every layer (child first). return a merged value to own the key, or
+  // undefined to let the vanilla merge handle it. may be async
+  mergeKey(key, values, merged) {
+    if (key === "my_mod:overlays") return values.flat()
+  },
+
+  // which resolved models this loader builds for
+  match(model) {
+    return !!model["my_mod:overlays"]
+  },
+
+  // add three.js objects to the model's group. runs after the standard
+  // elements build, so vanilla elements and loader geometry coexist; display
+  // transforms, lighting modes, and mirroring all apply to it automatically
+  async build({ group, model, assets, args, helpers }) {
+    const material = await helpers.createMaterial("block/glowstone", { shade: false })
+    const mesh = new helpers.THREE.Mesh(new helpers.THREE.BoxGeometry(4, 4, 4), material)
+    group.add(mesh)
+  }
+})
+```
+
+The `helpers` object keeps loader-built geometry consistent with everything else:
+
+| Helper | Description |
+|---|---|
+| `THREE` | The three.js instance the library uses |
+| `lighting` | The active [lighting mode](#lighting-modes) |
+| `readFile(path, hint?)` | Read any file from the asset stack (obj files, custom json, whatever the format needs) |
+| `loadTexture(id, tint?)` | Load a texture by id with the standard caching, animation frames, and optional tint |
+| `resolveTexture(ref)` | Follow `#slot` references through the model's texture map |
+| `createMaterial(id, opts?)` | A material matching the active lighting mode. `opts`: `tint`, `shade` (false = unshaded in world mode, the pre-26.3 element field), `shade_direction` (shade as if facing this direction, the 26.3+ replacement; see [Legacy Minecraft versions](#legacy-minecraft-versions)), `double_sided`, `shader` |
+
+Geometry added through `build` participates in [culling masks](#culling-hidden-faces) automatically (occlusion rasterizes real triangles), and meshes can tag `userData.cullface = [dir]` to make their faces droppable per placement like element faces.
+
+A few more mechanics:
+
+* **Claimed keys are kept.** A key that a loader merges through `mergeKey` stays on the resolved model, including `parent` and `model`, which are otherwise stripped as pipeline plumbing. That's how the Forge OBJ convention works here: claiming `model` keeps the `.obj` path readable in `match` and `build`
+* **Per-file decisions.** `mergeKey` receives a fourth argument: the raw json layers of the parent chain, child first. Use it when a key should only count from files that opted into your format
+* **Replacing vanilla geometry.** A loader with `replaceElements: true` suppresses the standard `elements` build for the models it matches, so a format can fully own its geometry instead of adding alongside
+
+Two worked loaders ship in `examples/node/render_loader.js`: a from-scratch polygon model format with concatenating inheritance, and the (Neo)Forge OBJ format (`"loader": "forge:obj"`, mtl materials resolving `#slot` textures, `flip_v`).
+
 ## License
 
 MIT © [Ewan Howell](https://ewanhowell.com/)

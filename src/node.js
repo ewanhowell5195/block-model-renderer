@@ -150,7 +150,7 @@ export {
   renderBlock, renderItem, renderModel,
   makeModelScene, renderModelScene,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel,
-  fluidHeights, fluidTypeOf,
+  fluidHeights, fluidTypeOf, ModelLoader,
   zipAssets
 } from "./core.js"
 export { parseZip } from "./zip.js"
