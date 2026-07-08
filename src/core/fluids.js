@@ -41,7 +41,24 @@ function ownHeight(id, properties) {
   return (level >= 1 && level <= 7 ? 8 - level : 8) / 9
 }
 
-export async function fluidHeights(assets, type, getBlock) {
+const cellKey = (x, y, z) => {
+  if (!x && !y && !z) return "self"
+  let k = y === 1 ? "up" : y === -1 ? "down" : ""
+  if (z === -1) k += (k ? "_" : "") + "north"
+  else if (z === 1) k += (k ? "_" : "") + "south"
+  if (x === -1) k += (k ? "_" : "") + "west"
+  else if (x === 1) k += (k ? "_" : "") + "east"
+  return k
+}
+
+export async function fluidHeights(assets, type, neighbors) {
+  const getBlock = (x, y, z) => {
+    const v = neighbors?.[cellKey(x, y, z)] ?? (!x && !y && !z ? type : null)
+    if (!v) return null
+    if (typeof v === "string") return { id: v }
+    const { id, ...properties } = v
+    return { id, properties }
+  }
   const typeAt = (x, y, z) => {
     const c = getBlock(x, y, z)
     return c ? fluidTypeOf(c.id, c.properties) : null
