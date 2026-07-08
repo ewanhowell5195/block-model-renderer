@@ -191,6 +191,20 @@ function fitCameraToAspect(camera, aspect) {
 }
 
 export async function renderModelScene(scene, camera, args) {
+  scene.updateMatrixWorld(true)
+  const v = new THREE.Vector3()
+  scene.traverse(obj => {
+    if (obj.isMesh) {
+      const positions = obj.geometry.attributes.position
+      let maxZ = -Infinity
+      for (let i = 0; i < positions.count; i++) {
+        v.fromBufferAttribute(positions, i).applyMatrix4(obj.matrixWorld)
+        if (v.z > maxZ) maxZ = v.z
+      }
+      obj.renderOrder = maxZ
+    }
+  })
+
   const size = platform.resolveRenderSize?.(args)
   const baseWidth = size?.width ?? args?.width ?? 256
   const baseHeight = size?.height ?? args?.height ?? 256
