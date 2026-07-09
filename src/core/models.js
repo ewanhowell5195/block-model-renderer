@@ -20,6 +20,14 @@ const SHADE_DIR_VECS = {
   south: [0, 0, 1], north: [0, 0, -1]
 }
 
+const NAMED_TIMES = { day: 1000, noon: 6000, sunset: 12000, night: 13000, midnight: 18000, sunrise: 23000 }
+
+function parseDaytime(v) {
+  if (v == null) return NAMED_TIMES.noon
+  if (typeof v === "number") return ((v % 24000) + 24000) % 24000
+  return NAMED_TIMES[String(v).toLowerCase()] ?? NAMED_TIMES.noon
+}
+
 function parseTransformation(t) {
   if (!t) return null
   if (Array.isArray(t)) {
@@ -1056,6 +1064,8 @@ export async function loadModel(scene, assets, model, args) {
   if (assets == null || assets.length === 0) throw new Error("loadModel requires assets")
   const display = args?.display ?? "gui"
   const lighting = args?.lighting
+  const daytime = { value: parseDaytime(args?.daytime) }
+  if (scene) scene.userData.daytime = daytime
   const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
   if (args?.version && !model.version) model.version = args.version
   assets = await prepareAssets(assets)
@@ -1138,6 +1148,7 @@ export async function loadModel(scene, assets, model, args) {
     light1: [-0.9317, 0.2644, -0.2488], d1: 0.5992,
     ambient: 0.4001
   }
+  lightConfig.daytime = daytime
 
   const rootGroup = new THREE.Group()
   const displayGroup = new THREE.Group()
@@ -1746,6 +1757,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       shadeEnabled: { value: shadeEnabled !== false },
       shadeOverride: { value: new THREE.Vector3(...(SHADE_DIR_VECS[shadeDir] ?? [0, 0, 0])) },
       worldShade: { value: lighting === "world" },
+      daytime: lightConfig?.daytime ?? { value: NAMED_TIMES.noon },
+      emission: { value: emission / 15 },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -1774,6 +1787,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform bool shadeEnabled;
       uniform vec3 shadeOverride;
       uniform bool worldShade;
+      uniform float daytime;
+      uniform float emission;
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
@@ -1789,6 +1804,13 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             vec3 n2 = wn * wn;
             shade = (n2.y * (wn.y >= 0.0 ? 1.0 : 0.5) + n2.z * 0.8 + n2.x * 0.6) / (n2.x + n2.y + n2.z);
           }
+          float dd = fract(daytime / 24000.0 - 0.25);
+          float ce = 0.5 - cos(dd * 3.14159265) * 0.5;
+          float celestial = (dd * 2.0 + ce) / 3.0;
+          float d2 = 0.5 + 2.0 * clamp(cos(celestial * 6.28318531), -0.25, 0.25);
+          float sky = (15.0 - (1.0 - d2) * 11.0) / 15.0;
+          sky = sky / (4.0 - 3.0 * sky);
+          shade *= max(sky, emission);
         } else {
           mat3 v = mat3(viewMatrix);
           shade = min(1.0, ambient + d0 * max(0.0, dot(vNormal, v * light0)) + d1 * max(0.0, dot(vNormal, v * light1)));

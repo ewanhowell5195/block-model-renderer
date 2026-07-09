@@ -47,7 +47,9 @@ Tints are baked into the textures in every mode, and the end portal keeps its ow
 
 The model element fields `shade: false` (legacy) and `shade_direction_override` only apply in `"world"` mode, mirroring vanilla, where they only exist in the in-world block pipeline: an unshaded element uses the up-face 1.0 constant, an override uses its direction's constant. Item mode ignores both and lights every element from its real face normals, like holding the block in hand.
 
-An element's `light_emission` (0-15, since 1.21.2) makes it self-illuminate in `"scene"` mode: the element glows at `light_emission / 15` of its texture even with no scene lights, matching how the game shows an emissive block in the dark. The flat modes (`"world"`, `"off"`, and item/gui shading) already render at full brightness, like the game's inventory, so it has no visible effect there.
+The `daytime` option sets `"world"` mode's sky brightness, following Minecraft's day/night cycle: a tick `0`-`23999`, or a name (`"day"` 1000, `"noon"` 6000, `"sunset"` 12000, `"night"` 13000, `"midnight"` 18000, `"sunrise"` 23000). It defaults to `noon`, which is full brightness, so world renders are unchanged unless you set a darker time; the brightness follows the game's `getSkyDarken` curve, bottoming out around `0.08` at midnight. The curve runs in the shader from a shared uniform exposed as `scene.userData.daytime`, so a live day/night cycle is just `scene.userData.daytime.value = tick` per frame, with no rebuild.
+
+An element's `light_emission` (0-15, since 1.21.2) is the light level it emits: the element holds at `light_emission / 15` brightness while the rest of the model darkens. It shows wherever the model can be darker than full: in `"world"` mode at a dim `daytime` (a `light_emission: 15` face stays lit at midnight while its neighbours fall to `0.08`), and in `"scene"` mode as self-illumination even with no scene lights. In the full-bright `"item"` and `"off"` modes there is nothing to stand out against, like the game's inventory, so it has no visible effect.
 
 ```js
 const group = new THREE.Group()
