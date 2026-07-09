@@ -82,6 +82,68 @@
     "pink_petals": 1,
     "wildflowers": 1
   },
+  "fixed": {
+    "attached_melon_stem": "#E0C71C",
+    "attached_pumpkin_stem": "#E0C71C",
+    "birch_leaves": "#80A755",
+    "bubble_column": "#3F76E4",
+    "lily_pad": "#208030",
+    "spruce_leaves": "#619961",
+    "water": "#3F76E4",
+    "water_cauldron": "#3F76E4"
+  },
+  "indexed": {
+    "melon_stem": {
+      "property": "age",
+      "default": 7,
+      "colors": [
+        "#00FF00",
+        "#20F704",
+        "#40EF08",
+        "#60E70C",
+        "#80DF10",
+        "#A0D714",
+        "#C0CF18",
+        "#E0C71C"
+      ]
+    },
+    "pumpkin_stem": {
+      "property": "age",
+      "default": 7,
+      "colors": [
+        "#00FF00",
+        "#20F704",
+        "#40EF08",
+        "#60E70C",
+        "#80DF10",
+        "#A0D714",
+        "#C0CF18",
+        "#E0C71C"
+      ]
+    },
+    "redstone_wire": {
+      "property": "power",
+      "default": 0,
+      "colors": [
+        "#4C0000",
+        "#700000",
+        "#7A0000",
+        "#840000",
+        "#8E0000",
+        "#990000",
+        "#A30000",
+        "#AD0000",
+        "#B70000",
+        "#C10000",
+        "#CC0000",
+        "#D60000",
+        "#E00000",
+        "#EA0600",
+        "#F41B00",
+        "#FF3200"
+      ]
+    }
+  },
   "potions": {
     "harming": [
       "instant_damage"

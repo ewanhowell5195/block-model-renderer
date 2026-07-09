@@ -8,28 +8,8 @@ export const COLORS = {
     foliage: ["acacia_leaves", "dark_oak_leaves", "jungle_leaves", "mangrove_leaves", "oak_leaves", "vine"],
     dry_foliage: ["leaf_litter"]
   },
-  fixed: {
-    water: { blocks: ["bubble_column", "water_cauldron", "water"], color: "#3F76E4" },
-    birch_leaves: { color: "#80A755" },
-    spruce_leaves: { color: "#619961" },
-    lily_pad: { color: "#208030" },
-    attached_melon_stem: { color: "#E0C71C" },
-    attached_pumpkin_stem: { color: "#E0C71C" }
-  },
-  indexed: {
-    stem: {
-      blocks: ["melon_stem", "pumpkin_stem"],
-      property: "age",
-      default: 7,
-      colors: ["#00FF00", "#20F704", "#40EF08", "#60E70C", "#80DF10", "#A0D714", "#C0CF18", "#E0C71C"]
-    },
-    redstone: {
-      blocks: ["redstone_wire"],
-      property: "power",
-      default: 0,
-      colors: ["#4B0000", "#6F0000", "#790000", "#820000", "#8C0000", "#970000", "#A10000", "#AB0000", "#B50000", "#BF0000", "#CA0000", "#D30000", "#DD0000", "#E70600", "#F11B00", "#FC3100"]
-    }
-  },
+  fixed: colorData.fixed,
+  indexed: colorData.indexed,
   tintindex: colorData.tintindex,
   dye: colorData.dye,
   effects: colorData.effects,
@@ -41,18 +21,8 @@ export const COLORMAP_BLOCKS = {}
 for (const [map, blocks] of Object.entries(COLORS.colormap)) {
   for (const block of blocks) COLORMAP_BLOCKS[block] = map
 }
-export const FIXED_TINT_BLOCKS = {}
-for (const [key, entry] of Object.entries(COLORS.fixed)) {
-  if (entry.blocks) {
-    for (const block of entry.blocks) FIXED_TINT_BLOCKS[block] = entry.color
-  } else {
-    FIXED_TINT_BLOCKS[key] = entry.color
-  }
-}
-export const INDEXED_TINT_BLOCKS = {}
-for (const entry of Object.values(COLORS.indexed)) {
-  for (const block of entry.blocks) INDEXED_TINT_BLOCKS[block] = entry
-}
+export const FIXED_TINT_BLOCKS = { ...COLORS.fixed }
+export const INDEXED_TINT_BLOCKS = { ...COLORS.indexed }
 
 const WATERLOGGABLE = {
   suffix: blocks.waterloggable.suffix,

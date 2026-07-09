@@ -86,8 +86,8 @@ The color tables the renderer tints with, exported as one object for lookups in 
 | Key | Contents |
 |---|---|
 | `colormap` | Block-id lists grouped by which biome colormap image they sample: `grass`, `foliage`, or `dry_foliage`. Their tint is read from the colormap texture rather than being a fixed value |
-| `fixed` | Blocks with a hardcoded hex tint instead of a colormap. Each entry is `{ color }`, optionally with a `blocks` list of ids that share it (water, birch/spruce leaves, lily pads, attached stems) |
-| `indexed` | Tint ramps selected by a blockstate property: `{ blocks, property, default, colors }` picks `colors[value]` for the block's `property` (stem `age`, redstone wire `power`), falling back to `default` |
+| `fixed` | Blocks with a flat hex tint instead of a colormap, block id to hex string (water and bubble columns, birch/spruce leaves, lily pads, attached stems) |
+| `indexed` | Tint ramps keyed off a blockstate property, block id to `{ property, default, colors }`; `colors[value]` is picked for the block's `property` (stem `age`, redstone wire `power`), falling back to `default` |
 | `tintindex` | Blocks whose colormap tint applies to a `tintindex` other than the default `0`; the value is that index (e.g. `pink_petals: 1`) |
 | `dye` | The 16 dye colors, dye name to hex string |
 | `effects` | Each status effect's particle color as a hex string, used when tinting from a `potion` |
@@ -104,19 +104,15 @@ The shape, abbreviated:
     dry_foliage: ["leaf_litter"]
   },
   fixed: {
-    water: { blocks: ["water", "bubble_column", "water_cauldron"], color: "#3F76E4" },
-    birch_leaves: { color: "#80A755" },
-    spruce_leaves: { color: "#619961" },
+    water: "#3F76E4",
+    bubble_column: "#3F76E4",
+    birch_leaves: "#80A755",
+    spruce_leaves: "#619961",
     ...
   },
   indexed: {
-    stem: {
-      blocks: ["melon_stem", "pumpkin_stem"],
-      property: "age",
-      default: 7,
-      colors: ["#00FF00", "#20F704", ..., "#E0C71C"]  // one per age value
-    },
-    redstone: { blocks: ["redstone_wire"], property: "power", default: 0, colors: [...] }
+    melon_stem: { property: "age", default: 7, colors: ["#00FF00", "#20F704", ..., "#E0C71C"] },  // one per age value
+    redstone_wire: { property: "power", default: 0, colors: [...] }
   },
   tintindex: { pink_petals: 1, wildflowers: 1 },
   dye: { black: "#1D1D21", light_blue: "#3AB3DA", ... },

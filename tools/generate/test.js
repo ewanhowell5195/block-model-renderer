@@ -7,7 +7,7 @@ import path from "node:path"
 import { execFileSync, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { canOcclude, selfCulls } from "../../src/core/culling.js"
-import { isWaterloggable, COLORS, getPotionColor } from "../../src/core/colors.js"
+import { isWaterloggable, COLORS, getPotionColor, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS } from "../../src/core/colors.js"
 import blocks from "../../src/core/data/blocks.json" with { type: "json" }
 import colors from "../../src/core/data/colors.json" with { type: "json" }
 
@@ -35,6 +35,16 @@ test("colors.json structure", () => {
     for (const v of Object.values(map)) assert.match(v, /^#[0-9A-Fa-f]{6}$/, `hex: ${v}`)
   for (const v of Object.values(colors.tintindex)) assert.ok(Number.isInteger(v) && v > 0, `tintindex ${v}`)
   assert.equal(colors.tintindex.pink_petals, 1)
+  for (const v of Object.values(colors.fixed)) assert.match(v, /^#[0-9A-Fa-f]{6}$/, `fixed hex: ${v}`)
+  assert.equal(colors.fixed.lily_pad, "#208030")
+  assert.equal(colors.fixed.water, "#3F76E4")
+  const rs = colors.indexed.redstone_wire
+  assert.equal(rs.property, "power")
+  assert.equal(rs.colors.length, 16)
+  assert.equal(rs.colors[0], "#4C0000")
+  assert.equal(colors.indexed.melon_stem.property, "age")
+  assert.equal(colors.indexed.melon_stem.default, 7)
+  assert.equal(colors.indexed.melon_stem.colors[7], "#E0C71C")
   assert.ok(Object.keys(colors.potions).length > 20)
   assert.deepEqual(colors.potions.swiftness, ["speed"])
   assert.deepEqual(colors.potions.turtle_master, [["slowness", 3], ["resistance", 2]])
@@ -93,6 +103,11 @@ test("COLORS wired to generated data", () => {
   assert.equal(COLORS.team.black, "#000000")
   assert.equal(COLORS.effects.speed, "#33EBFF")
   assert.equal(COLORS.tintindex.wildflowers, 1)
+  assert.equal(COLORS.fixed.birch_leaves, "#80A755")
+  assert.equal(FIXED_TINT_BLOCKS.water, "#3F76E4")
+  assert.equal(FIXED_TINT_BLOCKS.lily_pad, "#208030")
+  assert.equal(INDEXED_TINT_BLOCKS.redstone_wire.colors[0], "#4C0000")
+  assert.equal(INDEXED_TINT_BLOCKS.melon_stem.colors[7], "#E0C71C")
   assert.match(getPotionColor("turtle_master"), /^#[0-9a-f]{6}$/)          // blended multi-effect
   assert.equal(getPotionColor("swiftness").toLowerCase(), COLORS.effects.speed.toLowerCase())  // single effect
   assert.match(getPotionColor("poison"), /^#[0-9A-Fa-f]{6}$/)              // direct fallback

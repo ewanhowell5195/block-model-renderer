@@ -113,6 +113,24 @@ function compress(targetIds, allIds) {
   return ok ? rule : { suffix: [], exact: [...targetIds].sort() }
 }
 
+// Mirrors defaultBlockstates() in src/core/models.js: a block-specific rule wins
+// over the global per-property default, and an array default means the first
+// entry is preferred. Returns (block, property) -> the default value the
+// renderer uses for that property.
+function loadDefaultBlockstates() {
+  const json = JSON.parse(fs.readFileSync(path.join(root, "assets/fallbacks/assets/block-model-renderer/default_blockstates.json"), "utf8"))
+  const properties = json.properties ?? {}
+  const rules = (json.blocks ?? []).filter(r => r?.match && r.defaults).map(r => ({
+    patterns: r.match.split("|").map(p => new RegExp("^" + p.replace(/\*/g, ".*") + "$")),
+    value: r.defaults
+  }))
+  const unique = block => rules.find(r => r.patterns.some(rx => rx.test(block)))?.value ?? {}
+  return (block, property) => {
+    const raw = unique(block)[property] ?? properties[property]
+    return Array.isArray(raw) ? raw[0] : raw
+  }
+}
+
 async function main() {
   const check = process.argv.includes("--check")
   const positional = process.argv.slice(2).filter(a => !a.startsWith("--"))
@@ -146,6 +164,17 @@ async function main() {
   if (!raw) throw new Error("extractor produced no JSON; output:\n" + out.slice(-2000))
   const d = JSON.parse(raw[1])
 
+  // An indexed ramp's `default` is the value used when the block is rendered
+  // without the property set, so it must match the state the renderer picks by
+  // default. Resolve it the same way models.js does, from default_blockstates
+  // (e.g. age's [7,6,..] priority makes stems default to a full 7, redstone_wire
+  // pins power to 0), falling back to the extractor's default-state value.
+  const defaultState = loadDefaultBlockstates()
+  for (const [id, entry] of Object.entries(d.indexed)) {
+    const resolved = defaultState(id, entry.property)
+    if (resolved !== undefined) entry.default = resolved
+  }
+
   fs.mkdirSync(dataDir, { recursive: true })
   const blocks = {
     _generated: `from minecraft ${version.id} by tools/generate/generate.js`,
@@ -160,6 +189,8 @@ async function main() {
     effects: d.effects,
     team: d.team,
     tintindex: d.tintindex,
+    fixed: d.fixed,
+    indexed: d.indexed,
     potions: d.potions
   }
   const write = (name, obj) => {

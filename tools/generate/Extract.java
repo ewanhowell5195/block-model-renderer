@@ -6,11 +6,16 @@ import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.alchemy.Potion;
@@ -24,6 +29,8 @@ import net.minecraft.client.color.block.BlockTintSource;
 
 public class Extract {
   static String hex(int c) { return String.format("#%06X", c & 0xFFFFFF); }
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  static BlockState with(BlockState s, Property p, Object v) { return s.setValue(p, (Comparable) v); }
   static String arr(List<String> xs) {
     Collections.sort(xs);
     StringBuilder b = new StringBuilder("[");
@@ -42,6 +49,19 @@ public class Extract {
     BlockColors colors = BlockColors.createDefault();
     int grassDefault = GrassColor.getDefaultColor();
     TreeMap<String, Integer> tintindex = new TreeMap<>();
+
+    // Two tint kinds resolvable straight from the block's tint source: a flat
+    // constant colour (fixed), or a ramp keyed off one blockstate property
+    // (indexed, e.g. redstone by power, stems by age). Biome-tinted sources
+    // (grass/foliage colormap, water) can't be read here (no colormap textures
+    // and water's tint comes from the fluid renderer), so they're skipped.
+    TreeMap<String, String> fixed = new TreeMap<>();
+    TreeMap<String, String> indexed = new TreeMap<>();
+
+    // Water is tinted by the fluid renderer using the biome water colour, not by
+    // a flat BlockColors source, so inject the vanilla default (plains) colour.
+    HolderLookup.Provider registries = VanillaRegistries.createLookup();
+    int waterColor = registries.lookupOrThrow(Registries.BIOME).getOrThrow(Biomes.PLAINS).value().getWaterColor();
 
     List<String> all = new ArrayList<>(), waterlog = new ArrayList<>(), noOcc = new ArrayList<>(), selfAll = new ArrayList<>(), selfY = new ArrayList<>();
     for (Block block : BuiltInRegistries.BLOCK) {
@@ -77,7 +97,31 @@ public class Extract {
       boolean anyFullFace = false;
       for (Direction d : Direction.values()) if (Block.isFaceFull(shape, d)) { anyFullFace = true; break; }
       if (!st.canOcclude() && (anyFullFace || cullAll) && !fluid) noOcc.add(id);
+
+      if (!tintSources.isEmpty()) {
+        BlockTintSource s0 = tintSources.get(0);
+        boolean biomeDep;
+        int world = 0;
+        try { world = s0.colorInWorld(st, null, BlockPos.ZERO); biomeDep = s0.color(st) == -1; }
+        catch (Throwable t) { biomeDep = true; }
+        Set<Property<?>> rel = s0.relevantProperties();
+        if (biomeDep) {
+          // grass/foliage colormap or water: not resolvable here, handled elsewhere
+        } else if (rel.isEmpty()) {
+          fixed.put(id, hex(world));
+        } else if (rel.size() == 1 && rel.iterator().next().getPossibleValues().iterator().next() instanceof Integer) {
+          Property<?> p = rel.iterator().next();
+          int max = 0;
+          for (Object v : p.getPossibleValues()) max = Math.max(max, (Integer) v);
+          String[] ramp = new String[max + 1];
+          for (Object v : p.getPossibleValues()) { int n = (Integer) v; ramp[n] = hex(s0.colorInWorld(with(st, p, n), null, BlockPos.ZERO)); }
+          StringBuilder r = new StringBuilder("[");
+          for (int i = 0; i < ramp.length; i++) { if (i > 0) r.append(","); r.append("\"").append(ramp[i]).append("\""); }
+          indexed.put(id, "{\"property\":\"" + p.getName() + "\",\"default\":" + st.getValue(p) + ",\"colors\":" + r.append("]") + "}");
+        }
+      }
     }
+    for (String w : new String[]{ "water", "bubble_column", "water_cauldron" }) fixed.put(w, hex(waterColor));
 
     // Potion tint = the blend of its effects' colours. Skip potions whose name
     // is itself an effect id (getPotionColor resolves those directly), and drop
@@ -126,6 +170,12 @@ public class Extract {
     sb.append("},\n\"tintindex\":{");
     f = true;
     for (var e : tintindex.entrySet()) { if (!f) sb.append(","); f = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
+    sb.append("},\n\"fixed\":{");
+    f = true;
+    for (var e : fixed.entrySet()) { if (!f) sb.append(","); f = false; sb.append("\"").append(e.getKey()).append("\":\"").append(e.getValue()).append("\""); }
+    sb.append("},\n\"indexed\":{");
+    f = true;
+    for (var e : indexed.entrySet()) { if (!f) sb.append(","); f = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
     sb.append("},\n\"potions\":{");
     f = true;
     for (var e : potions.entrySet()) { if (!f) sb.append(","); f = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
