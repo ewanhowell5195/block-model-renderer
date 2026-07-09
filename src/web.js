@@ -5,6 +5,7 @@ import { parseZip } from "./zip.js"
 const config = {}
 
 export function configure(opts) {
+  if ("assetsUrl" in opts && opts.assetsUrl !== config.assetsUrl) bundledZipPromise = null
   Object.assign(config, opts)
 }
 
@@ -419,7 +420,10 @@ function loadBundledZip() {
     const res = await fetch(url)
     if (!res.ok) throw new Error(`Failed to fetch bundled assets.zip from ${url} (${res.status}). If it lives elsewhere, set configure({ assetsUrl })`)
     return parseZip(new Uint8Array(await res.arrayBuffer()))
-  })()
+  })().catch(e => {
+    bundledZipPromise = null
+    throw e
+  })
 }
 
 async function encodePng(canvas) {
