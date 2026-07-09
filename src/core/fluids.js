@@ -52,6 +52,7 @@ function cellKey(x, y, z) {
 }
 
 export async function fluidHeights(assets, type, neighbors) {
+  if (type == null) return null
   if (assets == null || assets.length === 0) throw new Error("fluidHeights requires assets")
   if (type !== "water" && type !== "lava") throw new Error('fluidHeights requires a type of "water" or "lava"')
   function getBlock(x, y, z) {
