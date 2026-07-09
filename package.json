@@ -16,7 +16,8 @@
     "index.js",
     "src/",
     "assets/",
-    "assets.zip"
+    "assets.zip",
+    "docs/"
   ],
   "repository": {
     "type": "git",
