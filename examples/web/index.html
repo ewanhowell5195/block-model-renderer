@@ -11,6 +11,16 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="block-model-renderer">
   <meta property="og:description" content="Minecraft block and item model rendering for Node.js and the browser. Render any block, item, or custom model JSON, with full support for vanilla resource pack features.">
+  <link href="https://cdn.jsdelivr.net/npm/fluid-tabs@latest/dist/fluid-tabs.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fluid-tabs@latest/dist/fluid-tabs.min.js" defer></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+      }
+    }
+  </script>
   <style>
     * {
       margin: 0;
@@ -127,6 +137,146 @@
     pre code {
       border: none;
       padding: 0;
+    }
+
+    .controls button {
+      background: #3498db;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: background 0.2s ease;
+    }
+
+    .controls button:hover {
+      background: #2980b9;
+    }
+
+    .controls button:disabled {
+      background: #b0bec5;
+      cursor: not-allowed;
+    }
+
+    .controls button.icon {
+      background: none;
+      color: #666;
+      padding: 10px 8px;
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .controls button.icon:hover {
+      background: none;
+      color: #e74c3c;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .controls input {
+      flex: 1;
+      min-width: 160px;
+      max-width: 320px;
+      padding: 9px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+
+    .controls input:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+
+    .controls input:disabled {
+      background: #eee;
+    }
+
+    .err {
+      color: #e74c3c;
+      font-size: 0.9rem;
+    }
+
+    #loadstatus {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 12px 20px;
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+
+    .demo {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      min-height: 100px;
+    }
+
+    .demo:empty {
+      display: none;
+    }
+
+    .demo-row {
+      flex-wrap: nowrap;
+    }
+
+    .demo figure {
+      margin: 0;
+      text-align: center;
+    }
+
+    .demo figure canvas {
+      display: block;
+      width: 128px;
+      height: 128px;
+    }
+
+    .demo figcaption {
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .demo-three {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .demo-three canvas {
+      width: 100%;
+      height: 340px;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .demo-three canvas:active {
+      cursor: grabbing;
+    }
+
+    #gui-view {
+      width: 352px;
+      max-width: 100%;
+      image-rendering: pixelated;
     }
 
     .examples {
@@ -268,6 +418,21 @@
   <div class="container">
     <div class="content">
       <div class="section">
+        <h2>Features</h2>
+        <ul class="feature-list">
+          <li>Renders blocks, items, and custom models from a resource pack</li>
+          <li>Runs on Node.js and in the browser from the same package</li>
+          <li>Full vanilla model, blockstate, item-definition, and texture atlas support, with accurate lighting and tints</li>
+          <li>Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, etc)</li>
+          <li>Stack resource pack folders, zips, and virtual handlers, with higher packs overriding lower ones just like in Minecraft</li>
+          <li>Animated textures: WebP and GIF output on Node, live self-updating canvases on web</li>
+          <li>Scene optimisation: near game-accurate hidden-face culling from neighbouring blocks, and the whole scene merged into a handful of draw calls, with far fewer polygons</li>
+          <li>Extensible model loaders: write your own to support modded formats (OBJ models, connected textures, etc)</li>
+          <li>PNG, JPEG, WebP, GIF, and AVIF output on Node</li>
+        </ul>
+      </div>
+
+      <div class="section">
         <h2>Live Examples</h2>
         <p>Each example runs entirely in your browser. They download the latest vanilla Minecraft client jar directly from Mojang's servers, and you can load your own resource packs and mods on top of it.</p>
         <div class="examples">
@@ -291,34 +456,262 @@
       </div>
 
       <div class="section">
-        <h2>Features</h2>
-        <ul class="feature-list">
-          <li>Renders blocks, items, and custom models from a resource pack</li>
-          <li>Runs on Node.js and in the browser from the same package</li>
-          <li>Full vanilla model, blockstate, item-definition, and texture atlas support, with accurate lighting and tints</li>
-          <li>Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, etc)</li>
-          <li>Stack resource pack folders, zips, and virtual handlers, with higher packs overriding lower ones just like in Minecraft</li>
-          <li>Animated textures: WebP and GIF output on Node, live self-updating canvases on web</li>
-          <li>Scene optimisation: near game-accurate hidden-face culling from neighbouring blocks, and placed blocks merged into a few atlased, greedily meshed draw calls</li>
-          <li>Extensible model loaders: write your own to support modded formats (OBJ models, connected textures, etc)</li>
-          <li>PNG, JPEG, WebP, GIF, and AVIF output on Node</li>
-        </ul>
-      </div>
-
-      <div class="section">
-        <h2>Getting Started</h2>
-        <p>Install from NPM for Node.js, or the browser through a bundler:</p>
-        <pre><code>npm install block-model-renderer</code></pre>
-        <p>Or import it straight from a CDN in the browser:</p>
-        <pre><code>import { renderBlock, prepareAssets } from "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/+esm"
+        <h2>Basic Usage</h2>
+        <p>Give <code>renderBlock</code> an id and an assets source and it returns a canvas, rendered with the same blockstate, model, and texture handling as the game. Everything below is rendered live on this page; try any block id yourself:</p>
+        <div id="loadstatus">Loading…</div>
+        <div class="demo demo-row" id="demo-blocks"></div>
+        <div class="controls">
+          <input type="text" id="blockinput" list="blockids" placeholder="grass_block" disabled>
+          <datalist id="blockids"></datalist>
+          <button id="blockrender" disabled>Render</button>
+          <span class="err" id="blockerr"></span>
+        </div>
+        <pre><code>import { renderBlock, prepareAssets } from "block-model-renderer"
 
 // a resource pack zip from a file input, fetch, anywhere
 const assets = await prepareAssets([resourcePackZip])
 
 // returns a canvas you can append
-const canvas = await renderBlock({ id: "grass_block", assets, width: 128, height: 128 })
+const canvas = await renderBlock({ id: "grass_block", assets, width: 256, height: 256 })
 document.body.append(canvas)</code></pre>
-        <p>The full documentation lives in the <a href="https://github.com/ewanhowell5195/block-model-renderer" target="_blank">GitHub repository</a>, covering rendering options, asset sources and pack layering, fluids, scene building, and custom model loaders.</p>
+        <p>Blocks like chests, beacons, and enchanting tables don't have real models in the assets; Minecraft renders them dynamically in code. The bundled overrides fill those gaps so they render like the game shows them.</p>
+      </div>
+
+      <div class="section">
+        <h2>Resource Packs</h2>
+        <p>Asset sources stack just like in Minecraft: pass more than one and higher packs override lower ones. Load a resource pack (or mod jar) and every render on this page rebuilds with it layered over vanilla, right down to the GUI texture, the font, and the recipes. Anything it adds in its own namespaces shows up too, so a mod's custom blocks and items appear in the pickers:</p>
+        <div class="controls">
+          <button id="packbtn" disabled>Select Resource Pack…</button>
+          <button id="packclear" class="icon" title="Remove pack" aria-label="Remove pack" hidden>×</button>
+          <span class="err" id="packerr"></span>
+        </div>
+        <input type="file" id="packfile" accept=".zip,.jar" hidden>
+        <pre><code>// higher packs override lower ones, just like in Minecraft
+const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
+      </div>
+
+      <div class="section">
+        <h2>Blockstates</h2>
+        <p>Pass blockstate property values to render a specific variant, exactly as they appear in the game's debug screen:</p>
+        <div class="tab-bar">
+          <button class="tab-bar-button active" data-tab="cake">Cake</button>
+          <button class="tab-bar-button" data-tab="fence">Fence</button>
+          <button class="tab-bar-button" data-tab="pickle">Sea Pickle</button>
+        </div>
+        <div class="tab-contents">
+          <div class="tab-content active" data-tab="cake">
+            <div class="demo" id="demo-state-cake"></div>
+            <pre><code>await renderBlock({ id: "cake", assets, blockstates: { bites: "3" } })</code></pre>
+          </div>
+          <div class="tab-content" data-tab="fence">
+            <div class="demo" id="demo-state-fence"></div>
+            <pre><code>await renderBlock({ id: "oak_fence", assets, blockstates: { north: "true", east: "true" } })</code></pre>
+          </div>
+          <div class="tab-content" data-tab="pickle">
+            <div class="demo" id="demo-state-pickle"></div>
+            <pre><code>await renderBlock({ id: "sea_pickle", assets, blockstates: { pickles: "3" } })</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Rendering Items</h2>
+        <p><code>renderItem</code> goes through the pack's item definitions, so layered textures, tints, and model selection all behave like the game. Try any item id:</p>
+        <div class="demo demo-row" id="demo-items"></div>
+        <div class="controls">
+          <input type="text" id="iteminput" list="itemids" placeholder="diamond_sword" disabled>
+          <datalist id="itemids"></datalist>
+          <button id="itemrender" disabled>Render</button>
+          <span class="err" id="itemerr"></span>
+        </div>
+        <pre><code>import { renderItem } from "block-model-renderer"
+
+await renderItem({ id: "diamond_sword", assets })
+
+// item components drive definition selection
+await renderItem({ id: "bow", assets, components: { using_item: true } })</code></pre>
+      </div>
+
+      <div class="section">
+        <h2>GUI Rendering</h2>
+        <p>Whole interfaces can be put together from nothing but the pack. <code>readFile</code> reads any file from the pack stack, so the screen texture and the bitmap font below come straight from the loaded jar, and every item is rendered into its slot with placement mode. The crafting grid is even showing a real recipe, read from the jar's data files; randomise to roll another:</p>
+        <div class="demo demo-gui">
+          <canvas id="gui-view" width="352" height="332"></canvas>
+        </div>
+        <div class="controls">
+          <button id="guirandom" disabled>Randomise</button>
+        </div>
+        <pre><code>import { renderItem, readFile } from "block-model-renderer"
+
+// any file in the pack stack is readable
+const png = await readFile("assets/minecraft/textures/gui/container/crafting_table.png", assets)
+ctx.drawImage(await createImageBitmap(new Blob([png])), 0, 0, 176, 166, 0, 0, 352, 332)
+
+// including data files, like recipes
+const recipe = JSON.parse(new TextDecoder().decode(await readFile("data/minecraft/recipe/cake.json", assets)))
+
+// placement mode draws into a region of an existing canvas without clearing it
+await renderItem({ id: "diamond_sword", assets, canvas, width: 32, height: 32, x: 248, y: 70 })</code></pre>
+      </div>
+
+      <div class="section">
+        <h2>Animated Textures</h2>
+        <p>With <code>animated: true</code> you get a live player instead of a canvas: a self-updating canvas that plays the model's texture animations, and pauses itself while scrolled offscreen:</p>
+        <div class="demo" id="demo-animated"></div>
+        <div class="controls">
+          <button id="animtoggle" disabled>Pause All</button>
+        </div>
+        <pre><code>const player = await renderBlock({ id: "magma_block", assets, animated: true })
+document.body.append(player.canvas)</code></pre>
+      </div>
+
+      <div class="section">
+        <h2>Custom Models</h2>
+        <p><code>renderModel</code> renders a model JSON directly, no blockstate or item definition lookup. It supports every vanilla model feature, so it works with anything a resource pack could contain:</p>
+        <div class="tab-bar">
+          <button class="tab-bar-button active" data-tab="uv">UV Mapping</button>
+          <button class="tab-bar-button" data-tab="elements">Elements</button>
+          <button class="tab-bar-button" data-tab="rotation">Rotation</button>
+        </div>
+        <div class="tab-contents">
+          <div class="tab-content active" data-tab="uv">
+            <div class="demo" id="demo-model-uv"></div>
+            <pre><code>import { renderModel } from "block-model-renderer"
+
+// a creeper head, UV mapped from the creeper's entity texture
+await renderModel({
+  assets,
+  ignoreAtlases: true, // entity textures aren't in the block atlas
+  model: {
+    textures: { creeper: "entity/creeper/creeper" },
+    elements: [{
+      from: [4, 4, 4],
+      to: [12, 12, 12],
+      faces: {
+        north: { texture: "#creeper", uv: [2, 4, 4, 8] },
+        south: { texture: "#creeper", uv: [6, 4, 8, 8] },
+        east:  { texture: "#creeper", uv: [4, 4, 6, 8] },
+        west:  { texture: "#creeper", uv: [0, 4, 2, 8] },
+        up:    { texture: "#creeper", uv: [2, 0, 4, 4] },
+        down:  { texture: "#creeper", uv: [4, 0, 6, 4] }
+      }
+    }]
+  }
+})</code></pre>
+          </div>
+          <div class="tab-content" data-tab="elements">
+            <div class="demo" id="demo-model-elements"></div>
+            <pre><code>// a table, built from a top and four legs
+await renderModel({
+  assets,
+  model: {
+    textures: { oak: "block/oak_planks" },
+    elements: [
+      { from: [0, 12, 0],  to: [16, 14, 16], faces: { /* #oak on all six */ } },
+      { from: [1, 0, 1],   to: [3, 12, 3],   faces: { /* … */ } },
+      { from: [13, 0, 1],  to: [15, 12, 3],  faces: { /* … */ } },
+      { from: [1, 0, 13],  to: [3, 12, 15],  faces: { /* … */ } },
+      { from: [13, 0, 13], to: [15, 12, 15], faces: { /* … */ } }
+    ]
+  }
+})</code></pre>
+          </div>
+          <div class="tab-content" data-tab="rotation">
+            <div class="demo" id="demo-model-cross"></div>
+            <pre><code>// a cross-plane flower, the same way vanilla builds them
+await renderModel({
+  assets,
+  model: {
+    textures: { flower: "block/torchflower" },
+    elements: [
+      {
+        from: [0.8, 0, 8],
+        to: [15.2, 16, 8],
+        rotation: { origin: [8, 8, 8], axis: "y", angle: 45, rescale: true },
+        faces: {
+          north: { texture: "#flower" },
+          south: { texture: "#flower" }
+        }
+      },
+      {
+        from: [8, 0, 0.8],
+        to: [8, 16, 15.2],
+        rotation: { origin: [8, 8, 8], axis: "y", angle: -45, rescale: true },
+        faces: {
+          east: { texture: "#flower" },
+          west: { texture: "#flower" }
+        }
+      }
+    ]
+  }
+})</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Building Scenes</h2>
+        <p>The low-level API loads models straight into your own three.js scene, so you can build viewers, editors, and whole worlds around it. Each block is culled against its neighbours with <code>getCullFaces</code>, fluids shape their surfaces from the blocks around them, and <code>optimiseScene</code> merges everything into a handful of draw calls. This one is live; drag to rotate:</p>
+        <div class="tab-bar">
+          <button class="tab-bar-button active" data-tab="campfire">Single Block</button>
+          <button class="tab-bar-button" data-tab="camp">Small Scene</button>
+          <button class="tab-bar-button" data-tab="campsite">Big Scene</button>
+        </div>
+        <div class="tab-contents">
+          <div class="tab-content active" data-tab="campfire">
+            <div class="demo demo-three">
+              <canvas id="three-campfire"></canvas>
+            </div>
+            <pre><code>import { getThree, parseBlockstate, resolveModelData, loadModel, createAnimator } from "block-model-renderer"
+
+const THREE = await getThree()
+const group = new THREE.Group()
+
+for (const model of await parseBlockstate(assets, "campfire", { data: { lit: "true" } })) {
+  const resolved = await resolveModelData(assets, model)
+  await loadModel(group, assets, resolved, { lighting: "world", animate: true })
+}
+scene.add(group)
+
+const animator = createAnimator(group)
+// in your render loop:
+animator.update()</code></pre>
+          </div>
+          <div class="tab-content" data-tab="camp">
+            <div class="demo demo-three">
+              <canvas id="three-camp"></canvas>
+            </div>
+            <pre><code>import { getCullFaces, optimiseScene } from "block-model-renderer"
+
+const placements = []
+for (const block of blocks) {
+  // faces hidden by neighbouring blocks get culled, like in the game
+  const cull = await getCullFaces({ id: block.id, blockstates: block.properties, neighbors: block.neighbors, assets })
+  const group = new THREE.Group()
+  for (const model of await parseBlockstate(assets, block.id, { data: block.properties })) {
+    const resolved = await resolveModelData(assets, model)
+    group.add(await loadModel(null, assets, resolved, { lighting: "world", animate: true, cull, neighbors: block.neighbors }))
+  }
+  placements.push({ pos: [block.x, block.y, block.z], group })
+}
+
+// merge the whole scene into a handful of draw calls, with far fewer polygons
+const optimised = await optimiseScene(placements)
+scene.add(optimised.group)</code></pre>
+          </div>
+          <div class="tab-content" data-tab="campsite">
+            <div class="demo demo-three">
+              <canvas id="three-campsite"></canvas>
+            </div>
+            <pre><code>// bigger scenes work exactly the same way: the pond's water reads its
+// neighbours to shape its surface, and every hidden face gets culled
+const cull = await getCullFaces({ id: "water", blockstates: { level: "0" }, neighbors, assets })
+
+// and the whole campsite still merges down to a handful of draw calls
+const optimised = await optimiseScene(placements)
+console.log(`${optimised.drawCalls} draws, ${(optimised.tris / 1000).toFixed(1)}K tris`)</code></pre>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -327,5 +720,769 @@ document.body.append(canvas)</code></pre>
     <p><strong>block-model-renderer</strong> - <a href="https://github.com/ewanhowell5195/block-model-renderer" target="_blank">GitHub</a> | <a href="https://www.npmjs.com/package/block-model-renderer" target="_blank">NPM</a> | <a href="https://www.jsdelivr.com/package/npm/block-model-renderer" target="_blank">JSDelivr</a></p>
     <p style="margin-top: 10px;">MIT License © <a href="https://ewanhowell.com/" target="_blank">Ewan Howell</a></p>
   </footer>
+
+  <script type="module">
+    const BUST = Date.now()
+    const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
+
+    const $ = id => document.getElementById(id)
+    const status = $("loadstatus")
+    const SIZE = 256
+
+    const capacity = el => Math.max(1, Math.min(6, Math.floor(((el.clientWidth || el.parentElement.clientWidth) - 20) / 148)))
+
+    function demo(id, canvas, label) {
+      const el = $(id)
+      const figure = document.createElement("figure")
+      if (label) figure.dataset.id = label
+      figure.append(canvas)
+      if (label) {
+        const caption = document.createElement("figcaption")
+        caption.textContent = label
+        figure.append(caption)
+      }
+      el.append(figure)
+      if (el.classList.contains("demo-row")) {
+        while (el.children.length > capacity(el)) el.firstChild.remove()
+      }
+    }
+
+    try {
+      const {
+        renderBlock, renderItem, renderModel, prepareAssets, disposeCache, listDirectory, readFile,
+        getThree, parseBlockstate, resolveModelData, loadModel, getCullFaces, optimiseScene, createAnimator,
+        pauseAnimations, resumeAnimations
+      } = await import(LIB)
+      const { loadMojangJar } = await import(`./mojang-pack.js?${BUST}`)
+      const { OrbitControls } = await import("three/addons/controls/OrbitControls.js")
+
+      const { bytes } = await loadMojangJar((got, total, ver) => {
+        status.textContent = `Downloading Minecraft ${ver}… ${(got / 1048576).toFixed(0)}/${(total / 1048576).toFixed(0)}MB`
+      })
+      status.textContent = "Preparing assets…"
+
+      let assets = null
+      let userFile = null
+      let itemIds = null
+      let buildRun = 0
+      const players = []
+
+      addEventListener("pagehide", () => { if (assets) disposeCache(assets) })
+
+      async function ids(sub) {
+        const lists = []
+        for (const ns of await listDirectory("assets", assets)) {
+          const files = (await listDirectory(`assets/${ns}/${sub}`, assets)).filter(f => f.endsWith(".json"))
+          if (files.length) lists.push([ns, files])
+        }
+        const prefix = lists.length > 1
+        const found = []
+        for (const [ns, files] of lists) {
+          for (const f of files) found.push(prefix ? `${ns}:${f.slice(0, -5)}` : f.slice(0, -5))
+        }
+        return found.sort()
+      }
+
+      const option = id => Object.assign(document.createElement("option"), { value: id })
+
+      function hookRender(inputId, btnId, errId, render) {
+        const go = async () => {
+          const id = $(inputId).value.trim()
+          if (!id) return
+          $(errId).textContent = ""
+          $(btnId).disabled = true
+          try {
+            await render(id)
+          } catch (err) {
+            $(errId).textContent = err.message
+          }
+          $(btnId).disabled = false
+        }
+        $(btnId).addEventListener("click", go)
+        $(inputId).addEventListener("keydown", e => { if (e.key === "Enter") go() })
+      }
+
+      hookRender("blockinput", "blockrender", "blockerr", async id => {
+        const existing = [...$("demo-blocks").children].find(f => f.dataset.id === id)
+        if (existing) {
+          $("demo-blocks").append(existing)
+          return
+        }
+        demo("demo-blocks", await renderBlock({ id, assets, width: SIZE, height: SIZE }), id)
+      })
+
+      hookRender("iteminput", "itemrender", "itemerr", async id => {
+        const existing = [...$("demo-items").children].find(f => f.dataset.id === id)
+        if (existing) {
+          $("demo-items").append(existing)
+          return
+        }
+        demo("demo-items", await renderItem({ id, assets, width: SIZE, height: SIZE }), id)
+      })
+
+      let playing = true
+      $("animtoggle").addEventListener("click", () => {
+        playing = !playing
+        playing ? resumeAnimations() : pauseAnimations()
+        $("animtoggle").textContent = playing ? "Pause All" : "Play All"
+      })
+
+      const guiView = $("gui-view")
+      const g = guiView.getContext("2d")
+      g.imageSmoothingEnabled = false
+
+      let guiImg = null
+      let fontCanvas = null
+      let fontData = null
+      let cell = 8
+      let unit = 1
+      let widths = new Map()
+
+      async function loadGuiAssets() {
+        guiImg = await createImageBitmap(new Blob([await readFile("assets/minecraft/textures/gui/container/crafting_table.png", assets)], { type: "image/png" }))
+        const fontImg = await createImageBitmap(new Blob([await readFile("assets/minecraft/textures/font/ascii.png", assets)], { type: "image/png" }))
+        fontCanvas = document.createElement("canvas")
+        fontCanvas.width = fontImg.width
+        fontCanvas.height = fontImg.height
+        const fctx = fontCanvas.getContext("2d")
+        fctx.drawImage(fontImg, 0, 0)
+        fontData = fctx.getImageData(0, 0, fontCanvas.width, fontCanvas.height).data
+        cell = fontCanvas.width / 16
+        unit = cell / 8
+        widths = new Map()
+      }
+
+      function advance(code) {
+        if (!widths.has(code)) {
+          const gx = code % 16 * cell
+          const gy = Math.floor(code / 16) * cell
+          let right = -1
+          for (let px = cell - 1; px >= 0 && right === -1; px--) {
+            for (let py = 0; py < cell; py++) {
+              if (fontData[((gy + py) * fontCanvas.width + gx + px) * 4 + 3]) {
+                right = px
+                break
+              }
+            }
+          }
+          widths.set(code, right === -1 ? 4 * unit : right + 1 + unit)
+        }
+        return widths.get(code)
+      }
+
+      const textWidth = str => [...str].reduce((a, ch) => a + advance(ch.codePointAt(0)), 0) / unit
+
+      function makeText(str, color) {
+        const codes = [...str].map(ch => ch.codePointAt(0))
+        const text = document.createElement("canvas")
+        text.width = Math.max(codes.reduce((a, code) => a + advance(code), 0), 1)
+        text.height = cell
+        const tctx = text.getContext("2d")
+        let x = 0
+        for (const code of codes) {
+          tctx.drawImage(fontCanvas, code % 16 * cell, Math.floor(code / 16) * cell, cell, cell, x, 0, cell, cell)
+          x += advance(code)
+        }
+        tctx.globalCompositeOperation = "source-in"
+        tctx.fillStyle = color
+        tctx.fillRect(0, 0, text.width, text.height)
+        return text
+      }
+
+      function drawText(str, x, y, color, shadow) {
+        const text = makeText(str, color)
+        const w = text.width / unit * 2
+        if (shadow) g.drawImage(makeText(str, "#3f3f3f"), (x + 1) * 2, (y + 1) * 2, w, 16)
+        g.drawImage(text, x * 2, y * 2, w, 16)
+      }
+
+      const invSlots = []
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 9; col++) invSlots.push({ x: 8 + col * 18, y: 84 + row * 18, chance: 0.4 })
+      }
+      for (let col = 0; col < 9; col++) invSlots.push({ x: 8 + col * 18, y: 142, chance: 0.6 })
+
+      async function readJson(path) {
+        const buf = await readFile(path, assets)
+        return buf ? JSON.parse(new TextDecoder().decode(buf)) : null
+      }
+
+      let recipeFiles = null
+      async function listRecipes() {
+        if (!recipeFiles) {
+          recipeFiles = []
+          for (const dir of ["data/minecraft/recipe", "data/minecraft/recipes"]) {
+            const files = (await listDirectory(dir, assets)).filter(f => f.endsWith(".json"))
+            if (files.length) {
+              recipeFiles = files.map(f => `${dir}/${f}`)
+              break
+            }
+          }
+        }
+        return recipeFiles
+      }
+
+      async function resolveIngredient(ing, depth = 0) {
+        if (ing == null || depth > 8) return null
+        if (Array.isArray(ing)) return ing.length ? resolveIngredient(ing[Math.floor(Math.random() * ing.length)], depth + 1) : null
+        if (typeof ing === "object") return resolveIngredient(ing.item ?? ing.id ?? (ing.tag ? `#${ing.tag}` : null), depth + 1)
+        if (typeof ing !== "string") return null
+        if (ing.startsWith("#")) {
+          const sep = ing.indexOf(":")
+          const ns = sep === -1 ? "minecraft" : ing.slice(1, sep)
+          const path = sep === -1 ? ing.slice(1) : ing.slice(sep + 1)
+          const tag = await readJson(`data/${ns}/tags/item/${path}.json`) ?? await readJson(`data/${ns}/tags/items/${path}.json`)
+          if (!tag?.values?.length) return null
+          return resolveIngredient(tag.values[Math.floor(Math.random() * tag.values.length)], depth + 1)
+        }
+        return ing
+      }
+
+      async function recipeGrid(recipe) {
+        const grid = Array(9).fill(null)
+        if (recipe?.type === "minecraft:crafting_shaped") {
+          if (recipe.pattern.length > 3) return null
+          for (let row = 0; row < recipe.pattern.length; row++) {
+            if (recipe.pattern[row].length > 3) return null
+            for (let col = 0; col < recipe.pattern[row].length; col++) {
+              const key = recipe.pattern[row][col]
+              if (key === " ") continue
+              const id = await resolveIngredient(recipe.key[key])
+              if (!id) return null
+              grid[row * 3 + col] = id
+            }
+          }
+          return grid
+        }
+        if (recipe?.type === "minecraft:crafting_shapeless" && recipe.ingredients.length <= 9) {
+          for (let i = 0; i < recipe.ingredients.length; i++) {
+            const id = await resolveIngredient(recipe.ingredients[i])
+            if (!id) return null
+            grid[i] = id
+          }
+          return grid
+        }
+        return null
+      }
+
+      async function randomRecipe() {
+        const files = await listRecipes()
+        for (let attempt = 0; attempt < 40 && files.length; attempt++) {
+          try {
+            const recipe = await readJson(files[Math.floor(Math.random() * files.length)])
+            const grid = await recipeGrid(recipe)
+            const result = grid && await resolveIngredient(recipe.result)
+            if (result) return { grid, result, count: recipe.result?.count ?? 1 }
+          } catch {}
+        }
+        return null
+      }
+
+      const guiRenders = new Map()
+      async function slotItem(id, x, y) {
+        let render = guiRenders.get(id)
+        if (!render) {
+          render = await renderItem({ id, assets, width: 32, height: 32 })
+          guiRenders.set(id, render)
+        }
+        g.drawImage(render, x * 2, y * 2)
+      }
+
+      let guiRun = 0
+      async function fillGui() {
+        const run = ++guiRun
+        $("guirandom").disabled = true
+        try {
+          g.clearRect(0, 0, guiView.width, guiView.height)
+          g.drawImage(guiImg, 0, 0, 176, 166, 0, 0, 352, 332)
+          drawText("Crafting", 29, 6, "#404040")
+          drawText("Inventory", 8, 72, "#404040")
+          const pool = await itemIds
+          const recipe = await randomRecipe()
+          if (run !== guiRun) return
+          if (recipe) {
+            for (let i = 0; i < 9; i++) {
+              if (run !== guiRun) return
+              if (!recipe.grid[i]) continue
+              try {
+                await slotItem(recipe.grid[i], 30 + i % 3 * 18, 17 + Math.floor(i / 3) * 18)
+              } catch {}
+            }
+            try {
+              await slotItem(recipe.result, 124, 35)
+              if (recipe.count > 1) {
+                const count = String(recipe.count)
+                drawText(count, 124 + 17 - textWidth(count), 35 + 9, "#ffffff", true)
+              }
+            } catch {}
+          }
+          for (const slot of invSlots) {
+            if (run !== guiRun) return
+            if (Math.random() > slot.chance) continue
+            const id = pool[Math.floor(Math.random() * pool.length)]
+            try {
+              await slotItem(id, slot.x, slot.y)
+              if (Math.random() < 0.35) {
+                const count = String(2 + Math.floor(Math.random() * 63))
+                drawText(count, slot.x + 17 - textWidth(count), slot.y + 9, "#ffffff", true)
+              }
+            } catch {}
+          }
+        } catch {}
+        if (run === guiRun) $("guirandom").disabled = false
+      }
+
+      $("guirandom").addEventListener("click", fillGui)
+
+      const THREE = await getThree()
+
+      const SCENES = {
+        campfire: {
+          legend: { C: { id: "campfire", properties: { lit: "true" } } },
+          layers: [["C"]]
+        },
+        camp: {
+          legend: {
+            g: "grass_block",
+            C: { id: "campfire", properties: { lit: "true" } },
+            c: { id: "chest", properties: { facing: "south" } },
+            l: { id: "oak_log", properties: { axis: "z" } },
+            t: "torch",
+            r: "short_grass"
+          },
+          layers: [
+            ["ggg", "ggg", "ggg"],
+            ["c.r", ".C.", "l.t"]
+          ]
+        },
+        campsite: {
+          legend: {
+            g: "grass_block",
+            D: "dirt",
+            s: "sand",
+            w: { id: "water", properties: { level: "0" } },
+            v: { id: "water", properties: { level: "1" } },
+            V: { id: "water", properties: { level: "8" } },
+            p: "dirt_path",
+            e: { id: "quartz_stairs", properties: { facing: "east" } },
+            q: { id: "quartz_stairs", properties: { facing: "west" } },
+            Q: "quartz_slab",
+            S: "cobblestone",
+            l: { id: "oak_log", properties: { axis: "y" } },
+            L: "oak_leaves",
+            z: { id: "oak_stairs", properties: { facing: "north" } },
+            x: { id: "oak_stairs", properties: { facing: "south" } },
+            i: { id: "oak_wall_sign", properties: { facing: "east" } },
+            j: { id: "oak_wall_sign", properties: { facing: "west" } },
+            B: { id: "red_bed", properties: { facing: "north", part: "head" } },
+            F: { id: "red_bed", properties: { facing: "north", part: "foot" } },
+            C: { id: "campfire", properties: { lit: "true" } },
+            T: "crafting_table",
+            H: { id: "chest", properties: { facing: "south" } },
+            f: "oak_fence",
+            n: "lantern",
+            r: "short_grass",
+            o: "poppy",
+            d: "dandelion",
+            y: "oxeye_daisy",
+            b: { id: "sweet_berry_bush", properties: { age: "3" } },
+            a: "lily_pad",
+            u: "sugar_cane"
+          },
+          layers: [
+            ["DDDDDDDDDDD", "DDDDDDDDDDD", "DDDDDDDDDDD", "DDDDDDDDDDD", "DDDDDDDDssD", "DDDDDDDsssD", "DDDDDDsssss", "DDDDDDDssss", "DDDDDDsssss"],
+            ["ggggggggggg", "ggggggggggg", "gggpggggggg", "gggpggggsgg", "gggpgggswwg", "gggpggswwws", "gggpgswwwww", "gggpgsswwww", "gggpgswwwww"],
+            [".e.B.q.....", "Te.F.q.....", ".e...qH.lSS", "..f.jzi..SS", "bro..C...V.", "..b.jxi.a..", "r....u.a...", ".lr.dy...a.", "o...r......"],
+            ["..e.q......", "..e.q......", "..e.q...lw.", "..n......v.", ".........V.", "...........", ".....u.....", ".l.........", "..........."],
+            ["...Q.......", "...Q.......", "...Q....l..", "...........", "...........", "...........", "LLL........", "LlL........", "LLL........"],
+            [".......LLL.", "......LLLLL", "......LLlLL", "......LLLLL", ".......LLL.", "...........", "LLL........", "LlL........", "LLL........"],
+            ["...........", ".......LLL.", ".......LlL.", ".......LLL.", "...........", "...........", ".L.........", "LLL........", ".L........."],
+            ["...........", "........L..", ".......LLL.", "........L..", "...........", "...........", "...........", "...........", "..........."]
+          ]
+        }
+      }
+
+      const cellId = (x, y, z) => `${x},${y},${z}`
+
+      function cellKey(dx, dy, dz) {
+        let k = dy === 1 ? "up" : dy === -1 ? "down" : ""
+        if (dz === -1) k += (k ? "_" : "") + "north"
+        else if (dz === 1) k += (k ? "_" : "") + "south"
+        if (dx === -1) k += (k ? "_" : "") + "west"
+        else if (dx === 1) k += (k ? "_" : "") + "east"
+        return k || "self"
+      }
+
+      function parseScene(def) {
+        const blocks = new Map()
+        const dims = { w: 0, h: def.layers.length, d: 0 }
+        def.layers.forEach((layer, y) => {
+          dims.d = Math.max(dims.d, layer.length)
+          layer.forEach((row, z) => {
+            dims.w = Math.max(dims.w, row.length)
+            ;[...row].forEach((ch, x) => {
+              const entry = def.legend[ch]
+              if (!entry) return
+              const block = typeof entry === "string" ? { id: entry, properties: {} } : entry
+              blocks.set(cellId(x, y, z), { x, y, z, id: block.id, properties: block.properties ?? {} })
+            })
+          })
+        })
+        return { blocks, dims }
+      }
+
+      function disposeGroup(group) {
+        group.traverse(obj => {
+          if (!obj.isMesh) return
+          obj.geometry?.dispose()
+          for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
+            if (!mat) continue
+            for (const uniform of Object.values(mat.uniforms ?? {})) {
+              if (uniform?.value?.isTexture && !uniform.value.userData?.cached) uniform.value.dispose()
+            }
+            mat.dispose()
+          }
+        })
+      }
+
+      async function buildScene(name) {
+        const run = ++sceneRuns[name]
+        const stale = () => run !== sceneRuns[name]
+        const { blocks, dims } = parseScene(SCENES[name])
+        const single = blocks.size === 1
+        const placements = []
+        for (const block of blocks.values()) {
+          let cull
+          let neighbors
+          if (!single) {
+            neighbors = {}
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dz = -1; dz <= 1; dz++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                  const n = blocks.get(cellId(block.x + dx, block.y + dy, block.z + dz))
+                  if (n) neighbors[cellKey(dx, dy, dz)] = { id: n.id, ...n.properties }
+                }
+              }
+            }
+            cull = await getCullFaces({ id: block.id, blockstates: block.properties, neighbors, assets })
+          }
+          const group = new THREE.Group()
+          for (const model of await parseBlockstate(assets, block.id, { data: block.properties })) {
+            const resolved = await resolveModelData(assets, model)
+            group.add(await loadModel(null, assets, resolved, { lighting: "world", animate: true, cull, neighbors }))
+          }
+          if (stale()) return
+          placements.push({ pos: [block.x, block.y, block.z], group })
+        }
+        let handle
+        if (single) {
+          const group = placements[0].group
+          handle = { group, dispose: () => disposeGroup(group) }
+        } else {
+          const optimised = await optimiseScene(placements, { shouldCancel: stale })
+          if (!optimised) return
+          if (stale()) {
+            optimised.dispose()
+            return
+          }
+          optimised.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
+          handle = optimised
+        }
+        viewers[name].setHandle(handle, Math.max(dims.w, dims.h, dims.d))
+      }
+
+      function makeViewer(canvas) {
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio * 2, 4))
+        const scene = new THREE.Scene()
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
+        camera.position.set(-24, 18, -24)
+        const controls = new OrbitControls(camera, canvas)
+        controls.enableDamping = true
+        controls.rotateSpeed = 0.4
+        controls.autoRotate = true
+        controls.autoRotateSpeed = 2
+
+        const home = new THREE.Spherical().setFromVector3(camera.position)
+        const sph = new THREE.Spherical()
+        const offset = new THREE.Vector3()
+        let returnTimer = null
+        let returning = false
+
+        controls.addEventListener("start", () => {
+          controls.autoRotate = false
+          returning = false
+          clearTimeout(returnTimer)
+        })
+        controls.addEventListener("end", () => {
+          clearTimeout(returnTimer)
+          returnTimer = setTimeout(() => {
+            returning = true
+            controls.autoRotate = true
+          }, 5000)
+        })
+
+        let lastW = 0
+        let lastH = 0
+        function resize() {
+          const w = canvas.clientWidth
+          const h = canvas.clientHeight
+          if (w && h && (w !== lastW || h !== lastH)) {
+            lastW = w
+            lastH = h
+            renderer.setSize(w, h, false)
+            camera.aspect = w / h
+            camera.updateProjectionMatrix()
+          }
+        }
+        new ResizeObserver(resize).observe(canvas)
+
+        const viewer = {
+          handle: null,
+          animator: null,
+          setHandle(handle, span) {
+            if (viewer.handle) {
+              viewer.handle.group.removeFromParent()
+              viewer.handle.dispose()
+            }
+            viewer.handle = handle
+            scene.add(handle.group)
+            viewer.animator = createAnimator(handle.group)
+            home.radius = span * 16 * 1.4 + 16
+            returning = true
+            controls.autoRotate = true
+          }
+        }
+
+        let lastTime = performance.now()
+        function frame(now) {
+          requestAnimationFrame(frame)
+          resize()
+          const dt = Math.min((now - lastTime) / 1000, 0.1) || 0
+          lastTime = now
+          if (!canvas.clientWidth) return
+          if (returning) {
+            const t = 1 - Math.exp(-3 * dt)
+            sph.setFromVector3(offset.copy(camera.position).sub(controls.target))
+            sph.phi += (home.phi - sph.phi) * t
+            sph.radius += (home.radius - sph.radius) * t
+            controls.target.multiplyScalar(1 - t)
+            camera.position.setFromSpherical(sph).add(controls.target)
+            if (Math.abs(sph.phi - home.phi) < 0.002 && Math.abs(sph.radius - home.radius) < 0.05 && controls.target.lengthSq() < 0.0004) {
+              returning = false
+              controls.target.set(0, 0, 0)
+            }
+          }
+          controls.update()
+          viewer.animator?.update()
+          renderer.render(scene, camera)
+        }
+        requestAnimationFrame(frame)
+
+        return viewer
+      }
+
+      const viewers = {
+        campfire: makeViewer($("three-campfire")),
+        camp: makeViewer($("three-camp")),
+        campsite: makeViewer($("three-campsite"))
+      }
+      const sceneRuns = { campfire: 0, camp: 0, campsite: 0 }
+
+      async function buildAll(run) {
+        for (const p of players) p.dispose()
+        players.length = 0
+        playing = true
+        $("animtoggle").textContent = "Pause All"
+        resumeAnimations()
+        for (const name of ["demo-blocks", "demo-state-cake", "demo-state-fence", "demo-state-pickle", "demo-items", "demo-animated", "demo-model-uv", "demo-model-elements", "demo-model-cross"]) $(name).replaceChildren()
+
+        for (const id of ["grass_block", "chest", "enchanting_table", "beacon", "crafting_table", "jack_o_lantern"].slice(0, capacity($("demo-blocks")))) {
+          const canvas = await renderBlock({ id, assets, width: SIZE, height: SIZE })
+          if (run !== buildRun) return
+          demo("demo-blocks", canvas, id)
+        }
+
+        const stateDemos = {
+          "demo-state-cake": ["cake", [
+            [{ bites: "0" }, "bites: 0"],
+            [{ bites: "2" }, "bites: 2"],
+            [{ bites: "4" }, "bites: 4"],
+            [{ bites: "6" }, "bites: 6"]
+          ]],
+          "demo-state-fence": ["oak_fence", [
+            [{}, "no connections"],
+            [{ north: "true", south: "true" }, "north + south"],
+            [{ north: "true", east: "true" }, "north + east"],
+            [{ north: "true", south: "true", east: "true", west: "true" }, "all sides"]
+          ]],
+          "demo-state-pickle": ["sea_pickle", [
+            [{ pickles: "1" }, "pickles: 1"],
+            [{ pickles: "2" }, "pickles: 2"],
+            [{ pickles: "3" }, "pickles: 3"],
+            [{ pickles: "4" }, "pickles: 4"]
+          ]]
+        }
+        for (const [target, [id, variants]] of Object.entries(stateDemos)) {
+          for (const [blockstates, label] of variants) {
+            const canvas = await renderBlock({ id, assets, blockstates, width: SIZE, height: SIZE })
+            if (run !== buildRun) return
+            demo(target, canvas, label)
+          }
+        }
+
+        for (const id of ["diamond_sword", "golden_apple", "blaze_rod", "spyglass", "ender_pearl", "bow"].slice(0, capacity($("demo-items")))) {
+          const canvas = await renderItem({ id, assets, width: SIZE, height: SIZE })
+          if (run !== buildRun) return
+          demo("demo-items", canvas, id)
+        }
+
+        for (const id of ["magma_block", "sea_lantern", "campfire", "prismarine"]) {
+          const player = await renderBlock({ id, assets, width: SIZE, height: SIZE, animated: true })
+          if (run !== buildRun) {
+            player.dispose()
+            return
+          }
+          players.push(player)
+          demo("demo-animated", player.canvas, id)
+        }
+
+        const faceSet = texture => ({
+          up: { texture },
+          down: { texture },
+          north: { texture },
+          south: { texture },
+          east: { texture },
+          west: { texture }
+        })
+        const customModels = {
+          "demo-model-uv": {
+            ignoreAtlases: true,
+            model: {
+              textures: { creeper: "entity/creeper/creeper" },
+              elements: [{
+                from: [4, 4, 4],
+                to: [12, 12, 12],
+                faces: {
+                  north: { texture: "#creeper", uv: [2, 4, 4, 8] },
+                  south: { texture: "#creeper", uv: [6, 4, 8, 8] },
+                  east: { texture: "#creeper", uv: [4, 4, 6, 8] },
+                  west: { texture: "#creeper", uv: [0, 4, 2, 8] },
+                  up: { texture: "#creeper", uv: [2, 0, 4, 4] },
+                  down: { texture: "#creeper", uv: [4, 0, 6, 4] }
+                }
+              }]
+            }
+          },
+          "demo-model-elements": {
+            model: {
+              textures: { oak: "block/oak_planks" },
+              elements: [
+                { from: [0, 12, 0], to: [16, 14, 16], faces: faceSet("#oak") },
+                { from: [1, 0, 1], to: [3, 12, 3], faces: faceSet("#oak") },
+                { from: [13, 0, 1], to: [15, 12, 3], faces: faceSet("#oak") },
+                { from: [1, 0, 13], to: [3, 12, 15], faces: faceSet("#oak") },
+                { from: [13, 0, 13], to: [15, 12, 15], faces: faceSet("#oak") }
+              ]
+            }
+          },
+          "demo-model-cross": {
+            model: {
+              textures: { flower: "block/torchflower" },
+              elements: [
+                {
+                  from: [0.8, 0, 8],
+                  to: [15.2, 16, 8],
+                  rotation: { origin: [8, 8, 8], axis: "y", angle: 45, rescale: true },
+                  faces: {
+                    north: { texture: "#flower" },
+                    south: { texture: "#flower" }
+                  }
+                },
+                {
+                  from: [8, 0, 0.8],
+                  to: [8, 16, 15.2],
+                  rotation: { origin: [8, 8, 8], axis: "y", angle: -45, rescale: true },
+                  faces: {
+                    east: { texture: "#flower" },
+                    west: { texture: "#flower" }
+                  }
+                }
+              ]
+            }
+          }
+        }
+        for (const [target, { model, ignoreAtlases }] of Object.entries(customModels)) {
+          const canvas = await renderModel({ assets, width: SIZE, height: SIZE, ignoreAtlases, model })
+          if (run !== buildRun) return
+          demo(target, canvas)
+        }
+
+        await loadGuiAssets()
+        if (run !== buildRun) return
+        guiRenders.clear()
+        fillGui()
+
+        for (const name of Object.keys(SCENES)) await buildScene(name)
+      }
+
+      async function useAssets() {
+        const run = ++buildRun
+        const prepared = await prepareAssets([userFile, bytes].filter(Boolean), { cache: true })
+        if (run !== buildRun) {
+          disposeCache(prepared)
+          return
+        }
+        const prev = assets
+        assets = prepared
+        if (prev && prev !== prepared) disposeCache(prev)
+        recipeFiles = null
+        status.hidden = true
+        for (const el of document.querySelectorAll(".controls input, .controls button")) {
+          if (el.id !== "guirandom") el.disabled = false
+        }
+        itemIds = ids("items")
+        ids("blockstates").then(list => {
+          if (run === buildRun) $("blockids").replaceChildren(...list.map(option))
+        })
+        itemIds.then(list => {
+          if (run === buildRun) $("itemids").replaceChildren(...list.map(option))
+        })
+        await buildAll(run)
+      }
+
+      $("packbtn").addEventListener("click", () => $("packfile").click())
+      $("packfile").addEventListener("change", async () => {
+        const file = $("packfile").files[0]
+        $("packfile").value = ""
+        if (!file) return
+        $("packerr").textContent = ""
+        userFile = file
+        $("packbtn").textContent = file.name
+        $("packclear").hidden = false
+        try {
+          await useAssets()
+        } catch (err) {
+          $("packerr").textContent = err.message
+        }
+      })
+      $("packclear").addEventListener("click", async () => {
+        $("packerr").textContent = ""
+        userFile = null
+        $("packbtn").textContent = "Select Resource Pack…"
+        $("packclear").hidden = true
+        try {
+          await useAssets()
+        } catch (err) {
+          $("packerr").textContent = err.message
+        }
+      })
+
+      await useAssets()
+    } catch (err) {
+      status.hidden = false
+      status.textContent = String(err)
+    }
+  </script>
 </body>
 </html>
