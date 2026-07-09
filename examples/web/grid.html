@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotating Grid - block-model-renderer</title>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js"
+    }
+  }
+</script>
+<style>
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { background: #17171b; overflow: hidden; }
+  #view { width: 100%; height: 100%; display: block; opacity: 0; cursor: grab; touch-action: none; }
+  #view.show { opacity: 1; transition: opacity 0.8s; }
+  #view.dragging { cursor: grabbing; }
+  #loading {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    color: #9a9aa6; font: 13px/1.4 system-ui, sans-serif;
+    width: 220px; text-align: center;
+  }
+  #bar {
+    height: 4px; margin-top: 8px; border-radius: 2px;
+    background: #2a2a32; overflow: hidden;
+  }
+  #fill {
+    height: 100%; width: 0; border-radius: 2px;
+    background: #4c8dff; transition: width 0.15s;
+  }
+  #menu {
+    position: absolute; top: 12px; left: 12px; width: 36px; height: 36px;
+    background: rgba(31, 31, 37, 0.85); border: 1px solid #33333c; border-radius: 8px;
+    color: #e8e8ec; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  #menu:hover { border-color: #4c8dff; }
+  #panel {
+    position: absolute; top: 12px; left: 12px; width: 200px;
+    background: rgba(31, 31, 37, 0.95); border: 1px solid #33333c; border-radius: 10px;
+    padding: 12px; display: flex; flex-direction: column; gap: 10px;
+    color: #e8e8ec; font: 13px/1.4 system-ui, sans-serif;
+  }
+  #panelhead { display: flex; align-items: center; justify-content: flex-end; min-height: 14px; }
+  #panelhead span { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #9a9aa6; }
+  #close {
+    position: absolute; top: 0; left: 0; width: 36px; height: 36px;
+    background: none; border: none; color: #9a9aa6; cursor: pointer;
+    font: 16px/1 system-ui, sans-serif; display: flex; align-items: center; justify-content: center;
+  }
+  #close:hover { color: #e8e8ec; }
+  #panel label { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #panel .lbl { display: flex; align-items: center; gap: 6px; }
+  #panel input[type="range"] { flex: 1; min-width: 0; }
+  #panel input[type="range"]:disabled { opacity: 0.4; }
+  #panel .val { color: #9a9aa6; font-variant-numeric: tabular-nums; width: 36px; text-align: right; flex: none; }
+  #panel select {
+    background: #2a2a32; color: #e8e8ec; border: 1px solid #44444f;
+    border-radius: 6px; padding: 3px 6px; font: inherit;
+  }
+  #panel .check { justify-content: flex-start; gap: 6px; cursor: pointer; user-select: none; }
+  #btnrow { display: flex; gap: 8px; }
+  #btnrow button, #pack {
+    flex: 1; background: #2a2a32; color: #e8e8ec; border: 1px solid #44444f;
+    border-radius: 6px; padding: 5px 10px; font: inherit; cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #btnrow button:hover, #pack:hover { border-color: #4c8dff; }
+  #packfile { display: none; }
+  #packrow { display: flex; gap: 6px; }
+  #packrow #pack { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #packrow #unpack { flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="loading">
+  <div id="label">Loading…</div>
+  <div id="bar"><div id="fill"></div></div>
+</div>
+<button id="menu" aria-label="Menu">
+  <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <line x1="2" y1="3.5" x2="14" y2="3.5"/>
+    <line x1="2" y1="8" x2="14" y2="8"/>
+    <line x1="2" y1="12.5" x2="14" y2="12.5"/>
+  </svg>
+</button>
+<div id="panel" hidden>
+  <div id="panelhead">
+    <span>Controls</span>
+    <button id="close" aria-label="Close">×</button>
+  </div>
+  <div id="packrow">
+    <button id="pack">Select Resource Pack…</button>
+    <button id="unpack" hidden aria-label="Remove pack">×</button>
+  </div>
+  <input type="file" id="packfile" accept=".zip,.jar">
+  <label>Content
+    <select id="mode">
+      <option value="items" selected>Items</option>
+      <option value="blocks">Blocks</option>
+    </select>
+  </label>
+  <label>Size <input type="range" id="sizectl" min="0.5" max="2" step="0.05" value="1"> <span class="val" id="sizeval"></span></label>
+  <label><span class="lbl"><input type="checkbox" id="scrollon" checked> Scroll</span> <input type="range" id="scrollctl" min="-60" max="60" step="0.5" value="14.5"> <span class="val" id="scrollval"></span></label>
+  <label>Direction <input type="range" id="dirctl" min="0" max="360" step="1" value="28"> <span class="val" id="dirval"></span></label>
+  <label><span class="lbl"><input type="checkbox" id="spinon" checked> Spin</span> <input type="range" id="spinctl" min="-2" max="2" step="0.05" value="0.4"> <span class="val" id="spinval"></span></label>
+  <label class="check"><input type="checkbox" id="offsets" checked> 45° offsets</label>
+  <div id="btnrow">
+    <button id="shuffle">Shuffle</button>
+    <button id="reset">Reset</button>
+  </div>
+</div>
+
+<script type="module">
+  const LIB = "http://localhost:8080"
+  const BUST = Date.now()
+
+  const { getThree, prepareAssets, disposeCache, listDirectory, readFile, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createAnimator } = await import(`${LIB}/src/web.js?${BUST}`)
+  const { loadMojangJar } = await import(`${LIB}/examples/web/mojang-pack.js?${BUST}`)
+
+  const THREE = await getThree()
+
+  const CELL = 24
+  const TILT = THREE.MathUtils.degToRad(25)
+
+  const loading = document.getElementById("loading")
+  const label = document.getElementById("label")
+  const fill = document.getElementById("fill")
+  const canvas = document.getElementById("view")
+  const menu = document.getElementById("menu")
+  const panel = document.getElementById("panel")
+  const modeCtl = document.getElementById("mode")
+  const scrollCtl = document.getElementById("scrollctl")
+  const spinCtl = document.getElementById("spinctl")
+  const dirCtl = document.getElementById("dirctl")
+  const sizeCtl = document.getElementById("sizectl")
+  const scrollOn = document.getElementById("scrollon")
+  const spinOn = document.getElementById("spinon")
+  const offsetsCtl = document.getElementById("offsets")
+
+  const syncMotion = () => {
+    scrollCtl.disabled = !scrollOn.checked
+    dirCtl.disabled = !scrollOn.checked
+    spinCtl.disabled = !spinOn.checked
+  }
+  scrollOn.addEventListener("change", syncMotion)
+  spinOn.addEventListener("change", syncMotion)
+
+  const syncVals = () => {
+    document.getElementById("sizeval").textContent = (+sizeCtl.value).toFixed(2) + "×"
+    document.getElementById("scrollval").textContent = (+scrollCtl.value).toFixed(1)
+    document.getElementById("dirval").textContent = Math.round(+dirCtl.value) + "°"
+    document.getElementById("spinval").textContent = (+spinCtl.value).toFixed(2)
+  }
+  for (const ctl of [sizeCtl, scrollCtl, dirCtl, spinCtl]) ctl.addEventListener("input", syncVals)
+  syncVals()
+
+  let sizeTimer = null
+  sizeCtl.addEventListener("input", () => {
+    updateCamera()
+    clearTimeout(sizeTimer)
+    sizeTimer = setTimeout(regrid, 200)
+  })
+
+  function zoomAt(ratio, clientX, clientY) {
+    const rect = canvas.getBoundingClientRect()
+    const sx = clientX - rect.left - rect.width / 2
+    const sy = clientY - rect.top - rect.height / 2
+    const before = cellPx() / CELL
+    sizeCtl.value = Math.min(+sizeCtl.max, Math.max(+sizeCtl.min, +sizeCtl.value * ratio))
+    const after = cellPx() / CELL
+    if (before === after) return
+    ox += sx * (1 / after - 1 / before)
+    oy += sy * (1 / after - 1 / before)
+    syncVals()
+    updateCamera()
+    clearTimeout(sizeTimer)
+    sizeTimer = setTimeout(regrid, 200)
+  }
+
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault()
+    zoomAt(Math.exp(-e.deltaY * 0.001), e.clientX, e.clientY)
+  }, { passive: false })
+
+  const setProgress = frac => { fill.style.width = Math.min(frac, 1) * 100 + "%" }
+  let firstLoad = true
+
+  menu.addEventListener("click", () => {
+    panel.hidden = false
+    menu.hidden = true
+  })
+  document.getElementById("close").addEventListener("click", () => {
+    panel.hidden = true
+    menu.hidden = false
+  })
+  modeCtl.addEventListener("change", () => build())
+  const packInput = document.getElementById("packfile")
+  document.getElementById("pack").addEventListener("click", () => packInput.click())
+  packInput.addEventListener("change", async () => {
+    const file = packInput.files[0]
+    packInput.value = ""
+    if (!file) return
+    userFile = file
+    document.getElementById("pack").textContent = file.name
+    document.getElementById("unpack").hidden = false
+    try {
+      await useSources()
+    } catch (err) {
+      loading.hidden = false
+      label.textContent = String(err)
+    }
+  })
+  document.getElementById("unpack").addEventListener("click", async () => {
+    if (!userFile) return
+    userFile = null
+    document.getElementById("pack").textContent = "Select Resource Pack…"
+    document.getElementById("unpack").hidden = true
+    try {
+      await useSources()
+    } catch (err) {
+      loading.hidden = false
+      label.textContent = String(err)
+    }
+  })
+
+  document.getElementById("reset").addEventListener("click", () => {
+    const rect = canvas.getBoundingClientRect()
+    zoomAt(1 / +sizeCtl.value, rect.left + rect.width / 2, rect.top + rect.height / 2)
+    sizeCtl.value = 1
+    scrollCtl.value = 14.5
+    dirCtl.value = 28
+    spinCtl.value = 0.4
+    scrollOn.checked = true
+    spinOn.checked = true
+    offsetsCtl.checked = true
+    vx = vy = 0
+    syncMotion()
+    syncVals()
+    updateCamera()
+    clearTimeout(sizeTimer)
+    sizeTimer = setTimeout(regrid, 200)
+  })
+
+  document.getElementById("shuffle").addEventListener("click", () => {
+    const items = [...container.children]
+    const slots = items.map(o => [o.userData.col, o.userData.row])
+    for (let i = slots.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[slots[i], slots[j]] = [slots[j], slots[i]]
+    }
+    items.forEach((o, i) => {
+      o.userData.col = slots[i][0]
+      o.userData.row = slots[i][1]
+    })
+  })
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio * 2, 4))
+  const scene = new THREE.Scene()
+
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000)
+  camera.position.z = 500
+
+  const container = new THREE.Group()
+  scene.add(container)
+
+  let cols = 0
+  let rows = 0
+
+  function cellPx() {
+    const min = Math.min(canvas.clientWidth || 1, canvas.clientHeight || 1)
+    return Math.min(Math.max(min / 6, 56), 192) * +sizeCtl.value
+  }
+
+  function gridDims() {
+    const pxPerUnit = cellPx() / CELL
+    const w = (canvas.clientWidth || 1) / pxPerUnit
+    const h = (canvas.clientHeight || 1) / pxPerUnit
+    let rows = Math.ceil(h / CELL) + 2
+    if (rows % 2) rows++
+    let cols = Math.ceil(w / CELL) + 2
+    if (cols % 2) cols++
+    return {
+      cols,
+      rows,
+      halfW: w / 2,
+      halfH: h / 2
+    }
+  }
+
+  function updateCamera() {
+    const { halfW, halfH } = gridDims()
+    camera.left = -halfW
+    camera.right = halfW
+    camera.top = halfH
+    camera.bottom = -halfH
+    camera.updateProjectionMatrix()
+    const shaderScale = (canvas.clientHeight || 1) / cellPx()
+    container.traverse(obj => {
+      if (!obj.isMesh) return
+      for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
+        if (mat?.uniforms?.Scale) mat.uniforms.Scale.value = shaderScale
+      }
+    })
+  }
+
+  let lastW = 0
+  let lastH = 0
+  let lastDpr = 0
+  let resizeTimer = null
+  function resize() {
+    const w = canvas.clientWidth
+    const h = canvas.clientHeight
+    const dpr = Math.min(window.devicePixelRatio * 2, 4)
+    if (w !== lastW || h !== lastH || dpr !== lastDpr) {
+      lastW = w
+      lastH = h
+      lastDpr = dpr
+      renderer.setPixelRatio(dpr)
+      renderer.setSize(w, h, false)
+      updateCamera()
+      const dims = gridDims()
+      if (dims.cols !== cols || dims.rows !== rows) {
+        clearTimeout(resizeTimer)
+        resizeTimer = setTimeout(regrid, 300)
+      }
+    }
+  }
+  new ResizeObserver(resize).observe(canvas)
+
+  function disposeGroup(group) {
+    group.traverse(obj => {
+      if (!obj.isMesh) return
+      obj.geometry?.dispose()
+      for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
+        if (!mat) continue
+        for (const uniform of Object.values(mat.uniforms ?? {})) {
+          if (uniform?.value?.isTexture && !uniform.value.userData?.cached) uniform.value.dispose()
+        }
+        mat.dispose()
+      }
+    })
+  }
+
+  let animator = null
+  function clearGrid() {
+    animator = null
+    pendingSlots.clear()
+    for (const child of [...container.children]) {
+      child.removeFromParent()
+      disposeGroup(child)
+    }
+  }
+
+  function countMeshes(group) {
+    let count = 0
+    group.traverse(obj => { if (obj.isMesh) count++ })
+    return count
+  }
+
+  const mv = new THREE.Vector3()
+  const mn = new THREE.Vector3()
+  const nmat = new THREE.Matrix3()
+
+  function mergeGroup(root) {
+    root.updateMatrixWorld(true)
+    const accs = new Map()
+    root.traverse(obj => {
+      if (!obj.isMesh) return
+      const geo = obj.geometry
+      const pos = geo.attributes.position
+      const nrm = geo.attributes.normal
+      const uv = geo.attributes.uv
+      if (!pos) return
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+      const groups = geo.groups.length ? geo.groups : [{ start: 0, count: geo.index ? geo.index.count : pos.count, materialIndex: 0 }]
+      nmat.getNormalMatrix(obj.matrixWorld)
+      for (const g of groups) {
+        const mat = mats[g.materialIndex]
+        if (!mat || mat.visible === false) continue
+        let acc = accs.get(mat)
+        if (!acc) accs.set(mat, acc = { P: [], N: [], U: [] })
+        for (let i = g.start; i < g.start + g.count; i++) {
+          const a = geo.index ? geo.index.getX(i) : i
+          mv.fromBufferAttribute(pos, a).applyMatrix4(obj.matrixWorld)
+          acc.P.push(mv.x, mv.y, mv.z)
+          if (nrm) {
+            mn.fromBufferAttribute(nrm, a).applyMatrix3(nmat).normalize()
+            acc.N.push(mn.x, mn.y, mn.z)
+          } else {
+            acc.N.push(0, 1, 0)
+          }
+          acc.U.push(uv ? uv.getX(a) : 0, uv ? uv.getY(a) : 0)
+        }
+      }
+    })
+    const merged = new THREE.Group()
+    for (const [mat, acc] of accs) {
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.P, 3))
+      geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.N, 3))
+      geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.U, 2))
+      merged.add(new THREE.Mesh(geo, mat))
+    }
+    return merged
+  }
+
+  function disposeGeometries(group) {
+    group.traverse(obj => { if (obj.isMesh) obj.geometry?.dispose() })
+  }
+
+  let assets = null
+
+  async function ids(sub) {
+    const lists = []
+    for (const ns of await listDirectory("assets", assets)) {
+      const files = (await listDirectory(`assets/${ns}/${sub}`, assets)).filter(f => f.endsWith(".json"))
+      if (files.length) lists.push([ns, files])
+    }
+    const prefix = lists.length > 1
+    const found = []
+    for (const [ns, files] of lists) {
+      for (const f of files) found.push(prefix ? `${ns}:${f.slice(0, -5)}` : f.slice(0, -5))
+    }
+    return found
+  }
+
+  async function idPool(mode) {
+    const pool = await ids(mode === "items" ? "items" : "blockstates")
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[pool[i], pool[j]] = [pool[j], pool[i]]
+    }
+    return pool
+  }
+
+  async function isGenerated(ref) {
+    let cur = ref
+    for (let hop = 0; hop < 12; hop++) {
+      if (typeof cur === "object") {
+        cur = cur?.parent
+        continue
+      }
+      if (typeof cur !== "string") return false
+      const i = cur.indexOf(":")
+      const ns = i === -1 ? "minecraft" : cur.slice(0, i)
+      const path = i === -1 ? cur : cur.slice(i + 1)
+      if (ns === "minecraft" && path === "builtin/generated") return true
+      const buf = await readFile(`assets/${ns}/models/${path}.json`, assets)
+      if (!buf) return false
+      cur = JSON.parse(new TextDecoder().decode(buf)).parent
+    }
+    return false
+  }
+
+  async function eligible(id, mode) {
+    if (mode === "items") {
+      const models = await parseItemDefinition(assets, id, { display: "gui" })
+      if (!models.length) return null
+      for (const model of models) {
+        if (!(await isGenerated(typeof model === "object" ? model.model : model))) return null
+      }
+      return models
+    }
+    const resolvedModels = []
+    for (const model of await parseBlockstate(assets, id)) {
+      const resolved = await resolveModelData(assets, model)
+      const elements = resolved.elements ?? []
+      if (resolved.fluid || !elements.length) return null
+      for (const el of elements) {
+        if (el.from.some(v => v !== 0) || el.to.some(v => v !== 16)) return null
+      }
+      resolvedModels.push(resolved)
+    }
+    return resolvedModels
+  }
+
+  async function buildCell(pick, mode) {
+    const built = new THREE.Group()
+    for (const model of pick.models) {
+      const resolved = mode === "items" ? await resolveModelData(assets, model) : model
+      await loadModel(built, assets, resolved, { animate: false, shaderScale: (canvas.clientHeight || 1) / cellPx() })
+    }
+    if (!countMeshes(built)) {
+      disposeGroup(built)
+      return null
+    }
+    const inner = mergeGroup(built)
+    disposeGeometries(built)
+    const outer = new THREE.Group()
+    outer.rotation.x = TILT
+    outer.scale.setScalar(1)
+    outer.add(inner)
+    return { outer, inner, id: pick.id }
+  }
+
+  let runId = 0
+
+  async function build() {
+    if (!assets) return
+    const run = ++runId
+    canvas.classList.remove("show")
+    label.textContent = "Loading…"
+    loading.hidden = false
+    clearGrid()
+    const dims = gridDims()
+    cols = dims.cols
+    rows = dims.rows
+    updateCamera()
+    const mode = modeCtl.value
+    const queue = await idPool(mode)
+    if (!queue.length) return
+    const cells = []
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) cells.push({ col, row })
+    }
+    const base = firstLoad ? 0.6 : 0
+    setProgress(base)
+    let cursor = 0
+    const nextPick = async () => {
+      while (cursor < queue.length && run === runId) {
+        const id = queue[cursor++]
+        try {
+          const models = await eligible(id, mode)
+          if (models) return { id, models }
+        } catch {}
+      }
+      return null
+    }
+    const picks = []
+    while (picks.length < cells.length) {
+      const pick = await nextPick()
+      if (run !== runId) return
+      if (!pick) break
+      picks.push(pick)
+    }
+    if (!picks.length) return
+    const validCount = picks.length
+    while (picks.length < cells.length) picks.push(picks[picks.length % validCount])
+    let done = 0
+    const fillCell = async ({ col, row }, i) => {
+      let pick = picks[i]
+      let cell = null
+      while (pick && !cell && run === runId) {
+        try {
+          cell = await buildCell(pick, mode)
+        } catch {}
+        if (!cell) pick = await nextPick()
+      }
+      if (run !== runId) {
+        if (cell) disposeGroup(cell.outer)
+        return
+      }
+      if (cell) {
+        cell.outer.userData = { col, row, inner: cell.inner, id: cell.id }
+        container.add(cell.outer)
+      }
+      done++
+      setProgress(base + (1 - base) * done / cells.length)
+    }
+    await Promise.all(cells.map(fillCell))
+    if (run === runId) {
+      firstLoad = false
+      animator = createAnimator(container)
+      loading.hidden = true
+      canvas.classList.add("show")
+    }
+  }
+
+  const pendingSlots = new Set()
+
+  async function addCells(slots) {
+    if (!assets) return
+    const run = runId
+    const mode = modeCtl.value
+    for (const { col, row } of slots) pendingSlots.add(col + "," + row)
+    const queue = await idPool(mode)
+    let cursor = 0
+    const nextPick = async () => {
+      while (cursor < queue.length && run === runId) {
+        const id = queue[cursor++]
+        try {
+          const models = await eligible(id, mode)
+          if (models) return { id, models }
+        } catch {}
+      }
+      return null
+    }
+    await Promise.all(slots.map(async ({ col, row }) => {
+      let pick = await nextPick()
+      let cell = null
+      while (pick && !cell && run === runId) {
+        try {
+          cell = await buildCell(pick, mode)
+        } catch {}
+        if (!cell) pick = await nextPick()
+      }
+      pendingSlots.delete(col + "," + row)
+      const occupied = container.children.some(c => canon(c.userData.col, cols) === col && canon(c.userData.row, rows) === row)
+      if (run !== runId || occupied) {
+        if (cell) disposeGroup(cell.outer)
+        return
+      }
+      if (cell) {
+        cell.outer.userData = { col, row, inner: cell.inner, id: cell.id }
+        container.add(cell.outer)
+      }
+    }))
+    if (run === runId) animator = createAnimator(container)
+  }
+
+  function regrid() {
+    if (!assets || !loading.hidden) return
+    updateCamera()
+    const dims = gridDims()
+    if (dims.cols === cols && dims.rows === rows) return
+    cols = dims.cols
+    rows = dims.rows
+    const missing = new Set()
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) missing.add(col + "," + row)
+    }
+    const outside = o => Math.max(Math.abs(o.position.x) - camera.right, Math.abs(o.position.y) - camera.top, 0)
+    const items = [...container.children].sort((a, b) => outside(a) - outside(b))
+    const seen = new Set()
+    for (const child of items) {
+      const key = canon(child.userData.col, cols) + "," + canon(child.userData.row, rows)
+      if (seen.has(key)) {
+        child.removeFromParent()
+        disposeGroup(child)
+      } else {
+        seen.add(key)
+        missing.delete(key)
+      }
+    }
+    for (const key of pendingSlots) missing.delete(key)
+    animator = createAnimator(container)
+    if (missing.size) {
+      addCells([...missing].map(key => {
+        const [col, row] = key.split(",")
+        return { col: +col, row: +row }
+      }))
+    }
+  }
+
+  const canon = (v, n) => ((v % n) + n) % n
+
+  let ox = 0
+  let oy = 0
+  let elapsed = 0
+  let lastTime = performance.now()
+
+  let dragging = false
+  let lastMove = 0
+  let vx = 0
+  let vy = 0
+  let samples = []
+
+  const pointers = new Map()
+  let panPointerId = null
+  let panLastX = 0
+  let panLastY = 0
+  let pinchLastCenterX = null
+  let pinchLastCenterY = null
+  let pinchLastDistance = null
+
+  function syncGestureState() {
+    samples = []
+    lastMove = performance.now()
+    if (pointers.size === 1) {
+      const pointer = pointers.values().next().value
+      panPointerId = pointer.id
+      panLastX = pointer.x
+      panLastY = pointer.y
+      pinchLastCenterX = null
+      pinchLastCenterY = null
+      pinchLastDistance = null
+      return
+    }
+    panPointerId = null
+    if (pointers.size >= 2) {
+      const [p1, p2] = [...pointers.values()]
+      pinchLastCenterX = (p1.x + p2.x) / 2
+      pinchLastCenterY = (p1.y + p2.y) / 2
+      pinchLastDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+      return
+    }
+    pinchLastCenterX = null
+    pinchLastCenterY = null
+    pinchLastDistance = null
+  }
+
+  canvas.addEventListener("pointerdown", e => {
+    canvas.setPointerCapture(e.pointerId)
+    canvas.classList.add("dragging")
+    pointers.set(e.pointerId, { id: e.pointerId, x: e.clientX, y: e.clientY })
+    dragging = true
+    vx = vy = 0
+    syncGestureState()
+  })
+
+  canvas.addEventListener("pointermove", e => {
+    const pointer = pointers.get(e.pointerId)
+    if (!pointer) return
+    pointer.x = e.clientX
+    pointer.y = e.clientY
+
+    if (pointers.size === 1 && panPointerId === e.pointerId) {
+      const s = cellPx() / CELL
+      const dx = (e.clientX - panLastX) / s
+      const dy = (e.clientY - panLastY) / s
+      ox += dx
+      oy += dy
+      const now = performance.now()
+      samples.push({ dx, dy, dt: now - lastMove })
+      if (samples.length > 5) samples.shift()
+      panLastX = e.clientX
+      panLastY = e.clientY
+      lastMove = now
+      return
+    }
+
+    if (pointers.size >= 2) {
+      const [p1, p2] = [...pointers.values()]
+      const centerX = (p1.x + p2.x) / 2
+      const centerY = (p1.y + p2.y) / 2
+      const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+      if (!pinchLastDistance) {
+        pinchLastCenterX = centerX
+        pinchLastCenterY = centerY
+        pinchLastDistance = distance
+        return
+      }
+      const s = cellPx() / CELL
+      ox += (centerX - pinchLastCenterX) / s
+      oy += (centerY - pinchLastCenterY) / s
+      zoomAt(distance / pinchLastDistance, centerX, centerY)
+      pinchLastCenterX = centerX
+      pinchLastCenterY = centerY
+      pinchLastDistance = distance
+    }
+  })
+
+  const releasePointer = e => {
+    if (!pointers.has(e.pointerId)) return
+    pointers.delete(e.pointerId)
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId)
+    if (!pointers.size) {
+      dragging = false
+      canvas.classList.remove("dragging")
+      const time = samples.reduce((a, m) => a + m.dt, 0)
+      if (time > 0 && performance.now() - lastMove < 100) {
+        const cap = 400
+        vx = Math.max(-cap, Math.min(cap, samples.reduce((a, m) => a + m.dx, 0) / time * 1000))
+        vy = Math.max(-cap, Math.min(cap, samples.reduce((a, m) => a + m.dy, 0) / time * 1000))
+      }
+    }
+    syncGestureState()
+  }
+  canvas.addEventListener("pointerup", releasePointer)
+  canvas.addEventListener("pointercancel", releasePointer)
+
+  function frame(now) {
+    requestAnimationFrame(frame)
+    resize()
+    const dt = Math.min((now - lastTime) / 1000, 0.1)
+    lastTime = now
+    if (!dragging) {
+      const scroll = scrollOn.checked ? +scrollCtl.value : 0
+      const dir = +dirCtl.value * Math.PI / 180
+      ox += (scroll * Math.cos(dir) + vx) * dt
+      oy += (scroll * Math.sin(dir) + vy) * dt
+      const decay = Math.exp(-2.5 * dt)
+      vx *= decay
+      vy *= decay
+    }
+    elapsed += dt * (spinOn.checked ? +spinCtl.value : 0)
+    if (animator) animator.update()
+    const spanW = cols * CELL
+    const spanH = rows * CELL
+    const NORM = CELL * 8
+    while (ox >= NORM) { ox -= NORM; for (const it of container.children) it.userData.col += 8 }
+    while (ox < 0) { ox += NORM; for (const it of container.children) it.userData.col -= 8 }
+    while (oy >= NORM) { oy -= NORM; for (const it of container.children) it.userData.row += 8 }
+    while (oy < 0) { oy += NORM; for (const it of container.children) it.userData.row -= 8 }
+    const xLimit = camera.right + CELL
+    const yLimit = camera.top + CELL
+    for (const item of container.children) {
+      const u = item.userData
+      let x = u.col * CELL + ((u.row & 1) ? CELL / 2 : 0) + ox
+      while (x < -xLimit) { x += spanW; u.col += cols }
+      while (x > xLimit) { x -= spanW; u.col -= cols }
+      let y = -(u.row * CELL + oy)
+      while (y < -yLimit) { y += spanH; u.row -= rows }
+      while (y > yLimit) { y -= spanH; u.row += rows }
+      item.position.x = x
+      item.position.y = y
+      u.inner.rotation.y = elapsed + (offsetsCtl.checked ? (u.col + u.row) * Math.PI / 4 : 0)
+    }
+    renderer.render(scene, camera)
+  }
+  requestAnimationFrame(frame)
+
+  addEventListener("pagehide", () => {
+    clearGrid()
+    if (assets) disposeCache(assets)
+  })
+
+  let baseBytes = null
+  let userFile = null
+
+  async function useSources() {
+    const prev = assets
+    clearGrid()
+    assets = await prepareAssets([userFile, baseBytes].filter(Boolean), { cache: true })
+    if (prev && prev !== assets) disposeCache(prev)
+    build()
+  }
+
+  try {
+    const { bytes } = await loadMojangJar((got, total, ver) => {
+      label.textContent = `Downloading ${ver}… ${(got / 1048576).toFixed(0)}/${(total / 1048576).toFixed(0)}MB`
+      setProgress(got / total * 0.6)
+    })
+    baseBytes = bytes
+    await useSources()
+  } catch (err) {
+    label.textContent = String(err)
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scene Builder - block-model-renderer</title>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+    }
+  }
+</script>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { overflow: hidden; }
+  main { position: relative; }
+  #view { width: 100%; height: 100%; display: block; }
+  #scenestatus { color: var(--muted); font-size: 12px; }
+  #status {
+    position: absolute; left: 12px; bottom: 12px; max-width: min(60ch, calc(100% - 24px));
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px;
+    padding: 6px 10px; color: #f88; display: none;
+  }
+  #status.show { display: block; }
+  #hint { color: var(--muted); font-size: 11px; margin: 0; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Scene Builder <small>block-model-renderer</small></h1>
+
+  <section>
+    <h2>Pack</h2>
+    <div class="row">
+      <button id="release">Release</button>
+      <button id="snapshot">Snapshot</button>
+    </div>
+    <div class="row">
+      <button id="open" style="flex: 1">Select Resource Pack or Mod…</button>
+      <button id="clearpack" hidden aria-label="Remove pack">×</button>
+    </div>
+    <input type="file" id="packfile" accept=".zip,.jar">
+    <span id="packstatus">Loading…</span>
+  </section>
+
+  <section>
+    <h2>Scene</h2>
+    <select id="scene"></select>
+    <button id="build" class="primary" disabled>Build</button>
+    <span id="scenestatus"></span>
+    <p id="hint">Each block is culled against its neighbours with getCullFaces, and fluids shape their surface from the blocks around them</p>
+  </section>
+
+  <section>
+    <h2>Appearance</h2>
+    <div class="row">
+      <label for="lighting">Lighting</label>
+      <select id="lighting" style="flex: 2">
+        <option value="world" selected>World</option>
+        <option value="item">Item</option>
+        <option value="off">Off</option>
+      </select>
+    </div>
+    <label class="check" id="animaterow"><input type="checkbox" id="animate" checked> Animate textures</label>
+    <div class="row">
+      <label for="wireframe">Wireframe</label>
+      <select id="wireframe" style="flex: 2">
+        <option value="off" selected>Off</option>
+        <option value="wire">Wireframe</option>
+        <option value="overlay">Overlay</option>
+      </select>
+    </div>
+  </section>
+
+  <section>
+    <h2>Camera</h2>
+    <button id="reset">Reset</button>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="spin" checked> Spin</label>
+      <label class="check"><input type="checkbox" id="grid" checked> Grid</label>
+    </div>
+  </section>
+</aside>
+
+<main>
+  <canvas id="view"></canvas>
+  <div id="status"></div>
+</main>
+
+<script type="module">
+  const LIB = "http://localhost:8080"
+  const BUST = Date.now()
+
+  const { getThree, prepareAssets, disposeCache, parseBlockstate, resolveModelData, loadModel, getCullFaces, createAnimator, optimiseScene } = await import(`${LIB}/src/web.js?${BUST}`)
+  const { loadMojangJar } = await import(`${LIB}/examples/web/mojang-pack.js?${BUST}`)
+  const { OrbitControls } = await import("three/addons/controls/OrbitControls.js")
+
+  const $ = id => document.getElementById(id)
+  const THREE = await getThree()
+
+  const status = msg => {
+    $("status").textContent = msg ?? ""
+    $("status").classList.toggle("show", !!msg)
+  }
+
+  const SCENES = {
+    camp: {
+      name: "Lakeside Camp",
+      legend: {
+        d: "dirt",
+        g: "grass_block",
+        s: "sand",
+        w: { id: "water", properties: { level: "0" } },
+        k: "sugar_cane",
+        p: "lily_pad",
+        t: "torch",
+        C: { id: "campfire", properties: { lit: "true", facing: "south" } },
+        c: { id: "chest", properties: { facing: "west" } },
+        b: "barrel",
+        l: { id: "oak_log", properties: { axis: "y" } },
+        x: { id: "oak_log", properties: { axis: "x" } },
+        L: "oak_leaves",
+        f: "oak_fence",
+        F: { id: "oak_fence", properties: { waterlogged: "true" } },
+        u: { id: "sea_pickle", properties: { pickles: "3", waterlogged: "true" } },
+        n: { id: "lantern", properties: { hanging: "false" } },
+        S: { id: "oak_slab", properties: { type: "bottom" } },
+        A: { id: "spruce_stairs", properties: { facing: "south", half: "bottom", shape: "straight" } },
+        B: { id: "spruce_stairs", properties: { facing: "north", half: "bottom", shape: "straight" } },
+        r: "short_grass",
+        e: "fern",
+        y: "dandelion",
+        o: "poppy"
+      },
+      layers: [
+        [
+          "ddddddddd",
+          "ddddddddd",
+          "ddddddddd",
+          "ddddddddd",
+          "ddddddddd",
+          "ddddddddd",
+          "ddddddddd",
+          "ddddddddd",
+          "ddddddddd"
+        ],
+        [
+          "sssssgggg",
+          "swwwsgggg",
+          "swFwFsggg",
+          "sswuwsggg",
+          "gsssssggg",
+          "ggggggggg",
+          "ggggggggg",
+          "ggggggggg",
+          "ggggggggg"
+        ],
+        [
+          ".k.......",
+          "...p.....",
+          ".SSSSSb..",
+          ".....k...",
+          ".....f...",
+          ".r.....o.",
+          "el..y.C.c",
+          "..AAA..x.",
+          "..BBB...t"
+        ],
+        [
+          ".k.......",
+          ".........",
+          ".........",
+          ".........",
+          ".....n...",
+          ".........",
+          ".l.......",
+          ".........",
+          "........."
+        ],
+        [
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "LLL......",
+          "LlL......",
+          "LLL......",
+          "........."
+        ],
+        [
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "LLL......",
+          "LLL......",
+          "LLL......",
+          "........."
+        ],
+        [
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".L.......",
+          "LLL......",
+          ".L.......",
+          "........."
+        ]
+      ]
+    },
+    farm: {
+      name: "Farm Cottage",
+      legend: {
+        d: "dirt",
+        g: "grass_block",
+        G: "dirt_path",
+        C: "cobblestone",
+        f: { id: "farmland", properties: { moisture: "7" } },
+        w: { id: "water", properties: { level: "0" } },
+        W: { id: "wheat", properties: { age: "7" } },
+        R: { id: "carrots", properties: { age: "7" } },
+        P: { id: "potatoes", properties: { age: "7" } },
+        E: { id: "beetroots", properties: { age: "3" } },
+        "-": { id: "oak_fence", properties: { east: "true", west: "true" } },
+        "|": { id: "oak_fence", properties: { north: "true", south: "true" } },
+        1: { id: "oak_fence", properties: { east: "true", south: "true" } },
+        2: { id: "oak_fence", properties: { west: "true", south: "true" } },
+        3: { id: "oak_fence", properties: { east: "true", north: "true" } },
+        4: { id: "oak_fence", properties: { west: "true", north: "true" } },
+        "=": { id: "oak_fence_gate", properties: { facing: "west", open: "false" } },
+        o: "oak_planks",
+        D: { id: "oak_door", properties: { half: "lower", facing: "north", hinge: "left", open: "false" } },
+        U: { id: "oak_door", properties: { half: "upper", facing: "north", hinge: "left", open: "false" } },
+        p: { id: "glass_pane", properties: { north: "true", south: "true" } },
+        A: { id: "spruce_stairs", properties: { facing: "east", half: "bottom", shape: "straight" } },
+        B: { id: "spruce_stairs", properties: { facing: "west", half: "bottom", shape: "straight" } },
+        t: { id: "wall_torch", properties: { facing: "north" } },
+        h: { id: "hay_block", properties: { axis: "y" } },
+        H: { id: "hay_block", properties: { axis: "x" } },
+        c: "composter",
+        b: "barrel",
+        T: "crafting_table",
+        k: "pumpkin",
+        M: "melon",
+        x: "cornflower",
+        y: "oxeye_daisy"
+      },
+      layers: [
+        [
+          "dddddddddd",
+          "dddddddddd",
+          "dddddddddd",
+          "dddddddddd",
+          "dddddddddd",
+          "dddddddddd",
+          "dddddddddd",
+          "dddddddddd",
+          "dddddddddd",
+          "dddddddddd"
+        ],
+        [
+          "gggggggggg",
+          "gffffggggg",
+          "gfwffgGGgg",
+          "gfwffggGgg",
+          "gffffggGgg",
+          "ggggggCCCC",
+          "ggggggCCCC",
+          "ggggggCCCC",
+          "ggggggCCCC",
+          "ggggggCCCC"
+        ],
+        [
+          "1----2....",
+          "|WWWW|c...",
+          "|R.RR=....",
+          "|P.PP|....",
+          "|EEEE|..Hh",
+          "3----4oDoo",
+          "k.....o.bo",
+          ".M....p.Tp",
+          "x.....o..o",
+          "..y...oooo"
+        ],
+        [
+          "..........",
+          "..........",
+          "..........",
+          "..........",
+          "........t.",
+          "......oUoo",
+          "......o..o",
+          "......p..p",
+          "......o..o",
+          "......oooo"
+        ],
+        [
+          "..........",
+          "..........",
+          "..........",
+          "..........",
+          "..........",
+          "......AooB",
+          "......A..B",
+          "......A..B",
+          "......A..B",
+          "......AooB"
+        ],
+        [
+          "..........",
+          "..........",
+          "..........",
+          "..........",
+          "..........",
+          ".......AB.",
+          ".......AB.",
+          ".......AB.",
+          ".......AB.",
+          ".......AB."
+        ]
+      ]
+    },
+    nether: {
+      name: "Nether Portal",
+      legend: {
+        n: "netherrack",
+        N: "crimson_nylium",
+        m: { id: "lava", properties: { level: "0" } },
+        f: { id: "lava", properties: { level: "2" } },
+        M: "magma_block",
+        u: "soul_sand",
+        w: { id: "nether_wart", properties: { age: "3" } },
+        F: "soul_fire",
+        o: "obsidian",
+        O: "crying_obsidian",
+        p: { id: "nether_portal", properties: { axis: "x" } },
+        G: "glowstone",
+        b: { id: "basalt", properties: { axis: "y" } },
+        P: "polished_blackstone_bricks",
+        q: "nether_quartz_ore",
+        g: "nether_gold_ore",
+        s: { id: "soul_lantern", properties: { hanging: "false" } },
+        t: "soul_torch"
+      },
+      layers: [
+        [
+          "nnnnnnnnn",
+          "nnnnnnnnn",
+          "nnnnnnnnn",
+          "nnnnnnnnn",
+          "nnnnnnnnn",
+          "nnnnnnnnn",
+          "nnnnnnnnn",
+          "nnnnnnnnn",
+          "nnnnnnnnn"
+        ],
+        [
+          "nnnnnnnnn",
+          "nMmmMnuun",
+          "nMmmMnuun",
+          "nnfMnnNNn",
+          "ngnnnnnqn",
+          "nnnnnnnnn",
+          "nnPPPPnnn",
+          "nnPPPPnnn",
+          "nnnnnnnnn"
+        ],
+        [
+          ".........",
+          "......Fw.",
+          "......wF.",
+          ".........",
+          "b.......b",
+          ".........",
+          "..t..t...",
+          "..oOoo...",
+          "........."
+        ],
+        [
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "b.......b",
+          ".........",
+          ".........",
+          "..oppo...",
+          "........."
+        ],
+        [
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "b.......b",
+          ".........",
+          ".........",
+          "..oppo...",
+          "........."
+        ],
+        [
+          ".........",
+          ".........",
+          "......G..",
+          ".........",
+          "s.......s",
+          ".........",
+          ".........",
+          "..oppo...",
+          "........."
+        ],
+        [
+          ".........",
+          ".........",
+          "......GG.",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "..ooOo...",
+          "........."
+        ]
+      ]
+    },
+    well: {
+      name: "Desert Oasis",
+      legend: {
+        s: "sand",
+        S: "sandstone",
+        m: "smooth_sandstone",
+        C: "chiseled_sandstone",
+        c: "cut_sandstone",
+        b: { id: "sandstone_slab", properties: { type: "bottom" } },
+        w: { id: "water", properties: { level: "0" } },
+        k: "sugar_cane",
+        x: "dead_bush",
+        t: "cactus",
+        n: { id: "lantern", properties: { hanging: "true" } },
+        u: { id: "smooth_sandstone_stairs", properties: { facing: "north", half: "bottom", shape: "straight" } },
+        d: { id: "smooth_sandstone_stairs", properties: { facing: "south", half: "bottom", shape: "straight" } },
+        l: { id: "smooth_sandstone_stairs", properties: { facing: "west", half: "bottom", shape: "straight" } },
+        r: { id: "smooth_sandstone_stairs", properties: { facing: "east", half: "bottom", shape: "straight" } }
+      },
+      layers: [
+        [
+          "sssssssss",
+          "sssssssss",
+          "sssssssss",
+          "sssssssss",
+          "sssssssss",
+          "sssssssss",
+          "sssssssss",
+          "sssssssss",
+          "sssssssss"
+        ],
+        [
+          "sssssssss",
+          "sssssssss",
+          "sssssssss",
+          "sssssssss",
+          "ssssSssss",
+          "sssssssss",
+          "sssssswws",
+          "ssssmswws",
+          "ssssmssss"
+        ],
+        [
+          "........t",
+          "t.....x..",
+          "....d....",
+          "...ccc...",
+          "..rcwcl..",
+          "...ccc...",
+          "..x.uk...",
+          ".........",
+          "........t"
+        ],
+        [
+          "........t",
+          "t........",
+          ".........",
+          "...C.C...",
+          ".........",
+          "...C.C...",
+          ".....k...",
+          ".........",
+          "........."
+        ],
+        [
+          ".........",
+          "t........",
+          ".........",
+          "...C.C...",
+          "....n....",
+          "...C.C...",
+          ".........",
+          ".........",
+          "........."
+        ],
+        [
+          ".........",
+          ".........",
+          ".........",
+          "...bbb...",
+          "...bSb...",
+          "...bbb...",
+          ".........",
+          ".........",
+          "........."
+        ]
+      ]
+    },
+    grotto: {
+      name: "Amethyst Grotto",
+      legend: {
+        S: "stone",
+        D: "deepslate",
+        T: "tuff",
+        M: "mossy_cobblestone",
+        m: "moss_block",
+        p: "moss_carpet",
+        w: { id: "water", properties: { level: "0" } },
+        1: { id: "water", properties: { level: "2" } },
+        2: { id: "water", properties: { level: "4" } },
+        c: "calcite",
+        b: "smooth_basalt",
+        u: "budding_amethyst",
+        A: { id: "amethyst_cluster", properties: { facing: "up" } },
+        e: { id: "medium_amethyst_bud", properties: { facing: "up" } },
+        i: { id: "small_amethyst_bud", properties: { facing: "up" } },
+        d: "dripstone_block",
+        "^": { id: "pointed_dripstone", properties: { vertical_direction: "up", thickness: "tip" } },
+        F: { id: "pointed_dripstone", properties: { vertical_direction: "up", thickness: "frustum" } },
+        W: { id: "pointed_dripstone", properties: { vertical_direction: "up", thickness: "tip", waterlogged: "true" } },
+        a: "azalea",
+        f: "flowering_azalea",
+        g: { id: "glow_lichen", properties: { west: "true" } }
+      },
+      layers: [
+        [
+          "SSSSSSSSSS",
+          "SSSSSSSSSS",
+          "SSSSSSSSSS",
+          "SSSSSSSSSS",
+          "SSSSSSSSSS",
+          "SSSSSSSSSS",
+          "SSSSSSSSSS",
+          "SSSSSSSSSS",
+          "SSSSSSSSSS",
+          "SSSSSSSSSS"
+        ],
+        [
+          "DDDDSTSSSS",
+          "DDDDSSSSMS",
+          "DDDDSSSSSS",
+          "DDDDwwwwwS",
+          "DDD2wwWwwS",
+          "DDDDwwwWwS",
+          "DDDDwwwwwS",
+          "DDDDmmmccc",
+          "DDDDmdmcub",
+          "DDDDSmmccc"
+        ],
+        [
+          "TSST......",
+          "STSSg.....",
+          "SSTS..^...",
+          "TSSS......",
+          "SS1.......",
+          "SSST......",
+          "TSSS......",
+          "SSSTp..A.i",
+          "STSS.F..Ae",
+          "SSTS...i.."
+        ],
+        [
+          "SmSS......",
+          "mSSm......",
+          "SSmS......",
+          "SmSS......",
+          "Sw........",
+          "SSmS......",
+          "mSSS......",
+          "SSSm......",
+          "mSSS.^....",
+          "SSmS......"
+        ],
+        [
+          "..........",
+          ".a........",
+          "p.........",
+          "..........",
+          "..........",
+          "..........",
+          "..f.......",
+          "p.........",
+          "..........",
+          ".........."
+        ]
+      ]
+    },
+    tank: {
+      name: "Aquarium",
+      legend: {
+        g: "grass_block",
+        G: "glass",
+        w: { id: "water", properties: { level: "0" } },
+        p: { id: "sea_pickle", properties: { pickles: "4", waterlogged: "true" } },
+        s: "sand",
+        y: "dandelion"
+      },
+      layers: [
+        [
+          "ggggggg",
+          "ggggggg",
+          "ggggggg",
+          "ggggggg",
+          "ggggggg",
+          "ggggggg",
+          "ggggggg"
+        ],
+        [
+          "y......",
+          ".GGGGG.",
+          ".GsssG.",
+          ".GsssG.",
+          ".GsssG.",
+          ".GGGGG.",
+          "......y"
+        ],
+        [
+          ".......",
+          ".GGGGG.",
+          ".GwwwG.",
+          ".GwpwG.",
+          ".GwwwG.",
+          ".GGGGG.",
+          "......."
+        ],
+        [
+          ".......",
+          ".GGGGG.",
+          ".GwwwG.",
+          ".GwwwG.",
+          ".GwwwG.",
+          ".GGGGG.",
+          "......."
+        ]
+      ]
+    },
+    end: {
+      name: "End Island",
+      legend: {
+        E: "end_stone",
+        B: "end_stone_bricks",
+        o: "obsidian",
+        r: { id: "end_rod", properties: { facing: "up" } },
+        P: "purpur_block",
+        s: { id: "purpur_stairs", properties: { facing: "west", half: "bottom", shape: "straight" } },
+        S: { id: "purpur_stairs", properties: { facing: "east", half: "bottom", shape: "straight" } },
+        1: { id: "end_portal_frame", properties: { facing: "south", eye: "true" } },
+        2: { id: "end_portal_frame", properties: { facing: "north", eye: "true" } },
+        3: { id: "end_portal_frame", properties: { facing: "east", eye: "true" } },
+        4: { id: "end_portal_frame", properties: { facing: "west", eye: "true" } },
+        X: "end_portal",
+        c: { id: "chorus_plant", properties: { up: "true", down: "true" } },
+        C: { id: "chorus_flower", properties: { age: "0" } },
+        d: "dragon_egg",
+        b: "bedrock"
+      },
+      layers: [
+        [
+          ".........",
+          "..EEEE...",
+          ".EEEEEE..",
+          ".EEEEEEE.",
+          ".EEEEEEE.",
+          ".EEEEEE..",
+          "..EEEEE..",
+          "...EEE...",
+          "........."
+        ],
+        [
+          ".EEEEEE..",
+          "EEEEEEEE.",
+          "EEEEEEEEE",
+          "EEEEEEEEE",
+          "EEEEEEEEE",
+          "EEEEEEEEE",
+          ".EEEEEEEE",
+          "..EEEEEE.",
+          "...EEE..."
+        ],
+        [
+          ".........",
+          ".c.....o.",
+          "....B....",
+          "....1....",
+          "...3X4...",
+          "....2....",
+          ".b..B....",
+          "....B.c..",
+          "...SPs..."
+        ],
+        [
+          ".........",
+          ".c.....o.",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".d.......",
+          "......C..",
+          "........."
+        ],
+        [
+          ".........",
+          ".c.....o.",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "........."
+        ],
+        [
+          ".........",
+          ".C.....o.",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "........."
+        ],
+        [
+          ".........",
+          ".......o.",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "........."
+        ],
+        [
+          ".........",
+          ".......r.",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          ".........",
+          "........."
+        ]
+      ]
+    }
+  }
+
+  $("scene").replaceChildren(...Object.entries(SCENES).map(([value, { name }]) =>
+    Object.assign(document.createElement("option"), { value, textContent: name })
+  ))
+
+  let assets = null
+  let channel = null
+  let baseBytes = null
+  let userFile = null
+
+  const sources = () => [userFile, baseBytes].filter(Boolean)
+  function useAssets(prepared, chan = null) {
+    clearScene()
+    const prev = assets
+    assets = prepared
+    channel = chan
+    $("packstatus").textContent = ""
+    $("build").disabled = false
+    $("release").classList.toggle("active", chan === "release")
+    $("snapshot").classList.toggle("active", chan === "snapshot")
+    $("open").textContent = userFile ? userFile.name : "Select Resource Pack or Mod…"
+    $("clearpack").hidden = !userFile
+    if (prev && prev !== prepared) disposeCache(prev)
+    build()
+  }
+
+  async function loadChannel(chan) {
+    status()
+    $("release").disabled = $("snapshot").disabled = true
+    try {
+      const { bytes } = await loadMojangJar((got, total, ver) => {
+        $("packstatus").textContent = `Downloading ${ver}… ${(got / 1048576).toFixed(0)}/${(total / 1048576).toFixed(0)}MB`
+      }, chan)
+      baseBytes = bytes
+      useAssets(await prepareAssets(sources(), { cache: true }), chan)
+    } catch (err) {
+      $("packstatus").textContent = "Pack failed - open a zip"
+      status(String(err))
+    }
+    $("release").disabled = $("snapshot").disabled = false
+  }
+
+  $("release").addEventListener("click", () => loadChannel("release"))
+  $("snapshot").addEventListener("click", () => loadChannel("snapshot"))
+  $("open").addEventListener("click", () => $("packfile").click())
+  $("packfile").addEventListener("change", async () => {
+    const file = $("packfile").files[0]
+    $("packfile").value = ""
+    if (!file) return
+    status()
+    try {
+      userFile = file
+      useAssets(await prepareAssets(sources(), { cache: true }), channel)
+    } catch (err) {
+      status(String(err))
+    }
+  })
+  $("clearpack").addEventListener("click", async () => {
+    if (!userFile) return
+    status()
+    try {
+      userFile = null
+      useAssets(await prepareAssets(sources(), { cache: true }), channel)
+    } catch (err) {
+      status(String(err))
+    }
+  })
+
+  const canvas = $("view")
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio * 2, 4))
+  const scene = new THREE.Scene()
+
+  const camera = new THREE.PerspectiveCamera(45, 1, 2, 2000)
+  const controls = new OrbitControls(camera, canvas)
+  window.__debug = { camera, controls, THREE, scene, get group() { return modelGroup } }
+  controls.enableDamping = true
+  controls.autoRotate = $("spin").checked
+  controls.autoRotateSpeed = 1
+
+  let grid = null
+  function setGrid(dims) {
+    if (grid) {
+      grid.removeFromParent()
+      grid.geometry.dispose()
+      grid.material.dispose()
+    }
+    let cells = Math.max(dims.w, dims.d) + 6
+    if (cells % 2 === 0) cells++
+    grid = new THREE.GridHelper(cells * 16, cells, 0x333333, 0x333333)
+    grid.position.y = -dims.h * 8 - 0.01
+    grid.visible = gridVisible()
+    scene.add(grid)
+  }
+  const gridVisible = () => $("grid").checked && $("wireframe").value !== "wire"
+
+  let sceneSpan = 7
+  function resetCamera() {
+    const dist = sceneSpan * 16 * 1.9 + 30
+    camera.position.set(-0.63, 0.5, -0.63).normalize().multiplyScalar(dist)
+    controls.target.set(0, 0, 0)
+    camera.lookAt(0, 0, 0)
+    controls.update()
+    $("spin").checked = true
+    controls.autoRotate = true
+  }
+
+  controls.addEventListener("start", () => {
+    $("spin").checked = false
+    controls.autoRotate = false
+  })
+
+  $("reset").addEventListener("click", resetCamera)
+  $("spin").addEventListener("change", () => { controls.autoRotate = $("spin").checked })
+  $("grid").addEventListener("change", () => { if (grid) grid.visible = gridVisible() })
+
+  let lastW = 0
+  let lastH = 0
+  function resize() {
+    const w = canvas.clientWidth
+    const h = canvas.clientHeight
+    if (w !== lastW || h !== lastH) {
+      lastW = w
+      lastH = h
+      renderer.setSize(w, h, false)
+      camera.aspect = (w || 1) / (h || 1)
+      camera.updateProjectionMatrix()
+    }
+  }
+  new ResizeObserver(resize).observe(canvas)
+
+  function disposeGroup(group) {
+    group.traverse(obj => {
+      if (!obj.isMesh) return
+      obj.geometry?.dispose()
+      for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
+        if (!mat) continue
+        for (const uniform of Object.values(mat.uniforms ?? {})) {
+          if (uniform?.value?.isTexture && !uniform.value.userData?.cached) uniform.value.dispose()
+        }
+        mat.dispose()
+      }
+    })
+  }
+
+  let modelGroup = null
+  let optimised = null
+  function clearScene() {
+    if (optimised) {
+      optimised.dispose()
+      optimised = null
+      modelGroup = null
+      return
+    }
+    if (!modelGroup) return
+    modelGroup.removeFromParent()
+    disposeGroup(modelGroup)
+    modelGroup = null
+  }
+
+  const key = (x, y, z) => `${x},${y},${z}`
+
+  function cellKey(dx, dy, dz) {
+    let k = dy === 1 ? "up" : dy === -1 ? "down" : ""
+    if (dz === -1) k += (k ? "_" : "") + "north"
+    else if (dz === 1) k += (k ? "_" : "") + "south"
+    if (dx === -1) k += (k ? "_" : "") + "west"
+    else if (dx === 1) k += (k ? "_" : "") + "east"
+    return k || "self"
+  }
+
+  function parseScene(def) {
+    const blocks = new Map()
+    const dims = { w: 0, h: def.layers.length, d: 0 }
+    def.layers.forEach((layer, y) => {
+      dims.d = Math.max(dims.d, layer.length)
+      layer.forEach((row, z) => {
+        dims.w = Math.max(dims.w, row.length)
+        ;[...row].forEach((ch, x) => {
+          const entry = def.legend[ch]
+          if (!entry) return
+          const block = typeof entry === "string" ? { id: entry, properties: {} } : entry
+          blocks.set(key(x, y, z), { x, y, z, id: block.id, properties: block.properties ?? {} })
+        })
+      })
+    })
+    return { blocks, dims }
+  }
+
+  async function buildBlock(run, blocks, block, opts) {
+    const { x, y, z, id, properties } = block
+    const neighbors = {}
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const n = blocks.get(key(x + dx, y + dy, z + dz))
+          if (n) neighbors[cellKey(dx, dy, dz)] = { id: n.id, ...n.properties }
+        }
+      }
+    }
+    const cull = await getCullFaces({ id, blockstates: properties, neighbors, assets })
+    const models = await parseBlockstate(assets, id, { data: properties })
+    const group = new THREE.Group()
+    for (const model of models) {
+      const resolved = await resolveModelData(assets, model)
+      const built = await loadModel(null, assets, resolved, { ...opts, cull, neighbors })
+      if (run !== runId) return null
+      group.add(built)
+    }
+    return { pos: [x, y, z], group }
+  }
+
+  let runId = 0
+
+  async function build() {
+    if (!assets) return
+    const run = ++runId
+    status()
+    $("build").disabled = true
+    clearScene()
+    const { blocks, dims } = parseScene(SCENES[$("scene").value])
+    sceneSpan = Math.max(dims.w, dims.h, dims.d)
+    setGrid(dims)
+    const opts = { lighting: $("lighting").value, animate: $("animate").checked }
+    const placements = []
+    let done = 0
+    const started = performance.now()
+    try {
+      for (const block of blocks.values()) {
+        if (run !== runId) return
+        const placement = await buildBlock(run, blocks, block, opts)
+        if (placement) placements.push(placement)
+        done++
+        $("scenestatus").textContent = `Building ${done}/${blocks.size}…`
+      }
+      if (run !== runId) return
+      const opt = await optimiseScene(placements, { shouldCancel: () => run !== runId })
+      if (!opt || run !== runId) { opt?.dispose(); return }
+      opt.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
+      scene.add(opt.group)
+      optimised = opt
+      modelGroup = opt.group
+      $("scenestatus").textContent = `${blocks.size} blocks · ${opt.drawCalls} draws · ${(opt.tris / 1000).toFixed(1)}K tris · ${((performance.now() - started) / 1000).toFixed(1)}s`
+      $("animaterow").hidden = !createAnimator(opt.group).animated
+    } catch (err) {
+      status(String(err))
+    }
+    if (run === runId) $("build").disabled = false
+  }
+
+  const wireMat = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x9fd0ff })
+  $("wireframe").addEventListener("change", () => { if (grid) grid.visible = gridVisible() })
+
+  function rebuild() {
+    build()
+    resetCamera()
+  }
+
+  $("build").addEventListener("click", build)
+  $("lighting").addEventListener("change", build)
+  $("animate").addEventListener("change", build)
+  $("scene").addEventListener("change", () => {
+    const url = new URL(location)
+    url.searchParams.set("scene", $("scene").value)
+    history.replaceState(null, "", url)
+    rebuild()
+  })
+
+  function frame() {
+    requestAnimationFrame(frame)
+    resize()
+    controls.update()
+    scene.overrideMaterial = $("wireframe").value === "wire" ? wireMat : null
+    renderer.render(scene, camera)
+    if ($("wireframe").value === "overlay") {
+      scene.overrideMaterial = wireMat
+      const gv = grid?.visible
+      if (grid) grid.visible = false
+      renderer.autoClear = false
+      renderer.render(scene, camera)
+      renderer.autoClear = true
+      if (grid) grid.visible = gv
+      scene.overrideMaterial = null
+    }
+  }
+  resetCamera()
+  frame()
+
+  addEventListener("pagehide", () => {
+    clearScene()
+    if (assets) disposeCache(assets)
+  })
+
+  const params = new URLSearchParams(location.search)
+  if (SCENES[params.get("scene")]) $("scene").value = params.get("scene")
+
+  loadChannel("release")
+</script>
+</body>
+</html>
