@@ -1,4 +1,4 @@
-// Tests the generated data and the code that consumes it, and (when a JRE is
+// Tests the generated data and the code that consumes it, and (when a JDK is
 // available) re-runs the generator in --check mode to prove it reproduces the
 // committed JSON. Plain Node, no test framework.
 
@@ -121,14 +121,15 @@ test("COLORS wired to generated data", () => {
   assert.match(getPotionColor("poison"), /^#[0-9A-Fa-f]{6}$/)              // direct fallback
 })
 
-const hasJava = spawnSync(process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, "bin", "java") : "java", ["-version"]).status === 0
-if (hasJava) {
+const javac = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, "bin", "javac") : "javac"
+const hasJdk = spawnSync(javac, ["-version"]).status === 0
+if (hasJdk) {
   const version = /minecraft (\S+)/.exec(blocks._generated)?.[1]
   test(`generator reproduces committed data (--check ${version})`, () => {
     execFileSync("node", [path.join(here, "generate.js"), "--check", version], { stdio: "inherit" })
   })
 } else {
-  console.log("skip  generator --check (no java on PATH / JAVA_HOME)")
+  console.log("skip  generator --check (no javac on PATH / JAVA_HOME)")
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

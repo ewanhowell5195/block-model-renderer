@@ -5,10 +5,9 @@ and `colors.json`) are generated from the real Minecraft code, so they can be
 refreshed for a new version instead of maintained by hand.
 
 Modern Minecraft server jars ship **unobfuscated** (real `net.minecraft.*` names),
-so there is no decompilation or remapping: `Extract.java` is compiled with a small
-bundled compiler ([ECJ](https://mvnrepository.com/artifact/org.eclipse.jdt/ecj),
-which runs on a plain JRE) and executed against the server jar. It bootstraps the
-registries and reads the values straight from the game:
+so there is no decompilation or remapping: `Extract.java` is compiled with `javac`
+and executed against the server jar. It bootstraps the registries and reads the
+values straight from the game:
 
 | Data | Source |
 |---|---|
@@ -39,8 +38,7 @@ version; the `except` list holds the few blocks a suffix would wrongly catch (e.
 
 ## Usage
 
-Requires a Java runtime (`java` on `PATH`, or `JAVA_HOME` set). A JRE is enough; no
-JDK needed.
+Requires a JDK (it uses `javac` and `java`, either on `PATH` or via `JAVA_HOME`).
 
 ```bash
 npm run generate            # latest snapshot from Mojang's manifest
@@ -48,10 +46,11 @@ npm run generate 26.2       # a specific version
 node tools/generate/generate.js --check 26.2   # verify, don't write (used by tests)
 ```
 
-Downloads (server jar, ECJ) are cached under `tools/generate/.cache` (gitignored).
+Downloads (the server and client jars) are cached under `tools/generate/.cache`
+(gitignored).
 
 ## Tests
 
 `npm test` checks the generated data and the code that consumes it, and (when a
-JRE is available) re-runs the generator in `--check` mode against the version the
+JDK is available) re-runs the generator in `--check` mode against the version the
 data was generated from, failing if the committed JSON no longer matches the game.

@@ -1,6 +1,6 @@
 // Reflection extractor: runs against the unobfuscated Minecraft server jar,
 // bootstraps the registries, and dumps the block/colour lists the library
-// hardcodes. Compiled by ECJ and run on a plain JRE from generate.js.
+// hardcodes. Compiled with javac and run from generate.js.
 import java.util.*;
 import java.io.InputStream;
 import java.awt.image.BufferedImage;

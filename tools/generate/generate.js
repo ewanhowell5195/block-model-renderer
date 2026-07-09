@@ -1,9 +1,9 @@
 // Regenerates the hardcoded block/colour lists from the real Minecraft code.
 //
 // Modern server jars ship unobfuscated (real net.minecraft.* names), so instead
-// of decompiling we compile a small reflection extractor (Extract.java) with ECJ
-// and run it against the server jar on a plain JRE. It bootstraps the registries
-// and reads canOcclude(), HalfTransparentBlock, DyeColor, MobEffect, etc. directly.
+// of decompiling we compile a small reflection extractor (Extract.java) with javac
+// and run it against the server jar. It bootstraps the registries and reads
+// canOcclude(), the tint sources, DyeColor, MobEffect, etc. directly.
 //
 // Usage:  node tools/generate/generate.js [version]
 //   version defaults to the latest snapshot from Mojang's manifest.
@@ -20,8 +20,6 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, "../..")
 const cache = path.join(here, ".cache")
 const dataDir = path.join(root, "src/core/data")
-const ECJ_VERSION = "3.40.0"
-const ECJ_URL = `https://repo1.maven.org/maven2/org/eclipse/jdt/ecj/${ECJ_VERSION}/ecj-${ECJ_VERSION}.jar`
 const MANIFEST = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 
 const log = (...a) => console.log("[generate]", ...a)
@@ -142,7 +140,6 @@ async function main() {
 
   const serverJar = await download(version.server, path.join(verDir, "server.jar"))
   const clientJar = await download(version.client, path.join(verDir, "client.jar"))
-  const ecj = await download(ECJ_URL, path.join(cache, `ecj-${ECJ_VERSION}.jar`))
 
   let classpath = fs.readdirSync(cpDir).filter(f => f.endsWith(".jar")).map(f => path.join(cpDir, f))
   if (!classpath.length) {
@@ -155,8 +152,8 @@ async function main() {
   const classesDir = path.join(verDir, "classes")
   fs.rmSync(classesDir, { recursive: true, force: true })
   fs.mkdirSync(classesDir, { recursive: true })
-  log("compiling Extract.java with ecj")
-  execFileSync(javaBin("java"), ["-jar", ecj, "-cp", cp, "-21", "-nowarn", "-d", classesDir, path.join(here, "Extract.java")], { stdio: "inherit", cwd: verDir })
+  log("compiling Extract.java")
+  execFileSync(javaBin("javac"), ["-cp", cp, "-nowarn", "-d", classesDir, path.join(here, "Extract.java")], { stdio: "inherit", cwd: verDir })
 
   log("running extractor")
   const out = execFileSync(javaBin("java"), ["-cp", `${cp}${path.delimiter}${classesDir}`, "Extract"], { maxBuffer: 64 * 1024 * 1024, cwd: verDir }).toString()
