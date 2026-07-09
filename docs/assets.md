@@ -3,10 +3,10 @@
 The `assets` option tells the renderer where to find resource pack files. It can be any of:
 
 * A **string**, a path to a resource pack folder, or to a `.zip`/`.jar` file (Node only)
-* A **zip in memory**: `Uint8Array`, `ArrayBuffer`, `Blob`, or `File` (both platforms)
+* A **zip in memory**: `Uint8Array`, `ArrayBuffer`, `Blob`, or `File`
 * A **virtual handler object**, see [Virtual handlers](#virtual-handlers)
 * An **array** of any combination of the above
-* **Prepared assets**, the return value of `prepareAssets()`
+* **Prepared assets**, the return value of [`prepareAssets()`](api.md)
 
 When given an array, entries are checked in order: the first entry that has a file wins (higher-priority packs override lower-priority ones). This lets you layer packs on top of vanilla, just like Minecraft does.
 
@@ -23,9 +23,11 @@ assets: [
 
 Each pack's `pack.mcmeta` filter block is respected: files a higher pack filters out are hidden from the packs below it, like in the game.
 
+> **Vanilla assets are not included.** The [bundled packs](#bundled-packs) only cover fallbacks and required overrides. Provide a base pack yourself: an extracted vanilla assets dump, or the client jar directly. Resource packs and mods are overlays, so layered without a base, everything they don't override renders as missing.
+
 ## Virtual handlers
 
-Any object with a `read` method can be used as an assets entry, letting you serve files from anywhere, a zip file, memory, an HTTP server, a database. No disk access required.
+Any object with a `read` method can be used as an assets entry, letting you serve files from anywhere, a zip file, memory, an HTTP server, etc...
 
 ```js
 const zip = { /* ... loaded zip ... */ }
@@ -39,7 +41,8 @@ const handler = {
     return zip.folders[dir] ?? []
   },
   filter(filePath) {
-    return filePath.startsWith("assets/minecraft/recipes/")
+    // own the item textures: versions from lower packs are ignored, and any not in this pack (or higher) render as missing
+    return filePath.startsWith("assets/minecraft/textures/item/")
   }
 }
 
@@ -54,7 +57,7 @@ await renderBlock({ id: "stone", assets: handler, path: "out.png" })
 
 ## `prepareAssets(assets, options?)`
 
-The renderer internally calls `prepareAssets(assets)` on each render to normalize the input, parse `pack.mcmeta` filters, and index atlas definitions. If you're running many renders with the same assets, call it once yourself and pass the result for faster subsequent renders:
+The renderer internally calls [`prepareAssets(assets)`](api.md) on each render to normalize the input, parse `pack.mcmeta` filters, and index atlas definitions. If you're running many renders with the same assets, call it once yourself and pass the result for faster subsequent renders:
 
 ```js
 import { prepareAssets, renderBlock } from "block-model-renderer"
@@ -82,7 +85,7 @@ Decoded textures, resolved models, and culling data then persist on the bundle, 
 ```js
 import { disposeCache } from "block-model-renderer"
 
-disposeCache(oldAssets) // safe if caching was never on
+disposeCache(oldAssets)
 ```
 
 Caching stays enabled after a dispose; it just repopulates. Don't dispose while something from that bundle is still rendering (a live player, a scene on screen).
@@ -94,24 +97,6 @@ Whether a texture renders blended (water, stained glass, ice) or solid is decide
 ```js
 const assets = await prepareAssets(sources, { translucency: { min: 5, max: 240 } })
 ```
-
-## Texture atlases
-
-The `atlases/*.json` definitions in every pack are parsed and honoured, covering both things the game does with them:
-
-**Virtual sprites.** Atlas sources that *generate* textures work transparently: the generated sprites resolve through `readFile`, `listDirectory`, and every model texture lookup as if they were real files.
-
-| Source type | What it does |
-|---|---|
-| `paletted_permutations` | Palette-swapped variants (armor trims, spawn eggs), synthesized per permutation |
-| `unstitch` | Regions cropped out of a larger sheet (map decorations) |
-| `single` | One texture exposed under a different sprite name |
-| `directory` | A folder mapped in under a prefix |
-| `filter` | Removes matching sprites added by earlier sources |
-
-**Membership rules.** From 1.21.11 the game restricts which atlas a model's textures may come from: block models can only use `blocks` atlas textures, item models can use `blocks` and `items` (but not mix an items-only texture with a blocks-only one). Models that violate the rules render as the missing model, matching the game. This is what the `ignoreAtlases` render option and the `ignore_atlas_restrictions` model field switch off, and it's skipped automatically for `version` values before 1.21.11 (see [Legacy Minecraft versions](rendering.md#legacy-minecraft-versions)).
-
-The vanilla atlas definitions ship in the bundled fallback pack (below), so packs that don't define their own atlases still get the vanilla trims, membership sets, and sprite sources.
 
 ## Bundled packs
 
@@ -139,7 +124,7 @@ The following categories are covered:
 * Water & Lava
 * Technical blocks (barrier, light, structure void, moving piston)
 
-**Limitation:** the overrides pack is prepended to your assets array at the highest priority. Any blockstate or model covered by it will override whatever your own packs provide, the bundled version always wins. This is a renderer limitation, not a design choice. That said, since these blocks are rendered dynamically by vanilla, you're very unlikely to actually have modified these files.
+**Limitation:** the overrides pack is prepended to your assets array at the highest priority. Any blockstate or model covered by it will override whatever your own packs provide, the bundled version always wins. This is a renderer limitation, not a design choice. That said, since these blocks are rendered dynamically by vanilla, you're very unlikely to actually have modified these blockstates and models.
 
 ### Fallback pack (lowest priority)
 
@@ -151,7 +136,7 @@ Helpers for reading through the same layered, filtered view of the assets that t
 
 ### `readFile(path, assets, hint?)`
 
-Reads a file from the assets, walking entries in order and respecting filters. Atlas-generated [virtual sprites](#texture-atlases) resolve here too.
+Reads a file from the assets, walking entries in order and respecting filters. Atlas-generated virtual sprites (armor trims, unstitched regions) resolve here too.
 
 | Argument | Description |
 |---|---|
@@ -176,6 +161,22 @@ Returns a list of filenames.
 
 Wraps a zip (`Uint8Array`, `ArrayBuffer`, `Blob`, or `File`) as an assets entry. You rarely need it, since zips passed straight into `assets` are detected and wrapped automatically, but it's here if you want the handler itself.
 
+Returns (async) a [virtual handler](#virtual-handlers) entry with `read`/`list`/`filter`, ready to drop into an `assets` array.
+
 ### `parseZip(bytes)`
 
-The low-level reader behind `zipAssets`. Takes a `Uint8Array`/`ArrayBuffer` and returns a `Map` of every file path to its raw entry (compressed bytes, not inflated). Useful for enumerating paths outside the `assets/` tree (e.g. the structures inside a client jar), then reading them through `readFile`, which handles decompression.
+The low-level reader behind [`zipAssets`](api.md). Takes a `Uint8Array`/`ArrayBuffer`. Useful for enumerating paths outside the `assets/` tree (e.g. the structures inside a client jar), then reading them through [`readFile`](api.md), which handles decompression.
+
+Returns a `Map` from each file path to its raw entry:
+
+```js
+const files = parseZip(jarBytes)
+
+Array.from(files.keys())  // every file path in the zip
+
+files.get("data/minecraft/structures/village/plains/houses/plains_small_house_1.nbt")
+// {
+//   method: 8,          // zip compression method: 0 stored, 8 deflate
+//   data: Uint8Array    // the raw bytes, still compressed
+// }
+```
