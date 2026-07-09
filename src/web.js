@@ -427,6 +427,7 @@ async function encodePng(canvas) {
   return new Uint8Array(await blob.arrayBuffer())
 }
 
+let maxTexSize = null
 function makePlatform() {
   return {
     THREE,
@@ -434,6 +435,14 @@ function makePlatform() {
     loadImage,
     Canvas: OffscreenCanvas,
     inflateRaw,
+
+    maxTextureSize() {
+      if (maxTexSize) return maxTexSize
+      const gl = new OffscreenCanvas(1, 1).getContext("webgl2") ?? new OffscreenCanvas(1, 1).getContext("webgl")
+      maxTexSize = gl ? gl.getParameter(gl.MAX_TEXTURE_SIZE) : 8192
+      gl?.getExtension("WEBGL_lose_context")?.loseContext()
+      return maxTexSize
+    },
 
     prepareEntry(entry) {
       if (typeof entry === "string") {
@@ -563,4 +572,4 @@ export function createAnimator(root) {
   }
 }
 
-export { COLOURS, isWaterloggable, isCrossModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader } from "./core.js"
+export { COLOURS, isWaterloggable, isCrossModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, optimiseScene, sortTranslucent } from "./core.js"

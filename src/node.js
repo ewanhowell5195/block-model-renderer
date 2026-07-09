@@ -32,6 +32,7 @@ async function makeFolderEntry(folderPath) {
   return entry
 }
 
+let maxTexSize = null
 setPlatform({
   THREE,
   loadTexture,
@@ -39,6 +40,14 @@ setPlatform({
   Canvas,
   loadImage,
   maxAnimationPixels: 268402689,
+
+  maxTextureSize() {
+    if (maxTexSize) return maxTexSize
+    const gl = frameCtx ?? createContext(1, 1)
+    maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE)
+    if (gl !== frameCtx) gl.getExtension("STACKGL_destroy_context")?.destroy()
+    return maxTexSize
+  },
 
   async prepareEntry(entry) {
     if (typeof entry !== "string") return zipAssets(entry)
@@ -151,6 +160,7 @@ export {
   makeModelScene, renderModelScene,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel,
   fluidHeights, fluidTypeOf, ModelLoader,
+  optimiseScene, sortTranslucent,
   zipAssets
 } from "./core.js"
 export { parseZip } from "./zip.js"
