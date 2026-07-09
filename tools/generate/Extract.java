@@ -67,6 +67,17 @@ public class Extract {
     } catch (Exception e) { throw new RuntimeException(e); }
   }
 
+  // The datapack-registry lookup factory was renamed (createLookup ->
+  // createWorldLookup) between versions, so resolve whichever exists at runtime.
+  static HolderLookup.Provider worldLookup() {
+    for (String name : new String[]{ "createWorldLookup", "createLookup" }) {
+      try { return (HolderLookup.Provider) VanillaRegistries.class.getMethod(name).invoke(null); }
+      catch (NoSuchMethodException e) { continue; }
+      catch (Exception e) { throw new RuntimeException(e); }
+    }
+    throw new RuntimeException("no VanillaRegistries world-lookup factory found");
+  }
+
   static int anchorTint(BlockColors colors, Block b, Stub stub) {
     BlockState st = b.defaultBlockState();
     return colors.getTintSources(st).get(0).colorInWorld(st, stub, BlockPos.ZERO);
@@ -94,7 +105,7 @@ public class Extract {
     // oak_leaves, leaf_litter) its biome-varying source matches; a second biome
     // tells a biome-varying source apart from a constant. The index of that
     // source is the tintindex (0 for most, 1 for e.g. pink_petals).
-    HolderLookup.Provider registries = VanillaRegistries.createLookup();
+    HolderLookup.Provider registries = worldLookup();
     var biomeReg = registries.lookupOrThrow(Registries.BIOME);
     int waterColor = biomeReg.getOrThrow(Biomes.PLAINS).value().getWaterColor();
     GrassColor.init(colormapPixels("/assets/minecraft/textures/colormap/grass.png"));

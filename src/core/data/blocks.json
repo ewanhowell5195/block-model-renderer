@@ -1,5 +1,5 @@
 {
-  "_generated": "from minecraft 26.2 by tools/generate/generate.js",
+  "_generated": "from minecraft 26.3-snapshot-3 by tools/generate/generate.js",
   "waterloggable": {
     "suffix": [
       "_amethyst_bud",
@@ -79,6 +79,7 @@
       "powder_snow",
       "scaffolding",
       "slime_block",
+      "straw_bed",
       "test_instance_block",
       "vault"
     ]
