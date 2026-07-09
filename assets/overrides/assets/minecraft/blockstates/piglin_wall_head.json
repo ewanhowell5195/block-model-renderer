@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "~block/piglin_wall_head"
+      "model": "block-model-renderer:block/piglin_wall_head"
     }
   }
 }

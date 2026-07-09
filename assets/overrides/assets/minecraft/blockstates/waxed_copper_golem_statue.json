@@ -1,67 +1,67 @@
 {
   "variants": {
     "copper_golem_pose=standing,facing=north": {
-      "model": "~block/copper_golem_statue/copper_golem_statue",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue",
       "y": 0
     },
     "copper_golem_pose=standing,facing=east": {
-      "model": "~block/copper_golem_statue/copper_golem_statue",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue",
       "y": 90
     },
     "copper_golem_pose=standing,facing=south": {
-      "model": "~block/copper_golem_statue/copper_golem_statue",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue",
       "y": 180
     },
     "copper_golem_pose=standing,facing=west": {
-      "model": "~block/copper_golem_statue/copper_golem_statue",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue",
       "y": 270
     },
     "copper_golem_pose=sitting,facing=north": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_sitting",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_sitting",
       "y": 0
     },
     "copper_golem_pose=sitting,facing=east": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_sitting",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_sitting",
       "y": 90
     },
     "copper_golem_pose=sitting,facing=south": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_sitting",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_sitting",
       "y": 180
     },
     "copper_golem_pose=sitting,facing=west": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_sitting",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_sitting",
       "y": 270
     },
     "copper_golem_pose=running,facing=north": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_running",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_running",
       "y": 0
     },
     "copper_golem_pose=running,facing=east": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_running",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_running",
       "y": 90
     },
     "copper_golem_pose=running,facing=south": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_running",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_running",
       "y": 180
     },
     "copper_golem_pose=running,facing=west": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_running",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_running",
       "y": 270
     },
     "copper_golem_pose=star,facing=north": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_star",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_star",
       "y": 0
     },
     "copper_golem_pose=star,facing=east": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_star",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_star",
       "y": 90
     },
     "copper_golem_pose=star,facing=south": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_star",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_star",
       "y": 180
     },
     "copper_golem_pose=star,facing=west": {
-      "model": "~block/copper_golem_statue/copper_golem_statue_star",
+      "model": "block-model-renderer:block/copper_golem_statue/copper_golem_statue_star",
       "y": 270
     }
   }

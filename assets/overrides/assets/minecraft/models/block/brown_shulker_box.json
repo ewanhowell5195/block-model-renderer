@@ -1,5 +1,5 @@
 {
-  "parent": "~block/_template_shulker_box",
+  "parent": "block-model-renderer:block/_template_shulker_box",
   "textures": {
     "shulker_box": "entity/shulker/shulker_brown"
   }

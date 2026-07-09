@@ -1,0 +1,6 @@
+{
+  "parent": "block-model-renderer:block/chest/_template_chest_right",
+  "textures": {
+    "chest": "entity/chest/copper_right"
+  }
+}

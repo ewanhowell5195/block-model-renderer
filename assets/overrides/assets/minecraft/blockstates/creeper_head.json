@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "~block/creeper_head"
+      "model": "block-model-renderer:block/creeper_head"
     }
   }
 }

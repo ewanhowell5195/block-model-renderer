@@ -100,7 +100,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   const buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
 
   if (!buf) {
-    const m = { type: "block", model: "~missing" }
+    const m = { type: "block", model: "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (args?.version) m.version = args.version
     return [m]
@@ -209,7 +209,7 @@ export async function parseBlockstate(assets, blockstate, args) {
     if (json.allow_invalid_rotations) {
       model.allow_invalid_rotations = true
     } else if (model.x && model.x % 90 !== 0 || model.y && model.y % 90 !== 0 || model.z && model.z % 90 !== 0) {
-      return ["~missing.json"]
+      return ["block-model-renderer:missing.json"]
     }
 
     model.type = "block"
@@ -300,7 +300,7 @@ export async function parseItemDefinition(assets, itemId, args) {
 
   if (!buf) {
     const legacy = (!args?.version || isBefore(args.version, "1.21.4")) && await readFile(`assets/${namespace}/models/item/${item}.json`, assets)
-    const m = { type: "item", model: legacy ? `${namespace}:item/${item}` : "~missing" }
+    const m = { type: "item", model: legacy ? `${namespace}:item/${item}` : "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (args?.version) m.version = args.version
     return [m]
@@ -622,8 +622,8 @@ export async function resolveModelData(assets, model) {
       currentItem = resolved.item
     }
   } catch {
-    stack = [parseJson(await readFile("assets/minecraft/models/~missing.json", assets))]
-    merged.model = "~missing.json"
+    stack = [parseJson(await readFile("assets/block-model-renderer/models/missing.json", assets))]
+    merged.model = "block-model-renderer:missing.json"
   }
 
   if (merged.special) {
@@ -824,15 +824,15 @@ async function resolveSpecialModel(assets, data, base) {
 
   let modelPath
   if (originalType === "chest" && data.chest_type && data.chest_type !== "single") {
-    modelPath = `~block/chest/_template_chest_${data.chest_type}`
+    modelPath = `block-model-renderer:block/chest/_template_chest_${data.chest_type}`
   } else if (originalType === "copper_golem_statue" && data.pose && data.pose !== "standing") {
-    modelPath = `~block/copper_golem_statue/_template_copper_golem_statue_${data.pose}`
+    modelPath = `block-model-renderer:block/copper_golem_statue/_template_copper_golem_statue_${data.pose}`
   } else {
-    const basePath = base ? "~" + resolveNamespace(base).item : null
-    if (basePath && await readFile(`assets/minecraft/models/${basePath}.json`, assets)) {
-      modelPath = basePath
-    } else if (await readFile(`assets/minecraft/models/~item/${data.type}.json`, assets)) {
-      modelPath = `~item/${data.type}`
+    const baseItem = base ? resolveNamespace(base).item : null
+    if (baseItem && await readFile(`assets/block-model-renderer/models/${baseItem}.json`, assets)) {
+      modelPath = `block-model-renderer:${baseItem}`
+    } else if (await readFile(`assets/block-model-renderer/models/item/${data.type}.json`, assets)) {
+      modelPath = `block-model-renderer:item/${data.type}`
     } else {
       return
     }
@@ -1061,7 +1061,7 @@ export async function loadModel(scene, assets, model, args) {
   assets = await prepareAssets(assets)
 
   if (!(await modelPassesAtlasRules(model, assets))) {
-    const missing = await resolveModelData(assets, { model: "~missing" })
+    const missing = await resolveModelData(assets, { model: "block-model-renderer:missing" })
     for (const k of Object.keys(model)) delete model[k]
     Object.assign(model, missing)
   }
@@ -1465,7 +1465,7 @@ export async function loadModel(scene, assets, model, args) {
   const replaceElements = modelLoaders.some(l => l.replaceElements && l.match?.(model))
   for (const element of replaceElements ? [] : model.elements || []) {
     if (!(await buildElement(element, containerGroup))) {
-      return await loadModel(scene, assets, await resolveModelData(assets, "~missing"), { display })
+      return await loadModel(scene, assets, await resolveModelData(assets, "block-model-renderer:missing"), { display })
     }
   }
 

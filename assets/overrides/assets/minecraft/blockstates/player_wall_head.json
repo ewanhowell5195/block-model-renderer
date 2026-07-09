@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "~block/player_wall_head"
+      "model": "block-model-renderer:block/player_wall_head"
     }
   }
 }

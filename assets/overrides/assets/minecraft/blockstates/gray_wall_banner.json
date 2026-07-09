@@ -1,18 +1,18 @@
 {
   "variants": {
     "facing=north": {
-      "model": "~block/banner/gray_wall_banner"
+      "model": "block-model-renderer:block/banner/gray_wall_banner"
     },
     "facing=east": {
-      "model": "~block/banner/gray_wall_banner",
+      "model": "block-model-renderer:block/banner/gray_wall_banner",
       "y": 90
     },
     "facing=south": {
-      "model": "~block/banner/gray_wall_banner",
+      "model": "block-model-renderer:block/banner/gray_wall_banner",
       "y": 180
     },
     "facing=west": {
-      "model": "~block/banner/gray_wall_banner",
+      "model": "block-model-renderer:block/banner/gray_wall_banner",
       "y": -90
     }
   }

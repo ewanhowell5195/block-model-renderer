@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "~block/wither_skeleton_skull"
+      "model": "block-model-renderer:block/wither_skeleton_skull"
     }
   }
 }

@@ -4,7 +4,7 @@ import { parseZip } from "../zip.js"
 export async function getMissingImage(assets) {
   if (assets.__missingImage) return assets.__missingImage
   return assets.__missingImage = (async () => {
-    const buf = await readFile("assets/minecraft/textures/~missing.png", assets)
+    const buf = await readFile("assets/block-model-renderer/textures/missing.png", assets)
     return loadImage(buf)
   })()
 }
@@ -250,7 +250,7 @@ function spritePathOf(id) {
 }
 
 async function getMissingTexturePng(assets) {
-  return await readFile("assets/minecraft/textures/~missing.png", assets)
+  return await readFile("assets/block-model-renderer/textures/missing.png", assets)
 }
 
 function applyUnstitchSource(src, sprites, assets) {

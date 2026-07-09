@@ -4,7 +4,7 @@
       "apply": { "model": "block/enchanting_table" }
     },
     {
-      "apply": { "model": "~block/enchanting_table_book" }
+      "apply": { "model": "block-model-renderer:block/enchanting_table_book" }
     }
   ]
 }

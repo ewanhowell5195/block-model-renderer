@@ -1,5 +1,5 @@
 {
-  "parent": "~block/_template_cushion",
+  "parent": "block-model-renderer:block/_template_cushion",
   "textures": {
     "cushion": "entity/cushion/blue_cushion"
   }

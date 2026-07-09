@@ -1,0 +1,6 @@
+{
+  "parent": "block-model-renderer:block/copper_golem_statue/_template_copper_golem_statue_star",
+  "textures": {
+    "golem": "entity/copper_golem/copper_golem_exposed"
+  }
+}

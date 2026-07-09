@@ -1,0 +1,6 @@
+{
+  "parent": "block-model-renderer:block/_template_wall_head_large",
+  "textures": {
+    "head": "entity/zombie/zombie"
+  }
+}

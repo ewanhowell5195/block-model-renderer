@@ -1,6 +1,0 @@
-{
-  "parent": "~block/copper_golem_statue/_template_copper_golem_statue_running",
-  "textures": {
-    "golem": "entity/copper_golem/copper_golem"
-  }
-}

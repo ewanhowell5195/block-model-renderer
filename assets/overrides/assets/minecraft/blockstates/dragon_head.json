@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "~block/dragon_head"
+      "model": "block-model-renderer:block/dragon_head"
     }
   }
 }

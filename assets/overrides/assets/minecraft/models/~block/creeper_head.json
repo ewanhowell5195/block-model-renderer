@@ -1,7 +1,0 @@
-{
-  "double_sided": true,
-  "parent": "~block/_template_head",
-  "textures": {
-    "head": "entity/creeper/creeper"
-  }
-}

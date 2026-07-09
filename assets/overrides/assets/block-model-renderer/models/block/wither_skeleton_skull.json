@@ -1,0 +1,7 @@
+{
+  "double_sided": true,
+  "parent": "block-model-renderer:block/_template_head",
+  "textures": {
+    "head": "entity/skeleton/wither_skeleton"
+  }
+}

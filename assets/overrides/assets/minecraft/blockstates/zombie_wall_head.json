@@ -1,7 +1,7 @@
 {
   "variants": {
     "": {
-      "model": "~block/zombie_wall_head"
+      "model": "block-model-renderer:block/zombie_wall_head"
     }
   }
 }

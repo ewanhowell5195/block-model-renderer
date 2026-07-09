@@ -2,7 +2,7 @@
   "multipart": [
     {
       "apply": {
-        "model": "~block/bell"
+        "model": "block-model-renderer:block/bell"
       }
     },
     {

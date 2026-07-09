@@ -1,5 +1,5 @@
 {
-  "parent": "~block/_template_particle",
+  "parent": "block-model-renderer:block/_template_particle",
   "textures": {
     "particle": "item/light_00"
   }

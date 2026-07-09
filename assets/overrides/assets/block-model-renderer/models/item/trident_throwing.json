@@ -1,0 +1,13 @@
+{
+  "parent": "block-model-renderer:item/trident",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [0, 90, -180],
+      "translation": [8, -17, 9]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [0, 90, -180],
+      "translation": [8, -17, -7]
+    }
+  }
+}

@@ -11,7 +11,7 @@ const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east:
 async function buildBlockModel(assets, id, props, version) {
   const g = new THREE.Group()
   for (const model of await parseBlockstate(assets, id, { data: props ?? {}, ignoreAtlases: true, version })) {
-    if (model.model === "~missing") return null
+    if (model.model === "block-model-renderer:missing") return null
     await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false })
   }
   return g
