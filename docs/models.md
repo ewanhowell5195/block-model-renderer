@@ -119,7 +119,7 @@ The shape, abbreviated:
     redstone: { blocks: ["redstone_wire"], property: "power", default: 0, colors: [...] }
   },
   tintindex: { pink_petals: 1, wildflowers: 1 },
-  dye: { black: "#1d1d21", light_blue: "#3ab3da", ... },
+  dye: { black: "#1D1D21", light_blue: "#3AB3DA", ... },
   effects: { speed: "#33EBFF", poison: "#87A363", ... },
   potions: {
     swiftness: ["speed"],                                 // draws its color from one effect
@@ -134,5 +134,5 @@ The shape, abbreviated:
 ```js
 import { COLORS } from "block-model-renderer"
 
-COLORS.dye.light_blue // "#3ab3da"
+COLORS.dye.light_blue // "#3AB3DA"
 ```

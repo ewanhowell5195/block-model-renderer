@@ -1,0 +1,189 @@
+{
+  "_generated": "from minecraft 26.2 by tools/generate/generate.js",
+  "dye": {
+    "white": "#F9FFFE",
+    "orange": "#F9801D",
+    "magenta": "#C74EBD",
+    "light_blue": "#3AB3DA",
+    "yellow": "#FED83D",
+    "lime": "#80C71F",
+    "pink": "#F38BAA",
+    "gray": "#474F52",
+    "light_gray": "#9D9D97",
+    "cyan": "#169C9C",
+    "purple": "#8932B8",
+    "blue": "#3C44AA",
+    "brown": "#835432",
+    "green": "#5E7C16",
+    "red": "#B02E26",
+    "black": "#1D1D21"
+  },
+  "effects": {
+    "speed": "#33EBFF",
+    "slowness": "#8BAFE0",
+    "haste": "#D9C043",
+    "mining_fatigue": "#4A4217",
+    "strength": "#FFC700",
+    "instant_health": "#F82423",
+    "instant_damage": "#A9656A",
+    "jump_boost": "#FDFF84",
+    "nausea": "#551D4A",
+    "regeneration": "#CD5CAB",
+    "resistance": "#9146F0",
+    "fire_resistance": "#FF9900",
+    "water_breathing": "#98DAC0",
+    "invisibility": "#F6F6F6",
+    "blindness": "#1F1F23",
+    "night_vision": "#C2FF66",
+    "hunger": "#587653",
+    "weakness": "#484D48",
+    "poison": "#87A363",
+    "wither": "#736156",
+    "health_boost": "#F87D23",
+    "absorption": "#2552A5",
+    "saturation": "#F82423",
+    "glowing": "#94A061",
+    "levitation": "#CEFFFF",
+    "luck": "#59C106",
+    "unluck": "#C0A44D",
+    "slow_falling": "#F3CFB9",
+    "conduit_power": "#1DC2D1",
+    "dolphins_grace": "#88A3BE",
+    "bad_omen": "#0B6138",
+    "hero_of_the_village": "#44FF44",
+    "darkness": "#292721",
+    "trial_omen": "#16A6A6",
+    "raid_omen": "#DE4058",
+    "wind_charged": "#BDC9FF",
+    "weaving": "#78695A",
+    "oozing": "#99FFA3",
+    "infested": "#8C9B8C",
+    "breath_of_the_nautilus": "#00FFEE"
+  },
+  "team": {
+    "black": "#000000",
+    "dark_blue": "#0000AA",
+    "dark_green": "#00AA00",
+    "dark_aqua": "#00AAAA",
+    "dark_red": "#AA0000",
+    "dark_purple": "#AA00AA",
+    "gold": "#FFAA00",
+    "gray": "#AAAAAA",
+    "dark_gray": "#555555",
+    "blue": "#5555FF",
+    "green": "#55FF55",
+    "aqua": "#55FFFF",
+    "red": "#FF5555",
+    "light_purple": "#FF55FF",
+    "yellow": "#FFFF55",
+    "white": "#FFFFFF"
+  },
+  "tintindex": {
+    "pink_petals": 1,
+    "wildflowers": 1
+  },
+  "potions": {
+    "harming": [
+      "instant_damage"
+    ],
+    "healing": [
+      "instant_health"
+    ],
+    "leaping": [
+      "jump_boost"
+    ],
+    "long_fire_resistance": [
+      "fire_resistance"
+    ],
+    "long_invisibility": [
+      "invisibility"
+    ],
+    "long_leaping": [
+      "jump_boost"
+    ],
+    "long_night_vision": [
+      "night_vision"
+    ],
+    "long_poison": [
+      "poison"
+    ],
+    "long_regeneration": [
+      "regeneration"
+    ],
+    "long_slow_falling": [
+      "slow_falling"
+    ],
+    "long_slowness": [
+      "slowness"
+    ],
+    "long_strength": [
+      "strength"
+    ],
+    "long_swiftness": [
+      "speed"
+    ],
+    "long_turtle_master": [
+      [
+        "slowness",
+        3
+      ],
+      [
+        "resistance",
+        2
+      ]
+    ],
+    "long_water_breathing": [
+      "water_breathing"
+    ],
+    "long_weakness": [
+      "weakness"
+    ],
+    "strong_harming": [
+      "instant_damage"
+    ],
+    "strong_healing": [
+      "instant_health"
+    ],
+    "strong_leaping": [
+      "jump_boost"
+    ],
+    "strong_poison": [
+      "poison"
+    ],
+    "strong_regeneration": [
+      "regeneration"
+    ],
+    "strong_slowness": [
+      "slowness"
+    ],
+    "strong_strength": [
+      "strength"
+    ],
+    "strong_swiftness": [
+      "speed"
+    ],
+    "strong_turtle_master": [
+      [
+        "slowness",
+        5
+      ],
+      [
+        "resistance",
+        3
+      ]
+    ],
+    "swiftness": [
+      "speed"
+    ],
+    "turtle_master": [
+      [
+        "slowness",
+        3
+      ],
+      [
+        "resistance",
+        2
+      ]
+    ]
+  }
+}

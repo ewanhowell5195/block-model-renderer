@@ -38,6 +38,8 @@
   "scripts": {
     "prepublishOnly": "node tools/build-assets.js",
     "build:assets": "node tools/build-assets.js",
+    "generate": "node tools/generate/generate.js",
+    "test": "node tools/generate/test.js",
     "example": "node examples/node/example.js",
     "all": "node examples/node/render_all.js",
     "animated": "node examples/node/render_animated.js",

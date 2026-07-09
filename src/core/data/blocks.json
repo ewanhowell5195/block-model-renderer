@@ -1,0 +1,110 @@
+{
+  "_generated": "from minecraft 26.2 by tools/generate/generate.js",
+  "waterloggable": {
+    "suffix": [
+      "_amethyst_bud",
+      "_bars",
+      "_chain",
+      "_coral",
+      "_dripleaf",
+      "_fan",
+      "_fence",
+      "_golem_statue",
+      "_grate",
+      "_leaves",
+      "_lightning_rod",
+      "_pane",
+      "_sensor",
+      "_shelf",
+      "_sign",
+      "_slab",
+      "_stairs",
+      "_trapdoor",
+      "_wall",
+      "campfire",
+      "candle",
+      "chest",
+      "lantern",
+      "rail"
+    ],
+    "exact": [
+      "amethyst_cluster",
+      "barrier",
+      "big_dripleaf_stem",
+      "conduit",
+      "decorated_pot",
+      "dried_ghast",
+      "glow_lichen",
+      "hanging_roots",
+      "heavy_core",
+      "ladder",
+      "light",
+      "lightning_rod",
+      "mangrove_propagule",
+      "mangrove_roots",
+      "pointed_dripstone",
+      "resin_clump",
+      "scaffolding",
+      "sculk_shrieker",
+      "sculk_vein",
+      "sea_pickle",
+      "sulfur_spike"
+    ],
+    "except": [
+      "jack_o_lantern",
+      "sea_lantern"
+    ]
+  },
+  "nonOccluding": {
+    "suffix": [
+      "_box",
+      "_grate",
+      "_leaves",
+      "azalea",
+      "campfire",
+      "door",
+      "glass",
+      "spawner"
+    ],
+    "exact": [
+      "barrier",
+      "beacon",
+      "chorus_flower",
+      "frosted_ice",
+      "honey_block",
+      "ice",
+      "ladder",
+      "mangrove_roots",
+      "pale_moss_carpet",
+      "powder_snow",
+      "scaffolding",
+      "slime_block",
+      "test_instance_block",
+      "vault"
+    ]
+  },
+  "selfCullAll": {
+    "suffix": [
+      "_grate",
+      "glass",
+      "ice"
+    ],
+    "exact": [
+      "honey_block",
+      "powder_snow",
+      "slime_block"
+    ],
+    "except": [
+      "packed_ice"
+    ]
+  },
+  "selfCullY": {
+    "suffix": [
+      "_bars",
+      "_pane"
+    ],
+    "exact": [
+      "mangrove_roots"
+    ]
+  }
+}
