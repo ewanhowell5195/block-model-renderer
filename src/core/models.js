@@ -324,25 +324,25 @@ export async function parseItemDefinition(assets, itemId, args) {
           continue
         }
         const type = normalize(tint.type)
-        if (type === "team" && data["team"] !== undefined) {
-          const teamColor = COLORS.team[normalize(data["team"])]
+        if (type === "team" && normalizedData["team"] !== undefined) {
+          const teamColor = COLORS.team[normalize(normalizedData["team"])]
           tints.push(teamColor !== undefined ? parseColor(teamColor) : parseColor(tint.default ?? 16777215))
-        } else if (type === "dye" && data["dyed_color"] !== undefined) {
-          tints.push(parseColor(data["dyed_color"]))
-        } else if (type === "map_color" && data["map_color"] !== undefined) {
-          tints.push(parseColor(data["map_color"]))
-        } else if (type === "potion" && data["potion_contents"]?.potion) {
-          const color = getPotionColor(data["potion_contents"].potion)
+        } else if (type === "dye" && normalizedData["dyed_color"] !== undefined) {
+          tints.push(parseColor(normalizedData["dyed_color"]))
+        } else if (type === "map_color" && normalizedData["map_color"] !== undefined) {
+          tints.push(parseColor(normalizedData["map_color"]))
+        } else if (type === "potion" && normalizedData["potion_contents"]?.potion) {
+          const color = getPotionColor(normalizedData["potion_contents"].potion)
           tints.push(color ?? parseColor(tint.default ?? -13083194))
-        } else if (type === "custom_model_data" && data["custom_model_data"]?.colors) {
-          const c = data["custom_model_data"].colors[tint.index ?? 0]
+        } else if (type === "custom_model_data" && normalizedData["custom_model_data"]?.colors) {
+          const c = normalizedData["custom_model_data"].colors[tint.index ?? 0]
           if (c !== undefined) {
             tints.push(parseColor(c))
           } else {
             tints.push(tint.default !== undefined ? parseColor(tint.default) : "#FFFFFF")
           }
-        } else if (type === "firework" && data["firework_explosion"]?.colors?.length) {
-          const colors = data["firework_explosion"].colors.map(c => {
+        } else if (type === "firework" && normalizedData["firework_explosion"]?.colors?.length) {
+          const colors = normalizedData["firework_explosion"].colors.map(c => {
             const hex = parseColor(c)
             const v = parseInt(hex.slice(1), 16)
             return [(v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF]
