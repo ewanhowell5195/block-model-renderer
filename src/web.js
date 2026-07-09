@@ -19,7 +19,7 @@ export async function getThree() {
 let initPromise
 function init() {
   return initPromise ??= (async () => {
-    let three = config.three
+    let three = config.THREE ?? config.three
     if (!three) {
       try {
         three = await import("three")
