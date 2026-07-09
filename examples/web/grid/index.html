@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rotating Grid - block-model-renderer</title>
+<link rel="icon" type="image/webp" sizes="16x16" href="https://ewanhowell.com/assets/images/logo/logo_16.webp">
+<link rel="icon" type="image/webp" sizes="32x32" href="https://ewanhowell.com/assets/images/logo/logo_32.webp">
 <script type="importmap">
   {
     "imports": {
@@ -116,11 +118,11 @@
 </div>
 
 <script type="module">
-  const LIB = "http://localhost:8080"
   const BUST = Date.now()
+  const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
 
-  const { getThree, prepareAssets, disposeCache, listDirectory, readFile, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createAnimator } = await import(`${LIB}/src/web.js?${BUST}`)
-  const { loadMojangJar } = await import(`${LIB}/examples/web/mojang-pack.js?${BUST}`)
+  const { getThree, prepareAssets, disposeCache, listDirectory, readFile, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createAnimator } = await import(LIB)
+  const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
 
   const THREE = await getThree()
 

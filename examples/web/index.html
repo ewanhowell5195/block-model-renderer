@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>block-model-renderer</title>
+  <meta name="description" content="Minecraft block and item model rendering for Node.js and the browser. Render any block, item, or custom model JSON, with full support for vanilla resource pack features.">
+  <link rel="canonical" href="https://block-model-renderer.ewanhowell.com/">
+  <link rel="icon" type="image/webp" sizes="16x16" href="https://ewanhowell.com/assets/images/logo/logo_16.webp">
+  <link rel="icon" type="image/webp" sizes="32x32" href="https://ewanhowell.com/assets/images/logo/logo_32.webp">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="block-model-renderer">
+  <meta property="og:description" content="Minecraft block and item model rendering for Node.js and the browser. Render any block, item, or custom model JSON, with full support for vanilla resource pack features.">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      overflow-y: scroll;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+      font-size: 16px;
+    }
+
+    header {
+      background: #2c3e50;
+      color: white;
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    header p {
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    .header-links {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .header-links a {
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+      padding: 8px 16px;
+      border: 1px solid white;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-links a svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .header-links a:hover {
+      background: white;
+      color: #2c3e50;
+    }
+
+    .container {
+      max-width: 1024px;
+      margin: 0 auto;
+    }
+
+    .content {
+      padding: 40px;
+    }
+
+    .section {
+      margin-bottom: 50px;
+    }
+
+    .section h2 {
+      font-size: 1.5rem;
+      color: #2c3e50;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #3498db;
+    }
+
+    .section p {
+      color: #666;
+      margin-bottom: 20px;
+      line-height: 1.7;
+    }
+
+    code {
+      border: 1px solid #ccc;
+      border-radius: 2px;
+      padding: 0.1em 0.3em;
+    }
+
+    pre {
+      background: #2c3e50;
+      color: #ecf0f1;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+      line-height: 1.4;
+      margin-bottom: 20px;
+    }
+
+    pre code {
+      border: none;
+      padding: 0;
+    }
+
+    .examples {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .examples a {
+      display: block;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .examples a:hover {
+      border-color: #3498db;
+      box-shadow: 0 2px 12px rgba(52, 152, 219, 0.15);
+    }
+
+    .examples h3 {
+      color: #2c3e50;
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .examples h3::after {
+      content: "→";
+      color: #3498db;
+      margin-left: auto;
+      transition: transform 0.2s ease;
+    }
+
+    .examples a:hover h3::after {
+      transform: translateX(3px);
+    }
+
+    .examples p {
+      color: #666;
+      font-size: 0.9rem;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .feature-list {
+      list-style: none;
+      margin: 20px 0;
+    }
+
+    .feature-list li {
+      padding: 2px 0;
+      padding-left: 25px;
+      position: relative;
+      color: #555;
+    }
+
+    .feature-list li:first-child {
+      padding-top: 0;
+    }
+
+    .feature-list li:last-child {
+      padding-bottom: 0;
+    }
+
+    .feature-list li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #27ae60;
+      font-weight: bold;
+    }
+
+    footer {
+      background: #f0f0f0;
+      padding: 20px 40px;
+      text-align: center;
+      color: #666;
+      font-size: 0.9rem;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    footer a {
+      color: #3498db;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      header h1 {
+        font-size: 1.8rem;
+      }
+
+      .header-links {
+        gap: 12px;
+      }
+
+      .header-links a {
+        font-size: 14px;
+      }
+
+      .content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>block-model-renderer</h1>
+    <p>Minecraft block and item model rendering for Node.js and the browser.</p>
+    <p>Render any block, item, or custom model JSON, with full support for vanilla resource pack features.</p>
+    <div class="header-links">
+      <a href="https://github.com/ewanhowell5195/block-model-renderer" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+        GitHub
+      </a>
+      <a href="https://www.npmjs.com/package/block-model-renderer" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1.763 0C.786 0 0 .786 0 1.763v20.474C0 23.214.786 24 1.763 24h20.474c.977 0 1.763-.786 1.763-1.763V1.763C24 .786 23.214 0 22.237 0zM5.13 5.323l13.837.019-.009 13.836h-3.464l.01-10.382h-3.456L12.04 19.17H5.113z"/></svg>
+        NPM
+      </a>
+      <a href="https://www.jsdelivr.com/package/npm/block-model-renderer" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.851 0L.811 4.02l1.56 14.7L11.85 24l9.6-5.28 1.74-14.76zm.062 4.622a6.668 6.75 0 0 1 2.666.572 12.507 12.507 0 0 0-2.59 1.95c-.045-.02-.092-.031-.138-.045a1.181 1.181 0 0 0-.346-.056c-.071 0-.141.01-.21.021a8.91 8.91 0 0 1-.615-2.318a6.668 6.75 0 0 1 1.171-.122 6.668 6.75 0 0 1 .062-.002zm-1.99.312a9.763 9.763 0 0 0 .69 2.504 1.213 1.213 0 0 0-.328.825 1.202 1.202 0 0 0 .18.63c-.937 1.294-1.656 2.803-1.905 4.31-.01.056-.013.11-.02.166-.282.09-.515.284-.656.54-.987-.333-1.885-.968-2.615-2.022a6.668 6.75 0 0 1-.026-.515 6.668 6.75 0 0 1 4.68-6.438zm5.507.709a6.668 6.75 0 0 1 2.53 2.9c-.377.953-1.049 1.892-1.893 2.727a1.242 1.242 0 0 0-.644-.184 1.243 1.243 0 0 0-.768.27c-.462-.354-.91-.737-1.318-1.168-.333-.35-.637-.73-.921-1.123.19-.215.31-.494.31-.802 0-.212-.061-.41-.159-.586 1.058-1.008 2.112-1.67 2.863-2.034zm-3.925 1.982a.624.624 0 0 1 .346.114.624.624 0 0 1 .292.524.624.624 0 0 1-.292.524.626.626 0 0 1-.346.113.634.634 0 0 1-.638-.637c0-.355.283-.638.638-.638zm-.441 1.771a1.205 1.205 0 0 0 .675.062c.036.05.075.097.112.148a11.438 11.438 0 0 0 .921 1.119 12.103 12.103 0 0 0 1.446 1.277c-.032.11-.054.224-.054.342a1.236 1.236 0 0 0 .066.38 9.91 9.91 0 0 1-2.118 1.042c-.087.029-.173.052-.261.078a7.735 7.735 0 0 1-1.87.332a1.15 1.15 0 0 0-.66-.773c.004-.024.005-.049.01-.073.219-1.333.873-2.73 1.733-3.934zm7.272.19a6.668 6.75 0 0 1 .245 1.786 6.668 6.75 0 0 1-.259 1.856 9.993 9.993 0 0 1-1.666-.63 1.243 1.243 0 0 0-.065-.713 9.434 9.434 0 0 0 1.745-2.3zm-2.913 2.101c.367 0 .657.291.657.658s-.291.657-.657.657c-.367 0-.658-.29-.658-.657s.29-.658.658-.658zm.837 1.59a10.79 10.79 0 0 0 1.802.688 6.668 6.75 0 0 1-6.149 4.157 6.668 6.75 0 0 1-.062-.004 6.668 6.75 0 0 1-.042 0c-.087-.042-.168-.08-.266-.129-.312-.154-.667-.352-.846-.5a3.796 3.796 0 0 1-1.294-2.03c.21-.111.38-.284.487-.495a8.428 8.428 0 0 0 1.96-.306 9.11 9.11 0 0 0 .513-.154 11.083 11.083 0 0 0 2.341-1.13c.205.143.452.23.719.23a1.248 1.248 0 0 0 .837-.328zm-10.707.116a5.761 5.761 0 0 0 2.212 1.298 1.146 1.146 0 0 0 .857.87 4.602 4.602 0 0 0 1.24 2.222 6.668 6.75 0 0 1-4.31-4.39zm3.327.464c.331 0 .595.263.595.596s-.264.595-.595.595a.59.59 0 0 1-.596-.595.591.591 0 0 1 .596-.596z"/></svg>
+        JSDelivr
+      </a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="content">
+      <div class="section">
+        <h2>Live Examples</h2>
+        <p>Each example runs entirely in your browser. They download the latest vanilla Minecraft client jar directly from Mojang's servers, and you can load your own resource packs and mods on top of it.</p>
+        <div class="examples">
+          <a href="viewer/">
+            <h3>Model Viewer</h3>
+            <p>Load any block or item in an interactive three.js viewer. Blockstate properties, display transforms, lighting modes, face culling, animated textures, and wireframe view.</p>
+          </a>
+          <a href="gallery/">
+            <h3>Render Gallery</h3>
+            <p>Batch-render blocks straight to canvases with <code>renderBlock</code>, complete with live animation players. Filter by name or namespace, or render every block in the pack.</p>
+          </a>
+          <a href="grid/">
+            <h3>Rotating Grid</h3>
+            <p>An endless scrolling wall of spinning blocks and items. Drag to pan, pinch or scroll to zoom, and tweak the motion from the controls panel.</p>
+          </a>
+          <a href="scene/">
+            <h3>Scene Builder</h3>
+            <p>Little voxel dioramas built with the low-level API. Blocks are culled against their neighbours, fluids shape their surfaces, and the whole scene is merged into a handful of draw calls.</p>
+          </a>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Features</h2>
+        <ul class="feature-list">
+          <li>Renders blocks, items, and custom models from a resource pack</li>
+          <li>Runs on Node.js and in the browser from the same package</li>
+          <li>Full vanilla model, blockstate, item-definition, and texture atlas support, with accurate lighting and tints</li>
+          <li>Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, etc)</li>
+          <li>Stack resource pack folders, zips, and virtual handlers, with higher packs overriding lower ones just like in Minecraft</li>
+          <li>Animated textures: WebP and GIF output on Node, live self-updating canvases on web</li>
+          <li>Scene optimisation: near game-accurate hidden-face culling from neighbouring blocks, and placed blocks merged into a few atlased, greedily meshed draw calls</li>
+          <li>Extensible model loaders: write your own to support modded formats (OBJ models, connected textures, etc)</li>
+          <li>PNG, JPEG, WebP, GIF, and AVIF output on Node</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>Getting Started</h2>
+        <p>Install from NPM for Node.js, or the browser through a bundler:</p>
+        <pre><code>npm install block-model-renderer</code></pre>
+        <p>Or import it straight from a CDN in the browser:</p>
+        <pre><code>import { renderBlock, prepareAssets } from "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/+esm"
+
+// a resource pack zip from a file input, fetch, anywhere
+const assets = await prepareAssets([resourcePackZip])
+
+// returns a canvas you can append
+const canvas = await renderBlock({ id: "grass_block", assets, width: 128, height: 128 })
+document.body.append(canvas)</code></pre>
+        <p>The full documentation lives in the <a href="https://github.com/ewanhowell5195/block-model-renderer" target="_blank">GitHub repository</a>, covering rendering options, asset sources and pack layering, fluids, scene building, and custom model loaders.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p><strong>block-model-renderer</strong> - <a href="https://github.com/ewanhowell5195/block-model-renderer" target="_blank">GitHub</a> | <a href="https://www.npmjs.com/package/block-model-renderer" target="_blank">NPM</a> | <a href="https://www.jsdelivr.com/package/npm/block-model-renderer" target="_blank">JSDelivr</a></p>
+    <p style="margin-top: 10px;">MIT License © <a href="https://ewanhowell.com/" target="_blank">Ewan Howell</a></p>
+  </footer>
+</body>
+</html>

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scene Builder - block-model-renderer</title>
+<link rel="icon" type="image/webp" sizes="16x16" href="https://ewanhowell.com/assets/images/logo/logo_16.webp">
+<link rel="icon" type="image/webp" sizes="32x32" href="https://ewanhowell.com/assets/images/logo/logo_32.webp">
 <script type="importmap">
   {
     "imports": {
@@ -12,7 +14,7 @@
     }
   }
 </script>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../style.css">
 <style>
   body { overflow: hidden; }
   main { position: relative; }
@@ -90,11 +92,11 @@
 </main>
 
 <script type="module">
-  const LIB = "http://localhost:8080"
   const BUST = Date.now()
+  const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
 
-  const { getThree, prepareAssets, disposeCache, parseBlockstate, resolveModelData, loadModel, getCullFaces, createAnimator, optimiseScene } = await import(`${LIB}/src/web.js?${BUST}`)
-  const { loadMojangJar } = await import(`${LIB}/examples/web/mojang-pack.js?${BUST}`)
+  const { getThree, prepareAssets, disposeCache, parseBlockstate, resolveModelData, loadModel, getCullFaces, createAnimator, optimiseScene } = await import(LIB)
+  const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
   const { OrbitControls } = await import("three/addons/controls/OrbitControls.js")
 
   const $ = id => document.getElementById(id)

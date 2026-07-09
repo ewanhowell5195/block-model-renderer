@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Render Gallery - block-model-renderer</title>
+<link rel="icon" type="image/webp" sizes="16x16" href="https://ewanhowell.com/assets/images/logo/logo_16.webp">
+<link rel="icon" type="image/webp" sizes="32x32" href="https://ewanhowell.com/assets/images/logo/logo_32.webp">
 <script type="importmap">
   {
     "imports": {
@@ -11,7 +13,7 @@
     }
   }
 </script>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../style.css">
 <style>
   main { overflow-y: auto; }
   #status { color: #f88; font-size: 12px; overflow-wrap: anywhere; }
@@ -93,11 +95,11 @@
 <div id="progress"></div>
 
 <script type="module">
-  const LIB = "http://localhost:8080"
   const BUST = Date.now()
+  const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
 
-  const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, parseBlockstate, resolveModelData, isCrossModel } = await import(`${LIB}/src/web.js?${BUST}`)
-  const { loadMojangJar } = await import(`${LIB}/examples/web/mojang-pack.js?${BUST}`)
+  const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, parseBlockstate, resolveModelData, isCrossModel } = await import(LIB)
+  const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
 
   const $ = id => document.getElementById(id)
 
