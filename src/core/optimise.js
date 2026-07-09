@@ -219,6 +219,7 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc) {
 }
 
 export async function optimiseScene(placements, opts = {}) {
+  if (!Array.isArray(placements)) throw new Error("optimiseScene requires an array of placements")
   const maxAtlas = opts.maxAtlas ?? detectMaxAtlas()
   const maxTile = Math.max(64, maxAtlas >> 5)
   const cutoff = opts.translucency

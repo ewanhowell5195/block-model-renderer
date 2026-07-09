@@ -112,6 +112,7 @@ async function isFilteredByHigher(entries, index, filePath) {
 }
 
 export async function prepareAssets(assets, opts) {
+  if (assets == null || assets.length === 0) throw new Error("prepareAssets requires assets")
   if (Array.isArray(assets) && assets.prepared) {
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
     if (opts?.translucency) assets.translucency = opts.translucency
@@ -469,6 +470,8 @@ export async function getAtlasesContaining(spritePath, assets) {
 }
 
 export async function listDirectory(dir, assets) {
+  if (!dir) throw new Error("listDirectory requires a directory")
+  if (assets == null || assets.length === 0) throw new Error("listDirectory requires assets")
   assets = await prepareAssets(assets)
   const out = new Set()
   for (let i = 0; i < assets.length; i++) {
@@ -496,6 +499,8 @@ export async function listDirectory(dir, assets) {
 }
 
 export async function readFile(file, assets, hint) {
+  if (!file) throw new Error("readFile requires a file path")
+  if (assets == null || assets.length === 0) throw new Error("readFile requires assets")
   assets = await prepareAssets(assets)
   const range = hint !== undefined ? [hint] : assets.map((_, i) => i)
   for (const i of range) {

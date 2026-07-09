@@ -18,6 +18,8 @@ async function buildBlockModel(assets, id, props, version) {
 }
 
 export async function getCullFaces({ id, blockstates, neighbors, assets, version } = {}) {
+  if (!id) throw new Error("getCullFaces requires the id option")
+  if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
   const occCache = assets.cache.occlusion
   function stateKey(bid, props) {
@@ -79,8 +81,8 @@ const OUTPUT_DEFAULTS = {
 }
 
 export async function renderBlock(args = {}) {
-  args.id ??= ""
-  args.assets ??= []
+  if (!args.id) throw new Error("renderBlock requires the id option")
+  if (args.assets == null || args.assets.length === 0) throw new Error("renderBlock requires the assets option")
   args.blockstates ??= {}
   args.display ??= {
     rotation: [30, 225, 0],
@@ -108,8 +110,8 @@ export async function renderBlock(args = {}) {
 }
 
 export async function renderItem(args = {}) {
-  args.id ??= ""
-  args.assets ??= []
+  if (!args.id) throw new Error("renderItem requires the id option")
+  if (args.assets == null || args.assets.length === 0) throw new Error("renderItem requires the assets option")
   args.components ??= {}
   args.display ??= {
     type: "fallback",
@@ -131,9 +133,9 @@ export async function renderItem(args = {}) {
   return renderModelScene(scene, camera, args)
 }
 
-export async function renderModel(args) {
-  args.model ??= {}
-  args.assets ??= []
+export async function renderModel(args = {}) {
+  if (!args.model) throw new Error("renderModel requires the model option")
+  if (args.assets == null || args.assets.length === 0) throw new Error("renderModel requires the assets option")
   args.display ??= {
     rotation: [30, 225, 0],
     scale: [0.625, 0.625, 0.625],
@@ -192,6 +194,8 @@ function fitCameraToAspect(camera, aspect) {
 }
 
 export async function renderModelScene(scene, camera, args) {
+  if (!scene) throw new Error("renderModelScene requires a scene")
+  if (!camera) throw new Error("renderModelScene requires a camera")
   scene.updateMatrixWorld(true)
   const v = new THREE.Vector3()
   scene.traverse(obj => {

@@ -89,6 +89,8 @@ function getMultipartDefaults(multipart) {
 }
 
 export async function parseBlockstate(assets, blockstate, args) {
+  if (!blockstate) throw new Error("parseBlockstate requires a blockstate id")
+  if (assets == null || assets.length === 0) throw new Error("parseBlockstate requires assets")
   const data = args?.data ?? {}
   assets = await prepareAssets(assets)
   const defaults = await defaultBlockstates(assets)
@@ -280,6 +282,8 @@ async function getColorMapTint(assets, mapName, temperature, downfall) {
 }
 
 export async function parseItemDefinition(assets, itemId, args) {
+  if (!itemId) throw new Error("parseItemDefinition requires an item id")
+  if (assets == null || assets.length === 0) throw new Error("parseItemDefinition requires assets")
   const data = { ...(args?.data ?? {}) }
   if (data.custom_model_data != null && typeof data.custom_model_data !== "object") {
     data.custom_model_data = { floats: [Number(data.custom_model_data)] }
@@ -560,6 +564,8 @@ export function isCrossModel(models) {
 }
 
 export async function resolveModelData(assets, model) {
+  if (model == null) throw new Error("resolveModelData requires a model")
+  if (assets == null || assets.length === 0) throw new Error("resolveModelData requires assets")
   assets = await prepareAssets(assets)
 
   const modelCache = assets.cache?.models
@@ -1046,6 +1052,8 @@ async function modelPassesAtlasRules(model, assets) {
 }
 
 export async function loadModel(scene, assets, model, args) {
+  if (model == null) throw new Error("loadModel requires a model")
+  if (assets == null || assets.length === 0) throw new Error("loadModel requires assets")
   const display = args?.display ?? "gui"
   const lighting = args?.lighting
   if (args?.version && !model.version) model.version = args.version

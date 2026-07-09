@@ -113,6 +113,7 @@ export function sortObjectOnce(object, camera) {
 }
 
 export function sortTranslucent(object, opts = {}) {
+  if (!object) throw new Error("sortTranslucent requires an object to sort")
   const resort = opts.resortDistance ?? 16
   const resortSq = resort * resort
   const sorters = collectSorters(object)

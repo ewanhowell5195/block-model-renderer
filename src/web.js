@@ -561,6 +561,7 @@ export async function makeModelScene() {
 }
 
 export function createAnimator(root) {
+  if (!root) throw new Error("createAnimator requires an object to animate")
   const { textures, shaders } = collectAnimated(root)
   const schedules = buildSchedules(textures)
   return {

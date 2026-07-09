@@ -2,6 +2,7 @@ export const modelLoaders = []
 
 export const ModelLoader = {
   register(loader) {
+    if (!loader || typeof loader !== "object") throw new Error("ModelLoader.register requires a loader object")
     modelLoaders.push(loader)
     modelLoaders.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     return loader
