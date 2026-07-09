@@ -6,6 +6,7 @@
   "license": "MIT",
   "type": "module",
   "main": "./index.js",
+  "jsdelivr": "./src/web.js",
   "exports": {
     ".": {
       "node": "./src/node.js",

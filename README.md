@@ -4,35 +4,36 @@ Minecraft block and item model rendering for Node.js and the browser.
 Render any block, item, or custom model JSON, with full support for vanilla resource pack features. On Node renders go to image files or buffers; in the browser they go straight to canvases, with live animation players.
 
 [![npm version](https://badge.fury.io/js/block-model-renderer.svg)](https://www.npmjs.com/package/block-model-renderer)
+[![jsDelivr](https://data.jsdelivr.com/v1/package/npm/block-model-renderer/badge)](https://www.jsdelivr.com/package/npm/block-model-renderer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
 * Renders blocks, items, and custom models from a resource pack
 * Runs on Node.js and in the browser from the same package
-* Full vanilla model, blockstate, and item-definition support, with accurate lighting and tints
-* Texture atlases: membership rules enforced like the game, and atlas-generated sprites (armor trims, unstitched regions) synthesized on the fly
-* Hidden-face culling: tell it the neighbouring blocks and the faces they hide are dropped. Near game-accurate, ideal for optimised scenes
-* Water and lava with the vanilla surface shaping: corner heights, flow angle, side overlays, and automatic water layers on waterlogged blocks
+* Full vanilla model, blockstate, item-definition, and texture atlas support, with accurate lighting and tints
+* Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, etc)
+* Stack resource pack folders, zips, and virtual handlers, with higher packs overriding lower ones just like in Minecraft
 * Animated textures: WebP and GIF output on Node, live self-updating canvases on web
-* Scene optimisation: merge placed blocks into a few atlased, greedily meshed draw calls
-* Stack multiple resource packs with higher ones overriding lower ones, just like in Minecraft
-* Resource pack zips work directly as asset sources, plus virtual handlers for serving files from anywhere
-* Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, and more)
-* Custom model loaders for modded formats (OBJ models, connected textures, anything)
+* Scene optimisation: near game-accurate hidden-face culling from neighbouring blocks, and placed blocks merged into a few atlased, greedily meshed draw calls
+* Extensible model loaders: write your own to support modded formats (OBJ models, connected textures, etc)
 * PNG, JPEG, WebP, GIF, and AVIF output on Node
 
 ## Install
+
+For Node.js, or the browser through a bundler:
 
 ```bash
 npm install block-model-renderer
 ```
 
-Or in the browser, straight from a CDN (three.js is a peer dependency you provide; see [Using in the browser](docs/browser.md)):
+Or in the browser, import it straight from a [CDN](https://www.jsdelivr.com/package/npm/block-model-renderer):
 
 ```js
-import { renderBlock } from "https://cdn.jsdelivr.net/npm/block-model-renderer@2/+esm"
+import { renderBlock } from "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/+esm"
 ```
+
+In the browser you also provide three.js yourself; see [Using in the browser](docs/browser.md).
 
 ## Quick Start
 
