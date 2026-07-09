@@ -197,7 +197,7 @@ The `helpers` object:
 | `loadTexture(id, tint?)` | Load a texture by id with the standard caching, animation frames, and optional tint |
 | `resolveTexture(ref)` | Follow `#slot` references through the model's texture map |
 | `buildElements(elements)` | Run an array of vanilla-format elements through the standard cube pipeline (uv defaults, face rotation, uvlock, cullfaces, rotation with rescale, mesh merging) and get back a group to add. For formats that are "vanilla elements, chosen differently", so they don't reimplement cube building |
-| `createMaterial(id, opts?)` | A material matching the active lighting mode. `opts`: `tint`, `shade` (false = unshaded in world mode, the pre-26.3 element field), `shade_direction` (shade as if facing this direction, the 26.3+ replacement; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)), `double_sided`, `shader` |
+| `createMaterial(id, opts?)` | A material matching the active lighting mode. `opts`: `tint`, `shade` (false = unshaded in world mode, the pre-26.3 element field), `shade_direction` (shade as if facing this direction, the 26.3+ replacement; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)), `double_sided`, `light_emission` (0-15, self-illumination in scene mode), `shader` |
 
 ### `variantKey(model, block)`
 

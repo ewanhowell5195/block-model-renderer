@@ -47,6 +47,8 @@ Tints are baked into the textures in every mode, and the end portal keeps its ow
 
 The model element fields `shade: false` (legacy) and `shade_direction_override` only apply in `"world"` mode, mirroring vanilla, where they only exist in the in-world block pipeline: an unshaded element uses the up-face 1.0 constant, an override uses its direction's constant. Item mode ignores both and lights every element from its real face normals, like holding the block in hand.
 
+An element's `light_emission` (0-15, since 1.21.2) makes it self-illuminate in `"scene"` mode: the element glows at `light_emission / 15` of its texture even with no scene lights, matching how the game shows an emissive block in the dark. The flat modes (`"world"`, `"off"`, and item/gui shading) already render at full brightness, like the game's inventory, so it has no visible effect there.
+
 ```js
 const group = new THREE.Group()
 for (const model of await parseBlockstate(assets, "stone")) {

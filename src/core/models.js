@@ -1385,10 +1385,11 @@ export async function loadModel(scene, assets, model, args) {
         const shadeDir = modernShade && SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
         const shade = (legacyShade ? element.shade !== false : true) || !!shadeDir
         const side = back ? "back" : model.double_sided
-        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}\0${side}`
+        const emission = !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0
+        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}\0${side}\0${emission}`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, shade, lightConfig, lighting, shadeDir)
+          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, shade, lightConfig, lighting, shadeDir, emission)
           if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
           materialCache.set(mkey, material)
         }
@@ -1552,10 +1553,11 @@ export async function loadModel(scene, assets, model, args) {
           },
           createMaterial: async (id, opts = {}) => {
             const shadeDir = SHADE_DIR_VECS[opts.shade_direction] ? opts.shade_direction : null
-            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}`
+            const emission = Math.max(0, Math.min(15, opts.light_emission ?? 0))
+            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}`
             let material = materialCache.get(key)
             if (!material) {
-              material = await makeMaterial(await loadModelTexture(id, opts.tint), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir)
+              material = await makeMaterial(await loadModelTexture(id, opts.tint), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission)
               materialCache.set(key, material)
             }
             return material
@@ -1613,14 +1615,21 @@ export async function loadModel(scene, assets, model, args) {
   return rootGroup
 }
 
-async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir) {
+async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0) {
   if ((lighting === "scene" || lighting === "off") && shader?.type !== "end_portal") {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.needsUpdate = true
     const side = doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide
-    return lighting === "scene"
-      ? new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: 0.5, side })
-      : new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.5, side })
+    if (lighting === "scene") {
+      const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: 0.5, side })
+      if (emission > 0) {
+        mat.emissive = new THREE.Color(0xffffff)
+        mat.emissiveMap = texture
+        mat.emissiveIntensity = emission / 15
+      }
+      return mat
+    }
+    return new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.5, side })
   }
   if (shader?.type === "end_portal") {
     const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
