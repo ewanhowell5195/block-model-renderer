@@ -1,9 +1,9 @@
 import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace } from "./platform.js"
-import { COLOURS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, parseColor, getPotionColor } from "./colours.js"
+import { COLORS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, parseColor, getPotionColor } from "./colors.js"
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
-import { modelLoaders } from "./loaders.js"
+import { modelLoaders, activeLoaders } from "./loaders.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
@@ -224,7 +224,7 @@ export async function parseBlockstate(assets, blockstate, args) {
 
     if (COLORMAP_BLOCKS[block]) {
       const tint = await getColorMapTint(assets, COLORMAP_BLOCKS[block], 0.5, 1)
-      const index = COLOURS.tintindex[block] ?? 0
+      const index = COLORS.tintindex[block] ?? 0
       model.tints = []
       for (let t = 0; t <= index; t++) model.tints.push(t === index ? tint : "#FFFFFF")
     } else if (FIXED_TINT_BLOCKS[block]) {
@@ -325,7 +325,7 @@ export async function parseItemDefinition(assets, itemId, args) {
         }
         const type = normalize(tint.type)
         if (type === "team" && data["team"] !== undefined) {
-          const teamColor = COLOURS.team[normalize(data["team"])]
+          const teamColor = COLORS.team[normalize(data["team"])]
           tints.push(teamColor !== undefined ? parseColor(teamColor) : parseColor(tint.default ?? 16777215))
         } else if (type === "dye" && data["dyed_color"] !== undefined) {
           tints.push(parseColor(data["dyed_color"]))
@@ -533,7 +533,7 @@ function applyTint(img, tint) {
   const ctx = canvas.getContext("2d")
   ctx.drawImage(img, 0, 0)
   ctx.globalCompositeOperation = "multiply"
-  ctx.fillStyle = COLOURS.dye[tint] ?? tint
+  ctx.fillStyle = COLORS.dye[tint] ?? tint
   ctx.fillRect(0, 0, img.width, img.height)
   ctx.globalCompositeOperation = "destination-in"
   ctx.drawImage(img, 0, 0)
@@ -658,7 +658,7 @@ export async function resolveModelData(assets, model) {
   const loaderOwned = new Set()
   for (const [key, values] of collected) {
     let value
-    for (const loader of modelLoaders) {
+    for (const loader of activeLoaders()) {
       value = await loader.mergeKey?.(key, values, merged, stack)
       if (value !== undefined) break
     }
@@ -846,7 +846,7 @@ async function resolveSpecialModel(assets, data, base) {
       translation = [-8, -20, -8]
       rotation = [0, 0, 180]
       scale = [1.5, 1.5, 1.5]
-      model.tints = [COLOURS.dye[data.color]]
+      model.tints = [COLORS.dye[data.color]]
       break
     case "chest": {
       rotation = [0, 180, 0]
@@ -1056,6 +1056,7 @@ export async function loadModel(scene, assets, model, args) {
   if (assets == null || assets.length === 0) throw new Error("loadModel requires assets")
   const display = args?.display ?? "gui"
   const lighting = args?.lighting
+  const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
   if (args?.version && !model.version) model.version = args.version
   assets = await prepareAssets(assets)
 
@@ -1525,14 +1526,14 @@ export async function loadModel(scene, assets, model, args) {
 
   if (!model.fluid && (model.elements?.length ?? 0) > 1) mergeElementMeshes(containerGroup)
 
-  for (const loader of modelLoaders) {
+  for (const loader of activeLoaders()) {
     if (loader.build && loader.match?.(model)) {
       await loader.build({
         group: containerGroup,
         model,
         assets,
         args,
-        block: args?.block ?? null,
+        block,
         helpers: {
           THREE,
           lighting,

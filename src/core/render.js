@@ -100,7 +100,7 @@ export async function renderBlock(args = {}) {
 
   const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, blockstates: args.blockstates, neighbors: args.neighbors, assets, version: args.version }) : undefined)
 
-  const block = { id: args.id, properties: args.blockstates, neighbors: args.neighbors ?? null }
+  const block = { id: args.id, properties: args.blockstates }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale })

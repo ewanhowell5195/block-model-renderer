@@ -1,6 +1,6 @@
 export { setPlatform } from "./core/platform.js"
 export { ModelLoader } from "./core/loaders.js"
-export { COLOURS, isWaterloggable } from "./core/colours.js"
+export { COLORS, isWaterloggable } from "./core/colors.js"
 export { selfCulls, canOcclude } from "./core/culling.js"
 export { occludingFaces, faceIsEmpty, faceCovered } from "./core/occlusion.js"
 export { prepareAssets, disposeCache, readFile, listDirectory, zipAssets, zipEntryFromFiles, parsePackFilter } from "./core/assets.js"

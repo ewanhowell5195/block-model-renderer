@@ -1,6 +1,6 @@
 import { normalize, matchId } from "./platform.js"
 
-export const COLOURS = {
+export const COLORS = {
   colormap: {
     grass: ["bush", "fern", "grass_block", "large_fern", "pink_petals", "potted_fern", "short_grass", "sugar_cane", "tall_grass", "wildflowers"],
     foliage: ["acacia_leaves", "dark_oak_leaves", "jungle_leaves", "mangrove_leaves", "oak_leaves", "vine"],
@@ -51,19 +51,20 @@ export const COLOURS = {
     yellow: "#fed83d"
   },
   effects: {
-    speed: 3402751, slowness: 9154528, haste: 14270531, mining_fatigue: 4866583,
-    strength: 16762624, instant_health: 16262179, instant_damage: 11101546,
-    jump_boost: 16646020, nausea: 5578058, regeneration: 13458603,
-    resistance: 9520880, fire_resistance: 16750848, water_breathing: 10017472,
-    invisibility: 16185078, blindness: 2039587, night_vision: 12779366,
-    hunger: 5797459, weakness: 4738376, poison: 8889187, wither: 7561558,
-    health_boost: 16284963, absorption: 2445989, saturation: 16262179,
-    glowing: 9740385, levitation: 13565951, luck: 5882118, unluck: 12624973,
-    slow_falling: 15978425, conduit_power: 1950417, dolphins_grace: 8954814,
-    bad_omen: 745784, hero_of_the_village: 4521796, darkness: 2696993,
-    trial_omen: 1484454, raid_omen: 14565464, wind_charged: 12438015,
-    weaving: 7891290, oozing: 10092451, infested: 9214860,
-    breath_of_the_nautilus: 65518
+    speed: "#33EBFF", slowness: "#8BAFE0", haste: "#D9C043",
+    mining_fatigue: "#4A4217", strength: "#FFC700", instant_health: "#F82423",
+    instant_damage: "#A9656A", jump_boost: "#FDFF84", nausea: "#551D4A",
+    regeneration: "#CD5CAB", resistance: "#9146F0", fire_resistance: "#FF9900",
+    water_breathing: "#98DAC0", invisibility: "#F6F6F6", blindness: "#1F1F23",
+    night_vision: "#C2FF66", hunger: "#587653", weakness: "#484D48",
+    poison: "#87A363", wither: "#736156", health_boost: "#F87D23",
+    absorption: "#2552A5", saturation: "#F82423", glowing: "#94A061",
+    levitation: "#CEFFFF", luck: "#59C106", unluck: "#C0A44D",
+    slow_falling: "#F3CFB9", conduit_power: "#1DC2D1", dolphins_grace: "#88A3BE",
+    bad_omen: "#0B6138", hero_of_the_village: "#44FF44", darkness: "#292721",
+    trial_omen: "#16A6A6", raid_omen: "#DE4058", wind_charged: "#BDC9FF",
+    weaving: "#78695A", oozing: "#99FFA3", infested: "#8C9B8C",
+    breath_of_the_nautilus: "#00FFEE"
   },
   potions: {
     long_night_vision: ["night_vision"], long_invisibility: ["invisibility"],
@@ -84,19 +85,19 @@ export const COLOURS = {
     long_slow_falling: ["slow_falling"]
   },
   team: {
-    black: 0, dark_blue: 170, dark_green: 43520, dark_aqua: 43690,
-    dark_red: 11141120, dark_purple: 11141290, gold: 16755200, gray: 11184810,
-    dark_gray: 5592405, blue: 5592575, green: 5635925, aqua: 5636095,
-    red: 16733525, light_purple: 16733695, yellow: 16777045, white: 16777215
+    black: "#000000", dark_blue: "#0000AA", dark_green: "#00AA00", dark_aqua: "#00AAAA",
+    dark_red: "#AA0000", dark_purple: "#AA00AA", gold: "#FFAA00", gray: "#AAAAAA",
+    dark_gray: "#555555", blue: "#5555FF", green: "#55FF55", aqua: "#55FFFF",
+    red: "#FF5555", light_purple: "#FF55FF", yellow: "#FFFF55", white: "#FFFFFF"
   }
 }
 
 export const COLORMAP_BLOCKS = {}
-for (const [map, blocks] of Object.entries(COLOURS.colormap)) {
+for (const [map, blocks] of Object.entries(COLORS.colormap)) {
   for (const block of blocks) COLORMAP_BLOCKS[block] = map
 }
 export const FIXED_TINT_BLOCKS = {}
-for (const [key, entry] of Object.entries(COLOURS.fixed)) {
+for (const [key, entry] of Object.entries(COLORS.fixed)) {
   if (entry.blocks) {
     for (const block of entry.blocks) FIXED_TINT_BLOCKS[block] = entry.color
   } else {
@@ -104,7 +105,7 @@ for (const [key, entry] of Object.entries(COLOURS.fixed)) {
   }
 }
 export const INDEXED_TINT_BLOCKS = {}
-for (const entry of Object.values(COLOURS.indexed)) {
+for (const entry of Object.values(COLORS.indexed)) {
   for (const block of entry.blocks) INDEXED_TINT_BLOCKS[block] = entry
 }
 
@@ -137,16 +138,17 @@ export function parseColor(c) {
 
 export function getPotionColor(potionName) {
   const name = normalize(potionName)
-  const effects = COLOURS.potions[name]
+  const effects = COLORS.potions[name]
   if (!effects || effects.length === 0) {
-    const direct = COLOURS.effects[name]
+    const direct = COLORS.effects[name]
     return direct !== undefined ? parseColor(direct) : null
   }
   let r = 0, g = 0, b = 0, total = 0
   for (const entry of effects) {
     const [effect, amp] = Array.isArray(entry) ? entry : [entry, 0]
-    const color = COLOURS.effects[effect]
-    if (color === undefined) continue
+    const hex = COLORS.effects[effect]
+    if (hex === undefined) continue
+    const color = parseInt(hex.slice(1), 16)
     const weight = amp + 1
     r += weight * ((color >> 16) & 0xFF)
     g += weight * ((color >> 8) & 0xFF)

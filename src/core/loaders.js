@@ -1,10 +1,13 @@
 export const modelLoaders = []
 
+export function activeLoaders() {
+  return modelLoaders.slice().sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
+}
+
 export const ModelLoader = {
   register(loader) {
     if (!loader || typeof loader !== "object") throw new Error("ModelLoader.register requires a loader object")
     modelLoaders.push(loader)
-    modelLoaders.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0))
     return loader
   },
   remove(loader) {
@@ -14,11 +17,11 @@ export const ModelLoader = {
     return true
   },
   list() {
-    return Array.from(modelLoaders)
+    return activeLoaders()
   },
   variantKey(model, block) {
     let key = null
-    for (const loader of modelLoaders) {
+    for (const loader of activeLoaders()) {
       if (loader.variantKey && loader.match?.(model)) {
         const k = loader.variantKey(model, block)
         if (k != null) key = key === null ? String(k) : `${key}\0${k}`

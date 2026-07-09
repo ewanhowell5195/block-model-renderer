@@ -117,7 +117,7 @@ function applyTint(img, tint) {
   const ctx = canvas.getContext("2d")
   ctx.drawImage(img, 0, 0)
   ctx.globalCompositeOperation = "multiply"
-  ctx.fillStyle = COLOURS.dye[tint] ?? tint
+  ctx.fillStyle = COLORS.dye[tint] ?? tint
   ctx.fillRect(0, 0, img.width, img.height)
   ctx.globalCompositeOperation = "destination-in"
   ctx.drawImage(img, 0, 0)
