@@ -536,13 +536,15 @@ function applyTint(img, tint) {
   return canvas
 }
 
-function imageIsTranslucent(img) {
+function imageIsTranslucent(img, cutoff) {
+  const min = cutoff?.min ?? 5
+  const max = cutoff?.max ?? 240
   const canvas = new Canvas(img.width, img.height)
   const ctx = canvas.getContext("2d")
   ctx.drawImage(img, 0, 0)
   const data = ctx.getImageData(0, 0, img.width, img.height).data
   for (let i = 3; i < data.length; i += 4) {
-    if (data[i] > 5 && data[i] < 250) return true
+    if (data[i] > min && data[i] < max) return true
   }
   return false
 }
@@ -1084,7 +1086,7 @@ export async function loadModel(scene, assets, model, args) {
     }
 
     const texture = await makeThreeTexture(image)
-    texture.userData.translucent = imageIsTranslucent(image)
+    texture.userData.translucent = imageIsTranslucent(image, assets.translucency)
     if (loaded.animated && frames) {
       texture.userData.frames = frames
       texture.userData.times = loaded.times

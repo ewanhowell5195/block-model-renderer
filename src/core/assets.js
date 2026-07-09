@@ -114,6 +114,7 @@ async function isFilteredByHigher(entries, index, filePath) {
 export async function prepareAssets(assets, opts) {
   if (Array.isArray(assets) && assets.prepared) {
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
+    if (opts?.translucency) assets.translucency = opts.translucency
     return assets
   }
 
@@ -131,6 +132,7 @@ export async function prepareAssets(assets, opts) {
   await platform.addBundledEntries(prepared)
   prepared.prepared = true
   if (opts?.cache) prepared.cache = makeCache()
+  if (opts?.translucency) prepared.translucency = opts.translucency
   await loadAtlases(prepared)
   return prepared
 }
