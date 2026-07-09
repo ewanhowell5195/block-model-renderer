@@ -1,5 +1,6 @@
 import { platform, render, THREE } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
+import { sortObjectOnce } from "./sorting.js"
 import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
@@ -204,6 +205,7 @@ export async function renderModelScene(scene, camera, args) {
       obj.renderOrder = maxZ
     }
   })
+  sortObjectOnce(scene, camera)
 
   const size = platform.resolveRenderSize?.(args)
   const baseWidth = size?.width ?? args?.width ?? 256
