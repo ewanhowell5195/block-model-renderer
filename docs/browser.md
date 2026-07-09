@@ -30,7 +30,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](scenes.md#culling-hidden-faces) |
 | `shaderScale` | `1` | Density multiplier for screen-space shader effects (the end portal). The pattern is sized as if the block filled the viewport, so raise this when the block renders small in a larger scene. Exposed as the `Scale` uniform on the shader material, so it can also be updated live |
 | `ignoreAtlases` | `false` | Render without enforcing texture atlas membership rules (which atlas a model's textures may come from) |
-| `version` | | Minecraft version the assets are for. Enables era-appropriate behaviour (see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)) |
+| `version` | | Minecraft version the assets are for. Enables era-appropriate behavior (see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)) |
 
 Default display:
 ```js
@@ -92,7 +92,7 @@ three is a peer dependency you supply, resolved lazily on first use:
    ```
 3. A [`THREE`](api.md) global, if you made one
 
-The recommended version is **0.162.0**, the version the renderer is built and tested against. Other versions from ~0.152 up will probably work, but if a newer three shifts colours or breaks behaviour, adjusting for it is on you. The instance the library resolved is re-exported (`import { THREE } from "block-model-renderer"`, populated after the first call, or `await getThree()`); build your own scenes from it rather than a second three copy.
+The recommended version is **0.162.0**, the version the renderer is built and tested against. Other versions from ~0.152 up will probably work, but if a newer three shifts colors or breaks behavior, adjusting for it is on you. The instance the library resolved is re-exported (`import { THREE } from "block-model-renderer"`, populated after the first call, or `await getThree()`); build your own scenes from it rather than a second three copy.
 
 ## Rendering to canvases
 
@@ -195,7 +195,7 @@ The end portal and end gateway also animate live. Their shader is driven by game
 
 Players cache their rendered frames as they play, so steady-state playback is a single `drawImage` per tick instead of a scene render. Controlled by the `cache` option on the render call:
 
-| Value | Behaviour |
+| Value | Behavior |
 |---|---|
 | `"auto"` | Default. Cache when one full loop fits the budget (`frames.length × width × height × 4` bytes ≤ the `cacheBudget` option, default 4MB). Shader-driven animation (end portal) never caches |
 | `true` | Always cache; you've done the memory maths yourself |
@@ -239,6 +239,6 @@ The bundled block entity overrides are fetched once as a single `assets.zip` res
 * [Models](models.md): display transforms, model-inspection helpers, the tint tables
 * [Assets](assets.md): pack layering, virtual handlers, [`prepareAssets`](api.md) and caching, the bundled packs
 * [Fluids](fluids.md): water and lava surface shaping
-* [Building scenes](scenes.md): the low-level API for custom rendering pipelines, hidden-face culling, and scene optimisation
+* [Building scenes](scenes.md): the low-level API for custom rendering pipelines, hidden-face culling, and scene optimization
 * [Extending](extending.md): non-vanilla model fields and custom model loaders
-* [Legacy Minecraft versions](versions.md): the `version` option and era-specific behaviour
+* [Legacy Minecraft versions](versions.md): the `version` option and era-specific behavior

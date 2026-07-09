@@ -74,7 +74,7 @@ for (const id of ["stone", "dirt", "oak_log"]) {
 
 ### Caching
 
-Within a single render call nothing is ever decoded or resolved twice: the block, its cull neighbours, and an item's layers all share one internal cache. Pass `{ cache: true }` to extend that reuse **across** calls:
+Within a single render call nothing is ever decoded or resolved twice: the block, its cull neighbors, and an item's layers all share one internal cache. Pass `{ cache: true }` to extend that reuse **across** calls:
 
 ```js
 const assets = await prepareAssets(sources, { cache: true })

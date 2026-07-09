@@ -26,11 +26,11 @@ export function canOcclude(block) {
   return !isFluid(block) && !matchId(block, NO_OCCLUDE)
 }
 
-export function selfCulls(block, neighbour, direction) {
-  if (!block || !neighbour) return false
-  block = normalize(block); neighbour = normalize(neighbour)
-  if (isFluid(block) && isFluid(neighbour)) return fluidFamily(block) === fluidFamily(neighbour)
-  if (block !== neighbour) return false
+export function selfCulls(block, neighbor, direction) {
+  if (!block || !neighbor) return false
+  block = normalize(block); neighbor = normalize(neighbor)
+  if (isFluid(block) && isFluid(neighbor)) return fluidFamily(block) === fluidFamily(neighbor)
+  if (block !== neighbor) return false
   if (selfCullAny(block)) return true
   if (selfCullY(block) && (direction === "up" || direction === "down")) return true
   return false

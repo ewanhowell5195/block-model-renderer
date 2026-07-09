@@ -100,7 +100,7 @@ ModelLoader.register({
   }
 })
 
-// the parent model contributes the big centre crystal: four triangles from a
+// the parent model contributes the big center crystal: four triangles from a
 // base square up to the apex. the child adds two smaller crystals of its own,
 // and the polygons lists concatenate through the merge
 const parent = {

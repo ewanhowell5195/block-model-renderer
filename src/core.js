@@ -8,5 +8,5 @@ export { computeAnimationTimeline, interpolateFrames, collectAnimated, buildSche
 export { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel } from "./core/models.js"
 export { fluidHeights, fluidTypeOf } from "./core/fluids.js"
 export { renderBlock, renderItem, renderModel, makeModelScene, renderModelScene, getCullFaces } from "./core/render.js"
-export { optimiseScene } from "./core/optimise.js"
+export { optimizeScene } from "./core/optimize.js"
 export { sortTranslucent } from "./core/sorting.js"

@@ -15,11 +15,11 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 | `transformation` | `{ translation: [0,0,0], scale: [1,1,1], left_rotation: [0,0,0,1], right_rotation: [0,0,0,1] }` | Translation, rotation, and scale applied to the whole model before rendering. Accepts the vanilla item-definition transformation form (translation/rotations/scale) or a flat 16-element matrix array |
 | `ignore_rotations` | `true` | Skip the [display](models.md#display-transforms) rotation for this model |
 | `double_sided` | `true` | Render all faces from both sides |
-| `tints` | `["#FF0000", "#00FF00"]` | Array of hex colour strings. Faces with a `tintindex` look up their tint from this array |
+| `tints` | `["#FF0000", "#00FF00"]` | Array of hex color strings. Faces with a `tintindex` look up their tint from this array |
 | `shader` | `{ type: "end_portal", layers: 15 }` | Apply the end portal / end gateway shader to the model |
 | `type` | `"block"`, `"item"` | Which texture atlas rules to enforce. Block-type models use only the manually provided display settings. Model-defined displays are ignored since they are meant to apply to items, not blocks |
 | `ignore_atlas_restrictions` | `true` | Skip texture atlas membership checks for this model, letting it reference textures from any atlas |
-| `version` | `"26.3"` | Minecraft version the model is for. Enables era-appropriate behaviour, see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
+| `version` | `"26.3"` | Minecraft version the model is for. Enables era-appropriate behavior, see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
 ### Blockstate JSON
 
@@ -33,7 +33,7 @@ Extra fields that can be passed through the `components` arg on [`renderItem`](a
 
 | Field | Example | Description |
 |---|---|---|
-| `team` | `"red"` | Team colour context used by the `team` tint source |
+| `team` | `"red"` | Team color context used by the `team` tint source |
 | `context_entity_type` | `"pig"` | The entity type holding the item, used by `context_entity_type` selects |
 | `context_dimension` | `"the_nether"` | The dimension the item is rendered in, used by `context_dimension` selects |
 
@@ -210,7 +210,7 @@ Optional. A loader whose output varies by placement returns a short string (e.g.
 
 ### Placement-aware models
 
-Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbours). The `block` argument to `build` carries that context: `{ id, properties, neighbors }`, with `neighbors` in the same shape as [culling neighbours](scenes.md#culling-hidden-faces). [`renderBlock`](api.md) fills it in automatically from its `id`/`blockstates`/`neighbors` args; when calling [`loadModel`](api.md) directly, pass `block: { id, properties }` and the surrounding blocks as the separate `neighbors` arg, which gets merged in as `block.neighbors`. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
+Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbors). The `block` argument to `build` carries that context: `{ id, properties, neighbors }`, with `neighbors` in the same shape as [culling neighbors](scenes.md#culling-hidden-faces). [`renderBlock`](api.md) fills it in automatically from its `id`/`blockstates`/`neighbors` args; when calling [`loadModel`](api.md) directly, pass `block: { id, properties }` and the surrounding blocks as the separate `neighbors` arg, which gets merged in as `block.neighbors`. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
 
 A loader whose output varies by placement should also implement [`variantKey`](#variantkeymodel-block), so anything caching built models keys the variants apart.
 

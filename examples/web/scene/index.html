@@ -52,7 +52,7 @@
     <select id="scene"></select>
     <button id="build" class="primary" disabled>Build</button>
     <span id="scenestatus"></span>
-    <p id="hint">Each block is culled against its neighbours with getCullFaces, and fluids shape their surface from the blocks around them</p>
+    <p id="hint">Each block is culled against its neighbors with getCullFaces, and fluids shape their surface from the blocks around them</p>
   </section>
 
   <section>
@@ -95,7 +95,7 @@
   const BUST = Date.now()
   const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
 
-  const { getThree, prepareAssets, disposeCache, parseBlockstate, resolveModelData, loadModel, getCullFaces, createAnimator, optimiseScene } = await import(LIB)
+  const { getThree, prepareAssets, disposeCache, parseBlockstate, resolveModelData, loadModel, getCullFaces, createAnimator, optimizeScene } = await import(LIB)
   const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
   const { OrbitControls } = await import("three/addons/controls/OrbitControls.js")
 
@@ -914,11 +914,11 @@
   }
 
   let modelGroup = null
-  let optimised = null
+  let optimized = null
   function clearScene() {
-    if (optimised) {
-      optimised.dispose()
-      optimised = null
+    if (optimized) {
+      optimized.dispose()
+      optimized = null
       modelGroup = null
       return
     }
@@ -1004,11 +1004,11 @@
         $("scenestatus").textContent = `Building ${done}/${blocks.size}…`
       }
       if (run !== runId) return
-      const opt = await optimiseScene(placements, { shouldCancel: () => run !== runId })
+      const opt = await optimizeScene(placements, { shouldCancel: () => run !== runId })
       if (!opt || run !== runId) { opt?.dispose(); return }
       opt.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
       scene.add(opt.group)
-      optimised = opt
+      optimized = opt
       modelGroup = opt.group
       $("scenestatus").textContent = `${blocks.size} blocks · ${opt.drawCalls} draws · ${(opt.tris / 1000).toFixed(1)}K tris · ${((performance.now() - started) / 1000).toFixed(1)}s`
       $("animaterow").hidden = !createAnimator(opt.group).animated

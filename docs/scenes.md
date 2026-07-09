@@ -42,7 +42,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 
 Returns a list of model references, one per matching model.
 
-Properties you don't pass fall back to the [default blockstates](extending.md#default-blockstates) rules, per property. Along the way it also applies the block's built-in behaviours: biome colormap, fixed, and property-indexed tints (grass, foliage, water, redstone wire, stems), the end portal / end gateway shader, fluid marking on water and lava, and the automatic water layer on waterloggable blocks given `{ waterlogged: true }`.
+Properties you don't pass fall back to the [default blockstates](extending.md#default-blockstates) rules, per property. Along the way it also applies the block's built-in behaviors: biome colormap, fixed, and property-indexed tints (grass, foliage, water, redstone wire, stems), the end portal / end gateway shader, fluid marking on water and lava, and the automatic water layer on waterloggable blocks given `{ waterlogged: true }`.
 
 ## `parseItemDefinition(assets, id, args?)`
 
@@ -53,7 +53,7 @@ Resolves an item definition to a list of model references, walking conditions, s
 | `assets` | The assets source |
 | `id` | The item id |
 | `args.data` | Item components used by the definition |
-| `args.display` | Display context, used by `display_context` selects and tint colour resolution |
+| `args.display` | Display context, used by `display_context` selects and tint color resolution |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
 | `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
@@ -64,10 +64,10 @@ Returns a list of model references.
 The full item definition format is supported. What that means in practice:
 
 * **Model types**: `model`, `composite`, `condition`, `select`, `range_dispatch`, `special`, and `bundle/selected_item`. Nested `transformation` fields compose down the tree
-* **Special models** (`type: "special"`) render through the [bundled overrides](assets.md#bundled-packs): banners, chests, shulker boxes, heads and skulls, conduits, decorated pots, shields, tridents, copper golem statues, and the end portal cube. Runtime state like `openness`, `chest_type`, banner `color`, and statue `pose` is honoured
+* **Special models** (`type: "special"`) render through the [bundled overrides](assets.md#bundled-packs): banners, chests, shulker boxes, heads and skulls, conduits, decorated pots, shields, tridents, copper golem statues, and the end portal cube. Runtime state like `openness`, `chest_type`, banner `color`, and statue `pose` is honored
 * **Select properties**: `custom_model_data` (strings), `component`, `block_state`, `charge`, `trim_material`, `display_context` (fed from `args.display`), `local_time` (formatted from the actual current time using the definition's pattern), plus any plain string property looked up in `args.data` by name, so future vanilla additions work without renderer updates
 * **Condition properties**: `custom_model_data` (flags), `has_component`, and any plain boolean property in `args.data`
-* **Tint sources**: `team`, `dye`, `map_color`, `potion` (with the vanilla effect colour blending), `custom_model_data` (colors), `firework` (colour averaging), `grass`/`foliage`/`dry_foliage` (sampled from the colormaps), and `constant`/`default` values
+* **Tint sources**: `team`, `dye`, `map_color`, `potion` (with the vanilla effect color blending), `custom_model_data` (colors), `firework` (color averaging), `grass`/`foliage`/`dry_foliage` (sampled from the colormaps), and `constant`/`default` values
 
 Component values take the same shape as in game data. Two conveniences: a bare number for `custom_model_data` acts as `{ floats: [n] }` (the pre-1.21.4 shorthand), and `dyed_color` accepts the `{ rgb }` wrapper form. A few pseudo-components stand in for runtime context the game would provide; see [Item components](extending.md#item-components).
 
@@ -149,13 +149,13 @@ Renders a scene to an image buffer. Takes all the same output options as [`rende
 | `camera` | The camera to render from |
 | `args` | The output options of [`renderBlock`](api.md), same as the standard API ([Node](node.md#renderblockargs), [Browser](browser.md#renderblockargs)) |
 
-Returns an image buffer, or `{ buffer, format }` when `args.animated` is truthy. In the browser it returns a canvas or player instead, honouring the browser `canvas`/placement options.
+Returns an image buffer, or `{ buffer, format }` when `args.animated` is truthy. In the browser it returns a canvas or player instead, honoring the browser `canvas`/placement options.
 
 Translucent faces in the scene are depth-sorted once against the given camera before rendering, so water behind glass draws correctly. For live scenes where the camera moves, see [`sortTranslucent`](api.md).
 
 ## Culling hidden faces
 
-Blocks in the world hide the faces pressed against their neighbours. To render a block the way it looks in place (no bottom face against the ground, no side faces against adjacent blocks), pass `neighbors` to [`renderBlock`](api.md):
+Blocks in the world hide the faces pressed against their neighbors. To render a block the way it looks in place (no bottom face against the ground, no side faces against adjacent blocks), pass `neighbors` to [`renderBlock`](api.md):
 
 ```js
 await renderBlock({
@@ -173,7 +173,7 @@ await renderBlock({
 
 The rules follow Minecraft's `shouldRenderFace`. A `cullface`-authored face is dropped when:
 
-* the neighbour's shape fully covers it. This is state-aware, so two adjacent bottom slabs cull their touching sides but a top slab against a bottom slab doesn't
+* the neighbor's shape fully covers it. This is state-aware, so two adjacent bottom slabs cull their touching sides but a top slab against a bottom slab doesn't
 * the block self-culls against its own kind (glass against glass, water against water)
 
 And never against blocks the game flags as non-occluding (glass, leaves, powder snow), no matter how solid they look.
@@ -201,7 +201,7 @@ const cull = await getCullFaces({
   id: "oak_stairs",
   blockstates: { facing: "east", half: "bottom" },
   neighbors: {
-    down: { id: "oak_slab", type: "top" }, // neighbours take blockstates too
+    down: { id: "oak_slab", type: "top" }, // neighbors take blockstates too
     up: "glass"
   },
   assets
@@ -214,12 +214,12 @@ A neighbor entry can also carry an explicit `occludes` boolean (`{ id: "stone", 
 
 Because occlusion comes from the models, modded blocks and custom packs just work. The models a call builds are cached for that call; with [`prepareAssets(assets, { cache: true })`](api.md) they're cached across calls too.
 
-## Scene optimisation
+## Scene optimization
 
-Building a world out of per-block [`loadModel`](api.md) groups works, but every block is its own meshes and draw calls. [`optimiseScene`](api.md) merges the whole scene into a handful of draw calls, with far fewer polygons, so a wall of different blocks becomes roughly one draw call:
+Building a world out of per-block [`loadModel`](api.md) groups works, but every block is its own meshes and draw calls. [`optimizeScene`](api.md) merges the whole scene into a handful of draw calls, with far fewer polygons, so a wall of different blocks becomes roughly one draw call:
 
 ```js
-import { parseBlockstate, resolveModelData, loadModel, getCullFaces, optimiseScene } from "block-model-renderer"
+import { parseBlockstate, resolveModelData, loadModel, getCullFaces, optimizeScene } from "block-model-renderer"
 
 // your world: cell "x,y,z" -> block. two stone side by side, a log on top of one
 const grid = {
@@ -228,9 +228,9 @@ const grid = {
   "0,1,0": { id: "oak_log", blockstates: { axis: "y" } }
 }
 
-// the six face offsets, and a getter that reads a cell's neighbours off the grid
+// the six face offsets, and a getter that reads a cell's neighbors off the grid
 const FACES = { down: [0,-1,0], up: [0,1,0], north: [0,0,-1], south: [0,0,1], west: [-1,0,0], east: [1,0,0] }
-function neighboursAt([x, y, z]) {
+function neighborsAt([x, y, z]) {
   const n = {}
   for (const dir in FACES) {
     const [dx, dy, dz] = FACES[dir]
@@ -254,21 +254,21 @@ async function groupFor(block) {
   return groups.get(key)
 }
 
-// turn the grid into placements, culling each cell against its neighbours
+// turn the grid into placements, culling each cell against its neighbors
 const placements = []
 for (const key in grid) {
   const block = grid[key], pos = key.split(",").map(Number)
   placements.push({
     pos,
     group: await groupFor(block),
-    cull: await getCullFaces({ id: block.id, blockstates: block.blockstates, neighbors: neighboursAt(pos), assets })
+    cull: await getCullFaces({ id: block.id, blockstates: block.blockstates, neighbors: neighborsAt(pos), assets })
   })
 }
 
-const optimised = await optimiseScene(placements, {
+const optimized = await optimizeScene(placements, {
   onProgress: (done, total) => console.log(`meshed ${done}/${total}`)
 })
-threeScene.add(optimised.group)
+threeScene.add(optimized.group)
 ```
 
 Each placement is `{ pos, group, cull }`: `pos` is the block's `[x, y, z]` cell coordinate (16 units per cell), `group` is [`loadModel`](api.md) output, and `cull` is an optional `Set` of face directions hidden at that placement (from [`getCullFaces`](api.md)). Above, the two stone blocks cull their touching faces and the log culls its underside, so those faces never reach the merged mesh.
@@ -293,9 +293,9 @@ Animated textures (water, lava, fire) stay live in the merged output and keep pl
 
 ### Translucent sorting
 
-Translucent faces (water, stained glass, ice) blend, and blending is order dependent: they must draw far-to-near or things behind show through things in front. The render functions handle this automatically against their fixed camera. [`optimiseScene`](api.md) attaches a movement-gated sorter to its merged translucent meshes: whenever the live camera has moved `resortDistance` units (default 16, one block) since a mesh last sorted, its triangles re-sort far-to-near, budgeted to one mesh per frame.
+Translucent faces (water, stained glass, ice) blend, and blending is order dependent: they must draw far-to-near or things behind show through things in front. The render functions handle this automatically against their fixed camera. [`optimizeScene`](api.md) attaches a movement-gated sorter to its merged translucent meshes: whenever the live camera has moved `resortDistance` units (default 16, one block) since a mesh last sorted, its triangles re-sort far-to-near, budgeted to one mesh per frame.
 
-For your own live scenes (a model viewer orbiting a [`loadModel`](api.md) group), attach the same behaviour manually:
+For your own live scenes (a model viewer orbiting a [`loadModel`](api.md) group), attach the same behavior manually:
 
 ```js
 import { sortTranslucent } from "block-model-renderer"

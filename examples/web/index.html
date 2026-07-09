@@ -426,7 +426,7 @@
           <li>Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, etc)</li>
           <li>Stack resource pack folders, zips, and virtual handlers, with higher packs overriding lower ones just like in Minecraft</li>
           <li>Animated textures: WebP and GIF output on Node, live self-updating canvases on web</li>
-          <li>Scene optimisation: near game-accurate hidden-face culling from neighbouring blocks, and the whole scene merged into a handful of draw calls, with far fewer polygons</li>
+          <li>Scene optimization: near game-accurate hidden-face culling from neighboring blocks, and the whole scene merged into a handful of draw calls, with far fewer polygons</li>
           <li>Extensible model loaders: write your own to support modded formats (OBJ models, connected textures, etc)</li>
           <li>PNG, JPEG, WebP, GIF, and AVIF output on Node</li>
         </ul>
@@ -450,7 +450,7 @@
           </a>
           <a href="scene/">
             <h3>Scene Builder</h3>
-            <p>Little voxel dioramas built with the low-level API. Blocks are culled against their neighbours, fluids shape their surfaces, and the whole scene is merged into a handful of draw calls.</p>
+            <p>Little voxel dioramas built with the low-level API. Blocks are culled against their neighbors, fluids shape their surfaces, and the whole scene is merged into a handful of draw calls.</p>
           </a>
         </div>
       </div>
@@ -651,7 +651,7 @@ await renderModel({
 
       <div class="section">
         <h2>Building Scenes</h2>
-        <p>The low-level API loads models straight into your own three.js scene, so you can build viewers, editors, and whole worlds around it. Each block is culled against its neighbours with <code>getCullFaces</code>, fluids shape their surfaces from the blocks around them, and <code>optimiseScene</code> merges everything into a handful of draw calls. This one is live; drag to rotate:</p>
+        <p>The low-level API loads models straight into your own three.js scene, so you can build viewers, editors, and whole worlds around it. Each block is culled against its neighbors with <code>getCullFaces</code>, fluids shape their surfaces from the blocks around them, and <code>optimizeScene</code> merges everything into a handful of draw calls. This one is live; drag to rotate:</p>
         <div class="tab-bar">
           <button class="tab-bar-button active" data-tab="campfire">Single Block</button>
           <button class="tab-bar-button" data-tab="camp">Small Scene</button>
@@ -681,11 +681,11 @@ animator.update()</code></pre>
             <div class="demo demo-three">
               <canvas id="three-camp"></canvas>
             </div>
-            <pre><code>import { getCullFaces, optimiseScene } from "block-model-renderer"
+            <pre><code>import { getCullFaces, optimizeScene } from "block-model-renderer"
 
 const placements = []
 for (const block of blocks) {
-  // faces hidden by neighbouring blocks get culled, like in the game
+  // faces hidden by neighboring blocks get culled, like in the game
   const cull = await getCullFaces({ id: block.id, blockstates: block.properties, neighbors: block.neighbors, assets })
   const group = new THREE.Group()
   for (const model of await parseBlockstate(assets, block.id, { data: block.properties })) {
@@ -696,20 +696,20 @@ for (const block of blocks) {
 }
 
 // merge the whole scene into a handful of draw calls, with far fewer polygons
-const optimised = await optimiseScene(placements)
-scene.add(optimised.group)</code></pre>
+const optimized = await optimizeScene(placements)
+scene.add(optimized.group)</code></pre>
           </div>
           <div class="tab-content" data-tab="campsite">
             <div class="demo demo-three">
               <canvas id="three-campsite"></canvas>
             </div>
             <pre><code>// bigger scenes work exactly the same way: the pond's water reads its
-// neighbours to shape its surface, and every hidden face gets culled
+// neighbors to shape its surface, and every hidden face gets culled
 const cull = await getCullFaces({ id: "water", blockstates: { level: "0" }, neighbors, assets })
 
 // and the whole campsite still merges down to a handful of draw calls
-const optimised = await optimiseScene(placements)
-console.log(`${optimised.drawCalls} draws, ${(optimised.tris / 1000).toFixed(1)}K tris`)</code></pre>
+const optimized = await optimizeScene(placements)
+console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}K tris`)</code></pre>
           </div>
         </div>
       </div>
@@ -750,7 +750,7 @@ console.log(`${optimised.drawCalls} draws, ${(optimised.tris / 1000).toFixed(1)}
     try {
       const {
         renderBlock, renderItem, renderModel, prepareAssets, disposeCache, listDirectory, readFile,
-        getThree, parseBlockstate, resolveModelData, loadModel, getCullFaces, optimiseScene, createAnimator,
+        getThree, parseBlockstate, resolveModelData, loadModel, getCullFaces, optimizeScene, createAnimator,
         pauseAnimations, resumeAnimations
       } = await import(LIB)
       const { loadMojangJar } = await import(`./mojang-pack.js?${BUST}`)
@@ -1179,14 +1179,14 @@ console.log(`${optimised.drawCalls} draws, ${(optimised.tris / 1000).toFixed(1)}
           const group = placements[0].group
           handle = { group, dispose: () => disposeGroup(group) }
         } else {
-          const optimised = await optimiseScene(placements, { shouldCancel: stale })
-          if (!optimised) return
+          const optimized = await optimizeScene(placements, { shouldCancel: stale })
+          if (!optimized) return
           if (stale()) {
-            optimised.dispose()
+            optimized.dispose()
             return
           }
-          optimised.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
-          handle = optimised
+          optimized.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
+          handle = optimized
         }
         viewers[name].setHandle(handle, Math.max(dims.w, dims.h, dims.d))
       }

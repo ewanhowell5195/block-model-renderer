@@ -160,7 +160,7 @@ export {
   makeModelScene, renderModelScene,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel,
   fluidHeights, fluidTypeOf, ModelLoader,
-  optimiseScene, sortTranslucent,
+  optimizeScene, sortTranslucent,
   zipAssets
 } from "./core.js"
 export { parseZip } from "./zip.js"

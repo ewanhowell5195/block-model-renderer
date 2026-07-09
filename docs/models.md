@@ -1,6 +1,6 @@
 # Models
 
-Model-level behaviour and data: posing a model with display transforms, inspecting what a blockstate resolves to, and the tint tables.
+Model-level behavior and data: posing a model with display transforms, inspecting what a blockstate resolves to, and the tint tables.
 
 ## Display transforms
 
@@ -37,11 +37,11 @@ display: {
 }
 ```
 
-Translation values are clamped to ±80 and scale to ±4, like the game. Mirrored scales (an odd number of negative components) render inside out from 1.15 onwards (MC-176864), which is what unversioned renders do too; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) for the pre-1.15 behaviour.
+Translation values are clamped to ±80 and scale to ±4, like the game. Mirrored scales (an odd number of negative components) render inside out from 1.15 onwards (MC-176864), which is what unversioned renders do too; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) for the pre-1.15 behavior.
 
 ## `isWaterloggable(id)`
 
-Checks whether the renderer recognises a block id as waterloggable. When `true`, passing `{ waterlogged: true }` in the blockstate properties to [`renderBlock`](api.md) or [`parseBlockstate`](api.md) will add a water layer to the returned model. When `false`, the `waterlogged` property has no effect.
+Checks whether the renderer recognizes a block id as waterloggable. When `true`, passing `{ waterlogged: true }` in the blockstate properties to [`renderBlock`](api.md) or [`parseBlockstate`](api.md) will add a water layer to the returned model. When `false`, the `waterlogged` property has no effect.
 
 | Argument | Description |
 |---|---|
@@ -81,7 +81,7 @@ await renderBlock({
 
 ## `COLORS`
 
-The colour tables the renderer tints with, exported as one object for lookups in your own tooling (or careful tweaking; it's the live data):
+The color tables the renderer tints with, exported as one object for lookups in your own tooling (or careful tweaking; it's the live data):
 
 | Key | Contents |
 |---|---|
@@ -89,10 +89,10 @@ The colour tables the renderer tints with, exported as one object for lookups in
 | `fixed` | Blocks with a hardcoded hex tint instead of a colormap. Each entry is `{ color }`, optionally with a `blocks` list of ids that share it (water, birch/spruce leaves, lily pads, attached stems) |
 | `indexed` | Tint ramps selected by a blockstate property: `{ blocks, property, default, colors }` picks `colors[value]` for the block's `property` (stem `age`, redstone wire `power`), falling back to `default` |
 | `tintindex` | Blocks whose colormap tint applies to a `tintindex` other than the default `0`; the value is that index (e.g. `pink_petals: 1`) |
-| `dye` | The 16 dye colours, dye name to hex string |
-| `effects` | Each status effect's particle colour as a hex string, used when tinting from a `potion` |
-| `potions` | Each potion id to the effect(s) it draws colour from (`["speed"]`, or weighted `[["slowness", 3], ["resistance", 2]]`). Their `effects` colours are averaged into the one potion tint |
-| `team` | The 16 team/formatting colours, name to hex string, used by the `team` tint source |
+| `dye` | The 16 dye colors, dye name to hex string |
+| `effects` | Each status effect's particle color as a hex string, used when tinting from a `potion` |
+| `potions` | Each potion id to the effect(s) it draws color from (`["speed"]`, or weighted `[["slowness", 3], ["resistance", 2]]`). Their `effects` colors are averaged into the one potion tint |
+| `team` | The 16 team/formatting colors, name to hex string, used by the `team` tint source |
 
 The shape, abbreviated:
 
@@ -122,7 +122,7 @@ The shape, abbreviated:
   dye: { black: "#1d1d21", light_blue: "#3ab3da", ... },
   effects: { speed: "#33EBFF", poison: "#87A363", ... },
   potions: {
-    swiftness: ["speed"],                                 // draws its colour from one effect
+    swiftness: ["speed"],                                 // draws its color from one effect
     long_swiftness: ["speed"],
     turtle_master: [["slowness", 3], ["resistance", 2]],  // [effect, amplifier] pairs, averaged
     ...

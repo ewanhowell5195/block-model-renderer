@@ -1,6 +1,6 @@
 # Legacy Minecraft versions
 
-The `version` option tells the renderer what Minecraft version the assets are for, so it can apply era-appropriate behaviour automatically. Older versions had quirks that modern ones don't, and this lets the renderer handle them transparently.
+The `version` option tells the renderer what Minecraft version the assets are for, so it can apply era-appropriate behavior automatically. Older versions had quirks that modern ones don't, and this lets the renderer handle them transparently.
 
 ```js
 await renderBlock({
@@ -15,9 +15,9 @@ await renderBlock({
 
 `version` accepts release-style version strings like `"1.8"`, `"1.16.5"`, or `"26.1.2"`. Trailing segments are optional and treated as `0` (so `"26"` compares as `"26.0.0"`). Anything after a `-` is ignored, so snapshot, pre-release, and release-candidate suffixes work too: `"1.21-pre1"`, `"1.21-rc2"`, `"26.1.2-snapshot-2"`.
 
-## Triggered behaviours
+## Triggered behaviors
 
-Each threshold below only kicks in when the `version` you pass falls in its range. Anything you don't pass a `version` for uses the modern behaviour (with the coexistence rules [below](#without-a-version)).
+Each threshold below only kicks in when the `version` you pass falls in its range. Anything you don't pass a `version` for uses the modern behavior (with the coexistence rules [below](#without-a-version)).
 
 | Assets from | What changes | Why |
 |---|---|---|
@@ -28,10 +28,10 @@ Each threshold below only kicks in when the `version` you pass falls in its rang
 | **before 1.21.6** | Element rotation angles that aren't multiples of 22.5° render as the missing model | The game rejected off-grid rotations before 1.21.6 |
 | **before 1.21.11** | Texture atlas membership rules are skipped; element rotations outside ±45° or using the multi-axis `x`/`y`/`z` form render as missing; blockstate variant `z` rotations are ignored | The block/item atlas restriction and the wider rotation form both arrived in 1.21.11, and the game didn't read variant `z` before it |
 | **before 26.3** | The element `shade_direction_override` field is ignored | It didn't exist yet |
-| **26.3 and later** | The element `shade` field is ignored | 26.3 removed it in favour of `shade_direction_override` |
+| **26.3 and later** | The element `shade` field is ignored | 26.3 removed it in favor of `shade_direction_override` |
 
 ## Without a `version`
 
-Everything that can coexist works at once: when the format replaces one field with another, both the old and new forms are supported simultaneously, and the newer form wins if a model carries both. Only behaviours that directly conflict fall back to the modern rules. So an unversioned render still falls back to `models/item/<id>.json`, still converts the old display names, and resolves renamed item definition properties (`holder_type`, `shift_down`) as their current names; passing a `version` turns those into strict era rules instead (a 1.21.4+ game never reads `models/item`, a 1.9+ game ignores the old display names).
+Everything that can coexist works at once: when the format replaces one field with another, both the old and new forms are supported simultaneously, and the newer form wins if a model carries both. Only behaviors that directly conflict fall back to the modern rules. So an unversioned render still falls back to `models/item/<id>.json`, still converts the old display names, and resolves renamed item definition properties (`holder_type`, `shift_down`) as their current names; passing a `version` turns those into strict era rules instead (a 1.21.4+ game never reads `models/item`, a 1.9+ game ignores the old display names).
 
 The option is accepted by every entry point ([`renderBlock`](api.md), [`renderItem`](api.md), [`renderModel`](api.md), [`parseBlockstate`](api.md), [`parseItemDefinition`](api.md), [`loadModel`](api.md)) and is also propagated onto model objects as `model.version`, so manually constructed models can carry it through too.

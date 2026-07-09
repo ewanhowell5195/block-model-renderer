@@ -27,7 +27,7 @@ await renderBlock({
   path: `${outDir}/block_oak_log_x.png`
 })
 
-// A block with a coloured background
+// A block with a colored background
 await renderBlock({
   id: "grass_block",
   assets,

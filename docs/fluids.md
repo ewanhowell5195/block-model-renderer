@@ -2,7 +2,7 @@
 
 Water and lava render like any other block: [`renderBlock({ id: "water", assets })`](api.md) just works, and waterloggable blocks given `{ waterlogged: true }` in their `blockstates` gain the water layer automatically. A standalone render uses the still texture at the game's resting height.
 
-In the world a fluid's shape depends on its surroundings: each surface corner averages with the neighbouring fluid columns, rising to full height against taller fluid and dipping where the fluid falls away, a flowing surface angles its texture along the flow, sides pressed against glass or leaves switch to the overlay texture, and faces shared with the same fluid disappear. To get all of that, give [`loadModel`](api.md) the surrounding blocks:
+In the world a fluid's shape depends on its surroundings: each surface corner averages with the neighboring fluid columns, rising to full height against taller fluid and dipping where the fluid falls away, a flowing surface angles its texture along the flow, sides pressed against glass or leaves switch to the overlay texture, and faces shared with the same fluid disappear. To get all of that, give [`loadModel`](api.md) the surrounding blocks:
 
 ```js
 import { parseBlockstate, resolveModelData, loadModel } from "block-model-renderer"
@@ -75,7 +75,7 @@ for (const model of await parseBlockstate(assets, "oak_fence", { data: { waterlo
 
 | Argument | Description |
 |---|---|
-| `assets` | The assets source (neighbour solidity is read from their models) |
+| `assets` | The assets source (neighbor solidity is read from their models) |
 | `type` | `"water"` or `"lava"`, or `null` for a non-fluid (this is [`fluidTypeOf`](api.md)'s return, passed straight through) |
 | `neighbors` | The surrounding blocks, in the same direction-keyed form shown above |
 
@@ -87,4 +87,4 @@ Returns an object you can pass to [`loadModel`](api.md) as [`fluidHeights`](api.
 | `full` | The block above is the same fluid, so this one renders as a full cube |
 | `angle` | Flow direction in radians for the flowing texture, or `null` when still |
 | `overlay` | `{ north, south, west, east }` booleans: sides that use the `water_overlay` texture (pressed against a block with a full face there, like glass or leaves) |
-| `same` | All six directions: `true` where the neighbour is the same fluid, and the shared face is hidden |
+| `same` | All six directions: `true` where the neighbor is the same fluid, and the shared face is hidden |

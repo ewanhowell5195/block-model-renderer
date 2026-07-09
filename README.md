@@ -15,7 +15,7 @@ Render any block, item, or custom model JSON, with full support for vanilla reso
 * Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, etc)
 * Stack resource pack folders, zips, and virtual handlers, with higher packs overriding lower ones just like in Minecraft
 * Animated textures: WebP and GIF output on Node, live self-updating canvases in the browser
-* Scene optimisation: near game-accurate hidden-face culling from neighbouring blocks, and the whole scene merged into a handful of draw calls, with far fewer polygons
+* Scene optimization: near game-accurate hidden-face culling from neighboring blocks, and the whole scene merged into a handful of draw calls, with far fewer polygons
 * Extensible model loaders: write your own to support modded formats (OBJ models, connected textures, etc)
 * PNG, JPEG, WebP, GIF, and AVIF output on Node
 
@@ -107,7 +107,7 @@ A quick preview of the most-used [`renderBlock`](docs/api.md) options (full list
 | `width`, `height` | `256` | Output size in pixels |
 | `path` | | Node: save the output to this file path |
 | `canvas` | | Browser: a canvas (or several) to draw into |
-| `background` | transparent | Background colour |
+| `background` | transparent | Background color |
 | `display` | the gui view | Display transform: a model display context (`"gui"`, `"fixed"`, etc) or custom rotation/translation/scale. See [Display transforms](docs/models.md#display-transforms) |
 | `animated` | `false` | Animated WebP/GIF on Node, a live player in the browser |
 
@@ -121,12 +121,12 @@ The full documentation lives in [`docs/`](docs/):
 | [Standard API: Node](docs/node.md) | The render functions on Node: all options, file and buffer output, animated WebP/GIF |
 | [Standard API: Browser](docs/browser.md) | The render functions in the browser: all options, canvases, animation players, providing three.js |
 | [Rendering](docs/rendering.md) | How a render looks: backgrounds and lighting modes |
-| [Models](docs/models.md) | Model-level behaviour: display transforms, model-inspection helpers, the tint tables |
+| [Models](docs/models.md) | Model-level behavior: display transforms, model-inspection helpers, the tint tables |
 | [Assets](docs/assets.md) | Asset sources, pack layering, virtual handlers, [`prepareAssets`](docs/api.md) and caching, the bundled packs, file access |
 | [Fluids](docs/fluids.md) | Water and lava surface shaping, [`fluidTypeOf`](docs/api.md), [`fluidHeights`](docs/api.md) |
-| [Building scenes](docs/scenes.md) | The low-level API: blockstate and item definition parsing, [`loadModel`](docs/api.md), hidden-face culling, scene optimisation |
+| [Building scenes](docs/scenes.md) | The low-level API: blockstate and item definition parsing, [`loadModel`](docs/api.md), hidden-face culling, scene optimization |
 | [Extending](docs/extending.md) | Non-vanilla model and blockstate fields, default blockstates, custom model loaders |
-| [Legacy Minecraft versions](docs/versions.md) | The `version` option and the era-specific behaviour it enables |
+| [Legacy Minecraft versions](docs/versions.md) | The `version` option and the era-specific behavior it enables |
 
 ## Examples
 

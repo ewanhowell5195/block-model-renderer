@@ -36,7 +36,7 @@ background: new THREE.Color(0xffffff)
 
 The `lighting` option picks how faces are shaded:
 
-| Value | Material | Behaviour |
+| Value | Material | Behavior |
 |---|---|---|
 | `"item"` (default) | custom shader | The built-in Minecraft item shading, picking the flat (gui) or 3d (inventory) light config from the model's `gui_light` like vanilla. Lights are world-fixed, so faces stay consistently lit as the camera orbits. Matches the snapshot renderers |
 | `"world"` | custom shader | Minecraft's in-world daytime face shading: a flat per-face constant from the world-space normal (up 1.0, down 0.5, north/south 0.8, west/east 0.6). The right mode for blocks placed in world orientation, like structures and dioramas |

@@ -6,8 +6,8 @@ const EMPTY_MASKS = () => ({ east: emptyMask(), west: emptyMask(), up: emptyMask
 
 export function faceIsEmpty(m) { for (let v = 0; v < 16; v++) if (m[v]) return false; return true }
 
-export function faceCovered(self, neighbour) {
-  for (let v = 0; v < 16; v++) if (self[v] & ~neighbour[v] & 0xffff) return false
+export function faceCovered(self, neighbor) {
+  for (let v = 0; v < 16; v++) if (self[v] & ~neighbor[v] & 0xffff) return false
   return true
 }
 

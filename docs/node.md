@@ -30,7 +30,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](scenes.md#culling-hidden-faces) |
 | `shaderScale` | `1` | Density multiplier for screen-space shader effects (the end portal). The pattern is sized as if the block filled the viewport, so raise this when the block renders small in a larger scene. Exposed as the `Scale` uniform on the shader material, so it can also be updated live |
 | `ignoreAtlases` | `false` | Render without enforcing texture atlas membership rules (which atlas a model's textures may come from) |
-| `version` | | Minecraft version the assets are for. Enables era-appropriate behaviour (see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)) |
+| `version` | | Minecraft version the assets are for. Enables era-appropriate behavior (see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)) |
 
 Default display:
 ```js
@@ -126,6 +126,6 @@ await renderBlock({ id: "oak_log", assets: [myPackZipBytes, "packs/base"] })
 * [Models](models.md): display transforms, model-inspection helpers, the tint tables
 * [Assets](assets.md): pack layering, virtual handlers, [`prepareAssets`](api.md) and caching, the bundled packs
 * [Fluids](fluids.md): water and lava surface shaping
-* [Building scenes](scenes.md): the low-level API for custom rendering pipelines, hidden-face culling, and scene optimisation
+* [Building scenes](scenes.md): the low-level API for custom rendering pipelines, hidden-face culling, and scene optimization
 * [Extending](extending.md): non-vanilla model fields and custom model loaders
-* [Legacy Minecraft versions](versions.md): the `version` option and era-specific behaviour
+* [Legacy Minecraft versions](versions.md): the `version` option and era-specific behavior
