@@ -2,6 +2,9 @@
 // bootstraps the registries, and dumps the block/colour lists the library
 // hardcodes. Compiled by ECJ and run on a plain JRE from generate.js.
 import java.util.*;
+import java.io.InputStream;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.core.BlockPos;
@@ -10,24 +13,65 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.registries.VanillaRegistries;
+import net.minecraft.world.level.ColorResolver;
+import net.minecraft.world.level.CardinalLighting;
 import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.GrassColor;
+import net.minecraft.world.level.FoliageColor;
+import net.minecraft.world.level.DryFoliageColor;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.lighting.LevelLightEngine;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.level.GrassColor;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.color.block.BlockTintSource;
 
 public class Extract {
+  // A block-and-tint getter that reports one fixed biome everywhere, enough for
+  // a colormap tint source to resolve (it only reads the biome at the position).
+  static class Stub implements BlockAndTintGetter {
+    final Biome biome;
+    Stub(Biome b) { biome = b; }
+    public int getBlockTint(BlockPos p, ColorResolver r) { return r.getColor(biome, p.getX(), p.getZ()); }
+    public CardinalLighting cardinalLighting() { return null; }
+    public LevelLightEngine getLightEngine() { return null; }
+    public FluidState getFluidState(BlockPos p) { return Blocks.AIR.defaultBlockState().getFluidState(); }
+    public BlockEntity getBlockEntity(BlockPos p) { return null; }
+    public BlockState getBlockState(BlockPos p) { return Blocks.AIR.defaultBlockState(); }
+    public int getMinY() { return 0; }
+    public int getHeight() { return 16; }
+  }
+
+  static int[] colormapPixels(String path) {
+    try {
+      InputStream is = Extract.class.getResourceAsStream(path);
+      BufferedImage img = ImageIO.read(is);
+      is.close();
+      int[] px = new int[img.getWidth() * img.getHeight()];
+      img.getRGB(0, 0, img.getWidth(), img.getHeight(), px, 0, img.getWidth());
+      return px;
+    } catch (Exception e) { throw new RuntimeException(e); }
+  }
+
+  static int anchorTint(BlockColors colors, Block b, Stub stub) {
+    BlockState st = b.defaultBlockState();
+    return colors.getTintSources(st).get(0).colorInWorld(st, stub, BlockPos.ZERO);
+  }
+
   static String hex(int c) { return String.format("#%06X", c & 0xFFFFFF); }
   @SuppressWarnings({"unchecked", "rawtypes"})
   static BlockState with(BlockState s, Property p, Object v) { return s.setValue(p, (Comparable) v); }
@@ -42,37 +86,56 @@ public class Extract {
     SharedConstants.tryDetectVersion();
     Bootstrap.bootStrap();
 
-    // The client renders a block's biome-colormap tint (grass/foliage/dry_foliage)
-    // on the model face at the tintindex that matches the colormap source's
-    // position in the block's tint-source list. Most are at index 0; record the
-    // few that aren't (e.g. pink_petals, where a blank layer sits at 0).
     BlockColors colors = BlockColors.createDefault();
-    int grassDefault = GrassColor.getDefaultColor();
+
+    // Biome-colormap tints (grass/foliage/dry_foliage) are sampled from the
+    // colormap textures, so load them and resolve each block against a real
+    // biome. A block's colormap kind is whichever anchor colour (grass_block,
+    // oak_leaves, leaf_litter) its biome-varying source matches; a second biome
+    // tells a biome-varying source apart from a constant. The index of that
+    // source is the tintindex (0 for most, 1 for e.g. pink_petals).
+    HolderLookup.Provider registries = VanillaRegistries.createLookup();
+    var biomeReg = registries.lookupOrThrow(Registries.BIOME);
+    int waterColor = biomeReg.getOrThrow(Biomes.PLAINS).value().getWaterColor();
+    GrassColor.init(colormapPixels("/assets/minecraft/textures/colormap/grass.png"));
+    FoliageColor.init(colormapPixels("/assets/minecraft/textures/colormap/foliage.png"));
+    DryFoliageColor.init(colormapPixels("/assets/minecraft/textures/colormap/dry_foliage.png"));
+    Stub plains = new Stub(biomeReg.getOrThrow(Biomes.PLAINS).value());
+    Stub cold = new Stub(biomeReg.getOrThrow(Biomes.SNOWY_TAIGA).value());
+
+    int grassRef = 0, foliageRef = 0, dryRef = 0;
+    for (Block b : BuiltInRegistries.BLOCK) {
+      String id = BuiltInRegistries.BLOCK.getKey(b).getPath();
+      if (id.equals("grass_block")) grassRef = anchorTint(colors, b, plains);
+      else if (id.equals("oak_leaves")) foliageRef = anchorTint(colors, b, plains);
+      else if (id.equals("leaf_litter")) dryRef = anchorTint(colors, b, plains);
+    }
+
     TreeMap<String, Integer> tintindex = new TreeMap<>();
+    LinkedHashMap<String, List<String>> colormap = new LinkedHashMap<>();
+    for (String k : new String[]{ "grass", "foliage", "dry_foliage" }) colormap.put(k, new ArrayList<>());
 
     // Two tint kinds resolvable straight from the block's tint source: a flat
     // constant colour (fixed), or a ramp keyed off one blockstate property
-    // (indexed, e.g. redstone by power, stems by age). Biome-tinted sources
-    // (grass/foliage colormap, water) can't be read here (no colormap textures
-    // and water's tint comes from the fluid renderer), so they're skipped.
+    // (indexed, e.g. redstone by power, stems by age). Biome-tinted sources are
+    // handled by the colormap classification above, so they're skipped here.
     TreeMap<String, String> fixed = new TreeMap<>();
     TreeMap<String, String> indexed = new TreeMap<>();
-
-    // Water is tinted by the fluid renderer using the biome water colour, not by
-    // a flat BlockColors source, so inject the vanilla default (plains) colour.
-    HolderLookup.Provider registries = VanillaRegistries.createLookup();
-    int waterColor = registries.lookupOrThrow(Registries.BIOME).getOrThrow(Biomes.PLAINS).value().getWaterColor();
 
     List<String> all = new ArrayList<>(), waterlog = new ArrayList<>(), noOcc = new ArrayList<>(), selfAll = new ArrayList<>(), selfY = new ArrayList<>();
     for (Block block : BuiltInRegistries.BLOCK) {
       String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
       all.add(id);
       List<BlockTintSource> tintSources = colors.getTintSources(block.defaultBlockState());
-      for (int i = 1; i < tintSources.size(); i++) {
-        int c = tintSources.get(i).color(block.defaultBlockState());
-        if (c == grassDefault || c == -12012264 || c == -10732494) { tintindex.put(id, i); break; }
-      }
       BlockState st = block.defaultBlockState();
+      for (int i = 0; i < tintSources.size(); i++) {
+        int p, c;
+        try { p = tintSources.get(i).colorInWorld(st, plains, BlockPos.ZERO); c = tintSources.get(i).colorInWorld(st, cold, BlockPos.ZERO); }
+        catch (Throwable t) { continue; }
+        if (p == c) continue;
+        String kind = p == grassRef ? "grass" : p == foliageRef ? "foliage" : p == dryRef ? "dry_foliage" : null;
+        if (kind != null) { colormap.get(kind).add(id); if (i > 0) tintindex.put(id, i); break; }
+      }
       if (block.getStateDefinition().getProperties().contains(BlockStateProperties.WATERLOGGED)) waterlog.add(id);
 
       // A block hides a shared face against an identical neighbour wherever
@@ -153,7 +216,10 @@ public class Extract {
     sb.append("\"selfCullAll\":").append(arr(selfAll)).append(",\n");
     sb.append("\"selfCullY\":").append(arr(selfY)).append(",\n");
 
-    sb.append("\"dye\":{");
+    sb.append("\"colormap\":{");
+    boolean fc = true;
+    for (var e : colormap.entrySet()) { if (!fc) sb.append(","); fc = false; sb.append("\"").append(e.getKey()).append("\":").append(arr(e.getValue())); }
+    sb.append("},\n\"dye\":{");
     DyeColor[] ds = DyeColor.values();
     for (int i = 0; i < ds.length; i++) { if (i > 0) sb.append(","); sb.append("\"").append(ds[i].getName()).append("\":\"").append(hex(ds[i].getTextureDiffuseColor())).append("\""); }
 

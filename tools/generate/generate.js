@@ -185,6 +185,7 @@ async function main() {
   }
   const colors = {
     _generated: `from minecraft ${version.id} by tools/generate/generate.js`,
+    colormap: d.colormap,
     dye: d.dye,
     effects: d.effects,
     team: d.team,

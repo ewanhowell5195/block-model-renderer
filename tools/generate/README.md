@@ -19,15 +19,16 @@ registries and reads the values straight from the game:
 | `dye` | `DyeColor.getTextureDiffuseColor()` |
 | `effects` | `MobEffect.getColor()` over the mob-effect registry |
 | `team` | `TextColor.fromLegacyFormat()` over the colour `ChatFormatting`s |
-| `tintindex` | client `BlockColors.getTintSources()`: the list index of a block's biome-colormap source (only the non-zero ones, e.g. `pink_petals`) |
+| `colormap` | blocks whose tint is a biome colormap, grouped by which one (`grass` / `foliage` / `dry_foliage`). The colormap textures are loaded from the client jar and each block's tint source is resolved against a real biome, then matched to an anchor block (`grass_block` / `oak_leaves` / `leaf_litter`); a second biome tells a biome-varying source apart from a constant |
+| `tintindex` | for a colormap block, the index of its colormap source in the tint-source list when it isn't the default `0` (e.g. `pink_petals`, whose grass tint sits at index 1). Read off the same pass as `colormap` |
 | `fixed` | blocks whose tint source resolves to a flat colour (`colorInWorld` with no property dependency): birch/spruce leaves, lily pad, attached stems. Water is biome-tinted by the fluid renderer, not a flat source, so its three ids are injected with the plains water colour from the biome registry |
 | `indexed` | blocks whose tint source depends on one integer blockstate property (`relevantProperties`): the ramp is `colorInWorld` over every value of that property, keyed by it (redstone `power`, stem `age`). `default` (the value used when the property is unset) is resolved from `default_blockstates.json` the same way the renderer picks it: stems full-grown, redstone unpowered |
 | `potions` | `Potion.getEffects()` over the potion registry: effect ids per potion (with amplifiers for multi-effect blends); potions whose name is itself an effect id are omitted |
 
-Most reads come from the server jar; the tint tables (`tintindex`, `fixed`,
-`indexed`) need the **client** jar (also unobfuscated), since they live in client
-`BlockColors`. Both are downloaded and cached. `BlockColors.createDefault()` runs
-headlessly (no GL).
+Most reads come from the server jar; the tint tables (`colormap`, `tintindex`,
+`fixed`, `indexed`) need the **client** jar (also unobfuscated), since they live in
+client `BlockColors` and its colormap textures. Both are downloaded and cached.
+`BlockColors.createDefault()` runs headlessly (no GL).
 
 The block lists are compressed into a minimal `{ suffix, exact, except }` cover
 (consumed by `matchId`) rather than a flat list of every id, so they stay small and

@@ -3,11 +3,7 @@ import colorData from "./data/colors.json" with { type: "json" }
 import blocks from "./data/blocks.json" with { type: "json" }
 
 export const COLORS = {
-  colormap: {
-    grass: ["bush", "fern", "grass_block", "large_fern", "pink_petals", "potted_fern", "short_grass", "sugar_cane", "tall_grass", "wildflowers"],
-    foliage: ["acacia_leaves", "dark_oak_leaves", "jungle_leaves", "mangrove_leaves", "oak_leaves", "vine"],
-    dry_foliage: ["leaf_litter"]
-  },
+  colormap: colorData.colormap,
   fixed: colorData.fixed,
   indexed: colorData.indexed,
   tintindex: colorData.tintindex,

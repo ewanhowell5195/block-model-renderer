@@ -1,5 +1,30 @@
 {
   "_generated": "from minecraft 26.2 by tools/generate/generate.js",
+  "colormap": {
+    "grass": [
+      "bush",
+      "fern",
+      "grass_block",
+      "large_fern",
+      "pink_petals",
+      "potted_fern",
+      "short_grass",
+      "sugar_cane",
+      "tall_grass",
+      "wildflowers"
+    ],
+    "foliage": [
+      "acacia_leaves",
+      "dark_oak_leaves",
+      "jungle_leaves",
+      "mangrove_leaves",
+      "oak_leaves",
+      "vine"
+    ],
+    "dry_foliage": [
+      "leaf_litter"
+    ]
+  },
   "dye": {
     "white": "#F9FFFE",
     "orange": "#F9801D",

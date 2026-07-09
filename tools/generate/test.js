@@ -7,7 +7,7 @@ import path from "node:path"
 import { execFileSync, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { canOcclude, selfCulls } from "../../src/core/culling.js"
-import { isWaterloggable, COLORS, getPotionColor, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS } from "../../src/core/colors.js"
+import { isWaterloggable, COLORS, getPotionColor, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS } from "../../src/core/colors.js"
 import blocks from "../../src/core/data/blocks.json" with { type: "json" }
 import colors from "../../src/core/data/colors.json" with { type: "json" }
 
@@ -33,6 +33,11 @@ test("colors.json structure", () => {
   assert.ok(Object.keys(colors.effects).length > 30)
   for (const map of [colors.dye, colors.team, colors.effects])
     for (const v of Object.values(map)) assert.match(v, /^#[0-9A-Fa-f]{6}$/, `hex: ${v}`)
+  assert.deepEqual(colors.colormap.dry_foliage, ["leaf_litter"])
+  for (const b of ["grass_block", "sugar_cane", "pink_petals"]) assert.ok(colors.colormap.grass.includes(b), `grass has ${b}`)
+  for (const b of ["oak_leaves", "vine"]) assert.ok(colors.colormap.foliage.includes(b), `foliage has ${b}`)
+  const cmAll = [...colors.colormap.grass, ...colors.colormap.foliage, ...colors.colormap.dry_foliage]
+  for (const w of ["water", "bubble_column", "water_cauldron"]) assert.ok(!cmAll.includes(w), `${w} not a colormap block`)
   for (const v of Object.values(colors.tintindex)) assert.ok(Number.isInteger(v) && v > 0, `tintindex ${v}`)
   assert.equal(colors.tintindex.pink_petals, 1)
   for (const v of Object.values(colors.fixed)) assert.match(v, /^#[0-9A-Fa-f]{6}$/, `fixed hex: ${v}`)
@@ -103,6 +108,9 @@ test("COLORS wired to generated data", () => {
   assert.equal(COLORS.team.black, "#000000")
   assert.equal(COLORS.effects.speed, "#33EBFF")
   assert.equal(COLORS.tintindex.wildflowers, 1)
+  assert.equal(COLORMAP_BLOCKS.grass_block, "grass")
+  assert.equal(COLORMAP_BLOCKS.oak_leaves, "foliage")
+  assert.equal(COLORMAP_BLOCKS.leaf_litter, "dry_foliage")
   assert.equal(COLORS.fixed.birch_leaves, "#80A755")
   assert.equal(FIXED_TINT_BLOCKS.water, "#3F76E4")
   assert.equal(FIXED_TINT_BLOCKS.lily_pad, "#208030")
