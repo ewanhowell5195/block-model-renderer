@@ -1,12 +1,12 @@
 import { normalize, matchId } from "./platform.js"
 
-const SELF_CULL_ANY = { suffix: ["glass"], exact: new Set(["ice", "frosted_ice", "honey_block", "slime_block", "powder_snow", "dirt_path"]) }
+const SELF_CULL_ANY = { suffix: ["glass", "_grate"], exact: new Set(["ice", "frosted_ice", "honey_block", "slime_block", "powder_snow", "dirt_path"]) }
 const selfCullAny = id => matchId(id, SELF_CULL_ANY)
 
 const selfCullY = id => id === "mangrove_roots"
 
 const NO_OCCLUDE = {
-  suffix: ["glass", "_door", "_trapdoor", "_leaves", "_head", "_skull", "_egg"],
+  suffix: ["glass", "_grate", "_door", "_trapdoor", "_leaves", "_head", "_skull", "_egg"],
   exact: new Set([
     "ice", "frosted_ice", "honey_block", "slime_block", "powder_snow", "tinted_glass",
     "barrier", "light", "beacon", "conduit", "spawner", "trial_spawner", "vault", "moving_piston",
