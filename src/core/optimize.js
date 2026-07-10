@@ -354,7 +354,10 @@ export async function optimizeScene(placements, opts = {}) {
     created.textures.push(...ats)
     const materials = ats.map(a => {
       const m = grp.repMat.clone()
-      if (m.uniforms) m.uniforms.map.value = a
+      if (m.uniforms) {
+        m.uniforms.map.value = a
+        if (grp.repMat.uniforms.daytime) m.uniforms.daytime = grp.repMat.uniforms.daytime
+      }
       else m.map = a
       m.transparent = grp.translucent
       m.depthWrite = !grp.translucent

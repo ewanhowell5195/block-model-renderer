@@ -1065,7 +1065,7 @@ export async function loadModel(scene, assets, model, args) {
   if (assets == null || assets.length === 0) throw new Error("loadModel requires assets")
   const display = args?.display ?? "gui"
   const lighting = args?.lighting
-  const daytime = { value: parseDaytime(args?.daytime) }
+  const daytime = scene?.userData?.daytime ?? { value: parseDaytime(args?.daytime) }
   if (scene) scene.userData.daytime = daytime
   const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
   if (args?.version && !model.version) model.version = args.version
@@ -1560,6 +1560,7 @@ export async function loadModel(scene, assets, model, args) {
         helpers: {
           THREE,
           lighting,
+          daytime,
           readFile: (path, hint) => readFile(path, assets, hint),
           loadTexture: (id, tint) => loadModelTexture(id, tint),
           buildElements: async (elements = []) => {
