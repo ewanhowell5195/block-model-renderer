@@ -1507,6 +1507,7 @@ export async function loadModel(scene, assets, model, args) {
     const norm = new THREE.Vector3()
     const matrix = new THREE.Matrix4()
     const normalMatrix = new THREE.Matrix3()
+    const collision = []
     for (const child of Array.from(group.children)) {
       const mesh = child.isMesh ? child : child.children.length === 1 && child.children[0].isMesh ? child.children[0] : null
       if (!mesh) continue
@@ -1522,6 +1523,17 @@ export async function loadModel(scene, assets, model, args) {
       const pos = geo.attributes.position
       const nrm = geo.attributes.normal
       const uv = geo.attributes.uv
+      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity
+      for (let i = 0; i < pos.count; i++) {
+        vert.fromBufferAttribute(pos, i).applyMatrix4(matrix)
+        if (vert.x < x0) x0 = vert.x
+        if (vert.y < y0) y0 = vert.y
+        if (vert.z < z0) z0 = vert.z
+        if (vert.x > x1) x1 = vert.x
+        if (vert.y > y1) y1 = vert.y
+        if (vert.z > z1) z1 = vert.z
+      }
+      if (x0 !== Infinity) collision.push([x0, y0, z0, x1, y1, z1])
       for (const group of geo.groups) {
         const material = mesh.material[group.materialIndex]
         if (!material || material.visible === false) continue
@@ -1542,6 +1554,7 @@ export async function loadModel(scene, assets, model, args) {
       group.remove(child)
       geo.dispose()
     }
+    group.userData.collision = collision
     for (const [material, dirs] of buckets) {
       for (const [dir, acc] of dirs) {
         const geo = new THREE.BufferGeometry()
