@@ -1679,6 +1679,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       },
       vertexShader: `
         varying vec4 texProj0;
+        #include <clipping_planes_pars_vertex>
 
         vec4 projection_from_position(vec4 position) {
           vec4 projection = position * 0.5;
@@ -1688,13 +1689,16 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         }
 
         void main() {
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          #include <clipping_planes_vertex>
+          gl_Position = projectionMatrix * mvPosition;
 
           texProj0 = projection_from_position(gl_Position);
         }
       `,
       fragmentShader: `
         varying vec4 texProj0;
+        #include <clipping_planes_pars_fragment>
 
         uniform float GameTime;
         uniform float Scale;
@@ -1750,13 +1754,15 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         }
 
         void main() {
+          #include <clipping_planes_fragment>
           vec3 color = texture2DProj(Sampler0, texProj0 * vec4(Scale, Scale, 1.0, 1.0)).rgb * getColor(0);
           for (int i = 0; i < ${shader.layers ?? 15}; i++) {
             color += texture2DProj(Sampler1, texProj0 * vec4(Scale, Scale * 16.0 / 9.0, 1.0, 1.0) * end_portal_layer(float(i + 1))).rgb * getColor(i);
           }
           gl_FragColor = vec4(color, 1.0);
         }
-      `
+      `,
+      clipping: true
     })
   }
   return new THREE.ShaderMaterial({
@@ -1777,6 +1783,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      #include <clipping_planes_pars_vertex>
       void main() {
         vUv = uv;
         vec4 pos = vec4(position, 1.0);
@@ -1787,7 +1794,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         #endif
         vNormal = normalize(normalMatrix * nrm);
         vWorldNormal = normalize(mat3(modelMatrix) * nrm);
-        gl_Position = projectionMatrix * modelViewMatrix * pos;
+        vec4 mvPosition = modelViewMatrix * pos;
+        #include <clipping_planes_vertex>
+        gl_Position = projectionMatrix * mvPosition;
       }
     `,
     fragmentShader: `
@@ -1805,7 +1814,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      #include <clipping_planes_pars_fragment>
       void main() {
+        #include <clipping_planes_fragment>
         if (vUv.x < 0.0 || vUv.x > 1.0 || vUv.y < 0.0 || vUv.y > 1.0) discard;
         vec4 texColor = texture2D(map, vUv);
         if (texColor.a < 0.01) discard;
@@ -1834,5 +1845,6 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     transparent: texture?.userData?.translucent === true,
     depthWrite: texture?.userData?.translucent !== true,
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+    clipping: true,
   })
 }
