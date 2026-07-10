@@ -256,11 +256,18 @@ export async function optimizeScene(placements, opts = {}) {
     return c
   }
 
+  let progBase = 0, progSpan = 0
+  function stage(span) { progBase += progSpan; progSpan = span }
+  const report = f => onProgress?.(Math.round(progBase + Math.min(f, 1) * progSpan), 10000)
+
   const atlasGroups = new Map()
   const anims = new Map(), animTexId = new Map()
   const fixedAnimMats = new Set()
   const tdata = new Map()
+  stage(500)
+  let ti = 0
   for (const p of placements) {
+    ti++
     if (!p.group || tdata.has(p.group)) continue
     const tmpl = p.group
     tmpl.updateMatrixWorld(true)
@@ -326,14 +333,17 @@ export async function optimizeScene(placements, opts = {}) {
       else merge.push(c.flat)
     }
     tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()) })
+    report(ti / placements.length)
     await breathe()
     if (shouldCancel?.()) return null
   }
 
   const grids = new Map()
+  stage(800)
   let scanned = 0
   for (const p of placements) {
     if (++scanned % 4096 === 0) {
+      report(scanned / placements.length)
       await breathe()
       if (shouldCancel?.()) return null
     }
@@ -351,7 +361,10 @@ export async function optimizeScene(placements, opts = {}) {
     }
   }
   const greedyQuads = []
+  stage(2500)
+  let gi = 0
   for (const grid of grids.values()) {
+    report(++gi / grids.size)
     await breathe()
     if (shouldCancel?.()) return null
     const f = grid.f
@@ -376,7 +389,10 @@ export async function optimizeScene(placements, opts = {}) {
 
   const atlases = new Map()
   const created = { textures: [], materials: [] }
+  stage(800)
+  let ai = 0
   for (const [sig, grp] of atlasGroups) {
+    report(++ai / atlasGroups.size)
     await breathe()
     if (shouldCancel?.()) return null
     const { atlases: ats, rects, sizes } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe)
@@ -396,6 +412,7 @@ export async function optimizeScene(placements, opts = {}) {
     atlases.set(sig, { rects, sizes, materials, accs: ats.map(() => ({ P: [], N: [], U: [] })) })
   }
 
+  stage(3000)
   const blockT = new THREE.Matrix4(), full = new THREE.Matrix4(), nmat = new THREE.Matrix3()
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
@@ -415,15 +432,17 @@ export async function optimizeScene(placements, opts = {}) {
       }
     }
     if (i % 2000 === 1999) {
-      onProgress?.(i + 1, placements.length)
+      report((i + 1) / placements.length)
       await nextTask()
       if (shouldCancel?.()) return null
     }
   }
 
+  stage(1500)
   let appended = 0
   for (const q of greedyQuads) {
-    if (++appended % 4096 === 0) {
+    if (++appended % 512 === 0) {
+      report(appended / greedyQuads.length)
       await breathe()
       if (shouldCancel?.()) return null
     }
@@ -452,16 +471,22 @@ export async function optimizeScene(placements, opts = {}) {
     drawCalls++
     tris += acc.P.length / 9
   }
+  stage(900)
+  let meshCount = anims.size, mi = 0
+  for (const at of atlases.values()) meshCount += at.accs.length
   for (const { materials, accs } of atlases.values()) {
     for (let i = 0; i < accs.length; i++) {
       addMesh(accs[i], materials[i])
+      report(++mi / meshCount)
       await breathe()
     }
   }
   for (const { material, acc } of anims.values()) {
     addMesh(acc, material)
+    report(++mi / meshCount)
     await breathe()
   }
+  onProgress?.(10000, 10000)
 
   const sorter = sortTranslucent(group, { resortDistance: opts.resortDistance })
 
