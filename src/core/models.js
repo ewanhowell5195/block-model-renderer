@@ -1097,7 +1097,8 @@ export async function loadModel(scene, assets, model, args) {
 
   async function loadModelTexture(id, tint) {
     const atlas = shouldIgnoreAtlases(model) ? "" : (model.type ?? "")
-    const cacheKey = `${id ?? ""}\0${tint ?? ""}\0${atlas}`
+    const srgb = lighting === "scene" || lighting === "off" ? "\0srgb" : ""
+    const cacheKey = `${id ?? ""}\0${tint ?? ""}\0${atlas}${srgb}`
     if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)
 
     let loaded
