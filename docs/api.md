@@ -15,7 +15,7 @@ import {
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
-  isWaterloggable, isCrossModel, getLightEmission, COLORS,
+  isWaterloggable, isWaterlogged, isCrossModel, getLightEmission, COLORS,
   // extending
   ModelLoader,
   // browser only
@@ -73,6 +73,7 @@ import {
 | Export | Description |
 |---|---|
 | `isWaterloggable(id)` | Whether the renderer recognizes a block id as waterloggable. [Details](models.md#iswaterloggableid) |
+| `isWaterlogged(id)` | Whether a block id is inherently water-filled (kelp, seagrass, bubble columns). [Details](models.md#iswaterloggedid) |
 | `isCrossModel(models)` | Whether resolved model data is a diagonal cross model (flowers, saplings). [Details](models.md#iscrossmodelmodels) |
 | `getLightEmission(id, properties?, resolveDefault?)` | The light level (0-15) a block emits in game, from its blockstate. [Details](models.md#getlightemissionid-properties-resolvedefault) |
 | `COLORS` | The color tables the renderer tints with, for your own lookups. [Details](models.md#colors) |

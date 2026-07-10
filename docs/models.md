@@ -56,6 +56,24 @@ isWaterloggable("oak_stairs") // true
 isWaterloggable("stone")      // false
 ```
 
+## `isWaterlogged(id)`
+
+Checks whether a block id is inherently water-filled: blocks that always contain water in game without carrying a `waterlogged` property (kelp, seagrass, bubble columns). [`renderBlock`](api.md) and [`parseBlockstate`](api.md) add the water layer to these automatically, and [`fluidTypeOf`](fluids.md#fluidtypeofid-properties) counts them as water cells.
+
+| Argument | Description |
+|---|---|
+| `id` | The block id (e.g. `"kelp"`, `"minecraft:bubble_column"`). Namespace optional |
+
+Returns `true` if the block is always water-filled, `false` otherwise.
+
+```js
+import { isWaterlogged } from "block-model-renderer"
+
+isWaterlogged("kelp")          // true
+isWaterlogged("bubble_column") // true
+isWaterlogged("oak_stairs")    // false: waterloggable, but not always water
+```
+
 ## `getLightEmission(id, properties?, resolveDefault?)`
 
 The light level (0-15) a block emits, straight from the game's per-blockstate data. Uniform emitters (glowstone, torches, lava) return their level for any state; state-dependent emitters (lit furnaces and campfires, candle counts, the light block's `level`) read the deciding properties from `properties`.

@@ -42,7 +42,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 
 Returns a list of model references, one per matching model.
 
-Properties you don't pass fall back to the [default blockstates](extending.md#default-blockstates) rules, per property. Along the way it also applies the block's built-in behaviors: biome colormap, fixed, and property-indexed tints (grass, foliage, water, redstone wire, stems), the end portal / end gateway shader, fluid marking on water and lava, and the automatic water layer on waterloggable blocks given `{ waterlogged: true }`.
+Properties you don't pass fall back to the [default blockstates](extending.md#default-blockstates) rules, per property. Along the way it also applies the block's built-in behaviors: biome colormap, fixed, and property-indexed tints (grass, foliage, water, redstone wire, stems), the end portal / end gateway shader, fluid marking on water and lava, and the automatic water layer on waterloggable blocks given `{ waterlogged: true }` (always added for the inherently water-filled blocks, per [`isWaterlogged`](models.md#iswaterloggedid)). Air ids (`air`, `cave_air`, `void_air`) resolve to no models.
 
 ## `parseItemDefinition(assets, id, args?)`
 
@@ -193,7 +193,7 @@ The same logic as a standalone helper, for building your own scenes with [`loadM
 | `neighbors` | | The surrounding blocks, as in [`renderBlock`](api.md) above |
 | `version` | | Minecraft version, as in [`renderBlock`](api.md) |
 
-Returns a `Set` of directions to drop (`"down"`, `"up"`, `"north"`, `"south"`, `"west"`, `"east"`). Pass it as the `cull` option to any render function or [`loadModel`](api.md); a plain object like `{ north: true }` works there too.
+Returns a `Set` of directions to drop (`"down"`, `"up"`, `"north"`, `"south"`, `"west"`, `"east"`). Pass it as the `cull` option to any render function or [`loadModel`](api.md); a plain object like `{ north: true }` works there too. Air ids return an empty set without touching the assets, and air neighbors count as absent.
 
 ```js
 import { getCullFaces, loadModel } from "block-model-renderer"
@@ -267,7 +267,7 @@ for (const key in grid) {
 }
 
 const optimized = await optimizeScene(placements, {
-  onProgress: (done, total) => console.log(`meshed ${done}/${total}`)
+  onProgress: (done, total) => console.log(`optimizing ${Math.round(done / total * 100)}%`)
 })
 threeScene.add(optimized.group)
 ```
@@ -278,7 +278,7 @@ Share one `group` reference across placements of the same block state, as `group
 
 You *can* cull the other way, pre-culling a separate group per placement and passing those with no `cull` field, and it renders the same. But then no two placements share a build, so you're back to one build per block instead of one per block state. Passing `cull` per placement keeps the single shared build and drops each instance's hidden faces as it merges, which is far cheaper for anything bigger than a handful of blocks.
 
-Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`).
+Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
 
 The result:
 
@@ -291,6 +291,8 @@ The result:
 | `dispose()` | Frees everything the call created (merged geometry, atlas textures, cloned materials). Must be called when you discard or replace the scene; GPU resources don't garbage collect. Textures from the assets bundle are untouched; those belong to [`disposeCache`](api.md) |
 
 Animated textures (water, lava, fire) stay live in the merged output and keep playing through [`createAnimator`](api.md) or the automatic animator.
+
+Every material the library creates (merged or per-model) compiles with clipping support, so three.js clipping planes work as with any standard material: assign `renderer.clippingPlanes` globally, or enable `renderer.localClippingEnabled` and set `clippingPlanes` per material.
 
 ### Translucent sorting
 
@@ -310,4 +312,4 @@ It traverses the object, hooks every mesh with translucent materials, and needs 
 
 ## Helpers
 
-The model-inspection helpers and tint tables live in [Models](models.md): [`isWaterloggable`](models.md#iswaterloggableid), [`isCrossModel`](models.md#iscrossmodelmodels), [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault), and [`COLORS`](models.md#colors).
+The model-inspection helpers and tint tables live in [Models](models.md): [`isWaterloggable`](models.md#iswaterloggableid), [`isWaterlogged`](models.md#iswaterloggedid), [`isCrossModel`](models.md#iscrossmodelmodels), [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault), and [`COLORS`](models.md#colors).

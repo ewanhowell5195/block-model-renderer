@@ -40,7 +40,7 @@ That's the whole API for a single block. The two helpers below only matter when 
 
 ## `fluidTypeOf(id, properties?)`
 
-The fluid a block contributes: `"water"` for water (including any blockstate with `waterlogged: true`), `"lava"` for lava, `null` for everything else. Flowing variants count as their fluid.
+The fluid a block contributes: `"water"` for water (including any blockstate with `waterlogged: true`, and blocks that are always water-filled per [`isWaterlogged`](models.md#iswaterloggedid): kelp, seagrass, bubble columns), `"lava"` for lava, `null` for everything else. Flowing variants count as their fluid.
 
 Use it when walking blocks to decide which cells need fluid handling at all, instead of reimplementing those rules; the return value is also the `type` to pass to [`fluidHeights`](api.md).
 
@@ -50,6 +50,7 @@ import { fluidTypeOf } from "block-model-renderer"
 fluidTypeOf("water")                               // "water"
 fluidTypeOf("flowing_lava")                        // "lava"
 fluidTypeOf("oak_stairs", { waterlogged: "true" }) // "water"
+fluidTypeOf("kelp")                                // "water": always water-filled
 fluidTypeOf("stone")                               // null
 ```
 

@@ -12,10 +12,11 @@ values straight from the game:
 | Data | Source |
 |---|---|
 | `waterloggable` | blocks with a `WATERLOGGED` state property |
+| `waterlogged` | blocks that are always water-filled: a non-empty fluid state without being waterloggable or a `LiquidBlock` (kelp, seagrass, bubble columns) |
 | `nonOccluding` | blocks where `state.canOcclude()` is false **and** they cover a full 16×16 face on some side (`Block.isFaceFull`), so they'd otherwise wrongly occlude that neighbour: full cubes, but also one-face coverers like doors, trapdoors, ladders. Thin/small models (plants, skulls, bars) cover no full face and are skipped. Fluids are handled by an `isFluid` check in code |
 | `selfCullAll` | `HalfTransparentBlock` / `PowderSnowBlock` instances |
 | `selfCullY` | `MangroveRootsBlock` instances |
-| `lightEmission` | `state.getLightEmission()` over every blockstate. A block with one level stores it as a number; when the level depends on blockstate (lit furnaces, candle counts), only the deciding properties are kept, with the most common level as the default and the rest as per-combination cases (so glow_lichen is one case, not 64) |
+| `lightEmission` | `state.getLightEmission()` over every blockstate. A block with one level stores it as a number; when the level depends on blockstate (lit furnaces, candle counts), only the deciding properties are kept, with the most common level as the default and the rest as per-combination cases (so glow_lichen is one case, not 64). Ids are grouped by identical value and each group gets the same suffix/exact/except cover as the block lists (all 17 candles are one `_candle` suffix) |
 | `dye` | `DyeColor.getTextureDiffuseColor()` |
 | `effects` | `MobEffect.getColor()` over the mob-effect registry |
 | `team` | `TextColor.fromLegacyFormat()` over the colour `ChatFormatting`s |
