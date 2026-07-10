@@ -178,7 +178,8 @@ async function main() {
     waterloggable: compress(d.waterloggable, d.allBlocks),
     nonOccluding: compress(d.nonOccluding, d.allBlocks),
     selfCullAll: compress(d.selfCullAll, d.allBlocks),
-    selfCullY: compress(d.selfCullY, d.allBlocks)
+    selfCullY: compress(d.selfCullY, d.allBlocks),
+    lightEmission: d.lightEmission
   }
   const colors = {
     _generated: `from minecraft ${version.id} by tools/generate/generate.js`,

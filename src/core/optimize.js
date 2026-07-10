@@ -8,7 +8,7 @@ function matSignature(m) {
   if (m.uniforms) {
     const u = m.uniforms
     return ["shader", m.side, u.shadeEnabled?.value, u.shadeOverride?.value?.toArray().join(","), u.d0?.value, u.d1?.value, u.ambient?.value,
-      u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(",")].join("|")
+      u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(","), u.emission?.value].join("|")
   }
   return [m.type, m.side].join("|")
 }

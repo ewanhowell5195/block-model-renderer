@@ -7,6 +7,7 @@ import path from "node:path"
 import { execFileSync, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { canOcclude, selfCulls } from "../../src/core/culling.js"
+import { getLightEmission } from "../../src/core/emission.js"
 import { isWaterloggable, COLORS, getPotionColor, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS } from "../../src/core/colors.js"
 import blocks from "../../src/core/data/blocks.json" with { type: "json" }
 import colors from "../../src/core/data/colors.json" with { type: "json" }
@@ -54,6 +55,27 @@ test("colors.json structure", () => {
   assert.deepEqual(colors.potions.swiftness, ["speed"])
   assert.deepEqual(colors.potions.turtle_master, [["slowness", 3], ["resistance", 2]])
   assert.ok(!("poison" in colors.potions), "potions whose name is an effect are omitted (direct fallback)")
+})
+
+test("light emission matches the game", () => {
+  assert.equal(blocks.lightEmission.glowstone, 15)
+  assert.equal(blocks.lightEmission.torch, 14)
+  assert.equal(blocks.lightEmission.magma_block, 3)
+  assert.equal(getLightEmission("glowstone"), 15)
+  assert.equal(getLightEmission("minecraft:sea_lantern"), 15)
+  assert.equal(getLightEmission("stone"), 0)
+  assert.equal(getLightEmission("redstone_lamp", { lit: "true" }), 15)
+  assert.equal(getLightEmission("redstone_lamp", { lit: "false" }), 0)
+  assert.equal(getLightEmission("redstone_lamp"), 0)
+  assert.equal(getLightEmission("candle", { candles: "3", lit: "true" }), 9)
+  assert.equal(getLightEmission("candle", { candles: 3, lit: true }), 9)
+  assert.equal(getLightEmission("candle", { candles: "3", lit: "false" }), 0)
+  assert.equal(getLightEmission("glow_lichen", { up: "true", down: "false", north: "false", south: "false", east: "false", west: "false" }), 7)
+  assert.equal(getLightEmission("glow_lichen", { up: "false", down: "false", north: "false", south: "false", east: "false", west: "false" }), 0)
+  assert.equal(getLightEmission("light", { level: "10" }), 10)
+  assert.equal(getLightEmission("campfire", { lit: "true" }), 15)
+  assert.equal(getLightEmission("campfire", {}, k => ({ lit: "true" })[k]), 15)
+  assert.equal(getLightEmission("lava"), 15)
 })
 
 test("canOcclude matches the game", () => {

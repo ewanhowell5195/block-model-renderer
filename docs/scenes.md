@@ -310,4 +310,4 @@ It traverses the object, hooks every mesh with translucent materials, and needs 
 
 ## Helpers
 
-The model-inspection helpers and tint tables live in [Models](models.md): [`isWaterloggable`](models.md#iswaterloggableid), [`isCrossModel`](models.md#iscrossmodelmodels), and [`COLORS`](models.md#colors).
+The model-inspection helpers and tint tables live in [Models](models.md): [`isWaterloggable`](models.md#iswaterloggableid), [`isCrossModel`](models.md#iscrossmodelmodels), [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault), and [`COLORS`](models.md#colors).

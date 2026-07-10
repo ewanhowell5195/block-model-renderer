@@ -51,6 +51,8 @@ The `daytime` option sets `"world"` mode's sky brightness, following Minecraft's
 
 An element's `light_emission` (0-15, since 1.21.2) is the light level it emits: the element holds at `light_emission / 15` brightness while the rest of the model darkens. It shows wherever the model can be darker than full: in `"world"` mode at a dim `daytime` (a `light_emission: 15` face stays lit at midnight while its neighbours fall to `0.08`), and in `"scene"` mode as self-illumination even with no scene lights. In the full-bright `"item"` and `"off"` modes there is nothing to stand out against, like the game's inventory, so it has no visible effect.
 
+Blocks that glow in game without their models using `light_emission` (glowstone, lanterns, lava) get it automatically: when the renderer knows the block being rendered (`renderBlock`, or `loadModel` with `args.block`), every element's emission is floored at the block's own in-game light level, including state-dependent ones like a lit furnace or candle counts (see [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault)). So a glowstone stays bright at midnight with no model changes.
+
 ```js
 const group = new THREE.Group()
 for (const model of await parseBlockstate(assets, "stone")) {

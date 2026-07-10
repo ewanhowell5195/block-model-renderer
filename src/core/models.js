@@ -1,5 +1,6 @@
 import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { COLORS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, parseColor, getPotionColor } from "./colors.js"
+import { getLightEmission } from "./emission.js"
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
@@ -1070,6 +1071,16 @@ export async function loadModel(scene, assets, model, args) {
   if (args?.version && !model.version) model.version = args.version
   assets = await prepareAssets(assets)
 
+  let blockEmission = 0
+  if (block?.id) {
+    const blockId = normalize(block.id)
+    const defaults = await defaultBlockstates(assets)
+    blockEmission = getLightEmission(blockId, block.properties, k => {
+      const raw = defaults.unique(blockId)[k] ?? defaults.properties[k]
+      return Array.isArray(raw) ? raw[0] : raw
+    })
+  }
+
   if (!(await modelPassesAtlasRules(model, assets))) {
     const missing = await resolveModelData(assets, { model: "block-model-renderer:missing" })
     for (const k of Object.keys(model)) delete model[k]
@@ -1396,7 +1407,7 @@ export async function loadModel(scene, assets, model, args) {
         const shadeDir = modernShade && SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
         const shade = (legacyShade ? element.shade !== false : true) || !!shadeDir
         const side = back ? "back" : model.double_sided
-        const emission = !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0
+        const emission = Math.max(blockEmission, !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0)
         const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}\0${side}\0${emission}`
         let material = materialCache.get(mkey)
         if (!material) {
@@ -1564,7 +1575,7 @@ export async function loadModel(scene, assets, model, args) {
           },
           createMaterial: async (id, opts = {}) => {
             const shadeDir = SHADE_DIR_VECS[opts.shade_direction] ? opts.shade_direction : null
-            const emission = Math.max(0, Math.min(15, opts.light_emission ?? 0))
+            const emission = Math.max(0, blockEmission, Math.min(15, opts.light_emission ?? 0))
             const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}`
             let material = materialCache.get(key)
             if (!material) {

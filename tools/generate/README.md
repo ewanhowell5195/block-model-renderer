@@ -15,6 +15,7 @@ values straight from the game:
 | `nonOccluding` | blocks where `state.canOcclude()` is false **and** they cover a full 16×16 face on some side (`Block.isFaceFull`), so they'd otherwise wrongly occlude that neighbour: full cubes, but also one-face coverers like doors, trapdoors, ladders. Thin/small models (plants, skulls, bars) cover no full face and are skipped. Fluids are handled by an `isFluid` check in code |
 | `selfCullAll` | `HalfTransparentBlock` / `PowderSnowBlock` instances |
 | `selfCullY` | `MangroveRootsBlock` instances |
+| `lightEmission` | `state.getLightEmission()` over every blockstate. A block with one level stores it as a number; when the level depends on blockstate (lit furnaces, candle counts), only the deciding properties are kept, with the most common level as the default and the rest as per-combination cases (so glow_lichen is one case, not 64) |
 | `dye` | `DyeColor.getTextureDiffuseColor()` |
 | `effects` | `MobEffect.getColor()` over the mob-effect registry |
 | `team` | `TextColor.fromLegacyFormat()` over the colour `ChatFormatting`s |

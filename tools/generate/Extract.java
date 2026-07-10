@@ -86,6 +86,8 @@ public class Extract {
   static String hex(int c) { return String.format("#%06X", c & 0xFFFFFF); }
   @SuppressWarnings({"unchecked", "rawtypes"})
   static BlockState with(BlockState s, Property p, Object v) { return s.setValue(p, (Comparable) v); }
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  static String pval(BlockState s, Property p) { return p.getName(s.getValue(p)); }
   static String arr(List<String> xs) {
     Collections.sort(xs);
     StringBuilder b = new StringBuilder("[");
@@ -134,6 +136,7 @@ public class Extract {
     TreeMap<String, String> indexed = new TreeMap<>();
 
     List<String> all = new ArrayList<>(), waterlog = new ArrayList<>(), noOcc = new ArrayList<>(), selfAll = new ArrayList<>(), selfY = new ArrayList<>();
+    TreeMap<String, String> lightEmission = new TreeMap<>();
     for (Block block : BuiltInRegistries.BLOCK) {
       String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
       all.add(id);
@@ -171,6 +174,50 @@ public class Extract {
       boolean anyFullFace = false;
       for (Direction d : Direction.values()) if (Block.isFaceFull(shape, d)) { anyFullFace = true; break; }
       if (!st.canOcclude() && (anyFullFace || cullAll) && !fluid) noOcc.add(id);
+
+      // Blocks that emit light by themselves (glowstone, torches, lava). A
+      // uniform emitter is stored as its level; when the level depends on
+      // blockstate (lit furnaces, candle counts), only the deciding properties
+      // are kept: the most common level becomes the default and the rest are
+      // per-combination cases, so e.g. glow_lichen (level 7 unless every face
+      // is off) is one case rather than 64 combinations.
+      List<BlockState> states = block.getStateDefinition().getPossibleStates();
+      Set<Integer> emissions = new TreeSet<>();
+      for (BlockState s2 : states) emissions.add(s2.getLightEmission());
+      if (emissions.size() == 1) {
+        int e = emissions.iterator().next();
+        if (e > 0) lightEmission.put(id, String.valueOf(e));
+      } else {
+        List<Property<?>> deps = new ArrayList<>();
+        for (Property<?> p : block.getStateDefinition().getProperties()) {
+          outer:
+          for (BlockState s2 : states) {
+            for (Object v : p.getPossibleValues()) {
+              if (with(s2, p, v).getLightEmission() != s2.getLightEmission()) { deps.add(p); break outer; }
+            }
+          }
+        }
+        TreeMap<String, Integer> combos = new TreeMap<>();
+        for (BlockState s2 : states) {
+          StringBuilder ck = new StringBuilder("{");
+          boolean cf = true;
+          for (Property<?> p : deps) { if (!cf) ck.append(","); cf = false; ck.append("\"").append(p.getName()).append("\":\"").append(pval(s2, p)).append("\""); }
+          combos.putIfAbsent(ck.append("}").toString(), s2.getLightEmission());
+        }
+        TreeMap<Integer, Integer> counts = new TreeMap<>();
+        for (int e : combos.values()) counts.merge(e, 1, Integer::sum);
+        int def = 0, best = -1;
+        for (var en : counts.entrySet()) if (en.getValue() > best) { best = en.getValue(); def = en.getKey(); }
+        StringBuilder cases = new StringBuilder("[");
+        boolean cf = true;
+        for (var en : combos.entrySet()) {
+          if (en.getValue() == def) continue;
+          if (!cf) cases.append(",");
+          cf = false;
+          cases.append("[").append(en.getKey()).append(",").append(en.getValue()).append("]");
+        }
+        lightEmission.put(id, "{\"default\":" + def + ",\"cases\":" + cases.append("]") + "}");
+      }
 
       if (!tintSources.isEmpty()) {
         BlockTintSource s0 = tintSources.get(0);
@@ -227,7 +274,10 @@ public class Extract {
     sb.append("\"selfCullAll\":").append(arr(selfAll)).append(",\n");
     sb.append("\"selfCullY\":").append(arr(selfY)).append(",\n");
 
-    sb.append("\"colormap\":{");
+    sb.append("\"lightEmission\":{");
+    boolean fe = true;
+    for (var e : lightEmission.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
+    sb.append("},\n\"colormap\":{");
     boolean fc = true;
     for (var e : colormap.entrySet()) { if (!fc) sb.append(","); fc = false; sb.append("\"").append(e.getKey()).append("\":").append(arr(e.getValue())); }
     sb.append("},\n\"dye\":{");

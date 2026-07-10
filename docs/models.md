@@ -56,6 +56,29 @@ isWaterloggable("oak_stairs") // true
 isWaterloggable("stone")      // false
 ```
 
+## `getLightEmission(id, properties?, resolveDefault?)`
+
+The light level (0-15) a block emits, straight from the game's per-blockstate data. Uniform emitters (glowstone, torches, lava) return their level for any state; state-dependent emitters (lit furnaces and campfires, candle counts, the light block's `level`) read the deciding properties from `properties`.
+
+| Argument | Description |
+|---|---|
+| `id` | The block id (e.g. `"glowstone"`, `"minecraft:redstone_lamp"`). Namespace optional |
+| `properties` | Blockstate properties object. Only the properties the emission depends on matter |
+| `resolveDefault` | Optional `key => value` fallback for properties missing from `properties` |
+
+Returns the emission level, `0` for non-emitting blocks.
+
+```js
+import { getLightEmission } from "block-model-renderer"
+
+getLightEmission("glowstone")                                // 15
+getLightEmission("redstone_lamp", { lit: "true" })           // 15
+getLightEmission("candle", { candles: 3, lit: true })        // 9
+getLightEmission("stone")                                    // 0
+```
+
+The renderer applies this automatically: rendering a block that glows in game (via `renderBlock` or a `loadModel` call with `args.block`) floors every element's [`light_emission`](rendering.md#lighting-modes) at the block's own level, so glowstone stays bright at a dark [`daytime`](rendering.md#lighting-modes) without the model needing `light_emission`. Missing properties resolve through the same `default_blockstates` data the model picker uses, so a bare `campfire` glows lit, matching the model it renders.
+
 ## `isCrossModel(models)`
 
 Checks whether resolved model data is a cross model (flowers, saplings, cobwebs: flat planes rotated 45° around Y). Takes one resolved model or an array of them and returns `true` when every element sits on the diagonal. Cross models render edge-on at the standard gui angle, so rotate the display 45° when this hits:
