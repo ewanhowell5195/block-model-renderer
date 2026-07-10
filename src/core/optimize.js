@@ -1,6 +1,14 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
 import { sortTranslucent } from "./sorting.js"
 
+const nextTask = globalThis.scheduler?.yield
+  ? () => scheduler.yield()
+  : () => new Promise(r => {
+    const c = new MessageChannel()
+    c.port1.onmessage = () => { c.port1.close(); r() }
+    c.port2.postMessage(0)
+  })
+
 const matMap = m => m.uniforms?.map?.value ?? m.map
 const matAnimated = m => !!(m.uniforms?.GameTime || matMap(m)?.userData?.frames)
 
@@ -141,7 +149,7 @@ function extractFlats(geo, grp, mw, nm, tex, mat, cull) {
 
 const rectsOverlap = (f, g) => f.a0 < g.a0 + g.wa - 0.01 && g.a0 < f.a0 + f.wa - 0.01 && f.b0 < g.b0 + g.wb - 0.01 && g.b0 < f.b0 + f.wb - 0.01
 
-async function buildAtlas(textures, maxAtlas) {
+async function buildAtlas(textures, maxAtlas, breathe) {
   const pad = 1
   const rep = new Map()
   for (const t of textures) { const h = hashTexture(t); if (!rep.has(h)) rep.set(h, t) }
@@ -160,7 +168,9 @@ async function buildAtlas(textures, maxAtlas) {
   }
   const ctxs = sizes.map(s => new Canvas(s.w, s.h).getContext("2d"))
   const byHash = new Map()
+  let drawn = 0
   for (const it of items) {
+    if (++drawn % 64 === 0) await breathe?.()
     const ctx = ctxs[it.ai], dx = it.px + pad, dy = it.py + pad, { w, h, img } = it
     ctx.drawImage(img, dx, dy)
     ctx.drawImage(img, 0, 0, w, 1, dx, dy - 1, w, 1)
@@ -227,6 +237,13 @@ export async function optimizeScene(placements, opts = {}) {
   const shouldCancel = opts.shouldCancel
   const tiledCache = new Map()
 
+  let sliceT = performance.now()
+  async function breathe() {
+    if (performance.now() - sliceT < 40) return
+    await nextTask()
+    sliceT = performance.now()
+  }
+
   function tiledSub(srcImg, key, sub, ur, vr) {
     const k = key + "|" + ur + "x" + vr
     let c = tiledCache.get(k)
@@ -234,6 +251,7 @@ export async function optimizeScene(placements, opts = {}) {
     c = new Canvas(sub.sw * ur, sub.sh * vr)
     const ctx = c.getContext("2d")
     for (let j = 0; j < vr; j++) for (let i = 0; i < ur; i++) ctx.drawImage(srcImg, sub.sx, sub.sy, sub.sw, sub.sh, i * sub.sw, j * sub.sh, sub.sw, sub.sh)
+    texHash.set(c, k + "_" + c.width + "x" + c.height)
     tiledCache.set(k, c)
     return c
   }
@@ -308,10 +326,17 @@ export async function optimizeScene(placements, opts = {}) {
       else merge.push(c.flat)
     }
     tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()) })
+    await breathe()
+    if (shouldCancel?.()) return null
   }
 
   const grids = new Map()
+  let scanned = 0
   for (const p of placements) {
+    if (++scanned % 4096 === 0) {
+      await breathe()
+      if (shouldCancel?.()) return null
+    }
     const td = tdata.get(p.group)
     if (!td) continue
     for (const f of td.merge) {
@@ -327,6 +352,8 @@ export async function optimizeScene(placements, opts = {}) {
   }
   const greedyQuads = []
   for (const grid of grids.values()) {
+    await breathe()
+    if (shouldCancel?.()) return null
     const f = grid.f
     const translucent = isTranslucent(f.tex, cutoff)
     const sig = f.sig + (translucent ? "|T" : "|O")
@@ -350,7 +377,9 @@ export async function optimizeScene(placements, opts = {}) {
   const atlases = new Map()
   const created = { textures: [], materials: [] }
   for (const [sig, grp] of atlasGroups) {
-    const { atlases: ats, rects, sizes } = await buildAtlas(Array.from(grp.textures), maxAtlas)
+    await breathe()
+    if (shouldCancel?.()) return null
+    const { atlases: ats, rects, sizes } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe)
     created.textures.push(...ats)
     const materials = ats.map(a => {
       const m = grp.repMat.clone()
@@ -387,12 +416,17 @@ export async function optimizeScene(placements, opts = {}) {
     }
     if (i % 2000 === 1999) {
       onProgress?.(i + 1, placements.length)
-      await new Promise(r => setTimeout(r))
+      await nextTask()
       if (shouldCancel?.()) return null
     }
   }
 
+  let appended = 0
   for (const q of greedyQuads) {
+    if (++appended % 4096 === 0) {
+      await breathe()
+      if (shouldCancel?.()) return null
+    }
     const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo), s = at.sizes[rect.ai], acc = at.accs[rect.ai], f = q.f
     for (const vert of f.verts) {
       const p = [0, 0, 0], nn = [0, 0, 0]
@@ -418,8 +452,16 @@ export async function optimizeScene(placements, opts = {}) {
     drawCalls++
     tris += acc.P.length / 9
   }
-  for (const { materials, accs } of atlases.values()) accs.forEach((acc, i) => addMesh(acc, materials[i]))
-  for (const { material, acc } of anims.values()) addMesh(acc, material)
+  for (const { materials, accs } of atlases.values()) {
+    for (let i = 0; i < accs.length; i++) {
+      addMesh(accs[i], materials[i])
+      await breathe()
+    }
+  }
+  for (const { material, acc } of anims.values()) {
+    addMesh(acc, material)
+    await breathe()
+  }
 
   const sorter = sortTranslucent(group, { resortDistance: opts.resortDistance })
 
