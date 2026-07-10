@@ -1,7 +1,7 @@
 import { platform, render, THREE } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
-import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel } from "./models.js"
+import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, collectAnimated } from "./animation.js"
@@ -19,6 +19,7 @@ async function buildBlockModel(assets, id, props, version) {
 
 export async function getCullFaces({ id, blockstates, neighbors, assets, version } = {}) {
   if (!id) throw new Error("getCullFaces requires the id option")
+  if (AIR_BLOCKS.test(id)) return new Set()
   if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
   const occCache = assets.cache.occlusion
@@ -28,6 +29,7 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     return key
   }
   async function masksFor(bid, props) {
+    if (AIR_BLOCKS.test(bid)) return null
     const key = stateKey(bid, props)
     let m = occCache.get(key)
     if (m === undefined) {

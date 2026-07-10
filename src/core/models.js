@@ -8,6 +8,8 @@ import { modelLoaders, activeLoaders } from "./loaders.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
+export const AIR_BLOCKS = /(^|:)(air|cave_air|void_air)$/
+
 const X_CYCLE = { north: "up", up: "south", south: "down", down: "north" }
 const Y_CYCLE = { north: "east", east: "south", south: "west", west: "north" }
 
@@ -99,6 +101,7 @@ function getMultipartDefaults(multipart) {
 
 export async function parseBlockstate(assets, blockstate, args) {
   if (!blockstate) throw new Error("parseBlockstate requires a blockstate id")
+  if (AIR_BLOCKS.test(blockstate)) return []
   if (assets == null || assets.length === 0) throw new Error("parseBlockstate requires assets")
   const data = args?.data ?? {}
   assets = await prepareAssets(assets)
