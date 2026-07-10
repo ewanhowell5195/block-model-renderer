@@ -55,6 +55,16 @@
       "sea_lantern"
     ]
   },
+  "waterlogged": {
+    "suffix": [
+      "seagrass"
+    ],
+    "exact": [
+      "bubble_column",
+      "kelp",
+      "kelp_plant"
+    ]
+  },
   "nonOccluding": {
     "suffix": [
       "_box",

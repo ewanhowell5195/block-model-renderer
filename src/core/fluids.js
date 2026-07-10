@@ -1,4 +1,5 @@
 import { parseBlockstate, resolveModelData } from "./models.js"
+import { isWaterlogged } from "./colors.js"
 
 
 const strip = id => (id ?? "").replace(/^minecraft:/, "")
@@ -32,6 +33,7 @@ export function fluidTypeOf(id, properties) {
   const t = TYPE[strip(id)]
   if (t) return t
   if (properties?.waterlogged === true || properties?.waterlogged === "true") return "water"
+  if (isWaterlogged(id)) return "water"
   return null
 }
 

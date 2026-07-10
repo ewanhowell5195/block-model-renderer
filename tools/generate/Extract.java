@@ -23,6 +23,7 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -135,7 +136,7 @@ public class Extract {
     TreeMap<String, String> fixed = new TreeMap<>();
     TreeMap<String, String> indexed = new TreeMap<>();
 
-    List<String> all = new ArrayList<>(), waterlog = new ArrayList<>(), noOcc = new ArrayList<>(), selfAll = new ArrayList<>(), selfY = new ArrayList<>();
+    List<String> all = new ArrayList<>(), waterlog = new ArrayList<>(), alwaysWater = new ArrayList<>(), noOcc = new ArrayList<>(), selfAll = new ArrayList<>(), selfY = new ArrayList<>();
     TreeMap<String, String> lightEmission = new TreeMap<>();
     for (Block block : BuiltInRegistries.BLOCK) {
       String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
@@ -150,7 +151,12 @@ public class Extract {
         String kind = p == grassRef ? "grass" : p == foliageRef ? "foliage" : p == dryRef ? "dry_foliage" : null;
         if (kind != null) { colormap.get(kind).add(id); if (i > 0) tintindex.put(id, i); break; }
       }
-      if (block.getStateDefinition().getProperties().contains(BlockStateProperties.WATERLOGGED)) waterlog.add(id);
+      boolean canWaterlog = block.getStateDefinition().getProperties().contains(BlockStateProperties.WATERLOGGED);
+      if (canWaterlog) waterlog.add(id);
+      // Inherently water-filled blocks: no waterlogged property, but their
+      // fluid state is always water (kelp, seagrass, bubble columns). The
+      // fluids themselves stay out, they have their own handling.
+      if (!st.getFluidState().isEmpty() && !canWaterlog && !(block instanceof LiquidBlock)) alwaysWater.add(id);
 
       // A block hides a shared face against an identical neighbour wherever
       // skipRendering() says so. Probing behaviour (not classes) keeps this
@@ -270,6 +276,7 @@ public class Extract {
     StringBuilder sb = new StringBuilder("{\n");
     sb.append("\"allBlocks\":").append(arr(all)).append(",\n");
     sb.append("\"waterloggable\":").append(arr(waterlog)).append(",\n");
+    sb.append("\"waterlogged\":").append(arr(alwaysWater)).append(",\n");
     sb.append("\"nonOccluding\":").append(arr(noOcc)).append(",\n");
     sb.append("\"selfCullAll\":").append(arr(selfAll)).append(",\n");
     sb.append("\"selfCullY\":").append(arr(selfY)).append(",\n");

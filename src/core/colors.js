@@ -31,6 +31,17 @@ export function isWaterloggable(block) {
   return matchId(normalize(block), WATERLOGGABLE)
 }
 
+const WATERLOGGED = blocks.waterlogged && {
+  suffix: blocks.waterlogged.suffix,
+  exact: new Set(blocks.waterlogged.exact),
+  except: blocks.waterlogged.except && new Set(blocks.waterlogged.except)
+}
+
+export function isWaterlogged(block) {
+  if (!block || !WATERLOGGED) return false
+  return matchId(normalize(block), WATERLOGGED)
+}
+
 export function parseColor(c) {
   if (typeof c === "string" && c.startsWith("#")) return c
   if (typeof c === "string") c = parseInt(c, 16)

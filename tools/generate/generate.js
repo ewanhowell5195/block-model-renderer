@@ -192,6 +192,7 @@ async function main() {
   const blocks = {
     _generated: `from minecraft ${version.id} by tools/generate/generate.js`,
     waterloggable: compress(d.waterloggable, d.allBlocks),
+    waterlogged: compress(d.waterlogged, d.allBlocks),
     nonOccluding: compress(d.nonOccluding, d.allBlocks),
     selfCullAll: compress(d.selfCullAll, d.allBlocks),
     selfCullY: compress(d.selfCullY, d.allBlocks),

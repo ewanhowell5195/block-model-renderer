@@ -1,5 +1,5 @@
 import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace } from "./platform.js"
-import { COLORS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, parseColor, getPotionColor } from "./colors.js"
+import { COLORS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, isWaterlogged, parseColor, getPotionColor } from "./colors.js"
 import { getLightEmission } from "./emission.js"
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
@@ -109,6 +109,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   const buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
 
   if (!buf) {
+    if (isWaterlogged(block)) return [waterPart()]
     const m = { type: "block", model: "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (args?.version) m.version = args.version
@@ -254,17 +255,21 @@ export async function parseBlockstate(assets, blockstate, args) {
     else if (block === "lava" || block === "flowing_lava") model.fluid = "lava"
   }
 
-  if ((data?.waterlogged === true || data?.waterlogged === "true") && isWaterloggable(block)) {
-    models.push({
-      model: "minecraft:block/water",
-      type: "block",
-      fluid: "water",
-      tints: ["#3F76E4"],
-      scale: [0.999, 0.999, 0.999]
-    })
+  if (((data?.waterlogged === true || data?.waterlogged === "true") && isWaterloggable(block)) || isWaterlogged(block)) {
+    models.push(waterPart())
   }
 
   return models
+}
+
+function waterPart() {
+  return {
+    model: "minecraft:block/water",
+    type: "block",
+    fluid: "water",
+    tints: ["#3F76E4"],
+    scale: [0.999, 0.999, 0.999]
+  }
 }
 
 async function getColorMapTint(assets, mapName, temperature, downfall) {
