@@ -111,6 +111,22 @@ function compress(targetIds, allIds) {
   return ok ? rule : { suffix: [], exact: [...targetIds].sort() }
 }
 
+// Light emission entries carry a value (a level, or a per-blockstate rule), so
+// the ids are grouped by identical value and each group gets the same
+// suffix/exact/except cover as the plain block lists. Groups can't collide:
+// compress() verifies each cover reproduces exactly its own ids.
+function compressEmission(emission, allIds) {
+  const groups = new Map()
+  for (const [id, value] of Object.entries(emission)) {
+    const key = JSON.stringify(value)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(id)
+  }
+  return [...groups.entries()]
+    .sort((a, b) => b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1))
+    .map(([key, ids]) => ({ value: JSON.parse(key), ...compress(ids, allIds) }))
+}
+
 // Mirrors defaultBlockstates() in src/core/models.js: a block-specific rule wins
 // over the global per-property default, and an array default means the first
 // entry is preferred. Returns (block, property) -> the default value the
@@ -179,7 +195,7 @@ async function main() {
     nonOccluding: compress(d.nonOccluding, d.allBlocks),
     selfCullAll: compress(d.selfCullAll, d.allBlocks),
     selfCullY: compress(d.selfCullY, d.allBlocks),
-    lightEmission: d.lightEmission
+    lightEmission: compressEmission(d.lightEmission, d.allBlocks)
   }
   const colors = {
     _generated: `from minecraft ${version.id} by tools/generate/generate.js`,

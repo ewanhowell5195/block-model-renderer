@@ -108,1230 +108,576 @@
       "mangrove_roots"
     ]
   },
-  "lightEmission": {
-    "amethyst_cluster": 5,
-    "beacon": 15,
-    "black_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
+  "lightEmission": [
+    {
+      "value": 15,
+      "suffix": [
+        "_froglight",
+        "lantern"
+      ],
+      "exact": [
+        "beacon",
+        "conduit",
+        "end_gateway",
+        "end_portal",
+        "fire",
+        "glowstone",
+        "lava",
+        "lava_cauldron",
+        "shroomlight"
+      ],
+      "except": [
+        "soul_lantern"
       ]
     },
-    "black_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "candles": "1",
+              "lit": "true"
+            },
+            3
+          ],
+          [
+            {
+              "candles": "2",
+              "lit": "true"
+            },
+            6
+          ],
+          [
+            {
+              "candles": "3",
+              "lit": "true"
+            },
+            9
+          ],
+          [
+            {
+              "candles": "4",
+              "lit": "true"
+            },
+            12
+          ]
         ]
+      },
+      "suffix": [
+        "candle"
+      ],
+      "exact": []
+    },
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            3
+          ]
+        ]
+      },
+      "suffix": [
+        "_cake"
+      ],
+      "exact": []
+    },
+    {
+      "value": 1,
+      "suffix": [
+        "_sensor"
+      ],
+      "exact": [
+        "brewing_stand",
+        "brown_mushroom",
+        "dragon_egg",
+        "end_portal_frame",
+        "small_amethyst_bud"
       ]
     },
-    "blast_furnace": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          13
-        ]
+    {
+      "value": 10,
+      "suffix": [],
+      "exact": [
+        "crying_obsidian",
+        "soul_fire",
+        "soul_lantern",
+        "soul_torch",
+        "soul_wall_torch"
       ]
     },
-    "blue_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
+    {
+      "value": 14,
+      "suffix": [],
+      "exact": [
+        "copper_torch",
+        "copper_wall_torch",
+        "end_rod",
+        "torch",
+        "wall_torch"
       ]
     },
-    "blue_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            15
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "campfire",
+        "copper_bulb",
+        "redstone_lamp",
+        "waxed_copper_bulb"
       ]
     },
-    "brewing_stand": 1,
-    "brown_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            13
+          ]
         ]
+      },
+      "suffix": [
+        "furnace"
+      ],
+      "exact": [
+        "smoker"
       ]
     },
-    "brown_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
+    {
+      "value": 2,
+      "suffix": [],
+      "exact": [
+        "firefly_bush",
+        "medium_amethyst_bud"
       ]
     },
-    "brown_mushroom": 1,
-    "calibrated_sculk_sensor": 1,
-    "campfire": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          15
-        ]
+    {
+      "value": 7,
+      "suffix": [],
+      "exact": [
+        "enchanting_table",
+        "ender_chest"
       ]
     },
-    "candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "berries": "true"
+            },
+            14
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "cave_vines",
+        "cave_vines_plant"
       ]
     },
-    "candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            12
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "exposed_copper_bulb",
+        "waxed_exposed_copper_bulb"
       ]
     },
-    "cave_vines": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "berries": "true"
-          },
-          14
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            4
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "oxidized_copper_bulb",
+        "waxed_oxidized_copper_bulb"
       ]
     },
-    "cave_vines_plant": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "berries": "true"
-          },
-          14
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            7
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "redstone_torch",
+        "redstone_wall_torch"
       ]
     },
-    "conduit": 15,
-    "copper_bulb": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          15
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            8
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "waxed_weathered_copper_bulb",
+        "weathered_copper_bulb"
       ]
     },
-    "copper_lantern": 15,
-    "copper_torch": 14,
-    "copper_wall_torch": 14,
-    "crying_obsidian": 10,
-    "cyan_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            9
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "deepslate_redstone_ore",
+        "redstone_ore"
       ]
     },
-    "cyan_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
+    {
+      "value": 11,
+      "suffix": [],
+      "exact": [
+        "nether_portal"
       ]
     },
-    "deepslate_redstone_ore": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          9
-        ]
+    {
+      "value": 3,
+      "suffix": [],
+      "exact": [
+        "magma_block"
       ]
     },
-    "dragon_egg": 1,
-    "enchanting_table": 7,
-    "end_gateway": 15,
-    "end_portal": 15,
-    "end_portal_frame": 1,
-    "end_rod": 14,
-    "ender_chest": 7,
-    "exposed_copper_bulb": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          12
-        ]
+    {
+      "value": 4,
+      "suffix": [],
+      "exact": [
+        "large_amethyst_bud"
       ]
     },
-    "exposed_copper_lantern": 15,
-    "fire": 15,
-    "firefly_bush": 2,
-    "furnace": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          13
-        ]
+    {
+      "value": 5,
+      "suffix": [],
+      "exact": [
+        "amethyst_cluster"
       ]
     },
-    "glow_lichen": {
-      "default": 7,
-      "cases": [
-        [
-          {
-            "down": "false",
-            "east": "false",
-            "north": "false",
-            "south": "false",
-            "up": "false",
-            "west": "false"
-          },
-          0
-        ]
+    {
+      "value": 6,
+      "suffix": [],
+      "exact": [
+        "sculk_catalyst"
       ]
     },
-    "glowstone": 15,
-    "gray_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "charges": "1"
+            },
+            3
+          ],
+          [
+            {
+              "charges": "2"
+            },
+            7
+          ],
+          [
+            {
+              "charges": "3"
+            },
+            11
+          ],
+          [
+            {
+              "charges": "4"
+            },
+            15
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "respawn_anchor"
       ]
     },
-    "gray_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "level": "1"
+            },
+            1
+          ],
+          [
+            {
+              "level": "10"
+            },
+            10
+          ],
+          [
+            {
+              "level": "11"
+            },
+            11
+          ],
+          [
+            {
+              "level": "12"
+            },
+            12
+          ],
+          [
+            {
+              "level": "13"
+            },
+            13
+          ],
+          [
+            {
+              "level": "14"
+            },
+            14
+          ],
+          [
+            {
+              "level": "15"
+            },
+            15
+          ],
+          [
+            {
+              "level": "2"
+            },
+            2
+          ],
+          [
+            {
+              "level": "3"
+            },
+            3
+          ],
+          [
+            {
+              "level": "4"
+            },
+            4
+          ],
+          [
+            {
+              "level": "5"
+            },
+            5
+          ],
+          [
+            {
+              "level": "6"
+            },
+            6
+          ],
+          [
+            {
+              "level": "7"
+            },
+            7
+          ],
+          [
+            {
+              "level": "8"
+            },
+            8
+          ],
+          [
+            {
+              "level": "9"
+            },
+            9
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "light"
       ]
     },
-    "green_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "lit": "true"
+            },
+            10
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "soul_campfire"
       ]
     },
-    "green_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "pickles": "1",
+              "waterlogged": "true"
+            },
+            6
+          ],
+          [
+            {
+              "pickles": "2",
+              "waterlogged": "true"
+            },
+            9
+          ],
+          [
+            {
+              "pickles": "3",
+              "waterlogged": "true"
+            },
+            12
+          ],
+          [
+            {
+              "pickles": "4",
+              "waterlogged": "true"
+            },
+            15
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "sea_pickle"
       ]
     },
-    "jack_o_lantern": 15,
-    "lantern": 15,
-    "large_amethyst_bud": 4,
-    "lava": 15,
-    "lava_cauldron": 15,
-    "light": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "level": "1"
-          },
-          1
-        ],
-        [
-          {
-            "level": "10"
-          },
-          10
-        ],
-        [
-          {
-            "level": "11"
-          },
-          11
-        ],
-        [
-          {
-            "level": "12"
-          },
-          12
-        ],
-        [
-          {
-            "level": "13"
-          },
-          13
-        ],
-        [
-          {
-            "level": "14"
-          },
-          14
-        ],
-        [
-          {
-            "level": "15"
-          },
-          15
-        ],
-        [
-          {
-            "level": "2"
-          },
-          2
-        ],
-        [
-          {
-            "level": "3"
-          },
-          3
-        ],
-        [
-          {
-            "level": "4"
-          },
-          4
-        ],
-        [
-          {
-            "level": "5"
-          },
-          5
-        ],
-        [
-          {
-            "level": "6"
-          },
-          6
-        ],
-        [
-          {
-            "level": "7"
-          },
-          7
-        ],
-        [
-          {
-            "level": "8"
-          },
-          8
-        ],
-        [
-          {
-            "level": "9"
-          },
-          9
+    {
+      "value": {
+        "default": 12,
+        "cases": [
+          [
+            {
+              "vault_state": "inactive"
+            },
+            6
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "vault"
       ]
     },
-    "light_blue_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
+    {
+      "value": {
+        "default": 7,
+        "cases": [
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "false",
+              "south": "false",
+              "up": "false",
+              "west": "false"
+            },
+            0
+          ]
         ]
+      },
+      "suffix": [],
+      "exact": [
+        "glow_lichen"
       ]
     },
-    "light_blue_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
+    {
+      "value": {
+        "default": 8,
+        "cases": [
+          [
+            {
+              "trial_spawner_state": "cooldown"
+            },
+            0
+          ],
+          [
+            {
+              "trial_spawner_state": "inactive"
+            },
+            0
+          ],
+          [
+            {
+              "trial_spawner_state": "waiting_for_players"
+            },
+            4
+          ]
         ]
-      ]
-    },
-    "light_gray_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "light_gray_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
-      ]
-    },
-    "lime_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "lime_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
-      ]
-    },
-    "magenta_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "magenta_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
-      ]
-    },
-    "magma_block": 3,
-    "medium_amethyst_bud": 2,
-    "nether_portal": 11,
-    "ochre_froglight": 15,
-    "orange_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "orange_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
-      ]
-    },
-    "oxidized_copper_bulb": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          4
-        ]
-      ]
-    },
-    "oxidized_copper_lantern": 15,
-    "pearlescent_froglight": 15,
-    "pink_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "pink_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
-      ]
-    },
-    "purple_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "purple_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
-      ]
-    },
-    "red_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "red_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
-      ]
-    },
-    "redstone_lamp": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          15
-        ]
-      ]
-    },
-    "redstone_ore": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          9
-        ]
-      ]
-    },
-    "redstone_torch": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          7
-        ]
-      ]
-    },
-    "redstone_wall_torch": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          7
-        ]
-      ]
-    },
-    "respawn_anchor": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "charges": "1"
-          },
-          3
-        ],
-        [
-          {
-            "charges": "2"
-          },
-          7
-        ],
-        [
-          {
-            "charges": "3"
-          },
-          11
-        ],
-        [
-          {
-            "charges": "4"
-          },
-          15
-        ]
-      ]
-    },
-    "sculk_catalyst": 6,
-    "sculk_sensor": 1,
-    "sea_lantern": 15,
-    "sea_pickle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "pickles": "1",
-            "waterlogged": "true"
-          },
-          6
-        ],
-        [
-          {
-            "pickles": "2",
-            "waterlogged": "true"
-          },
-          9
-        ],
-        [
-          {
-            "pickles": "3",
-            "waterlogged": "true"
-          },
-          12
-        ],
-        [
-          {
-            "pickles": "4",
-            "waterlogged": "true"
-          },
-          15
-        ]
-      ]
-    },
-    "shroomlight": 15,
-    "small_amethyst_bud": 1,
-    "smoker": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          13
-        ]
-      ]
-    },
-    "soul_campfire": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          10
-        ]
-      ]
-    },
-    "soul_fire": 10,
-    "soul_lantern": 10,
-    "soul_torch": 10,
-    "soul_wall_torch": 10,
-    "torch": 14,
-    "trial_spawner": {
-      "default": 8,
-      "cases": [
-        [
-          {
-            "trial_spawner_state": "cooldown"
-          },
-          0
-        ],
-        [
-          {
-            "trial_spawner_state": "inactive"
-          },
-          0
-        ],
-        [
-          {
-            "trial_spawner_state": "waiting_for_players"
-          },
-          4
-        ]
-      ]
-    },
-    "vault": {
-      "default": 12,
-      "cases": [
-        [
-          {
-            "vault_state": "inactive"
-          },
-          6
-        ]
-      ]
-    },
-    "verdant_froglight": 15,
-    "wall_torch": 14,
-    "waxed_copper_bulb": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          15
-        ]
-      ]
-    },
-    "waxed_copper_lantern": 15,
-    "waxed_exposed_copper_bulb": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "waxed_exposed_copper_lantern": 15,
-    "waxed_oxidized_copper_bulb": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          4
-        ]
-      ]
-    },
-    "waxed_oxidized_copper_lantern": 15,
-    "waxed_weathered_copper_bulb": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          8
-        ]
-      ]
-    },
-    "waxed_weathered_copper_lantern": 15,
-    "weathered_copper_bulb": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          8
-        ]
-      ]
-    },
-    "weathered_copper_lantern": 15,
-    "white_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "white_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
-      ]
-    },
-    "yellow_candle": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "candles": "1",
-            "lit": "true"
-          },
-          3
-        ],
-        [
-          {
-            "candles": "2",
-            "lit": "true"
-          },
-          6
-        ],
-        [
-          {
-            "candles": "3",
-            "lit": "true"
-          },
-          9
-        ],
-        [
-          {
-            "candles": "4",
-            "lit": "true"
-          },
-          12
-        ]
-      ]
-    },
-    "yellow_candle_cake": {
-      "default": 0,
-      "cases": [
-        [
-          {
-            "lit": "true"
-          },
-          3
-        ]
+      },
+      "suffix": [],
+      "exact": [
+        "trial_spawner"
       ]
     }
-  }
+  ]
 }

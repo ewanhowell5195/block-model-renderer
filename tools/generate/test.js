@@ -58,10 +58,23 @@ test("colors.json structure", () => {
 })
 
 test("light emission matches the game", () => {
-  assert.equal(blocks.lightEmission.glowstone, 15)
-  assert.equal(blocks.lightEmission.torch, 14)
-  assert.equal(blocks.lightEmission.magma_block, 3)
+  assert.ok(Array.isArray(blocks.lightEmission) && blocks.lightEmission.length > 10)
+  for (const g of blocks.lightEmission) {
+    assert.ok(Array.isArray(g.suffix) && Array.isArray(g.exact), "group has suffix/exact arrays")
+    assert.ok(typeof g.value === "number" ? g.value > 0 : Array.isArray(g.value.cases), "group value is a level or rule")
+  }
   assert.equal(getLightEmission("glowstone"), 15)
+  assert.equal(getLightEmission("torch"), 14)
+  assert.equal(getLightEmission("magma_block"), 3)
+  // suffix covers with except: "lantern" is 15 but soul_lantern is 10
+  assert.equal(getLightEmission("lantern"), 15)
+  assert.equal(getLightEmission("jack_o_lantern"), 15)
+  assert.equal(getLightEmission("waxed_oxidized_copper_lantern"), 15)
+  assert.equal(getLightEmission("soul_lantern"), 10)
+  assert.equal(getLightEmission("ochre_froglight"), 15)
+  assert.equal(getLightEmission("black_candle", { candles: "2", lit: "true" }), 6)
+  assert.equal(getLightEmission("black_candle_cake", { lit: "true" }), 3)
+  assert.equal(getLightEmission("cake"), 0)
   assert.equal(getLightEmission("minecraft:sea_lantern"), 15)
   assert.equal(getLightEmission("stone"), 0)
   assert.equal(getLightEmission("redstone_lamp", { lit: "true" }), 15)

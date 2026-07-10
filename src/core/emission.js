@@ -1,9 +1,17 @@
-import { normalize } from "./platform.js"
+import { normalize, matchId } from "./platform.js"
 import blocks from "./data/blocks.json" with { type: "json" }
+
+const RULES = blocks.lightEmission.map(r => ({
+  value: r.value,
+  suffix: r.suffix,
+  exact: new Set(r.exact),
+  except: r.except && new Set(r.except)
+}))
 
 export function getLightEmission(block, properties, resolveDefault) {
   if (!block) return 0
-  const entry = blocks.lightEmission[normalize(block)]
+  const id = normalize(block)
+  const entry = RULES.find(r => matchId(id, r))?.value
   if (entry == null) return 0
   if (typeof entry === "number") return entry
   const value = k => {
