@@ -294,13 +294,14 @@ export async function optimizeScene(placements, opts = {}) {
         const mat = mats[g.materialIndex]
         if (!mat || mat.visible === false) continue
         const tex = matMap(mat)
-        if (!tex) continue
+        if (!tex && !matAnimated(mat)) continue
         const cull = o.userData.cullface?.[g.materialIndex] ?? null
         if (matAnimated(mat)) {
-          if (!animTexId.has(tex)) animTexId.set(tex, animTexId.size)
-          const key = matSignature(mat) + "|a" + animTexId.get(tex)
+          const id = tex ?? mat
+          if (!animTexId.has(id)) animTexId.set(id, animTexId.size)
+          const key = matSignature(mat) + "|a" + animTexId.get(id)
           if (!anims.has(key)) {
-            const tr = isTranslucent(tex, cutoff)
+            const tr = tex ? isTranslucent(tex, cutoff) : false
             mat.transparent = tr
             mat.depthWrite = !tr
             fixedAnimMats.add(mat)
