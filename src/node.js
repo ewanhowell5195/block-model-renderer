@@ -120,24 +120,21 @@ setPlatform({
     if (parsed) renderer.setClearColor(parsed.color, parsed.alpha)
     else renderer.setClearColor(0x000000, 0)
 
-    camera.projectionMatrix.elements[5] *= -1
-    const gl = renderer.getContext()
-    const currentFrontFace = gl.getParameter(gl.FRONT_FACE)
-    gl.frontFace(currentFrontFace === gl.CCW ? gl.CW : gl.CCW)
-
     return {
       renderFrame(scene, cam) {
         renderer.render(scene, cam)
       },
       readPixels() {
+        const row = width * 4
         const pixels = new Uint8Array(width * height * 4)
         glCtx.readPixels(0, 0, width, height, glCtx.RGBA, glCtx.UNSIGNED_BYTE, pixels)
-        return pixels
+        const flipped = new Uint8Array(pixels.length)
+        for (let y = 0; y < height; y++) {
+          flipped.set(pixels.subarray(y * row, (y + 1) * row), (height - 1 - y) * row)
+        }
+        return flipped
       },
-      dispose() {
-        gl.frontFace(currentFrontFace)
-        camera.projectionMatrix.elements[5] *= -1
-      }
+      dispose() {}
     }
   },
 

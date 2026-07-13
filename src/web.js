@@ -104,13 +104,7 @@ function renderScene(scene, camera, width, height, background) {
   const parsed = background != null ? parseColor(background) : null
   if (parsed) renderer.setClearColor(parsed.color, parsed.alpha)
   else renderer.setClearColor(0x000000, 0)
-  camera.projectionMatrix.elements[5] *= -1
-  const gl = renderer.getContext()
-  const frontFace = gl.getParameter(gl.FRONT_FACE)
-  gl.frontFace(frontFace === gl.CCW ? gl.CW : gl.CCW)
   renderer.render(scene, camera)
-  gl.frontFace(frontFace)
-  camera.projectionMatrix.elements[5] *= -1
   return renderer.domElement
 }
 
@@ -172,11 +166,7 @@ function blit(target, source, width, height, snapshot) {
   } else if (clear) {
     ctx.clearRect(x, y, dw, dh)
   }
-  ctx.save()
-  ctx.translate(x, y + dh)
-  ctx.scale(1, -1)
-  ctx.drawImage(source, 0, 0, width, height, 0, 0, dw, dh)
-  ctx.restore()
+  ctx.drawImage(source, 0, 0, width, height, x, y, dw, dh)
 }
 
 const players = new Set()
