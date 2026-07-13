@@ -63,6 +63,7 @@ function makeSorter(mesh) {
   const inv = new THREE.Matrix4()
 
   function sortNow(camera) {
+    camera.updateWorldMatrix(true, false)
     mesh.updateWorldMatrix(true, false)
     inv.copy(mesh.matrixWorld).invert()
     camLocal.setFromMatrixPosition(camera.matrixWorld).applyMatrix4(inv)
