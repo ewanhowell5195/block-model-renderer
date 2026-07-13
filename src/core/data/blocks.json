@@ -689,5 +689,62 @@
         "trial_spawner"
       ]
     }
+  ],
+  "shapeLightOcclusion": [
+    {
+      "value": 1,
+      "suffix": [
+        "_sensor",
+        "_shelf",
+        "_stairs"
+      ],
+      "exact": [
+        "daylight_detector",
+        "dirt_path",
+        "enchanting_table",
+        "end_portal_frame",
+        "farmland",
+        "lectern",
+        "piston_head",
+        "sculk_shrieker",
+        "snow",
+        "stonecutter"
+      ]
+    },
+    {
+      "value": {
+        "default": 1,
+        "cases": [
+          [
+            {
+              "type": "double"
+            },
+            0
+          ]
+        ]
+      },
+      "suffix": [
+        "_slab"
+      ],
+      "exact": []
+    },
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "extended": "true"
+            },
+            1
+          ]
+        ]
+      },
+      "suffix": [],
+      "exact": [
+        "piston",
+        "sticky_piston"
+      ]
+    }
   ]
 }

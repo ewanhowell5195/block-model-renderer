@@ -27,9 +27,11 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `maxAnimationFrames` | `4096` | Maximum number of frames in animated output. If a model's textures can't all loop cleanly within this many frames, the loop is truncated and shorter textures may get cut short |
 | `lighting` | `"item"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`). See [Lighting modes](rendering.md#lighting-modes) |
 | `daytime` | `"noon"` | `"world"` mode sky brightness: a tick `0`-`23999` or a name (`"day"`, `"noon"`, `"sunset"`, `"night"`, `"midnight"`, `"sunrise"`). Exposed live as `scene.userData.daytime`. See [Lighting modes](rendering.md#lighting-modes) |
+| `blockLightTint` | `#FFD88C` | `"world"` mode torchlight color. See [Lighting modes](rendering.md#lighting-modes) |
+| `nightSkyTint` | `#7A7AFF` | `"world"` mode moonlight color. See [Lighting modes](rendering.md#lighting-modes) |
 | `neighbors` | | The blocks surrounding this one; faces they hide are dropped, and fluid surfaces shape themselves from it. See [Culling hidden faces](scenes.md#culling-hidden-faces) and [Fluids](fluids.md) |
 | `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](scenes.md#culling-hidden-faces) |
-| `shaderScale` | `1` | Density multiplier for screen-space shader effects (the end portal). The pattern is sized as if the block filled the viewport, so raise this when the block renders small in a larger scene. Exposed as the `Scale` uniform on the shader material, so it can also be updated live |
+| `shaderScale` | `1` | Density multiplier for screen-space shader effects (the end portal). The pattern is sized as if the block filled the viewport, so raise this when the block renders small in a larger scene. Exposed as the `Scale` uniform on the shader material, so it can also be updated live. The material also has an `Aspect` uniform (default `1`): set it to the viewport's width/height ratio to stop the pattern stretching on non-square viewports |
 | `ignoreAtlases` | `false` | Render without enforcing texture atlas membership rules (which atlas a model's textures may come from) |
 | `version` | | Minecraft version the assets are for. Enables era-appropriate behavior (see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)) |
 
@@ -47,7 +49,7 @@ Renders an item by id using its item definition.
 | `id` | required | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn). See [Item definitions](scenes.md#item-definitions) for what's supported |
 | `display` | `{ type: "fallback", display: "gui" }` | Same as [`renderBlock`](api.md), with a plainer default (no rotation or scale) |
-| `assets`, `width`, `height`, `path`, `format`, `output`, `background`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `lighting`, `daytime`, `cull`, `shaderScale`, `ignoreAtlases`, `version` | | Same as [`renderBlock`](api.md) |
+| `assets`, `width`, `height`, `path`, `format`, `output`, `background`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `lighting`, `daytime`, `blockLightTint`, `nightSkyTint`, `cull`, `shaderScale`, `ignoreAtlases`, `version` | | Same as [`renderBlock`](api.md) |
 
 ## `renderModel(args)`
 
@@ -56,7 +58,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 | Option | Default | Description |
 |---|---|---|
 | `model` | required | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
-| `assets`, `width`, `height`, `path`, `format`, `output`, `background`, `display`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `lighting`, `daytime`, `cull`, `shaderScale`, `ignoreAtlases`, `version` | | Same as [`renderBlock`](api.md) |
+| `assets`, `width`, `height`, `path`, `format`, `output`, `background`, `display`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `lighting`, `daytime`, `blockLightTint`, `nightSkyTint`, `cull`, `shaderScale`, `ignoreAtlases`, `version` | | Same as [`renderBlock`](api.md) |
 
 ## Return value
 

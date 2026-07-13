@@ -104,6 +104,9 @@ Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` 
 | `args.display` | Display transform to apply to the model. See [Display transforms](models.md#display-transforms) |
 | `args.lighting` | Lighting mode (`"item"` (default), `"world"`, `"scene"`, `"off"`). See [Lighting modes](rendering.md#lighting-modes) |
 | `args.daytime` | `"world"` mode sky brightness, as a tick `0`-`23999` or a name (`"day"`, `"noon"`, `"sunset"`, `"night"`, `"midnight"`, `"sunrise"`). Defaults to `noon` (full bright). Exposed live as `scene.userData.daytime`. See [Lighting modes](rendering.md#lighting-modes) |
+| `args.light` | `"world"` mode per-block light, a [`computeSceneLight`](#scene-lighting) result. Faces sample the volume, so torches glow and interiors darken. Ignored in other lighting modes |
+| `args.blockLightTint` | `"world"` mode torchlight color, default vanilla's `#FFD88C`. See [Lighting modes](rendering.md#lighting-modes) |
+| `args.nightSkyTint` | `"world"` mode moonlight color, default vanilla's `#7A7AFF`. See [Lighting modes](rendering.md#lighting-modes) |
 | `args.shaderScale` | Density multiplier for screen-space shader effects, as in [`renderBlock`](api.md) |
 | `args.cull` | Face directions to drop, as a `Set` from [`getCullFaces`](api.md) or a plain object like `{ north: true }`. Faces whose `cullface` points at a culled direction are skipped |
 | `args.neighbors` | The surrounding blocks as a direction-keyed object (`north`, `north_east`, `up`, `self`, ...). Shapes fluid surfaces (see [Fluids](fluids.md)), and is merged into `args.block` as the placement context's `neighbors` for loaders |
@@ -214,6 +217,50 @@ await loadModel(scene, assets, resolved, { cull })
 A neighbor entry can also carry an explicit `occludes` boolean (`{ id: "stone", occludes: false }`, or just `{ occludes: true }`). That skips the model-based occlusion check entirely and uses your answer, with only the self-culling rule still applying on top. Useful when you've already computed occlusion yourself, or need to override a specific pairing.
 
 Because occlusion comes from the models, modded blocks and custom packs just work. The models a call builds are cached for that call; with [`prepareAssets(assets, { cache: true })`](api.md) they're cached across calls too.
+
+## Scene lighting
+
+`"world"` lighting on its own shades every face as if it stood under open sky, with `daytime` scaling the whole scene evenly. [`computeSceneLight`](api.md) adds real per-block light: torches and other emitters glow, light falls off with distance and wraps around corners, and interiors and overhangs darken because the sky can't reach them. It runs Minecraft's flood fill over the scene's block grid and packs the result into a light volume texture the `"world"` shader samples per fragment, so the gradients are smooth and merged geometry from [`optimizeScene`](api.md) is lit correctly with no extra draw calls.
+
+### `computeSceneLight(blocks, options)`
+
+| Option | Default | Description |
+|---|---|---|
+| `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too). Cell coordinates, as in [`optimizeScene`](api.md) placements |
+| `options.assets` | required | The assets source |
+| `options.version` | | Minecraft version, as in [`renderBlock`](api.md) |
+
+Pass the result as the `light` option to every [`loadModel`](api.md) call in the scene (alongside `lighting: "world"`):
+
+```js
+import { computeSceneLight, loadModel } from "block-model-renderer"
+
+const blocks = [
+  { id: "stone", pos: [0, 0, 0] },
+  { id: "torch", pos: [0, 1, 0] }
+]
+const light = await computeSceneLight(blocks, { assets })
+for (const block of blocks) {
+  // build as usual, passing the same light to each block
+  await loadModel(scene, assets, resolved, { lighting: "world", light })
+}
+```
+
+The propagation mirrors the game's light engine, checked against the decompiled source. Emission levels come from [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault), so lit furnaces, candle counts, and other state-dependent emitters are right automatically. Light spreads one level per block, blocked by full opaque cubes (read off the actual models, like [`getCullFaces`](api.md), sharing its cache) and by the partial shapes of the blocks the game flags for it (stairs, slabs, snow layers), so a slab roof shadows the room under it while light wraps through the open half. Water attenuates sky light one level per block. Sky light pours straight down and spreads with falloff, so a roofed room goes dark inside while its doorway stays a lit gradient. The niche per-block dampening overrides the game hardcodes (leaves and slime dimming one level, tinted glass blocking fully) are deliberately not modeled; opacity comes from the models alone.
+
+The shading applies the vanilla lightmap: sky and block light add, block light carries the game's warm torchlight tint, and `daytime` dims and blues the sky term only (both tints are [configurable](rendering.md#lighting-modes)). At the default full-bright `noon` most of the volume reads as fully lit, so emitters mainly show indoors. Set a darker `daytime` to see them everywhere.
+
+The result:
+
+| Field | Description |
+|---|---|
+| `origin`, `size` | The volume's min cell corner and dimensions in cells (the scene bounds plus a one-cell border) |
+| `blockLight`, `skyLight` | The raw levels (0-15), one `Uint8Array` cell each, x fastest then y then z |
+| `lightAt(x, y, z)` | `{ block, sky }` levels at a cell, for your own use |
+| `setOffset(position)` | Call with the world offset you move the built scene by (a `Vector3`, array, or `x, y, z` numbers), e.g. the centering translation on [`optimizeScene`](api.md)'s group, so the shader keeps sampling the right cells. Rotation and scaling aren't supported |
+| `dispose()` | Frees the light texture. Call it when you discard the scene |
+
+The volume uploads as a single 2D texture of stacked slices with trilinear filtering done in the shader, so it behaves identically on the web and on Node's WebGL1 context. Lighting is static: it's computed once from the block list, so moving or removing emitters means computing a fresh volume and rebuilding the scene.
 
 ## Scene optimization
 

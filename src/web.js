@@ -438,6 +438,7 @@ function makePlatform() {
       return maxTexSize
     },
 
+
     prepareEntry(entry) {
       if (typeof entry === "string") {
         throw new Error("String asset paths are not available on web. Pass a zip (Uint8Array/ArrayBuffer/Blob) or a virtual handler")
@@ -530,6 +531,7 @@ export const parseItemDefinition = wrap("parseItemDefinition")
 export const resolveModelData = wrap("resolveModelData")
 export const renderModelScene = wrap("renderModelScene")
 export const getCullFaces = wrap("getCullFaces")
+export const computeSceneLight = wrap("computeSceneLight")
 
 export async function loadModel(scene, assets, model, args) {
   await init()

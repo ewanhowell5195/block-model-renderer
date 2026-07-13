@@ -54,7 +54,7 @@ function composeTransformations(parent, child) {
   return new THREE.Matrix4().copy(parent).multiply(child)
 }
 
-async function defaultBlockstates(assets) {
+export async function defaultBlockstates(assets) {
   return assets.defaultBlockstates ??= (async () => {
     const properties = {}
     const rules = []
@@ -1073,6 +1073,7 @@ export async function loadModel(scene, assets, model, args) {
   if (assets == null || assets.length === 0) throw new Error("loadModel requires assets")
   const display = args?.display ?? "gui"
   const lighting = args?.lighting
+  const light = lighting === "world" ? args?.light : null
   const daytime = scene?.userData?.daytime ?? { value: parseDaytime(args?.daytime) }
   if (scene) scene.userData.daytime = daytime
   const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
@@ -1169,6 +1170,9 @@ export async function loadModel(scene, assets, model, args) {
     ambient: 0.4001
   }
   lightConfig.daytime = daytime
+  lightConfig.light = light
+  lightConfig.blockLightTint = tintVec(args?.blockLightTint, 0xFFD88C)
+  lightConfig.nightSkyTint = tintVec(args?.nightSkyTint, 0x7A7AFF)
 
   const rootGroup = new THREE.Group()
   const displayGroup = new THREE.Group()
@@ -1660,6 +1664,14 @@ export async function loadModel(scene, assets, model, args) {
   return rootGroup
 }
 
+function tintVec(input, fallback) {
+  if (input == null) input = fallback
+  if (Array.isArray(input)) return new THREE.Vector3(input[0], input[1], input[2])
+  if (input?.isColor) return new THREE.Vector3(input.r, input.g, input.b)
+  if (typeof input === "string") input = parseInt(input.replace(/^#/, ""), 16)
+  return new THREE.Vector3(((input >> 16) & 255) / 255, ((input >> 8) & 255) / 255, (input & 255) / 255)
+}
+
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0) {
   if ((lighting === "scene" || lighting === "off") && shader?.type !== "end_portal") {
     texture.colorSpace = THREE.SRGBColorSpace
@@ -1689,6 +1701,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           value: 0.727
         },
         Scale: {
+          value: 1
+        },
+        Aspect: {
           value: 1
         },
         Sampler0: {
@@ -1723,6 +1738,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
 
         uniform float GameTime;
         uniform float Scale;
+        uniform float Aspect;
         uniform sampler2D Sampler0;
         uniform sampler2D Sampler1;
 
@@ -1776,9 +1792,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
 
         void main() {
           #include <clipping_planes_fragment>
-          vec3 color = texture2DProj(Sampler0, texProj0 * vec4(Scale, Scale, 1.0, 1.0)).rgb * getColor(0);
+          vec3 color = texture2DProj(Sampler0, texProj0 * vec4(Scale, Scale / Aspect, 1.0, 1.0)).rgb * getColor(0);
           for (int i = 0; i < ${shader.layers ?? 15}; i++) {
-            color += texture2DProj(Sampler1, texProj0 * vec4(Scale, Scale * 16.0 / 9.0, 1.0, 1.0) * end_portal_layer(float(i + 1))).rgb * getColor(i);
+            color += texture2DProj(Sampler1, texProj0 * vec4(Scale, Scale * 16.0 / 9.0 / Aspect, 1.0, 1.0) * end_portal_layer(float(i + 1))).rgb * getColor(i);
           }
           gl_FragColor = vec4(color, 1.0);
         }
@@ -1786,7 +1802,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       clipping: true
     })
   }
+  const volume = lightConfig?.light?.uniforms ? lightConfig.light : null
   return new THREE.ShaderMaterial({
+    defines: volume ? { LIGHT_VOLUME: "" } : {},
     uniforms: {
       map: { value: texture },
       light0: { value: new THREE.Vector3(...(lightConfig?.light0 ?? [0, 0, 1])) },
@@ -1799,11 +1817,17 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       worldShade: { value: lighting === "world" },
       daytime: lightConfig?.daytime ?? { value: NAMED_TIMES.noon },
       emission: { value: emission / 15 },
+      blockLightTint: { value: lightConfig?.blockLightTint ?? tintVec(null, 0xFFD88C) },
+      nightSkyTint: { value: lightConfig?.nightSkyTint ?? tintVec(null, 0x7A7AFF) },
+      ...(volume ? volume.uniforms : {}),
     },
     vertexShader: `
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      #ifdef LIGHT_VOLUME
+        varying vec3 vWorldPos;
+      #endif
       #include <clipping_planes_pars_vertex>
       void main() {
         vUv = uv;
@@ -1815,6 +1839,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         #endif
         vNormal = normalize(normalMatrix * nrm);
         vWorldNormal = normalize(mat3(modelMatrix) * nrm);
+        #ifdef LIGHT_VOLUME
+          vWorldPos = (modelMatrix * pos).xyz;
+        #endif
         vec4 mvPosition = modelViewMatrix * pos;
         #include <clipping_planes_vertex>
         gl_Position = projectionMatrix * mvPosition;
@@ -1832,9 +1859,31 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform bool worldShade;
       uniform float daytime;
       uniform float emission;
+      uniform vec3 blockLightTint;
+      uniform vec3 nightSkyTint;
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      #ifdef LIGHT_VOLUME
+        varying vec3 vWorldPos;
+        uniform vec3 lightVolOrigin;
+        uniform vec3 lightVolSize;
+        uniform sampler2D lightVol;
+        uniform vec2 lightVolTex;
+        uniform float lightVolCols;
+        vec2 sampleLightVol(vec3 p) {
+          p = clamp(p, vec3(0.0), lightVolSize);
+          float y0 = floor(p.y);
+          float y1 = min(y0 + 1.0, lightVolSize.y);
+          vec2 tile = lightVolSize.xz + 1.0;
+          vec2 xz = vec2(p.x, p.z) + 0.5;
+          vec2 uv0 = vec2(mod(y0, lightVolCols) * tile.x, floor(y0 / lightVolCols) * tile.y) + xz;
+          vec2 uv1 = vec2(mod(y1, lightVolCols) * tile.x, floor(y1 / lightVolCols) * tile.y) + xz;
+          vec2 l0 = texture2D(lightVol, uv0 / lightVolTex).rg;
+          vec2 l1 = texture2D(lightVol, uv1 / lightVolTex).rg;
+          return mix(l0, l1, p.y - y0);
+        }
+      #endif
       #include <clipping_planes_pars_fragment>
       void main() {
         #include <clipping_planes_fragment>
@@ -1842,6 +1891,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         vec4 texColor = texture2D(map, vUv);
         if (texColor.a < 0.01) discard;
         float shade = 1.0;
+        vec3 light = vec3(1.0);
         if (worldShade) {
           if (shadeEnabled) {
             bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
@@ -1849,18 +1899,43 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             vec3 n2 = wn * wn;
             shade = (n2.y * (wn.y >= 0.0 ? 1.0 : 0.5) + n2.z * 0.8 + n2.x * 0.6) / (n2.x + n2.y + n2.z);
           }
-          float dd = fract(daytime / 24000.0 - 0.25);
-          float ce = 0.5 - cos(dd * 3.14159265) * 0.5;
-          float celestial = (dd * 2.0 + ce) / 3.0;
-          float d2 = 0.5 + 2.0 * clamp(cos(celestial * 6.28318531), -0.25, 0.25);
-          float sky = (15.0 - (1.0 - d2) * 11.0) / 15.0;
-          sky = sky / (4.0 - 3.0 * sky);
-          shade *= max(sky, emission);
+          float td = mod(daytime - 730.0, 24000.0) + 730.0;
+          float skyFactor;
+          vec3 skyColor;
+          if (td < 11270.0) {
+            skyFactor = 1.0;
+            skyColor = vec3(1.0);
+          } else if (td < 13140.0) {
+            float k = (td - 11270.0) / 1870.0;
+            skyFactor = mix(1.0, 0.24, k);
+            skyColor = mix(vec3(1.0), nightSkyTint, k);
+          } else if (td < 22860.0) {
+            skyFactor = 0.24;
+            skyColor = nightSkyTint;
+          } else {
+            float k = (td - 22860.0) / 1870.0;
+            skyFactor = mix(0.24, 1.0, k);
+            skyColor = mix(nightSkyTint, vec3(1.0), k);
+          }
+          #ifdef LIGHT_VOLUME
+            vec3 sn = gl_FrontFacing ? vWorldNormal : -vWorldNormal;
+            vec3 lp = vWorldPos / 16.0 + 0.5 + sn * 0.5 - lightVolOrigin;
+            vec2 lv = sampleLightVol(lp);
+            float blockLevel = max(lv.x, emission);
+            float skyLevel = lv.y;
+          #else
+            float blockLevel = emission;
+            float skyLevel = 1.0;
+          #endif
+          float skyBrightness = skyLevel / (4.0 - 3.0 * skyLevel) * skyFactor;
+          float blockBrightness = blockLevel / (4.0 - 3.0 * blockLevel) * 1.4;
+          vec3 blockColor = mix(blockLightTint, vec3(1.0), 0.9 * (2.0 * blockLevel - 1.0) * (2.0 * blockLevel - 1.0));
+          light = clamp(skyColor * skyBrightness + blockColor * blockBrightness, 0.0, 1.0);
         } else {
           mat3 v = mat3(viewMatrix);
           shade = min(1.0, ambient + d0 * max(0.0, dot(vNormal, v * light0)) + d1 * max(0.0, dot(vNormal, v * light1)));
         }
-        gl_FragColor = vec4(texColor.rgb * shade, texColor.a);
+        gl_FragColor = vec4(texColor.rgb * shade * light, texColor.a);
       }
     `,
     transparent: texture?.userData?.translucent === true,

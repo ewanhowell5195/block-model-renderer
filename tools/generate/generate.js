@@ -196,7 +196,8 @@ async function main() {
     nonOccluding: compress(d.nonOccluding, d.allBlocks),
     selfCullAll: compress(d.selfCullAll, d.allBlocks),
     selfCullY: compress(d.selfCullY, d.allBlocks),
-    lightEmission: compressEmission(d.lightEmission, d.allBlocks)
+    lightEmission: compressEmission(d.lightEmission, d.allBlocks),
+    shapeLightOcclusion: compressEmission(d.shapeLightOcclusion, d.allBlocks)
   }
   const colors = {
     _generated: `from minecraft ${version.id} by tools/generate/generate.js`,

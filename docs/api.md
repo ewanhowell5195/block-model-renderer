@@ -11,7 +11,7 @@ import {
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
-  makeModelScene, loadModel, renderModelScene, optimizeScene, sortTranslucent,
+  makeModelScene, loadModel, renderModelScene, optimizeScene, sortTranslucent, computeSceneLight,
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
@@ -60,6 +60,7 @@ import {
 | `renderModelScene(scene, camera, args?)` | Render a scene to output. [Details](scenes.md#rendermodelscenescene-camera-args) |
 | `optimizeScene(placements, options?)` | Merge the whole scene into a handful of draw calls, with far fewer polygons. [Details](scenes.md#scene-optimization) |
 | `sortTranslucent(group, options?)` | Depth-sort a group's translucent faces for a moving camera. [Details](scenes.md#translucent-sorting) |
+| `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](scenes.md#scene-lighting) |
 
 ## Fluids
 

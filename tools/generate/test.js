@@ -7,7 +7,7 @@ import path from "node:path"
 import { execFileSync, spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { canOcclude, selfCulls } from "../../src/core/culling.js"
-import { getLightEmission } from "../../src/core/emission.js"
+import { getLightEmission, usesShapeLightOcclusion } from "../../src/core/emission.js"
 import { isWaterloggable, COLORS, getPotionColor, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS } from "../../src/core/colors.js"
 import blocks from "../../src/core/data/blocks.json" with { type: "json" }
 import colors from "../../src/core/data/colors.json" with { type: "json" }
@@ -89,6 +89,19 @@ test("light emission matches the game", () => {
   assert.equal(getLightEmission("campfire", { lit: "true" }), 15)
   assert.equal(getLightEmission("campfire", {}, k => ({ lit: "true" })[k]), 15)
   assert.equal(getLightEmission("lava"), 15)
+})
+
+test("shape light occlusion matches the game", () => {
+  assert.equal(usesShapeLightOcclusion("oak_stairs"), true)
+  assert.equal(usesShapeLightOcclusion("oak_slab", { type: "bottom" }), true)
+  assert.equal(usesShapeLightOcclusion("oak_slab", { type: "double" }), false)
+  assert.equal(usesShapeLightOcclusion("snow"), true)
+  assert.equal(usesShapeLightOcclusion("farmland"), true)
+  assert.equal(usesShapeLightOcclusion("dirt_path"), true)
+  assert.equal(usesShapeLightOcclusion("piston", { extended: "true" }), true)
+  assert.equal(usesShapeLightOcclusion("piston", { extended: "false" }), false)
+  assert.equal(usesShapeLightOcclusion("stone"), false)
+  assert.equal(usesShapeLightOcclusion("torch"), false)
 })
 
 test("canOcclude matches the game", () => {

@@ -16,7 +16,8 @@ function matSignature(m) {
   if (m.uniforms) {
     const u = m.uniforms
     return ["shader", m.side, u.shadeEnabled?.value, u.shadeOverride?.value?.toArray().join(","), u.d0?.value, u.d1?.value, u.ambient?.value,
-      u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(","), u.emission?.value].join("|")
+      u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(","), u.emission?.value,
+      u.blockLightTint?.value?.toArray().join(","), u.nightSkyTint?.value?.toArray().join(",")].join("|")
   }
   return [m.type, m.side].join("|")
 }
@@ -402,7 +403,9 @@ export async function optimizeScene(placements, opts = {}) {
       const m = grp.repMat.clone()
       if (m.uniforms) {
         m.uniforms.map.value = a
-        if (grp.repMat.uniforms.daytime) m.uniforms.daytime = grp.repMat.uniforms.daytime
+        for (const k of ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]) {
+          if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
+        }
       }
       else m.map = a
       m.transparent = grp.translucent
