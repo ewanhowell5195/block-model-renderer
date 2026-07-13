@@ -132,6 +132,18 @@
       "defaults": {
         "level": 15
       }
+    },
+    {
+      "match": "structure_block",
+      "defaults": {
+        "mode": "load"
+      }
+    },
+    {
+      "match": "test_block",
+      "defaults": {
+        "mode": "start"
+      }
     }
   ]
 }
