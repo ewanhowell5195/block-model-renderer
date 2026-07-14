@@ -1,5 +1,6 @@
 {
   "parent": "block/block",
+  "double_sided": true,
   "textures": {
     "still": "block/lava_still",
     "flow": "block/lava_flow"

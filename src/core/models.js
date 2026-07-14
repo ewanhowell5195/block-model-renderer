@@ -1446,7 +1446,7 @@ export async function loadModel(scene, assets, model, args) {
           if (modernShade && SHADE_DIR_VECS[element.shade_direction_override]) shadeDir = element.shade_direction_override
           else if (legacyShade && element.shade === false) shadeDir = "up"
         }
-        const side = back ? "back" : model.double_sided
+        const side = back ? "back" : false
         const emission = Math.max(blockEmission, !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0)
         const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shadeDir ?? ""}\0${side}\0${emission}`
         let material = materialCache.get(mkey)
@@ -1461,7 +1461,7 @@ export async function loadModel(scene, assets, model, args) {
     }
 
     const materials = await faceMaterials(false)
-    if (model.fluid) {
+    if (model.double_sided) {
       materials.push(...await faceMaterials("back"))
       const groups = geometry.groups.map(g => ({ ...g }))
       geometry.clearGroups()
