@@ -230,6 +230,7 @@ Because occlusion comes from the models, modded blocks and custom packs just wor
 | `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too). Cell coordinates, as in [`optimizeScene`](api.md) placements |
 | `options.assets` | required | The assets source |
 | `options.version` | | Minecraft version, as in [`renderBlock`](api.md) |
+| `options.onProgress` | | `(done, total)` while the scene's blocks are processed, for progress bars. The flood fill after the last call is quick |
 
 Pass the result as the `light` option to every [`loadModel`](api.md) call in the scene (alongside `lighting: "world"`):
 

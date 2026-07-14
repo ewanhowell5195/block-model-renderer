@@ -101,6 +101,7 @@ export async function computeSceneLight(blocks, opts = {}) {
   const states = [null]
   const stateIds = new Map()
   const cellState = new Uint16Array(n)
+  let processed = 0
   for (const c of cells) {
     const key = stateKey(c.id, c.properties)
     let si = stateIds.get(key)
@@ -123,7 +124,12 @@ export async function computeSceneLight(blocks, opts = {}) {
     const prev = states[cellState[i]]
     const next = states[si]
     if (!prev || next.damp > prev.damp || (next.damp === prev.damp && next.emit > prev.emit)) cellState[i] = si
+    if (++processed % 8192 === 0) {
+      opts.onProgress?.(processed, cells.length)
+      await new Promise(resolve => setTimeout(resolve))
+    }
   }
+  opts.onProgress?.(cells.length, cells.length)
 
   const strideY = w, strideZ = w * h
 
