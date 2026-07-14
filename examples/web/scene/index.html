@@ -3005,7 +3005,10 @@
     try {
       if (opts.lighting === "world") {
         $("scenestatus").textContent = "Computing light…"
-        const light = await computeSceneLight(Array.from(blocks.values()), { assets })
+        const light = await computeSceneLight(Array.from(blocks.values()), {
+          assets,
+          onProgress: (done, total) => { $("scenestatus").textContent = `Computing light ${done}/${total}…` }
+        })
         if (run !== runId) { light.dispose(); return }
         sceneLight = light
         opts.light = light
