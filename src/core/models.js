@@ -946,6 +946,7 @@ async function resolveSpecialModel(assets, data, base) {
 
 async function makeThreeTexture(img) {
   const texture = await loadTexture(img)
+  texture.userData ??= {}
   texture.colorSpace = THREE.NoColorSpace
   texture.magFilter = THREE.NearestFilter
   texture.minFilter = THREE.NearestFilter
