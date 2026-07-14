@@ -42,13 +42,7 @@ main #status.show { display: block; }
     transition: transform 0.25s ease;
   }
   body.sidebar-open aside { transform: none; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); }
-  #sidebartoggle {
-    display: flex; position: fixed; top: 10px; left: 10px; z-index: 29;
-    width: 36px; height: 36px; align-items: center; justify-content: center;
-    background: rgba(31, 31, 37, 0.85); border: 1px solid var(--panel-border); border-radius: 8px;
-    color: var(--text); cursor: pointer; padding: 0;
-  }
-  #sidebartoggle:hover { border-color: var(--accent); }
+  #sidebartoggle { display: flex; }
   body.sidebar-open #sidebarbackdrop {
     display: block; position: fixed; inset: 0;
     background: rgba(0, 0, 0, 0.45); z-index: 29;
@@ -72,6 +66,8 @@ input[type="text"], input[type="number"], select, textarea {
 }
 input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
 textarea { resize: vertical; min-height: 4em; }
+input[type="range"] { accent-color: var(--accent); min-width: 0; }
+.val { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; flex: none; min-width: 36px; }
 
 button {
   background: var(--input); color: var(--text); border: 1px solid var(--input-border);
@@ -83,8 +79,17 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.active { background: var(--green); border-color: var(--green); color: #fff; }
 button.icon { background: none; border: none; padding: 0; color: var(--muted); display: flex; align-items: center; }
 button.icon:hover:not(:disabled) { color: var(--accent); border: none; }
+.row > .icon { flex: initial; font-size: 16px; line-height: 1; padding: 4px 6px; margin: -4px -2px; justify-content: center; }
 
 label.check { display: flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; user-select: none; }
 
-#packstatus { color: var(--muted); font-size: 12px; }
+#packstatus, #scenestatus { color: var(--muted); font-size: 12px; }
 #packfile { display: none; }
+
+.menu-button {
+  position: fixed; top: 10px; left: 10px; z-index: 29;
+  display: flex; width: 36px; height: 36px; align-items: center; justify-content: center;
+  background: rgba(31, 31, 37, 0.85); border: 1px solid var(--panel-border); border-radius: 8px;
+  color: var(--text); cursor: pointer; padding: 0;
+}
+.menu-button:hover { border-color: var(--accent); }

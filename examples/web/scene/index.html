@@ -21,11 +21,6 @@
   }
 </script>
 <link rel="stylesheet" href="../style.css">
-<style>
-  #scenestatus { color: var(--muted); font-size: 12px; }
-  #daytime { accent-color: var(--accent); min-width: 0; }
-  #daytimevalue { color: var(--muted); font-size: 12px; min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
-</style>
 </head>
 <body>
 <aside>
@@ -61,7 +56,7 @@
     <div class="row" id="daytimerow">
       <label for="daytime">Daytime</label>
       <input id="daytime" type="range" min="0" max="23999" value="6000" style="flex: 2">
-      <span id="daytimevalue">6000</span>
+      <span id="daytimevalue" class="val">6000</span>
       <button id="daytimereset" class="icon" title="Reset to noon" aria-label="Reset to noon" disabled>&#8634;</button>
     </div>
     <div class="row">
@@ -81,7 +76,7 @@
   </section>
 </aside>
 
-<button id="sidebartoggle" aria-label="Menu">
+<button id="sidebartoggle" class="menu-button" aria-label="Menu">
   <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round">
     <line x1="2" y1="3.5" x2="14" y2="3.5"/>
     <line x1="2" y1="8" x2="14" y2="8"/>
