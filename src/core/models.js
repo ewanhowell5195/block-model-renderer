@@ -1713,7 +1713,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
   }
   if (shader?.type === "end_portal") {
     const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
-    const skyTexture = await makeThreeTexture(await loadImage(skyBuf))
+    const skyTexture = await makeThreeTexture(skyBuf ? await loadImage(skyBuf) : new Canvas(1, 1))
     for (const t of [skyTexture, texture]) {
       t.wrapS = t.wrapT = THREE.RepeatWrapping
       t.needsUpdate = true

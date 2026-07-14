@@ -132,7 +132,7 @@ function compressEmission(emission, allIds) {
 // entry is preferred. Returns (block, property) -> the default value the
 // renderer uses for that property.
 function loadDefaultBlockstates() {
-  const json = JSON.parse(fs.readFileSync(path.join(root, "assets/fallbacks/assets/block-model-renderer/default_blockstates.json"), "utf8"))
+  const json = JSON.parse(fs.readFileSync(path.join(root, "src/core/data/fallbacks.json"), "utf8"))["assets/block-model-renderer/default_blockstates.json"]
   const properties = json.properties ?? {}
   const rules = (json.blocks ?? []).filter(r => r?.match && r.defaults).map(r => ({
     patterns: r.match.split("|").map(p => new RegExp("^" + p.replace(/\*/g, ".*") + "$")),

@@ -1,5 +1,6 @@
 import { platform, loadImage, toBytes, parseJson, textDecoder, normalize, resolveNamespace } from "./platform.js"
 import { parseZip } from "../zip.js"
+import fallbackData from "./data/fallbacks.json" with { type: "json" }
 
 export async function getMissingImage(assets) {
   if (assets.__missingImage) return assets.__missingImage
@@ -111,6 +112,19 @@ async function isFilteredByHigher(entries, index, filePath) {
   }
 }
 
+let builtinFiles
+function builtinFallbackFiles() {
+  return builtinFiles ??= (async () => {
+    const files = new Map()
+    const enc = new TextEncoder()
+    for (const [p, json] of Object.entries(fallbackData)) files.set(p, { content: enc.encode(JSON.stringify(json)) })
+    const M = [248, 0, 248, 255], K = [0, 0, 0, 255]
+    const png = await platform.encodeRawToPng({ data: new Uint8Array([...M, ...K, ...K, ...M]), width: 2, height: 2 })
+    files.set("assets/block-model-renderer/textures/missing.png", { content: toBytes(png) })
+    return files
+  })()
+}
+
 export async function prepareAssets(assets, opts) {
   if (assets == null || assets.length === 0) throw new Error("prepareAssets requires assets")
   if (Array.isArray(assets) && assets.prepared) {
@@ -131,6 +145,7 @@ export async function prepareAssets(assets, opts) {
     return entry
   }))
   await platform.addBundledEntries(prepared)
+  prepared.push(await zipEntryFromFiles(await builtinFallbackFiles()))
   prepared.prepared = true
   if (opts?.cache) prepared.cache = makeCache()
   if (opts?.translucency) prepared.translucency = opts.translucency
