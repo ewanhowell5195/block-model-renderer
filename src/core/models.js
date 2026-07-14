@@ -1792,9 +1792,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
 
         void main() {
           #include <clipping_planes_fragment>
-          vec3 color = texture2DProj(Sampler0, texProj0 * vec4(Scale, Scale / Aspect, 1.0, 1.0)).rgb * getColor(0);
+          vec3 color = texture2DProj(Sampler0, texProj0 * vec4(Scale * Aspect, Scale, 1.0, 1.0)).rgb * getColor(0);
           for (int i = 0; i < ${shader.layers ?? 15}; i++) {
-            color += texture2DProj(Sampler1, texProj0 * vec4(Scale, Scale * 16.0 / 9.0 / Aspect, 1.0, 1.0) * end_portal_layer(float(i + 1))).rgb * getColor(i);
+            color += texture2DProj(Sampler1, texProj0 * vec4(Scale * Aspect, Scale * 16.0 / 9.0, 1.0, 1.0) * end_portal_layer(float(i + 1))).rgb * getColor(i);
           }
           gl_FragColor = vec4(color, 1.0);
         }
