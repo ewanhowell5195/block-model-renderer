@@ -2959,7 +2959,7 @@
       dims.d = Math.max(dims.d, layer.length)
       layer.forEach((row, z) => {
         dims.w = Math.max(dims.w, row.length)
-        ;[...row].forEach((ch, x) => {
+        Array.from(row).forEach((ch, x) => {
           const entry = def.legend[ch]
           if (!entry) return
           const block = typeof entry === "string" ? { id: entry, properties: {} } : entry

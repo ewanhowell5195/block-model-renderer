@@ -254,7 +254,7 @@
   })
 
   document.getElementById("shuffle").addEventListener("click", () => {
-    const items = [...container.children]
+    const items = Array.from(container.children)
     const slots = items.map(o => [o.userData.col, o.userData.row])
     for (let i = slots.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
@@ -359,7 +359,7 @@
   function clearGrid() {
     animator = null
     pendingSlots.clear()
-    for (const child of [...container.children]) {
+    for (const child of Array.from(container.children)) {
       child.removeFromParent()
       disposeGroup(child)
     }
@@ -635,7 +635,7 @@
       for (let col = 0; col < cols; col++) missing.add(col + "," + row)
     }
     const outside = o => Math.max(Math.abs(o.position.x) - camera.right, Math.abs(o.position.y) - camera.top, 0)
-    const items = [...container.children].sort((a, b) => outside(a) - outside(b))
+    const items = Array.from(container.children).sort((a, b) => outside(a) - outside(b))
     const seen = new Set()
     for (const child of items) {
       const key = canon(child.userData.col, cols) + "," + canon(child.userData.row, rows)
@@ -650,7 +650,7 @@
     for (const key of pendingSlots) missing.delete(key)
     animator = createAnimator(container)
     if (missing.size) {
-      addCells([...missing].map(key => {
+      addCells(Array.from(missing).map(key => {
         const [col, row] = key.split(",")
         return { col: +col, row: +row }
       }))
@@ -693,7 +693,7 @@
     }
     panPointerId = null
     if (pointers.size >= 2) {
-      const [p1, p2] = [...pointers.values()]
+      const [p1, p2] = Array.from(pointers.values())
       pinchLastCenterX = (p1.x + p2.x) / 2
       pinchLastCenterY = (p1.y + p2.y) / 2
       pinchLastDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y)
@@ -735,7 +735,7 @@
     }
 
     if (pointers.size >= 2) {
-      const [p1, p2] = [...pointers.values()]
+      const [p1, p2] = Array.from(pointers.values())
       const centerX = (p1.x + p2.x) / 2
       const centerY = (p1.y + p2.y) / 2
       const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y)

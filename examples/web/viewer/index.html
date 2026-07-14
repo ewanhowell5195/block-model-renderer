@@ -390,7 +390,7 @@
   }
 
   function syncAddProp() {
-    $("addprop").disabled = [...$("proprows").children].some(row => {
+    $("addprop").disabled = Array.from($("proprows").children).some(row => {
       const [key, value] = row.querySelectorAll("input")
       return !key.value.trim() || !value.value.trim()
     })
@@ -440,7 +440,7 @@
 
   $("addprop").addEventListener("click", () => addPropRow())
 
-  const cullBoxes = [...document.querySelectorAll("#cull input")]
+  const cullBoxes = Array.from(document.querySelectorAll("#cull input"))
   const cullDirs = () => cullBoxes.filter(b => b.checked).map(b => b.dataset.dir)
 
   function syncUrl() {

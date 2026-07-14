@@ -1068,7 +1068,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       }
 
       hookRender("blockinput", "blockrender", "blockerr", async id => {
-        const existing = [...$("demo-blocks").children].find(f => f.dataset.id === id)
+        const existing = Array.from($("demo-blocks").children).find(f => f.dataset.id === id)
         if (existing) {
           $("demo-blocks").append(existing)
           return
@@ -1077,7 +1077,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       })
 
       hookRender("iteminput", "itemrender", "itemerr", async id => {
-        const existing = [...$("demo-items").children].find(f => f.dataset.id === id)
+        const existing = Array.from($("demo-items").children).find(f => f.dataset.id === id)
         if (existing) {
           $("demo-items").append(existing)
           return
@@ -1135,10 +1135,10 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         return widths.get(code)
       }
 
-      const textWidth = str => [...str].reduce((a, ch) => a + advance(ch.codePointAt(0)), 0) / unit
+      const textWidth = str => Array.from(str).reduce((a, ch) => a + advance(ch.codePointAt(0)), 0) / unit
 
       function makeText(str, color) {
-        const codes = [...str].map(ch => ch.codePointAt(0))
+        const codes = Array.from(str).map(ch => ch.codePointAt(0))
         const text = document.createElement("canvas")
         text.width = Math.max(codes.reduce((a, code) => a + advance(code), 0), 1)
         text.height = cell
@@ -1458,7 +1458,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
           dims.d = Math.max(dims.d, layer.length)
           layer.forEach((row, z) => {
             dims.w = Math.max(dims.w, row.length)
-            ;[...row].forEach((ch, x) => {
+            Array.from(row).forEach((ch, x) => {
               const entry = def.legend[ch]
               if (!entry) return
               const block = typeof entry === "string" ? { id: entry, properties: {} } : entry
@@ -1486,7 +1486,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       async function assembleScene(name, daytimeRef, stale) {
         const { blocks, dims } = parseScene(SCENES[name])
         const single = blocks.size === 1
-        const light = await computeSceneLight([...blocks.values()], { assets })
+        const light = await computeSceneLight(Array.from(blocks.values()), { assets })
         if (stale()) {
           light.dispose()
           return null

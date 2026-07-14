@@ -371,7 +371,7 @@
     while (picks.size < count) {
       picks.add(ids[Math.floor(Math.random() * ids.length)])
     }
-    $("ids").value = [...picks].join(", ")
+    $("ids").value = Array.from(picks).join(", ")
     renderFromInput()
   })
 
