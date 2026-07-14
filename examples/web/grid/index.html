@@ -48,6 +48,7 @@
   #menu:hover { border-color: #4c8dff; }
   #panel {
     position: absolute; top: 12px; left: 12px; width: 200px;
+    max-height: calc(100% - 24px); overflow-y: auto;
     background: rgba(31, 31, 37, 0.95); border: 1px solid #33333c; border-radius: 10px;
     padding: 12px; display: flex; flex-direction: column; gap: 10px;
     color: #e8e8ec; font: 13px/1.4 system-ui, sans-serif;

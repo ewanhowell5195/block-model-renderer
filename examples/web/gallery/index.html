@@ -30,7 +30,7 @@
     margin: 0; background: var(--panel); border: 1px solid var(--panel-border);
     border-radius: 10px; padding: 10px; text-align: center;
   }
-  figure canvas { image-rendering: pixelated; }
+  figure canvas { image-rendering: pixelated; max-width: 100%; height: auto; }
   figcaption { color: var(--muted); font-size: 11px; margin-top: 6px; overflow-wrap: anywhere; }
 </style>
 </head>
@@ -95,10 +95,24 @@
   <span id="status"></span>
 </aside>
 
+<button id="sidebartoggle" aria-label="Menu">
+  <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <line x1="2" y1="3.5" x2="14" y2="3.5"/>
+    <line x1="2" y1="8" x2="14" y2="8"/>
+    <line x1="2" y1="12.5" x2="14" y2="12.5"/>
+  </svg>
+</button>
+<div id="sidebarbackdrop"></div>
+
 <main>
   <div id="grid"></div>
 </main>
 <div id="progress"></div>
+
+<script>
+  document.getElementById("sidebartoggle").addEventListener("click", () => document.body.classList.add("sidebar-open"))
+  document.getElementById("sidebarbackdrop").addEventListener("click", () => document.body.classList.remove("sidebar-open"))
+</script>
 
 <script type="module">
   const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/+esm"
@@ -199,7 +213,7 @@
     const size = +$("size").value
     const animate = $("animenable").checked
     const animatedOnly = animate && $("fanimated").checked
-    $("grid").style.gridTemplateColumns = `repeat(auto-fill, minmax(${size + 22}px, 1fr))`
+    $("grid").style.gridTemplateColumns = `repeat(auto-fill, minmax(min(${size + 22}px, 100%), 1fr))`
 
     const known = new Set((await blockList()).ids)
     const exists = id => known.has(id) || known.has(id.startsWith("minecraft:") ? id.slice(10) : `minecraft:${id}`)

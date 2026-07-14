@@ -58,6 +58,7 @@
       color: #333;
       background: #f5f5f5;
       font-size: 16px;
+      overflow-x: hidden;
     }
 
     header {
@@ -291,6 +292,8 @@
 
     .demo-row {
       flex-wrap: nowrap;
+      overflow-x: auto;
+      justify-content: safe center;
     }
 
     .demo figure {
@@ -394,7 +397,7 @@
 
     .examples {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
       gap: 16px;
       margin-bottom: 20px;
     }
@@ -583,6 +586,11 @@
 
       .content {
         padding: 20px;
+      }
+
+      .demo-model figure canvas {
+        width: 100%;
+        height: auto;
       }
     }
   </style>
@@ -1812,8 +1820,6 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
             "beacon", { id: "brewing_stand", properties: { has_bottle_0: "true", has_bottle_1: "true", has_bottle_2: "true" } },
             "hay_block", "tnt", { id: "furnace", properties: { lit: "true" } }, "prismarine", "melon"
           ]
-          const spacing = 40
-          const loop = heroBlocks.length * spacing
           const scene = new THREE.Scene()
           const cells = []
           for (let i = 0; i < heroBlocks.length; i++) {
@@ -1830,9 +1836,8 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
               return
             }
             outer.add(inner)
-            outer.position.x = i * spacing - loop / 2
             scene.add(outer)
-            cells.push({ outer, inner, offset: i * Math.PI / 3 })
+            cells.push({ outer, inner, offset: i * Math.PI / 3, i })
           }
           disposePreviewScene(h.scene)
           const portalMats = []
@@ -1841,16 +1846,22 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
               if (mat?.uniforms?.Aspect) portalMats.push(mat)
             }
           })
+          h.scene = scene
+          h.cells = cells
+          h.spacing = 0
           h.onResize = (w, hh) => {
             for (const mat of portalMats) {
               mat.uniforms.Aspect.value = w / hh
               mat.uniforms.Scale.value = 0.65
             }
+            const spacing = w / hh < 3.2 ? 28 : 40
+            if (spacing !== h.spacing) {
+              h.spacing = spacing
+              h.loop = heroBlocks.length * spacing
+              for (const c of h.cells) c.outer.position.x = c.i * spacing - h.loop / 2
+            }
           }
           h.onResize(el.clientWidth || 1, el.clientHeight || 1)
-          h.scene = scene
-          h.cells = cells
-          h.loop = loop
           h.animator = createAnimator(scene)
           startPreviews()
         }

@@ -12,7 +12,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; display: flex; }
+body { background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; display: flex; overflow: hidden; }
 
 aside {
   width: 252px; flex: none; background: var(--panel); border-right: 1px solid var(--panel-border);
@@ -20,7 +20,40 @@ aside {
 }
 aside h1 { font-size: 24px; margin: 0; display: flex; flex-direction: column; gap: 2px; }
 aside h1 small { color: var(--muted); font-weight: normal; font-size: 11px; }
-main { flex: 1; min-width: 0; }
+main { flex: 1; min-width: 0; position: relative; }
+#view { width: 100%; height: 100%; display: block; }
+
+main #status {
+  position: absolute; left: 12px; bottom: 12px; max-width: min(60ch, calc(100% - 24px));
+  background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px;
+  padding: 6px 10px; color: #f88; display: none;
+}
+main #status.show { display: block; }
+#hint { color: var(--muted); font-size: 11px; margin: 0; }
+
+#sidebartoggle,
+#sidebarbackdrop { display: none; }
+
+@media (max-width: 700px) {
+  aside {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 30;
+    width: min(280px, 85vw);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  body.sidebar-open aside { transform: none; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); }
+  #sidebartoggle {
+    display: flex; position: fixed; top: 10px; left: 10px; z-index: 29;
+    width: 36px; height: 36px; align-items: center; justify-content: center;
+    background: rgba(31, 31, 37, 0.85); border: 1px solid var(--panel-border); border-radius: 8px;
+    color: var(--text); cursor: pointer; padding: 0;
+  }
+  #sidebartoggle:hover { border-color: var(--accent); }
+  body.sidebar-open #sidebarbackdrop {
+    display: block; position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.45); z-index: 29;
+  }
+}
 
 section { display: flex; flex-direction: column; gap: 7px; }
 section > h2 {

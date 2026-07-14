@@ -22,20 +22,10 @@
 </script>
 <link rel="stylesheet" href="../style.css">
 <style>
-  body { overflow: hidden; }
-  main { position: relative; }
-  #view { width: 100%; height: 100%; display: block; }
   .row > .icon { flex: initial; font-size: 16px; line-height: 1; padding: 4px 6px; margin: -4px -2px; justify-content: center; }
   #cull { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
   #props, #proprows { display: flex; flex-direction: column; gap: 7px; }
   #proprows:empty { display: none; }
-  #status {
-    position: absolute; left: 12px; bottom: 12px; max-width: min(60ch, calc(100% - 24px));
-    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px;
-    padding: 6px 10px; color: #f88; display: none;
-  }
-  #status.show { display: block; }
-  #hint { color: var(--muted); font-size: 11px; margin: 0; }
 </style>
 </head>
 <body>
@@ -141,10 +131,24 @@
   </section>
 </aside>
 
+<button id="sidebartoggle" aria-label="Menu">
+  <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <line x1="2" y1="3.5" x2="14" y2="3.5"/>
+    <line x1="2" y1="8" x2="14" y2="8"/>
+    <line x1="2" y1="12.5" x2="14" y2="12.5"/>
+  </svg>
+</button>
+<div id="sidebarbackdrop"></div>
+
 <main>
   <canvas id="view"></canvas>
   <div id="status"></div>
 </main>
+
+<script>
+  document.getElementById("sidebartoggle").addEventListener("click", () => document.body.classList.add("sidebar-open"))
+  document.getElementById("sidebarbackdrop").addEventListener("click", () => document.body.classList.remove("sidebar-open"))
+</script>
 
 <script type="module">
   const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/+esm"
