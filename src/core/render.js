@@ -98,7 +98,7 @@ export async function renderBlock(args = {}) {
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
 
-  const models = await parseBlockstate(assets, args.id, { data: args.blockstates, ignoreAtlases: args.ignoreAtlases, version: args.version })
+  const models = await parseBlockstate(assets, args.id, { data: args.blockstates, seed: args.seed, ignoreAtlases: args.ignoreAtlases, version: args.version })
 
   const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, blockstates: args.blockstates, neighbors: args.neighbors, assets, version: args.version }) : undefined)
 

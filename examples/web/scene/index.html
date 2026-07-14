@@ -2982,7 +2982,7 @@
       }
     }
     const cull = await getCullFaces({ id, blockstates: properties, neighbors, assets })
-    const models = await parseBlockstate(assets, id, { data: properties })
+    const models = await parseBlockstate(assets, id, { data: properties, seed: x | y << 8 | z << 16 })
     const group = new THREE.Group()
     for (const model of models) {
       const resolved = await resolveModelData(assets, model)

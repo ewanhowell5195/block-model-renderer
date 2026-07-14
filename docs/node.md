@@ -13,6 +13,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `id` | required | The block id (e.g. `"oak_log"`, `"stone"`). Namespace optional |
 | `assets` | required | The assets source, see [Assets](assets.md). Vanilla assets aren't bundled, so provide a base pack |
 | `blockstates` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
+| `seed` | | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. Omit to always take the first variant. The picks don't match the game's per-position randomness |
 | `width` | `256` | Width of the rendered output image, in pixels |
 | `height` | `256` | Height of the rendered output image, in pixels |
 | `path` | | If provided, saves the output to this file path. Format inferred from the extension |

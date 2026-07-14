@@ -916,7 +916,8 @@ for (const block of blocks) {
   // faces hidden by neighboring blocks get culled, like in the game
   const cull = await getCullFaces({ id: block.id, blockstates: block.properties, neighbors: block.neighbors, assets })
   const group = new THREE.Group()
-  for (const model of await parseBlockstate(assets, block.id, { data: block.properties })) {
+  // a per-position seed picks weighted variants, so grass and stone vary like in the game
+  for (const model of await parseBlockstate(assets, block.id, { data: block.properties, seed: block.x | block.y << 8 | block.z << 16 })) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(group, assets, resolved, { lighting: "world", animate: true, cull, neighbors: block.neighbors, block, light })
   }
@@ -1509,7 +1510,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
           }
           const group = new THREE.Group()
           if (daytimeRef) group.userData.daytime = daytimeRef
-          for (const model of await parseBlockstate(assets, block.id, { data: block.properties })) {
+          for (const model of await parseBlockstate(assets, block.id, { data: block.properties, seed: block.x | block.y << 8 | block.z << 16 })) {
             const resolved = await resolveModelData(assets, model)
             await loadModel(group, assets, resolved, { lighting: "world", animate: true, cull, neighbors, block, light })
           }

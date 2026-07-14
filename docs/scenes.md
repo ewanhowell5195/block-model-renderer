@@ -37,6 +37,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `assets` | The assets source |
 | `id` | The blockstate id |
 | `args.data` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
+| `args.seed` | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. Omit to always take the first variant. The picks don't match the game's per-position randomness |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
 | `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 

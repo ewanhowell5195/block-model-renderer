@@ -99,11 +99,35 @@ function getMultipartDefaults(multipart) {
   return first
 }
 
+function seededRandom(seed) {
+  let a = seed | 0
+  return () => {
+    a = a + 0x6D2B79F5 | 0
+    let t = Math.imul(a ^ a >>> 15, 1 | a)
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t
+    return ((t ^ t >>> 14) >>> 0) / 4294967296
+  }
+}
+
+function pickWeighted(value, rand) {
+  if (!Array.isArray(value)) return value
+  if (!rand || value.length <= 1) return value[0]
+  let total = 0
+  for (const entry of value) total += entry.weight ?? 1
+  let r = rand() * total
+  for (const entry of value) {
+    r -= entry.weight ?? 1
+    if (r < 0) return entry
+  }
+  return value[value.length - 1]
+}
+
 export async function parseBlockstate(assets, blockstate, args) {
   if (!blockstate) throw new Error("parseBlockstate requires a blockstate id")
   if (AIR_BLOCKS.test(blockstate)) return []
   if (assets == null || assets.length === 0) throw new Error("parseBlockstate requires assets")
   const data = args?.data ?? {}
+  const rand = args?.seed != null ? seededRandom(args.seed) : null
   assets = await prepareAssets(assets)
   const defaults = await defaultBlockstates(assets)
 
@@ -142,13 +166,12 @@ export async function parseBlockstate(assets, blockstate, args) {
         }, 0)
       }
 
-      const entry = Array.isArray(value) ? value[0] : value
-      return { score, model: entry }
-    }).filter(e => e.model)
+      return { score, value }
+    }).filter(e => Array.isArray(e.value) ? e.value.length : e.value)
 
     if (scored.length > 0) {
       scored.sort((a, b) => b.score - a.score)
-      models.push(scored[0].model)
+      models.push(pickWeighted(scored[0].value, rand))
     }
   } else if (json.multipart) {
     const ranges = new Set
@@ -212,7 +235,7 @@ export async function parseBlockstate(assets, blockstate, args) {
             usedKeyValues[key] = value
           }
         }
-        const apply = Array.isArray(part.apply) ? part.apply[0] : part.apply
+        const apply = pickWeighted(part.apply, rand)
         if (apply?.model) models.push(apply)
       })
   }
