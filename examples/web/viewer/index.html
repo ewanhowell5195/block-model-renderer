@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Model Viewer - block-model-renderer</title>
+<title>Minecraft Model Viewer - block-model-renderer</title>
+<meta name="description" content="Inspect any Minecraft block or item up close: blockstate properties, display transforms, lighting modes, face culling, animated textures, and wireframe view.">
+<link rel="canonical" href="https://block-model-renderer.ewanhowell.com/viewer/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://block-model-renderer.ewanhowell.com/viewer/">
+<meta property="og:title" content="Minecraft Model Viewer - block-model-renderer">
+<meta property="og:description" content="Inspect any Minecraft block or item up close: blockstate properties, display transforms, lighting modes, face culling, animated textures, and wireframe view.">
 <link rel="icon" type="image/webp" sizes="16x16" href="https://ewanhowell.com/assets/images/logo/logo_16.webp">
 <link rel="icon" type="image/webp" sizes="32x32" href="https://ewanhowell.com/assets/images/logo/logo_32.webp">
 <script type="importmap">
@@ -141,11 +147,10 @@
 </main>
 
 <script type="module">
-  const BUST = Date.now()
-  const LIB = `../../../src/web.js?${BUST}`
+  const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/+esm"
 
   const { getThree, prepareAssets, listDirectory, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createAnimator } = await import(LIB)
-  const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
+  const { loadMojangJar } = await import("../mojang-pack.js")
   const { OrbitControls } = await import("three/addons/controls/OrbitControls.js")
 
   const $ = id => document.getElementById(id)

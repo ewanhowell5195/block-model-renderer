@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rotating Grid - block-model-renderer</title>
+<title>Rotating Minecraft Block Grid - block-model-renderer</title>
+<meta name="description" content="An endless scrolling wall of spinning Minecraft blocks and items. Drag to pan, pinch or scroll to zoom, and tweak the motion from the controls panel.">
+<link rel="canonical" href="https://block-model-renderer.ewanhowell.com/grid/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://block-model-renderer.ewanhowell.com/grid/">
+<meta property="og:title" content="Rotating Minecraft Block Grid - block-model-renderer">
+<meta property="og:description" content="An endless scrolling wall of spinning Minecraft blocks and items. Drag to pan, pinch or scroll to zoom, and tweak the motion from the controls panel.">
 <link rel="icon" type="image/webp" sizes="16x16" href="https://ewanhowell.com/assets/images/logo/logo_16.webp">
 <link rel="icon" type="image/webp" sizes="32x32" href="https://ewanhowell.com/assets/images/logo/logo_32.webp">
 <script type="importmap">
@@ -118,11 +124,10 @@
 </div>
 
 <script type="module">
-  const BUST = Date.now()
-  const LIB = `../../../src/web.js?${BUST}`
+  const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/+esm"
 
   const { getThree, prepareAssets, disposeCache, listDirectory, readFile, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createAnimator } = await import(LIB)
-  const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
+  const { loadMojangJar } = await import("../mojang-pack.js")
 
   const THREE = await getThree()
 
