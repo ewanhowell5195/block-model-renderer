@@ -119,7 +119,7 @@
 
 <script type="module">
   const BUST = Date.now()
-  const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
+  const LIB = `../../../src/web.js?${BUST}`
 
   const { getThree, prepareAssets, disposeCache, listDirectory, readFile, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createAnimator } = await import(LIB)
   const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
@@ -302,10 +302,12 @@
     camera.bottom = -halfH
     camera.updateProjectionMatrix()
     const shaderScale = (canvas.clientHeight || 1) / cellPx()
+    const aspect = (canvas.clientWidth || 1) / (canvas.clientHeight || 1)
     container.traverse(obj => {
       if (!obj.isMesh) return
       for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
         if (mat?.uniforms?.Scale) mat.uniforms.Scale.value = shaderScale
+        if (mat?.uniforms?.Aspect) mat.uniforms.Aspect.value = aspect
       }
     })
   }
@@ -570,6 +572,7 @@
       animator = createAnimator(container)
       loading.hidden = true
       canvas.classList.add("show")
+      regrid()
     }
   }
 
@@ -784,11 +787,12 @@
     if (animator) animator.update()
     const spanW = cols * CELL
     const spanH = rows * CELL
-    const NORM = CELL * 8
-    while (ox >= NORM) { ox -= NORM; for (const it of container.children) it.userData.col += 8 }
-    while (ox < 0) { ox += NORM; for (const it of container.children) it.userData.col -= 8 }
-    while (oy >= NORM) { oy -= NORM; for (const it of container.children) it.userData.row += 8 }
-    while (oy < 0) { oy += NORM; for (const it of container.children) it.userData.row -= 8 }
+    if (spanW && spanH) {
+      while (ox >= spanW) { ox -= spanW; for (const it of container.children) it.userData.col += cols }
+      while (ox < 0) { ox += spanW; for (const it of container.children) it.userData.col -= cols }
+      while (oy >= spanH) { oy -= spanH; for (const it of container.children) it.userData.row += rows }
+      while (oy < 0) { oy += spanH; for (const it of container.children) it.userData.row -= rows }
+    }
     const xLimit = camera.right + CELL
     const yLimit = camera.top + CELL
     for (const item of container.children) {

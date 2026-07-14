@@ -89,6 +89,22 @@
       color: #2c3e50;
     }
 
+    .hero {
+      margin: 30px -20px -20px;
+    }
+
+    .hero canvas {
+      display: block;
+      width: 100%;
+      height: 190px;
+    }
+
+    @media (max-width: 640px) {
+      .hero canvas {
+        height: 140px;
+      }
+    }
+
     .container {
       max-width: 1024px;
       margin: 0 auto;
@@ -202,6 +218,25 @@
       background: #eee;
     }
 
+    .controls input[type="range"] {
+      padding: 0;
+      border: none;
+      background: none;
+      accent-color: #3498db;
+    }
+
+    .controls label {
+      color: #666;
+      font-size: 0.95rem;
+    }
+
+    .controls .clock {
+      color: #666;
+      font-size: 0.95rem;
+      font-variant-numeric: tabular-nums;
+      min-width: 44px;
+    }
+
     .err {
       color: #e74c3c;
       font-size: 0.9rem;
@@ -249,6 +284,11 @@
       height: 128px;
     }
 
+    .demo-model figure canvas {
+      width: auto;
+      height: 256px;
+    }
+
     .demo figcaption {
       font-family: 'Courier New', monospace;
       font-size: 0.8rem;
@@ -257,8 +297,61 @@
     }
 
     .demo-three {
+      position: relative;
       padding: 0;
       overflow: hidden;
+    }
+
+    .demo-three .fs {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(44, 62, 80, 0.55);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      opacity: 0.65;
+      transition: opacity 0.2s ease;
+    }
+
+    .demo-three .fs:hover {
+      opacity: 1;
+    }
+
+    .demo-three .fs svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .demo-three .fs svg:last-child {
+      display: none;
+    }
+
+    .demo-three.fullscreen .fs svg:first-child {
+      display: none;
+    }
+
+    .demo-three.fullscreen .fs svg:last-child {
+      display: block;
+    }
+
+    .demo-three.fullscreen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+    }
+
+    .demo-three.fullscreen canvas {
+      height: 100%;
     }
 
     .demo-three canvas {
@@ -281,17 +374,18 @@
 
     .examples {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
       gap: 16px;
       margin-bottom: 20px;
     }
 
     .examples a {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       background: #fff;
       border: 1px solid #e0e0e0;
       border-radius: 10px;
-      padding: 20px;
       text-decoration: none;
       color: inherit;
       transition: all 0.2s ease;
@@ -299,12 +393,40 @@
 
     .examples a:hover {
       border-color: #3498db;
-      box-shadow: 0 2px 12px rgba(52, 152, 219, 0.15);
+      box-shadow: 0 6px 20px rgba(52, 152, 219, 0.18);
+    }
+
+    .example-visual {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      height: 150px;
+      flex-shrink: 0;
+      background: #2c3e50;
+    }
+
+    .example-visual canvas {
+      width: 84px;
+      height: 84px;
+      filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
+    }
+
+    .example-visual canvas[data-preview] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      filter: none;
+    }
+
+    .example-info {
+      padding: 16px 18px 18px;
     }
 
     .examples h3 {
       color: #2c3e50;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       margin-bottom: 6px;
       display: flex;
       align-items: center;
@@ -312,9 +434,12 @@
     }
 
     .examples h3::after {
-      content: "→";
-      color: #3498db;
+      content: "";
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
       margin-left: auto;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233498db' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3Cpolyline points='12 5 19 12 12 19'/%3E%3C/svg%3E") center / contain no-repeat;
       transition: transform 0.2s ease;
     }
 
@@ -322,11 +447,59 @@
       transform: translateX(3px);
     }
 
+    .examples .badge {
+      background: rgba(52, 152, 219, 0.12);
+      color: #2478ad;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 2px 9px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
     .examples p {
       color: #666;
       font-size: 0.9rem;
       margin: 0;
       line-height: 1.5;
+    }
+
+    .examples .featured {
+      grid-column: 1 / -1;
+      flex-direction: row;
+    }
+
+    .examples .featured .example-visual {
+      width: 240px;
+      height: auto;
+      align-self: stretch;
+    }
+
+    .examples .featured .example-visual canvas {
+      width: 92px;
+      height: 92px;
+    }
+
+    .examples .featured .example-info {
+      align-self: center;
+    }
+
+    @media (max-width: 640px) {
+      .examples .featured {
+        flex-direction: column;
+      }
+
+      .examples .featured .example-visual {
+        width: auto;
+        height: 130px;
+      }
+
+      .examples .featured .example-visual canvas {
+        width: 84px;
+        height: 84px;
+      }
     }
 
     .feature-list {
@@ -413,6 +586,9 @@
         JSDelivr
       </a>
     </div>
+    <div class="hero">
+      <canvas id="hero-canvas"></canvas>
+    </div>
   </header>
 
   <div class="container">
@@ -423,6 +599,8 @@
           <li>Renders blocks, items, and custom models from a resource pack</li>
           <li>Runs on Node.js and in the browser from the same package</li>
           <li>Full vanilla model, blockstate, item-definition, and texture atlas support, with accurate lighting and tints</li>
+          <li>World lighting with a live day/night clock, where light-emitting blocks keep their in-game glow</li>
+          <li>Fluids that shape their surfaces from their neighbors: flowing rivers, waterfalls, and waterlogged blocks</li>
           <li>Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, etc)</li>
           <li>Stack resource pack folders, zips, and virtual handlers, with higher packs overriding lower ones just like in Minecraft</li>
           <li>Animated textures: WebP and GIF output on Node, live self-updating canvases on web</li>
@@ -434,23 +612,42 @@
 
       <div class="section">
         <h2>Live Examples</h2>
-        <p>Each example runs entirely in your browser. They download the latest vanilla Minecraft client jar directly from Mojang's servers, and you can load your own resource packs and mods on top of it.</p>
+        <p>Everything below runs entirely in your browser: each page downloads the latest vanilla Minecraft client jar straight from Mojang's servers, and you can layer your own resource packs and mods on top. The icons on these cards are rendered live by the library too.</p>
         <div class="examples">
+          <a href="https://structure-viewer.ewanhowell.com/" target="_blank" class="featured">
+            <div class="example-visual"><canvas data-icon="item/structure_block"></canvas></div>
+            <div class="example-info">
+              <h3>Structure Viewer <span class="badge">Full Website</span></h3>
+              <p>A full website built on the library. Browse every vanilla structure, open your own <code>.nbt</code> files, load mods, scrub time of day, and walk around inside builds in first person.</p>
+            </div>
+          </a>
           <a href="viewer/">
-            <h3>Model Viewer</h3>
-            <p>Load any block or item in an interactive three.js viewer. Blockstate properties, display transforms, lighting modes, face culling, animated textures, and wireframe view.</p>
+            <div class="example-visual"><canvas data-preview="viewer"></canvas></div>
+            <div class="example-info">
+              <h3>Model Viewer</h3>
+              <p>Inspect any block or item up close in an interactive viewer: blockstate properties, display transforms, lighting modes, face culling, animated textures, and wireframe view.</p>
+            </div>
           </a>
           <a href="gallery/">
-            <h3>Render Gallery</h3>
-            <p>Batch-render blocks straight to canvases with <code>renderBlock</code>, complete with live animation players. Filter by name or namespace, or render every block in the pack.</p>
+            <div class="example-visual"><canvas data-preview="gallery"></canvas></div>
+            <div class="example-info">
+              <h3>Render Gallery</h3>
+              <p>Batch-render blocks straight to canvases with <code>renderBlock</code>, live animation players included. Filter by name or namespace, or render every block in the pack.</p>
+            </div>
           </a>
           <a href="grid/">
-            <h3>Rotating Grid</h3>
-            <p>An endless scrolling wall of spinning blocks and items. Drag to pan, pinch or scroll to zoom, and tweak the motion from the controls panel.</p>
+            <div class="example-visual"><canvas data-preview="grid"></canvas></div>
+            <div class="example-info">
+              <h3>Grid</h3>
+              <p>An endless scrolling wall of spinning blocks and items. Drag to pan, pinch or scroll to zoom, and tweak the motion from the controls panel.</p>
+            </div>
           </a>
           <a href="scene/">
-            <h3>Scene Builder</h3>
-            <p>Little voxel dioramas built with the low-level API. Blocks are culled against their neighbors, fluids shape their surfaces, and the whole scene is merged into a handful of draw calls.</p>
+            <div class="example-visual"><canvas data-preview="scene"></canvas></div>
+            <div class="example-info">
+              <h3>Scenes</h3>
+              <p>Voxel dioramas built with the low-level API: neighbor-aware culling, fluids that shape their own surfaces, and whole scenes merged into a handful of draw calls.</p>
+            </div>
           </a>
         </div>
       </div>
@@ -475,19 +672,6 @@ const assets = await prepareAssets([resourcePackZip])
 const canvas = await renderBlock({ id: "grass_block", assets, width: 256, height: 256 })
 document.body.append(canvas)</code></pre>
         <p>Blocks like chests, beacons, and enchanting tables don't have real models in the assets; Minecraft renders them dynamically in code. The bundled overrides fill those gaps so they render like the game shows them.</p>
-      </div>
-
-      <div class="section">
-        <h2>Resource Packs</h2>
-        <p>Asset sources stack just like in Minecraft: pass more than one and higher packs override lower ones. Load a resource pack (or mod jar) and every render on this page rebuilds with it layered over vanilla, right down to the GUI texture, the font, and the recipes. Anything it adds in its own namespaces shows up too, so a mod's custom blocks and items appear in the pickers:</p>
-        <div class="controls">
-          <button id="packbtn" disabled>Select Resource Pack…</button>
-          <button id="packclear" class="icon" title="Remove pack" aria-label="Remove pack" hidden>×</button>
-          <span class="err" id="packerr"></span>
-        </div>
-        <input type="file" id="packfile" accept=".zip,.jar" hidden>
-        <pre><code>// higher packs override lower ones, just like in Minecraft
-const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       </div>
 
       <div class="section">
@@ -557,101 +741,115 @@ await renderItem({ id: "diamond_sword", assets, canvas, width: 32, height: 32, x
       <div class="section">
         <h2>Animated Textures</h2>
         <p>With <code>animated: true</code> you get a live player instead of a canvas: a self-updating canvas that plays the model's texture animations, and pauses itself while scrolled offscreen:</p>
-        <div class="demo" id="demo-animated"></div>
+        <div class="demo demo-row" id="demo-animated"></div>
         <div class="controls">
           <button id="animtoggle" disabled>Pause All</button>
         </div>
         <pre><code>const player = await renderBlock({ id: "magma_block", assets, animated: true })
-document.body.append(player.canvas)</code></pre>
+document.body.append(player.canvas)
+
+// screen-space shaders (the end portal) size their pattern to the viewport;
+// shaderScale sets the density, like the end gateway above
+await renderBlock({ id: "end_gateway", assets, animated: true, shaderScale: 0.5 })
+
+// in your own scene, the uniforms are live on the material. the marquee at
+// the top of this page runs on a wide canvas, so it sets both per resize
+scene.traverse(obj => {
+  if (obj.material?.uniforms?.Aspect) {
+    obj.material.uniforms.Aspect.value = canvas.clientWidth / canvas.clientHeight
+    obj.material.uniforms.Scale.value = 4
+  }
+})</code></pre>
       </div>
 
       <div class="section">
         <h2>Custom Models</h2>
-        <p><code>renderModel</code> renders a model JSON directly, no blockstate or item definition lookup. It supports every vanilla model feature, so it works with anything a resource pack could contain:</p>
+        <p><code>renderModel</code> renders a model JSON directly, no blockstate or item definition lookup. It supports every vanilla model feature, so it works with anything a resource pack could contain. When a static image isn't enough, <code>loadModel</code> puts the same models into your own three.js scene instead, which is how the windmill under Rotation spins live:</p>
         <div class="tab-bar">
-          <button class="tab-bar-button active" data-tab="uv">UV Mapping</button>
-          <button class="tab-bar-button" data-tab="elements">Elements</button>
-          <button class="tab-bar-button" data-tab="rotation">Rotation</button>
+          <button class="tab-bar-button active" data-tab="turtle">Entities</button>
+          <button class="tab-bar-button" data-tab="chair">Furniture</button>
+          <button class="tab-bar-button" data-tab="windmill">Rotation</button>
         </div>
         <div class="tab-contents">
-          <div class="tab-content active" data-tab="uv">
-            <div class="demo" id="demo-model-uv"></div>
+          <div class="tab-content active" data-tab="turtle">
+            <div class="demo demo-model" id="demo-model-turtle"></div>
             <pre><code>import { renderModel } from "block-model-renderer"
 
-// a creeper head, UV mapped from the creeper's entity texture
-await renderModel({
-  assets,
-  ignoreAtlases: true, // entity textures aren't in the block atlas
-  model: {
-    textures: { creeper: "entity/creeper/creeper" },
-    elements: [{
-      from: [4, 4, 4],
-      to: [12, 12, 12],
-      faces: {
-        north: { texture: "#creeper", uv: [2, 4, 4, 8] },
-        south: { texture: "#creeper", uv: [6, 4, 8, 8] },
-        east:  { texture: "#creeper", uv: [4, 4, 6, 8] },
-        west:  { texture: "#creeper", uv: [0, 4, 2, 8] },
-        up:    { texture: "#creeper", uv: [2, 0, 4, 4] },
-        down:  { texture: "#creeper", uv: [4, 0, 6, 4] }
-      }
-    }]
-  }
-})</code></pre>
-          </div>
-          <div class="tab-content" data-tab="elements">
-            <div class="demo" id="demo-model-elements"></div>
-            <pre><code>// a table, built from a top and four legs
+// a whole sea turtle, every face UV mapped from its entity texture
 await renderModel({
   assets,
   model: {
-    textures: { oak: "block/oak_planks" },
+    textures: { skin: "entity/turtle/turtle" },
     elements: [
-      { from: [0, 12, 0],  to: [16, 14, 16], faces: { /* #oak on all six */ } },
-      { from: [1, 0, 1],   to: [3, 12, 3],   faces: { /* … */ } },
-      { from: [13, 0, 1],  to: [15, 12, 3],  faces: { /* … */ } },
-      { from: [1, 0, 13],  to: [3, 12, 15],  faces: { /* … */ } },
-      { from: [13, 0, 13], to: [15, 12, 15], faces: { /* … */ } }
-    ]
-  }
-})</code></pre>
-          </div>
-          <div class="tab-content" data-tab="rotation">
-            <div class="demo" id="demo-model-cross"></div>
-            <pre><code>// a cross-plane flower, the same way vanilla builds them
-await renderModel({
-  assets,
-  model: {
-    textures: { flower: "block/torchflower" },
-    elements: [
-      {
-        from: [0.8, 0, 8],
-        to: [15.2, 16, 8],
-        rotation: { origin: [8, 8, 8], axis: "y", angle: 45, rescale: true },
+      { // shell
+        from: [-1.5, 3, -3],
+        to: [17.5, 9, 17],
         faces: {
-          north: { texture: "#flower" },
-          south: { texture: "#flower" }
+          up:    { texture: "#skin", uv: [4.75, 10.75, 7.125, 15.75] },
+          north: { texture: "#skin", uv: [1.625, 9.25, 4, 10.75] },
+          west:  { texture: "#skin", uv: [0.875, 10.75, 1.625, 15.75], rotation: 90 } // …
         }
       },
-      {
-        from: [8, 0, 0.8],
-        to: [8, 16, 15.2],
-        rotation: { origin: [8, 8, 8], axis: "y", angle: -45, rescale: true },
-        faces: {
-          east: { texture: "#flower" },
-          west: { texture: "#flower" }
-        }
+      { from: [5, 1, -9], to: [11, 6, -3],  faces: { /* head */ } },
+      { from: [-10, 2, -2], to: [3, 3, 3],  faces: { /* 4 flippers */ } } // …
+    ]
+  }
+})</code></pre>
+          </div>
+          <div class="tab-content" data-tab="chair">
+            <div class="demo demo-model" id="demo-model-chair"></div>
+            <pre><code>// any shape you can describe with vanilla elements works: a simple chair
+await renderModel({
+  assets,
+  model: {
+    textures: { planks: "block/oak_planks", log: "block/stripped_oak_log", wool: "block/red_wool" },
+    elements: [
+      { from: [3, 0, 3], to: [5, 7, 5],           faces: { /* front leg */ } },
+      { from: [2.5, 7, 2.5], to: [13.5, 8, 13.5], faces: { /* seat */ } },
+      { from: [2.5, 8, 2.5], to: [13.5, 9, 13.5], faces: { /* cushion */ } },
+      { // reclined backrest post
+        from: [3, 9, 11],
+        to: [5, 21, 13],
+        rotation: { angle: 7.5, axis: "x", origin: [8, 9, 11] },
+        faces: { /* … */ }
       }
     ]
   }
 })</code></pre>
+          </div>
+          <div class="tab-content" data-tab="windmill">
+            <div class="demo demo-model" id="demo-model-windmill"></div>
+            <pre><code>import { makeModelScene, resolveModelData, loadModel } from "block-model-renderer"
+
+// elements rotate about their pivot, and can span the full -16..32 range,
+// so this windmill is three blocks tall. split the model in two and load the
+// sails separately, and you can spin them live around the axle
+const statics = { ...windmill, elements: windmill.elements.filter(e => e.name !== "rotate") }
+const sails = { ...windmill, elements: windmill.elements.filter(e => e.name === "rotate") }
+
+const { scene, camera } = await makeModelScene()
+await loadModel(scene, assets, await resolveModelData(assets, { model: statics }), { display })
+const sailRoot = await loadModel(scene, assets, await resolveModelData(assets, { model: sails }), { display })
+
+// wrap the sails in a group pivoted on the axle (x 8, y 16 in model space)
+const spin = new THREE.Group()
+const inner = new THREE.Group()
+spin.position.y = 8
+inner.position.y = -8
+inner.add(...sailRoot.children[0].children[0].children)
+spin.add(inner)
+sailRoot.children[0].children[0].add(spin)
+
+// in your render loop:
+spin.rotation.z -= dt * 0.6
+renderer.render(scene, camera)</code></pre>
           </div>
         </div>
       </div>
 
       <div class="section">
         <h2>Building Scenes</h2>
-        <p>The low-level API loads models straight into your own three.js scene, so you can build viewers, editors, and whole worlds around it. Each block is culled against its neighbors with <code>getCullFaces</code>, fluids shape their surfaces from the blocks around them, and <code>optimizeScene</code> merges everything into a handful of draw calls. This one is live; drag to rotate:</p>
+        <p>The low-level API loads models straight into your own three.js scene, so you can build viewers, editors, and whole worlds around it. Each block is culled against its neighbors with <code>getCullFaces</code>, fluids shape their surfaces from the blocks around them (waterfalls, flowing rivers, waterlogged blocks), and <code>optimizeScene</code> merges everything into a handful of draw calls. World lighting runs on a live day/night clock, with light-emitting blocks keeping their in-game glow. Everything here is live; drag to rotate:</p>
         <div class="tab-bar">
           <button class="tab-bar-button active" data-tab="campfire">Single Block</button>
           <button class="tab-bar-button" data-tab="camp">Small Scene</button>
@@ -661,6 +859,10 @@ await renderModel({
           <div class="tab-content active" data-tab="campfire">
             <div class="demo demo-three">
               <canvas id="three-campfire"></canvas>
+              <button class="fs" title="Fullscreen" aria-label="Fullscreen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+              </button>
             </div>
             <pre><code>import { getThree, parseBlockstate, resolveModelData, loadModel, createAnimator } from "block-model-renderer"
 
@@ -680,6 +882,10 @@ animator.update()</code></pre>
           <div class="tab-content" data-tab="camp">
             <div class="demo demo-three">
               <canvas id="three-camp"></canvas>
+              <button class="fs" title="Fullscreen" aria-label="Fullscreen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+              </button>
             </div>
             <pre><code>import { getCullFaces, optimizeScene } from "block-model-renderer"
 
@@ -690,7 +896,8 @@ for (const block of blocks) {
   const group = new THREE.Group()
   for (const model of await parseBlockstate(assets, block.id, { data: block.properties })) {
     const resolved = await resolveModelData(assets, model)
-    group.add(await loadModel(null, assets, resolved, { lighting: "world", animate: true, cull, neighbors: block.neighbors }))
+    // passing the block lets world lighting apply its in-game light emission
+    await loadModel(group, assets, resolved, { lighting: "world", animate: true, cull, neighbors: block.neighbors, block })
   }
   placements.push({ pos: [block.x, block.y, block.z], group })
 }
@@ -702,16 +909,44 @@ scene.add(optimized.group)</code></pre>
           <div class="tab-content" data-tab="campsite">
             <div class="demo demo-three">
               <canvas id="three-campsite"></canvas>
+              <button class="fs" title="Fullscreen" aria-label="Fullscreen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+              </button>
             </div>
-            <pre><code>// bigger scenes work exactly the same way: the pond's water reads its
-// neighbors to shape its surface, and every hidden face gets culled
-const cull = await getCullFaces({ id: "water", blockstates: { level: "0" }, neighbors, assets })
-
-// and the whole campsite still merges down to a handful of draw calls
+            <div class="controls">
+              <label for="daytime">Time of day</label>
+              <input type="range" id="daytime" min="0" max="24000" step="50" value="6000">
+              <span class="clock" id="daytimeclock">12:00</span>
+            </div>
+            <pre><code>// bigger scenes work exactly the same way: the waterfall and river shape
+// themselves from their neighbors, every hidden face gets culled, and the
+// whole valley still merges down to a handful of draw calls
 const optimized = await optimizeScene(placements)
-console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}K tris`)</code></pre>
+console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}K tris`)
+
+// world lighting runs on a shared day/night clock: seed every block's group
+// with one uniform and the entire scene follows it live, with light sources
+// (the campfire, lanterns, glowing plants) keeping their in-game glow
+const daytime = { value: 6000 } // noon, in ticks
+group.userData.daytime = daytime
+// later, from the slider:
+daytime.value = 18000 // midnight</code></pre>
           </div>
         </div>
+      </div>
+
+      <div class="section">
+        <h2>Resource Packs</h2>
+        <p>Asset sources stack just like in Minecraft: pass more than one and higher packs override lower ones. Load a resource pack (or mod jar) and every render on this page rebuilds with it layered over vanilla, right down to the GUI texture, the font, and the recipes. Anything it adds in its own namespaces shows up too, so a mod's custom blocks and items appear in the pickers:</p>
+        <div class="controls">
+          <button id="packbtn" disabled>Select Resource Pack…</button>
+          <button id="packclear" class="icon" title="Remove pack" aria-label="Remove pack" hidden>×</button>
+          <span class="err" id="packerr"></span>
+        </div>
+        <input type="file" id="packfile" accept=".zip,.jar" hidden>
+        <pre><code>// higher packs override lower ones, just like in Minecraft
+const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       </div>
     </div>
   </div>
@@ -723,13 +958,21 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
 
   <script type="module">
     const BUST = Date.now()
-    const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
+    // testing: load the locally served build so both localhost and ngrok work
+    const LIB = `../../src/web.js?${BUST}`
 
     const $ = id => document.getElementById(id)
     const status = $("loadstatus")
-    const SIZE = 256
+    const SIZE = 128
 
     const capacity = el => Math.max(1, Math.min(6, Math.floor(((el.clientWidth || el.parentElement.clientWidth) - 20) / 148)))
+
+    for (const btn of document.querySelectorAll(".demo-three .fs")) {
+      btn.addEventListener("click", () => btn.parentElement.classList.toggle("fullscreen"))
+    }
+    addEventListener("keydown", e => {
+      if (e.key === "Escape") document.querySelector(".demo-three.fullscreen")?.classList.remove("fullscreen")
+    })
 
     function demo(id, canvas, label) {
       const el = $(id)
@@ -750,9 +993,11 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
     try {
       const {
         renderBlock, renderItem, renderModel, prepareAssets, disposeCache, listDirectory, readFile,
-        getThree, parseBlockstate, resolveModelData, loadModel, getCullFaces, optimizeScene, createAnimator,
+        getThree, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, makeModelScene, getCullFaces, optimizeScene, createAnimator,
         pauseAnimations, resumeAnimations
       } = await import(LIB)
+      const windmillModel = {"textures":{"1":"block/stone","2":"block/oak_planks","3":"block/scaffolding_top","4":"block/stone_bricks","5":"block/spruce_planks","6":"block/dark_oak_log","7":"block/cobblestone"},"elements":[{"from":[1,-16,1],"to":[15,-13,15],"faces":{"north":{"uv":[0,0,14,3],"texture":"#7"},"east":{"uv":[0,0,14,3],"texture":"#7"},"south":{"uv":[0,0,14,3],"texture":"#7"},"west":{"uv":[0,0,14,3],"texture":"#7"},"up":{"uv":[0,0,14,14],"texture":"#7"},"down":{"uv":[0,0,14,14],"texture":"#7"}}},{"from":[2.5,-13,2.5],"to":[13.5,0,13.5],"faces":{"north":{"uv":[2.5,0,13.5,13],"texture":"#4"},"east":{"uv":[2.5,0,13.5,13],"texture":"#4"},"south":{"uv":[2.5,0,13.5,13],"texture":"#4"},"west":{"uv":[2.5,0,13.5,13],"texture":"#4"},"up":{"uv":[2,2.25,13,13.25],"texture":"#1"}}},{"from":[3.5,0,3.5],"to":[12.5,11,12.5],"rotation":{"angle":0,"axis":"y","origin":[0,2,0]},"faces":{"north":{"uv":[3.5,5,12.5,16],"texture":"#4"},"east":{"uv":[3.5,5,12.5,16],"texture":"#4"},"south":{"uv":[3.5,5,12.5,16],"texture":"#4"},"west":{"uv":[3.5,5,12.5,16],"texture":"#4"},"up":{"uv":[6,1,15,10],"texture":"#1"}}},{"from":[4.5,11,4.5],"to":[11.5,16,11.5],"faces":{"north":{"uv":[4.5,0,11.5,5],"texture":"#4"},"east":{"uv":[4.5,0,11.5,5],"texture":"#4"},"south":{"uv":[4.5,0,11.5,5],"texture":"#4"},"west":{"uv":[4.5,0,11.5,5],"texture":"#4"}}},{"from":[4.5,16,4.5],"to":[11.5,22,11.5],"rotation":{"angle":0,"axis":"y","origin":[0,11,0]},"faces":{"north":{"uv":[4.5,10,11.5,16],"texture":"#4"},"east":{"uv":[4.5,10,11.5,16],"texture":"#4"},"south":{"uv":[4.5,10,11.5,16],"texture":"#4"},"west":{"uv":[4.5,10,11.5,16],"texture":"#4"},"up":{"uv":[4.5,4.5,11.5,11.5],"texture":"#4"},"down":{"uv":[4.5,4.5,11.5,11.5],"texture":"#4"}}},{"from":[6.5,22,4.5],"to":[9.5,24,11.5],"rotation":{"angle":0,"axis":"y","origin":[0,11,0]},"faces":{"north":{"uv":[6.5,8,9.5,10],"texture":"#4"},"east":{"uv":[4.5,8,11.5,10],"texture":"#4"},"south":{"uv":[6.5,8,9.5,10],"texture":"#4"},"west":{"uv":[4.5,8,11.5,10],"texture":"#4"}}},{"from":[-0.5,24,3.5],"to":[8.5,26,12.5],"rotation":{"angle":45,"axis":"z","origin":[8.5,25,8]},"faces":{"north":{"uv":[0,0,9,2],"texture":"#5"},"east":{"uv":[0,1,2,10],"rotation":90,"texture":"#5"},"south":{"uv":[0,0,9,2],"texture":"#5"},"west":{"uv":[0,1,2,10],"rotation":90,"texture":"#5"},"up":{"uv":[0,1,9,10],"texture":"#5"},"down":{"uv":[0,1,9,10],"texture":"#5"}}},{"from":[6.5,17,3.5],"to":[8.5,24,12.5],"rotation":{"angle":45,"axis":"z","origin":[8.5,25,8]},"faces":{"north":{"uv":[8,0,15,2],"rotation":90,"texture":"#5"},"east":{"uv":[3.5,1,10.5,10],"rotation":90,"texture":"#5"},"south":{"uv":[6,0,13,2],"rotation":90,"texture":"#5"},"west":{"uv":[3.5,1,10.5,10],"rotation":90,"texture":"#5"},"down":{"uv":[6,1,8,10],"texture":"#5"}}},{"name":"rotate","from":[7,15,-1],"to":[9,17,5],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,0,2,2],"texture":"#6"},"east":{"uv":[0,0,6,2],"texture":"#6"},"south":{"uv":[0,0,2,2],"texture":"#6"},"west":{"uv":[0,0,6,2],"texture":"#6"},"up":{"uv":[0,0,2,6],"texture":"#6"},"down":{"uv":[0,0,2,6],"texture":"#6"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}}]}
+      const chairModel = {"textures":{"1":"block/red_wool","2":"block/oak_planks","3":"block/stripped_oak_log"},"elements":[{"from":[3,0,3],"to":[5,7,5],"faces":{"north":{"uv":[11,9,13,16],"texture":"#3"},"east":{"uv":[11,9,13,16],"texture":"#3"},"south":{"uv":[3,9,5,16],"texture":"#3"},"west":{"uv":[3,9,5,16],"texture":"#3"},"down":{"uv":[3,11,5,13],"texture":"#3"}}},{"from":[3,0,11],"to":[5,7,13],"rotation":{"angle":0,"axis":"y","origin":[0,0,8]},"faces":{"north":{"uv":[11,9,13,16],"texture":"#3"},"east":{"uv":[3,9,5,16],"texture":"#3"},"south":{"uv":[3,9,5,16],"texture":"#3"},"west":{"uv":[11,9,13,16],"texture":"#3"},"down":{"uv":[3,3,5,5],"texture":"#3"}}},{"from":[11,0,3],"to":[13,7,5],"faces":{"north":{"uv":[3,9,5,16],"texture":"#3"},"east":{"uv":[11,9,13,16],"texture":"#3"},"south":{"uv":[11,9,13,16],"texture":"#3"},"west":{"uv":[3,9,5,16],"texture":"#3"},"down":{"uv":[11,11,13,13],"texture":"#3"}}},{"from":[11,0,11],"to":[13,7,13],"rotation":{"angle":0,"axis":"y","origin":[0,0,8]},"faces":{"north":{"uv":[3,9,5,16],"texture":"#3"},"east":{"uv":[3,9,5,16],"texture":"#3"},"south":{"uv":[11,9,13,16],"texture":"#3"},"west":{"uv":[11,9,13,16],"texture":"#3"},"down":{"uv":[11,3,13,5],"texture":"#3"}}},{"from":[11,9,11],"to":[13,21,13],"rotation":{"angle":7.5,"axis":"x","origin":[8,9,11]},"faces":{"north":{"uv":[3,0,5,12],"texture":"#3"},"east":{"uv":[3,0,5,12],"texture":"#3"},"south":{"uv":[11,0,13,12],"texture":"#3"},"west":{"uv":[11,0,13,12],"texture":"#3"},"up":{"uv":[11,11,13,13],"texture":"#3"}}},{"from":[3,9,11],"to":[5,21,13],"rotation":{"angle":7.5,"axis":"x","origin":[8,9,11]},"faces":{"north":{"uv":[11,0,13,12],"texture":"#3"},"east":{"uv":[3,0,5,12],"texture":"#3"},"south":{"uv":[3,0,5,12],"texture":"#3"},"west":{"uv":[11,0,13,12],"texture":"#3"},"up":{"uv":[3,11,5,13],"texture":"#3"}}},{"from":[2.5,7,2.5],"to":[13.5,8,13.5],"faces":{"north":{"uv":[2,14,13,15],"texture":"#2"},"east":{"uv":[2,14,13,15],"texture":"#2"},"south":{"uv":[2,14,13,15],"texture":"#2"},"west":{"uv":[2,14,13,15],"texture":"#2"},"down":{"uv":[0,0,11,11],"texture":"#2"}}},{"from":[2.5,8,2.5],"to":[13.5,9,13.5],"rotation":{"angle":0,"axis":"y","origin":[0,1,0]},"faces":{"north":{"uv":[0,7,11,8],"texture":"#1"},"east":{"uv":[0,7,11,8],"texture":"#1"},"south":{"uv":[0,7,11,8],"texture":"#1"},"west":{"uv":[0,7,11,8],"texture":"#1"},"up":{"uv":[0,0,11,11],"texture":"#1"}}},{"from":[5,17.5,11.5],"to":[11,19.5,12.5],"rotation":{"angle":7.5,"axis":"x","origin":[8,9,11]},"faces":{"north":{"uv":[5,0,11,2],"texture":"#2"},"south":{"uv":[5,0,11,2],"texture":"#2"},"up":{"uv":[0,0,6,1],"texture":"#2"},"down":{"uv":[0,0,6,1],"texture":"#2"}}},{"from":[5,13.5,11.5],"to":[11,15.5,12.5],"rotation":{"angle":7.5,"axis":"x","origin":[8,9,11]},"faces":{"north":{"uv":[5,0,11,2],"texture":"#2"},"south":{"uv":[5,0,11,2],"texture":"#2"},"up":{"uv":[0,0,6,1],"texture":"#2"},"down":{"uv":[0,0,6,1],"texture":"#2"}}}]}
       const { loadMojangJar } = await import(`./mojang-pack.js?${BUST}`)
       const { OrbitControls } = await import("three/addons/controls/OrbitControls.js")
 
@@ -1036,6 +1281,14 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
 
       const THREE = await getThree()
 
+      const daytime = { value: 6000 }
+      $("daytime").addEventListener("input", () => {
+        daytime.value = +$("daytime").value
+        const h = Math.floor(daytime.value / 1000 + 6) % 24
+        const m = Math.floor(daytime.value % 1000 * 60 / 1000)
+        $("daytimeclock").textContent = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+      })
+
       const SCENES = {
         campfire: {
           legend: { C: { id: "campfire", properties: { lit: "true" } } },
@@ -1044,60 +1297,125 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
         camp: {
           legend: {
             g: "grass_block",
-            C: { id: "campfire", properties: { lit: "true" } },
-            c: { id: "chest", properties: { facing: "south" } },
-            l: { id: "oak_log", properties: { axis: "z" } },
-            t: "torch",
-            r: "short_grass"
+            p: "dirt_path",
+            C: { id: "campfire", properties: { lit: "true", facing: "east" } },
+            l: { id: "oak_log", properties: { axis: "x" } },
+            c: { id: "chest", properties: { facing: "west" } },
+            B: { id: "red_bed", properties: { facing: "west", part: "head" } },
+            b: { id: "red_bed", properties: { facing: "west", part: "foot" } },
+            F: "oak_fence",
+            n: { id: "lantern", properties: { hanging: "false" } },
+            r: "short_grass",
+            o: "poppy",
+            d: "dandelion",
+            u: "bush"
           },
           layers: [
-            ["ggg", "ggg", "ggg"],
-            ["c.r", ".C.", "l.t"]
+            ["ggggg", "ggggg", "ggpgg", "ggpgg", "ggpgg"],
+            [".lll.", "..C.c", "r...d", "Bb..F", "u...r"],
+            [".....", ".....", ".....", "....n", "....."]
           ]
         },
         campsite: {
           legend: {
-            g: "grass_block",
-            D: "dirt",
-            s: "sand",
-            w: { id: "water", properties: { level: "0" } },
-            v: { id: "water", properties: { level: "1" } },
-            V: { id: "water", properties: { level: "8" } },
-            p: "dirt_path",
-            e: { id: "quartz_stairs", properties: { facing: "east" } },
-            q: { id: "quartz_stairs", properties: { facing: "west" } },
-            Q: "quartz_slab",
-            S: "cobblestone",
-            l: { id: "oak_log", properties: { axis: "y" } },
-            L: "oak_leaves",
-            z: { id: "oak_stairs", properties: { facing: "north" } },
-            x: { id: "oak_stairs", properties: { facing: "south" } },
-            i: { id: "oak_wall_sign", properties: { facing: "east" } },
-            j: { id: "oak_wall_sign", properties: { facing: "west" } },
-            B: { id: "red_bed", properties: { facing: "north", part: "head" } },
-            F: { id: "red_bed", properties: { facing: "north", part: "foot" } },
-            C: { id: "campfire", properties: { lit: "true" } },
-            T: "crafting_table",
-            H: { id: "chest", properties: { facing: "south" } },
-            f: "oak_fence",
-            n: "lantern",
-            r: "short_grass",
-            o: "poppy",
-            d: "dandelion",
-            y: "oxeye_daisy",
-            b: { id: "sweet_berry_bush", properties: { age: "3" } },
-            a: "lily_pad",
-            u: "sugar_cane"
+            "a": "stone",
+            "b": "sand",
+            "c": "gravel",
+            "d": "dirt",
+            "e": "grass_block",
+            "f": "spruce_planks",
+            "g": { id: "water", properties: { level: "0" } },
+            "h": "dirt_path",
+            "i": "seagrass",
+            "j": { id: "oak_log", properties: { axis: "y" } },
+            "k": { id: "oak_log", properties: { axis: "x" } },
+            "l": { id: "oak_log", properties: { axis: "z" } },
+            "m": { id: "farmland", properties: { moisture: "7" } },
+            "n": { id: "oak_fence", properties: { waterlogged: "true" } },
+            "o": { id: "red_bed", properties: { facing: "west", part: "head" } },
+            "p": { id: "red_bed", properties: { facing: "west", part: "foot" } },
+            "q": { id: "chest", properties: { facing: "south" } },
+            "r": "cobblestone",
+            "s": "short_grass",
+            "t": { id: "sugar_cane", properties: { age: "0" } },
+            "u": "mossy_cobblestone",
+            "v": { id: "water", properties: { level: "8" } },
+            "w": "bush",
+            "x": { id: "spruce_door", properties: { facing: "east", half: "lower", hinge: "left", open: "false" } },
+            "y": "crafting_table",
+            "z": { id: "barrel", properties: { facing: "up" } },
+            "A": "poppy",
+            "B": { id: "oak_stairs", properties: { facing: "south" } },
+            "C": "oak_planks",
+            "D": { id: "wildflowers", properties: { flower_amount: "4", facing: "north" } },
+            "E": { id: "birch_log", properties: { axis: "y" } },
+            "F": { id: "wildflowers", properties: { flower_amount: "1", facing: "west" } },
+            "G": { id: "wildflowers", properties: { flower_amount: "2", facing: "east" } },
+            "H": { id: "wildflowers", properties: { flower_amount: "4", facing: "south" } },
+            "I": { id: "cobblestone_stairs", properties: { facing: "north" } },
+            "J": "oxeye_daisy",
+            "K": { id: "leaf_litter", properties: { segment_amount: "4", facing: "west" } },
+            "L": { id: "wildflowers", properties: { flower_amount: "3", facing: "south" } },
+            "M": "firefly_bush",
+            "N": "lily_pad",
+            "O": { id: "oak_stairs", properties: { facing: "north" } },
+            "P": "oak_fence",
+            "Q": { id: "leaf_litter", properties: { segment_amount: "1", facing: "south" } },
+            "R": { id: "leaf_litter", properties: { segment_amount: "3", facing: "east" } },
+            "S": { id: "leaf_litter", properties: { segment_amount: "2", facing: "north" } },
+            "T": { id: "wheat", properties: { age: "7" } },
+            "U": { id: "wheat", properties: { age: "5" } },
+            "V": { id: "carrots", properties: { age: "8" } },
+            "W": { id: "potatoes", properties: { age: "7" } },
+            "X": { id: "wheat", properties: { age: "6" } },
+            "Y": { id: "potatoes", properties: { age: "4" } },
+            "Z": "cornflower",
+            "0": { id: "wheat", properties: { age: "4" } },
+            "1": { id: "carrots", properties: { age: "4" } },
+            "2": { id: "potatoes", properties: { age: "2" } },
+            "3": "azure_bluet",
+            "4": { id: "hay_block", properties: { axis: "y" } },
+            "5": { id: "composter", properties: { level: "3" } },
+            "6": { id: "sweet_berry_bush", properties: { age: "3" } },
+            "7": { id: "tall_grass", properties: { half: "lower" } },
+            "8": { id: "campfire", properties: { lit: "true", facing: "west" } },
+            "9": { id: "leaf_litter", properties: { segment_amount: "3", facing: "north" } },
+            "!": { id: "oak_slab", properties: { type: "bottom" } },
+            "@": { id: "spruce_stairs", properties: { facing: "north" } },
+            "#": "dandelion",
+            "$": "andesite",
+            "%": { id: "glass_pane", properties: { east: "true", west: "true" } },
+            "^": { id: "glass_pane", properties: { north: "true", south: "true" } },
+            "&": { id: "wall_torch", properties: { facing: "east" } },
+            "*": { id: "lantern", properties: { hanging: "true" } },
+            "(": { id: "spruce_door", properties: { facing: "east", half: "upper", hinge: "left", open: "false" } },
+            ")": { id: "lantern", properties: { hanging: "false" } },
+            "-": { id: "tall_grass", properties: { half: "upper" } },
+            "_": { id: "spruce_stairs", properties: { facing: "east" } },
+            "=": { id: "spruce_stairs", properties: { facing: "west" } },
+            "+": { id: "birch_leaves", properties: { persistent: "true" } },
+            "[": { id: "oak_leaves", properties: { persistent: "true" } },
+            "]": { id: "water", properties: { level: "2" } },
+            "{": { id: "water", properties: { level: "1" } },
+            "~": { id: "water", properties: { level: "3" } },
+            "}": { id: "spruce_leaves", properties: { persistent: "true" } },
+            ";": { id: "spruce_log", properties: { axis: "y" } },
+            ":": { id: "spruce_slab", properties: { type: "top" } }
           },
           layers: [
-            ["DDDDDDDDDDD", "DDDDDDDDDDD", "DDDDDDDDDDD", "DDDDDDDDDDD", "DDDDDDDDssD", "DDDDDDDsssD", "DDDDDDsssss", "DDDDDDDssss", "DDDDDDsssss"],
-            ["ggggggggggg", "ggggggggggg", "gggpggggggg", "gggpggggsgg", "gggpgggswwg", "gggpggswwws", "gggpgswwwww", "gggpgsswwww", "gggpgswwwww"],
-            [".e.B.q.....", "Te.F.q.....", ".e...qH.lSS", "..f.jzi..SS", "bro..C...V.", "..b.jxi.a..", "r....u.a...", ".lr.dy...a.", "o...r......"],
-            ["..e.q......", "..e.q......", "..e.q...lw.", "..n......v.", ".........V.", "...........", ".....u.....", ".l.........", "..........."],
-            ["...Q.......", "...Q.......", "...Q....l..", "...........", "...........", "...........", "LLL........", "LlL........", "LLL........"],
-            [".......LLL.", "......LLLLL", "......LLlLL", "......LLLLL", ".......LLL.", "...........", "LLL........", "LlL........", "LLL........"],
-            ["...........", ".......LLL.", ".......LlL.", ".......LLL.", "...........", "...........", ".L.........", "LLL........", ".L........."],
-            ["...........", "........L..", ".......LLL.", "........L..", "...........", "...........", "...........", "...........", "..........."]
+            ["aaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaabbbaaaaaaaaa", "aaaaaaaaaaaaccbaaaaaaaaa", "aaaaaaaaaaaabbbaaaaaaaaa", "aaaaaaaaaaaabbbaaaaaaaaa", "aaaaaaaaaaaacbcaaaaaaaaa", "aaaaaaaaaaaabbcaaaaaaaaa", "aaaaaaaaaaabbbaaaaaaaaaa", "aaaaaaaaaabbcaaaaaaaaaaa", "aaaaaaaaacbcaaaaaaaaaaaa", "aaaaaaaacbbaaaaaaaaaaaaa", "aaaaaaabccaaaaaaaaaaaaaa", "aaabcbccbbaaaaaaaaaaaaaa", "aabcbbbbcbaaaaaaaaaddaaa", "aacbccbbbbaaaaaaaaaddaaa", "aabcbcbcbbaaaaaaaaaaaaaa", "aabbccbcccaaaaaaaaaaaaaa", "aaabbcbbbcaaaaaaaaaaaaaa", "aaabbbcbbbaaaaaaaaaaaaaa", "aaaaccbbbaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaa"],
+            ["eeeeeeeeeeeeeeeddddddddd", "eedddddddeeebeeddddddddd", "eedfffffdeeegggddddddddd", "eedfffffdeebgggbdddddddd", "eedfffffehhbgggbdddddddd", "eedfffffdehbgggbdddddddd", "eedfffffdehbgggedddddddd", "eedddddddehbgggbdddddddd", "eeeeeeeeeebgggeddddddddd", "eeeeeeeeebgggbeeeeedeeee", "eedeeeeebgggbeeeeeeeeeee", "eeeeeeebgggbeeeeeeeeeeee", "eeeeebbggieeeeedejkkkkje", "eebggigggghheeeeelmmmmle", "eeggggggggbhhhhhhhmggmle", "eegggnggggbehedeelmggmle", "eeggngggigbeheeeelmmmmle", "ebggggggggbehheeejkkkkje", "eeeginggggeedhdeeeeeeeee", "eebggggiggeedhdeeeeeeeee", "eeebgngggbeeeeeeeeedeeee", "eeeebbbbbeeeeeeeeddeeeee", "eeeeeeeeeeeeeeeeedeeeeee", "eeeeeeeeeeeeeeeeeeeeeeee"],
+            ["...............ddddddddd", "..jfffffj......ddddddddd", "..fop.qrf.st...udddddddd", "..f.....f.....vudddddddd", ".wf.....x.....vudddddddd", "..f.....f......udddddddd", "..fyz...f......tdddddddd", "..jfffffj......ddddddddd", ".A........B....ddddrdrdd", "..........C...D.w..r....", "..E.......C..F.G.H.I..J.", "..........C...sKL....s..", "..M....N..OP.A.jQ.......", ".s............R.S.TUVV..", "....N.............T..W..", "....CC........u...X..Y..", ".Z.NCC........Z.s.0T12..", ".....C.N.......3.4....5.", ".....C....M.l.l.6.......", ".s...C....7.l8l.....9.w.", ".....C........7.A..j....", "..ss.!t...s.@@ss.ur.#...", ".....Js.s........r.Asw..", "........................"],
+            ["...............$dddddddd", "..jff%ffj......ddddddddd", "..f....r^..t...adddddddd", "..f.....f&....vadddddddd", "..f..*..(.....vadddddddd", "..f.....f&.....adddddddd", "..f.....^......tdddddddd", "..jf%%ffj......eaddddddd", "...............eed$r$$aa", "...................I....", "..E.....................", "........................", "...........)...j........", "........................", "........................", "....P...................", "........................", "........................", "........................", "..........-.............", "..............-....j....", "......t..........u......", "........................", "........................"],
+            ["._fffffff=.....ddddddddd", "._fffffff=.....rdddddddd", "._fffffrf=.....adaaaaddd", "._fffffff=....vaaaaaaddd", "._fffffff=....vaaaaaaddd", "._fffffff=.....adaaaaddd", "._fffffff=.....tdddddddd", "._fffffff=......$ddddddd", "._fffffff=.......ddIr$a$", ".+++....................", ".+E+..........[[[.......", ".+++.........[[[[[......", ".............[[j[[......", ".............[[[[[......", "..............[[[.......", "....)...................", "........................", "........................", "..................[[[[..", ".................[[[[[..", ".................[[j[[..", ".................[[[[[..", "..................[[[...", "........................"],
+            [".._fffff=......eeeeeeeee", ".._.....=......eeeeeeedd", ".._....r=......eeggggeee", ".._.....=.....~]{ggggeee", ".._.....=.....~]{ggggeee", ".._.....=......eeggggeee", ".._.....=......eeeeeeeee", ".._.....=.......eeeIedee", ".._fffff=........ee.eeee", ".+++....................", ".+E+.........[[[[.......", ".+++.........[[[[[......", ".............[[j[[......", ".............[[[[[......", ".............[[[[.......", "........................", "........................", "........................", ".................[[[[[..", ".................[[[[[..", ".................[[j[[..", ".................[[[[[..", ".................[[[[[..", "........................"],
+            ["..._fff=................", "..._...=........s.....ur", "..._...r..............s.", "..._...=.............s..", "..._...=................", "..._...=............}}}.", "..._...=..........s}}}}}", "..._...=...........}};}}", "..._fff=...........}}}}}", "..+.................}}}.", ".+++....................", "..+...........[[[.......", "..............[j[.......", "..............[[[.......", "........................", "........................", "........................", "........................", "........................", "..................[[[...", "..................[j[...", "..................[[[...", "........................", "........................"],
+            ["...._:=.................", "...._:=.................", "...._:=r................", "...._:=.................", "...._:=.................", "...._:=.................", "...._:=.............}}}.", "...._:=.............};}.", "...._:=.............}}}.", "........................", "..+.....................", "...............[........", "..............[[[.......", "...............[........", "........................", "........................", "........................", "........................", "........................", "...................[....", "..................[[[...", "...................[....", "........................", "........................"],
+            ["........................", "........................", ".......r................", "........................", "........................", "....................}}}.", "...................}}}}}", "...................}};}}", "...................}}}}}", "....................}}}.", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................"],
+            ["........................", "........................", "........................", "........................", "........................", "........................", "....................}}}.", "....................};}.", "....................}}}.", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................"],
+            ["........................", "........................", "........................", "........................", "........................", "........................", "........................", ".....................;..", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................"],
+            ["........................", "........................", "........................", "........................", "........................", "........................", "....................}}}.", "....................};}.", "....................}}}.", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................"],
+            ["........................", "........................", "........................", "........................", "........................", "........................", "........................", ".....................}..", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................"]
           ]
         }
       }
@@ -1145,9 +1463,7 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
         })
       }
 
-      async function buildScene(name) {
-        const run = ++sceneRuns[name]
-        const stale = () => run !== sceneRuns[name]
+      async function assembleScene(name, daytimeRef, stale) {
         const { blocks, dims } = parseScene(SCENES[name])
         const single = blocks.size === 1
         const placements = []
@@ -1167,11 +1483,12 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
             cull = await getCullFaces({ id: block.id, blockstates: block.properties, neighbors, assets })
           }
           const group = new THREE.Group()
+          if (daytimeRef) group.userData.daytime = daytimeRef
           for (const model of await parseBlockstate(assets, block.id, { data: block.properties })) {
             const resolved = await resolveModelData(assets, model)
-            group.add(await loadModel(null, assets, resolved, { lighting: "world", animate: true, cull, neighbors }))
+            await loadModel(group, assets, resolved, { lighting: "world", animate: true, cull, neighbors, block })
           }
-          if (stale()) return
+          if (stale()) return null
           placements.push({ pos: [block.x, block.y, block.z], group })
         }
         let handle
@@ -1180,18 +1497,26 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
           handle = { group, dispose: () => disposeGroup(group) }
         } else {
           const optimized = await optimizeScene(placements, { shouldCancel: stale })
-          if (!optimized) return
+          if (!optimized) return null
           if (stale()) {
             optimized.dispose()
-            return
+            return null
           }
           optimized.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
           handle = optimized
         }
-        viewers[name].setHandle(handle, Math.max(dims.w, dims.h, dims.d))
+        return { handle, span: Math.max(dims.w, dims.h, dims.d) }
       }
 
-      function makeViewer(canvas) {
+      async function buildScene(name) {
+        const run = ++sceneRuns[name]
+        const stale = () => run !== sceneRuns[name]
+        const result = await assembleScene(name, name === "campsite" ? daytime : null, stale)
+        if (!result) return
+        viewers[name].setHandle(result.handle, result.span)
+      }
+
+      function makeViewer(canvas, rotateSpeed = 2) {
         const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
         renderer.setPixelRatio(Math.min(window.devicePixelRatio * 2, 4))
         const scene = new THREE.Scene()
@@ -1201,7 +1526,7 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
         controls.enableDamping = true
         controls.rotateSpeed = 0.4
         controls.autoRotate = true
-        controls.autoRotateSpeed = 2
+        controls.autoRotateSpeed = rotateSpeed
 
         const home = new THREE.Spherical().setFromVector3(camera.position)
         const sph = new THREE.Spherical()
@@ -1285,9 +1610,142 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
       const viewers = {
         campfire: makeViewer($("three-campfire")),
         camp: makeViewer($("three-camp")),
-        campsite: makeViewer($("three-campsite"))
+        campsite: makeViewer($("three-campsite"), 4 / 3)
       }
       const sceneRuns = { campfire: 0, camp: 0, campsite: 0 }
+
+      const previewState = { hero: null, viewer: null, grid: null, scene: null, gallery: null }
+      let previewLoopStarted = false
+      function startPreviews() {
+        if (previewLoopStarted) return
+        previewLoopStarted = true
+        const fit = (p, ortho) => {
+          const el = p.renderer.domElement
+          const w = el.clientWidth, h = el.clientHeight
+          if (!w || !h) return false
+          if (w !== p.lastW || h !== p.lastH) {
+            p.lastW = w
+            p.lastH = h
+            p.renderer.setSize(w, h, false)
+            if (ortho) {
+              p.camera.left = -p.halfH * w / h
+              p.camera.right = p.halfH * w / h
+              p.camera.top = p.halfH
+              p.camera.bottom = -p.halfH
+            } else {
+              p.camera.aspect = w / h
+            }
+            p.camera.updateProjectionMatrix()
+            p.onResize?.(w, h)
+          }
+          return true
+        }
+
+        let last = performance.now()
+        function frame(now) {
+          requestAnimationFrame(frame)
+          const dt = Math.min((now - last) / 1000, 0.1) || 0
+          last = now
+          const h = previewState.hero
+          if (h?.scene && fit(h, true)) {
+            h.elapsed += dt
+            for (const c of h.cells) {
+              c.inner.rotation.y = h.elapsed * 0.5 + c.offset
+              c.outer.position.x -= dt * 7
+              if (c.outer.position.x < -h.loop / 2) c.outer.position.x += h.loop
+            }
+            h.animator.update()
+            h.renderer.render(h.scene, h.camera)
+          }
+          const v = previewState.viewer
+          if (v?.scene && fit(v)) {
+            v.world.rotation.y += dt * 0.5
+            v.animator.update()
+            v.renderer.render(v.scene, v.camera)
+          }
+          const g = previewState.grid
+          if (g?.scene && fit(g, true)) {
+            g.elapsed += dt
+            for (const c of g.cells) {
+              c.inner.rotation.y = g.elapsed * 0.4 + c.offset
+              const p = c.outer.position
+              p.x += 5.3 * dt
+              p.y -= 2.8 * dt
+              if (p.x > 47.5) p.x -= 95
+              if (p.y < -19.5) p.y += 52
+            }
+            g.animator.update()
+            g.renderer.render(g.scene, g.camera)
+          }
+          const s = previewState.scene
+          if (s?.scene && fit(s)) {
+            s.world.rotation.y += dt * 0.5
+            s.animator.update()
+            s.renderer.render(s.scene, s.camera)
+          }
+          const ga = previewState.gallery
+          if (ga) {
+            const el = ga.canvas
+            const cw = el.clientWidth, ch = el.clientHeight
+            if (cw && ch) {
+              const dpr = Math.min(window.devicePixelRatio, 2)
+              const bw = Math.round(cw * dpr), bh = Math.round(ch * dpr)
+              if (el.width !== bw || el.height !== bh) {
+                el.width = bw
+                el.height = bh
+              }
+              const ctx = ga.ctx
+              ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+              ctx.clearRect(0, 0, cw, ch)
+              const n = ga.tiles.length
+              const rows = cw / ch > 1.9 ? 1 : 2
+              const cols = Math.ceil(n / rows)
+              const pad = 8, gap = 8
+              const tw = (cw - pad * 2 - gap * (cols - 1)) / cols
+              const th = Math.min((ch - pad * 2 - gap * (rows - 1)) / rows, tw * 1.06)
+              const oy = (ch - rows * th - (rows - 1) * gap) / 2
+              for (let i = 0; i < n; i++) {
+                const x = pad + (i % cols) * (tw + gap)
+                const y = oy + Math.floor(i / cols) * (th + gap)
+                ctx.fillStyle = "rgba(255, 255, 255, 0.07)"
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.1)"
+                ctx.beginPath()
+                ctx.roundRect(x, y, tw, th, 8)
+                ctx.fill()
+                ctx.stroke()
+                const bs = Math.min(tw - 14, th - 26)
+                ctx.drawImage(ga.tiles[i].canvas, x + (tw - bs) / 2, y + 6, bs, bs)
+                ctx.fillStyle = "rgba(255, 255, 255, 0.25)"
+                const lw = Math.min(bs * 0.7, tw - 20)
+                ctx.beginPath()
+                ctx.roundRect(x + (tw - lw) / 2, y + th - 14, lw, 6, 3)
+                ctx.fill()
+              }
+            }
+          }
+        }
+        requestAnimationFrame(frame)
+      }
+
+      let windmillGL = null
+      function windmillViewer() {
+        if (windmillGL) return windmillGL
+        const canvas = document.createElement("canvas")
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
+        renderer.setSize(512, 512, false)
+        windmillGL = { canvas, renderer, scene: null, camera: null, spin: null }
+        let last = performance.now()
+        function frame(now) {
+          requestAnimationFrame(frame)
+          const dt = Math.min((now - last) / 1000, 0.1) || 0
+          last = now
+          if (!windmillGL.scene || !canvas.isConnected) return
+          windmillGL.spin.rotation.z -= dt * 0.6
+          renderer.render(windmillGL.scene, windmillGL.camera)
+        }
+        requestAnimationFrame(frame)
+        return windmillGL
+      }
 
       async function buildAll(run) {
         for (const p of players) p.dispose()
@@ -1295,10 +1753,233 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
         playing = true
         $("animtoggle").textContent = "Pause All"
         resumeAnimations()
-        for (const name of ["demo-blocks", "demo-state-cake", "demo-state-fence", "demo-state-pickle", "demo-items", "demo-animated", "demo-model-uv", "demo-model-elements", "demo-model-cross"]) $(name).replaceChildren()
+        for (const name of ["demo-blocks", "demo-state-cake", "demo-state-fence", "demo-state-pickle", "demo-items", "demo-animated", "demo-model-turtle", "demo-model-chair", "demo-model-windmill"]) $(name).replaceChildren()
+
+        const disposePreviewScene = scene => scene?.traverse(o => {
+          if (!o.isMesh && !o.isLine) return
+          o.geometry?.dispose()
+          for (const mat of [].concat(o.material)) mat?.dispose()
+        })
+
+        {
+          const el = $("hero-canvas")
+          let h = previewState.hero
+          if (!h) {
+            h = previewState.hero = {
+              renderer: new THREE.WebGLRenderer({ canvas: el, alpha: true, antialias: true }),
+              camera: new THREE.OrthographicCamera(-1, 1, 14, -14, 0.1, 1000),
+              scene: null,
+              elapsed: 0,
+              halfH: 14
+            }
+            h.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+            h.camera.position.z = 500
+          }
+          const heroBlocks = [
+            "grass_block", "chest", "magma_block", "crafting_table", "sea_lantern", "jack_o_lantern",
+            "enchanting_table", "end_gateway", "bookshelf", "lectern", "diamond_ore",
+            "beacon", { id: "brewing_stand", properties: { has_bottle_0: "true", has_bottle_1: "true", has_bottle_2: "true" } },
+            "hay_block", "tnt", { id: "furnace", properties: { lit: "true" } }, "prismarine", "melon"
+          ]
+          const spacing = 40
+          const loop = heroBlocks.length * spacing
+          const scene = new THREE.Scene()
+          const cells = []
+          for (let i = 0; i < heroBlocks.length; i++) {
+            const entry = typeof heroBlocks[i] === "string" ? { id: heroBlocks[i] } : heroBlocks[i]
+            const outer = new THREE.Group()
+            outer.rotation.x = THREE.MathUtils.degToRad(30)
+            const inner = new THREE.Group()
+            for (const model of await parseBlockstate(assets, entry.id, { data: entry.properties })) {
+              await loadModel(inner, assets, await resolveModelData(assets, model), { animate: true })
+            }
+            if (run !== buildRun) {
+              disposePreviewScene(scene)
+              disposePreviewScene(inner)
+              return
+            }
+            outer.add(inner)
+            outer.position.x = i * spacing - loop / 2
+            scene.add(outer)
+            cells.push({ outer, inner, offset: i * Math.PI / 3 })
+          }
+          disposePreviewScene(h.scene)
+          const portalMats = []
+          scene.traverse(o => {
+            for (const mat of [].concat(o.material ?? [])) {
+              if (mat?.uniforms?.Aspect) portalMats.push(mat)
+            }
+          })
+          h.onResize = (w, hh) => {
+            for (const mat of portalMats) {
+              mat.uniforms.Aspect.value = w / hh
+              mat.uniforms.Scale.value = 0.65
+            }
+          }
+          h.onResize(el.clientWidth || 1, el.clientHeight || 1)
+          h.scene = scene
+          h.cells = cells
+          h.loop = loop
+          h.animator = createAnimator(scene)
+          startPreviews()
+        }
+
+        for (const el of document.querySelectorAll(".examples canvas[data-icon]")) {
+          const [kind, id] = el.dataset.icon.split("/")
+          try {
+            const src = await (kind === "item" ? renderItem : renderBlock)({ id, assets, width: 192, height: 192 })
+            if (run !== buildRun) return
+            el.width = el.height = 192
+            el.getContext("2d").drawImage(src, 0, 0)
+          } catch {}
+        }
+
+        async function previewBlockGroup(id, display) {
+          const g = new THREE.Group()
+          for (const model of await parseBlockstate(assets, id)) {
+            await loadModel(g, assets, await resolveModelData(assets, model), { display, animate: true })
+          }
+          return g
+        }
+
+        const previewCanvas = name => document.querySelector(`canvas[data-preview="${name}"]`)
+
+        {
+          const el = previewCanvas("viewer")
+          let v = previewState.viewer
+          if (!v) {
+            v = previewState.viewer = {
+              renderer: new THREE.WebGLRenderer({ canvas: el, alpha: true, antialias: true }),
+              camera: new THREE.PerspectiveCamera(45, 182 / 134, 0.1, 1000),
+              scene: null
+            }
+            v.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+            v.renderer.setSize(182, 134, false)
+            v.camera.position.set(-28, 21, -28)
+            v.camera.lookAt(0, -1.5, 0)
+          }
+          const scene = new THREE.Scene()
+          const world = new THREE.Group()
+          const grid = new THREE.GridHelper(40, 10, 0x3c5876, 0x3c5876)
+          grid.position.y = -8
+          world.add(grid)
+          world.add(await previewBlockGroup("grass_block", {}))
+          if (run !== buildRun) return
+          scene.add(world)
+          disposePreviewScene(v.scene)
+          v.scene = scene
+          v.world = world
+          v.animator = createAnimator(scene)
+        }
+
+        {
+          const el = previewCanvas("grid")
+          let g = previewState.grid
+          if (!g) {
+            g = previewState.grid = {
+              renderer: new THREE.WebGLRenderer({ canvas: el, alpha: true, antialias: true }),
+              camera: new THREE.OrthographicCamera(-42, 42, 13.1, -13.1, 0.1, 1000),
+              scene: null,
+              elapsed: 0,
+              halfH: 13.1
+            }
+            g.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+            g.renderer.setSize(480, 150, false)
+            g.camera.position.z = 500
+          }
+          const scene = new THREE.Scene()
+          const cells = []
+          const gridIds = [
+            "diamond_sword", "golden_apple", "blaze_rod", "ender_pearl", "bow",
+            "clock", "emerald", "spyglass", "amethyst_shard", "fire_charge",
+            "music_disc_cat", "heart_of_the_sea", "recovery_compass", "echo_shard", "nether_star",
+            "golden_carrot", "trident", "totem_of_undying", "slime_ball", "ghast_tear"
+          ]
+          let i = 0
+          for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 5; col++) {
+              const outer = new THREE.Group()
+              outer.rotation.x = THREE.MathUtils.degToRad(25)
+              const inner = new THREE.Group()
+              inner.scale.setScalar(0.7)
+              const g2 = new THREE.Group()
+              for (const model of await parseItemDefinition(assets, gridIds[i], { display: "gui" })) {
+                await loadModel(g2, assets, await resolveModelData(assets, model), { animate: true })
+              }
+              inner.add(g2)
+              outer.add(inner)
+              outer.position.set((col - 2) * 19 + (row % 2 ? 9.5 : 0), 19.5 - row * 13, 0)
+              scene.add(outer)
+              cells.push({ outer, inner, offset: (col + row) * Math.PI / 4 })
+              i++
+            }
+          }
+          if (run !== buildRun) return
+          disposePreviewScene(g.scene)
+          g.scene = scene
+          g.cells = cells
+          g.animator = createAnimator(scene)
+        }
+
+        {
+          const el = previewCanvas("scene")
+          let s = previewState.scene
+          if (!s) {
+            s = previewState.scene = {
+              renderer: new THREE.WebGLRenderer({ canvas: el, alpha: true, antialias: true }),
+              camera: new THREE.PerspectiveCamera(45, 182 / 134, 0.1, 1000),
+              scene: null
+            }
+            s.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+            s.renderer.setSize(182, 134, false)
+          }
+          const result = await assembleScene("camp", null, () => run !== buildRun)
+          if (!result || run !== buildRun) {
+            result?.handle.dispose()
+            return
+          }
+          const scene = new THREE.Scene()
+          const world = new THREE.Group()
+          world.add(result.handle.group)
+          world.position.y = 8
+          scene.add(world)
+          const radius = result.span * 16 * 1.05 + 16
+          s.camera.position.copy(new THREE.Vector3(-1, 0.85, -1).normalize().multiplyScalar(radius))
+          s.camera.lookAt(0, -11, 0)
+          if (s.handle) {
+            s.world.removeFromParent()
+            s.handle.dispose()
+          }
+          s.scene = scene
+          s.world = world
+          s.handle = result.handle
+          s.animator = createAnimator(scene)
+        }
+
+        {
+          const el = previewCanvas("gallery")
+          const galleryIds = ["chest", "magma_block", "sea_lantern", "jack_o_lantern", "prismarine", "crafting_table"]
+          const galleryAnimated = new Set(["magma_block", "sea_lantern", "prismarine"])
+          const tiles = []
+          for (let i = 0; i < 6; i++) {
+            let canvas
+            if (galleryAnimated.has(galleryIds[i])) {
+              const player = await renderBlock({ id: galleryIds[i], assets, width: 128, height: 128, animated: true, pauseOffscreen: false })
+              players.push(player)
+              canvas = player.canvas
+            } else {
+              canvas = await renderBlock({ id: galleryIds[i], assets, width: 128, height: 128 })
+            }
+            tiles.push({ canvas })
+          }
+          if (run !== buildRun) return
+          previewState.gallery = { canvas: el, ctx: el.getContext("2d"), tiles }
+        }
+
+        startPreviews()
 
         for (const id of ["grass_block", "chest", "enchanting_table", "beacon", "crafting_table", "jack_o_lantern"].slice(0, capacity($("demo-blocks")))) {
-          const canvas = await renderBlock({ id, assets, width: SIZE, height: SIZE })
+          const canvas = await renderBlock({ id, assets, width: SIZE, height: SIZE, shaderScale: 0.5 })
           if (run !== buildRun) return
           demo("demo-blocks", canvas, id)
         }
@@ -1337,8 +2018,8 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
           demo("demo-items", canvas, id)
         }
 
-        for (const id of ["magma_block", "sea_lantern", "campfire", "prismarine"]) {
-          const player = await renderBlock({ id, assets, width: SIZE, height: SIZE, animated: true })
+        for (const id of ["water", "magma_block", "stonecutter", "sculk_sensor", "end_gateway", "lava"].slice(0, capacity($("demo-animated")))) {
+          const player = await renderBlock({ id, assets, width: SIZE, height: SIZE, animated: true, shaderScale: 0.5 })
           if (run !== buildRun) {
             player.dispose()
             return
@@ -1347,75 +2028,113 @@ console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}
           demo("demo-animated", player.canvas, id)
         }
 
-        const faceSet = texture => ({
-          up: { texture },
-          down: { texture },
-          north: { texture },
-          south: { texture },
-          east: { texture },
-          west: { texture }
+        const turtleBox = (from, to, faces) => ({
+          from, to,
+          faces: Object.fromEntries(Object.entries(faces).map(([face, [u1, v1, u2, v2, rotation]]) =>
+            [face, rotation ? { texture: "#skin", uv: [u1, v1, u2, v2], rotation } : { texture: "#skin", uv: [u1, v1, u2, v2] }]))
         })
         const customModels = {
-          "demo-model-uv": {
-            ignoreAtlases: true,
+          "demo-model-turtle": {
+            width: SIZE * 3,
+            display: { rotation: [30, 225, 0], translation: [-1.1, 2.5, 0], scale: [0.65, 0.65, 0.65] },
             model: {
-              textures: { creeper: "entity/creeper/creeper" },
-              elements: [{
-                from: [4, 4, 4],
-                to: [12, 12, 12],
-                faces: {
-                  north: { texture: "#creeper", uv: [2, 4, 4, 8] },
-                  south: { texture: "#creeper", uv: [6, 4, 8, 8] },
-                  east: { texture: "#creeper", uv: [4, 4, 6, 8] },
-                  west: { texture: "#creeper", uv: [0, 4, 2, 8] },
-                  up: { texture: "#creeper", uv: [2, 0, 4, 4] },
-                  down: { texture: "#creeper", uv: [4, 0, 6, 4] }
-                }
-              }]
-            }
-          },
-          "demo-model-elements": {
-            model: {
-              textures: { oak: "block/oak_planks" },
+              textures: { skin: "entity/turtle/turtle" },
               elements: [
-                { from: [0, 12, 0], to: [16, 14, 16], faces: faceSet("#oak") },
-                { from: [1, 0, 1], to: [3, 12, 3], faces: faceSet("#oak") },
-                { from: [13, 0, 1], to: [15, 12, 3], faces: faceSet("#oak") },
-                { from: [1, 0, 13], to: [3, 12, 15], faces: faceSet("#oak") },
-                { from: [13, 0, 13], to: [15, 12, 15], faces: faceSet("#oak") }
+                turtleBox([-1.5, 3, -3], [17.5, 9, 17], {
+                  up: [4.75, 10.75, 7.125, 15.75],
+                  down: [1.625, 10.75, 4, 15.75],
+                  north: [1.625, 9.25, 4, 10.75],
+                  south: [4, 9.25, 6.375, 10.75],
+                  west: [0.875, 10.75, 1.625, 15.75, 90],
+                  east: [4, 10.75, 4.75, 15.75, 270]
+                }),
+                turtleBox([2.5, 0, -3], [13.5, 3, 15], {
+                  down: [4.25, 1, 5.625, 5.5],
+                  north: [4.25, 0.25, 5.625, 1],
+                  south: [5.625, 0.25, 7, 1],
+                  west: [3.875, 1, 4.25, 5.5, 90],
+                  east: [5.625, 1, 6, 5.5, 270]
+                }),
+                turtleBox([5, 1, -9], [11, 6, -3], {
+                  up: [1.125, 0, 1.875, 1.5, 180],
+                  down: [1.875, 0, 2.625, 1.5],
+                  north: [1.125, 1.5, 1.875, 2.75],
+                  south: [2.625, 1.5, 3.375, 2.75],
+                  west: [0.375, 1.5, 1.125, 2.75],
+                  east: [1.875, 1.5, 2.625, 2.75]
+                }),
+                turtleBox([-10, 2, -2], [3, 3, 3], {
+                  up: [4, 7.5, 5.625, 8.75, 180],
+                  down: [5.625, 7.5, 7.25, 8.75],
+                  north: [4, 8.75, 5.625, 9],
+                  south: [6.25, 8.75, 7.875, 9],
+                  west: [3.375, 8.75, 4, 9],
+                  east: [5.625, 8.75, 6.25, 9]
+                }),
+                turtleBox([13, 2, -2], [26, 3, 3], {
+                  up: [4, 6, 5.625, 7.25, 180],
+                  down: [5.625, 6, 7.25, 7.25],
+                  north: [4, 7.25, 5.625, 7.5],
+                  south: [6.25, 7.25, 7.875, 7.5],
+                  west: [3.375, 7.25, 4, 7.5],
+                  east: [5.625, 7.25, 6.25, 7.5]
+                }),
+                turtleBox([2.5, 1, 15], [6.5, 2, 25], {
+                  up: [1.375, 5.75, 1.875, 8.25, 180],
+                  down: [1.875, 5.75, 2.375, 8.25],
+                  north: [1.375, 8.25, 1.875, 8.5],
+                  south: [3.125, 8.25, 3.625, 8.5],
+                  west: [0.125, 8.25, 1.375, 8.5],
+                  east: [1.875, 8.25, 3.125, 8.5]
+                }),
+                turtleBox([9.5, 1, 15], [13.5, 2, 25], {
+                  up: [1.375, 3, 1.875, 5.5, 180],
+                  down: [1.875, 3, 2.375, 5.5],
+                  north: [1.375, 5.5, 1.875, 5.75],
+                  south: [3.125, 5.5, 3.625, 5.75],
+                  west: [0.125, 5.5, 1.375, 5.75],
+                  east: [1.875, 5.5, 3.125, 5.75]
+                })
               ]
             }
           },
-          "demo-model-cross": {
-            model: {
-              textures: { flower: "block/torchflower" },
-              elements: [
-                {
-                  from: [0.8, 0, 8],
-                  to: [15.2, 16, 8],
-                  rotation: { origin: [8, 8, 8], axis: "y", angle: 45, rescale: true },
-                  faces: {
-                    north: { texture: "#flower" },
-                    south: { texture: "#flower" }
-                  }
-                },
-                {
-                  from: [8, 0, 0.8],
-                  to: [8, 16, 15.2],
-                  rotation: { origin: [8, 8, 8], axis: "y", angle: -45, rescale: true },
-                  faces: {
-                    east: { texture: "#flower" },
-                    west: { texture: "#flower" }
-                  }
-                }
-              ]
-            }
+          "demo-model-chair": {
+            display: { rotation: [30, 225, 0], translation: [0.15, -1.3, 0], scale: [0.57, 0.57, 0.57] },
+            model: chairModel
           }
         }
-        for (const [target, { model, ignoreAtlases }] of Object.entries(customModels)) {
-          const canvas = await renderModel({ assets, width: SIZE, height: SIZE, ignoreAtlases, model })
+        for (const [target, { model, display, width, height }] of Object.entries(customModels)) {
+          const canvas = await renderModel({ assets, width: width ?? SIZE * 2, height: height ?? SIZE * 2, display, model })
           if (run !== buildRun) return
           demo(target, canvas)
+        }
+
+        {
+          const statics = { ...windmillModel, elements: windmillModel.elements.filter(e => e.name !== "rotate") }
+          const sails = { ...windmillModel, elements: windmillModel.elements.filter(e => e.name === "rotate") }
+          const display = { rotation: [30, 225, 0], translation: [0, -0.7, 0], scale: [0.28, 0.28, 0.28] }
+          const { scene, camera } = await makeModelScene()
+          await loadModel(scene, assets, await resolveModelData(assets, { model: statics }), { display })
+          const sailRoot = await loadModel(scene, assets, await resolveModelData(assets, { model: sails }), { display })
+          if (run !== buildRun) return
+          const sailContainer = sailRoot.children[0].children[0]
+          const spin = new THREE.Group()
+          const inner = new THREE.Group()
+          spin.position.y = 8
+          inner.position.y = -8
+          inner.add(...sailContainer.children)
+          spin.add(inner)
+          sailContainer.add(spin)
+          const v = windmillViewer()
+          if (v.scene) v.scene.traverse(o => {
+            if (!o.isMesh) return
+            o.geometry.dispose()
+            for (const mat of [].concat(o.material)) mat?.dispose()
+          })
+          v.scene = scene
+          v.camera = camera
+          v.spin = spin
+          demo("demo-model-windmill", v.canvas)
         }
 
         await loadGuiAssets()

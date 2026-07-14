@@ -34,7 +34,7 @@
 </head>
 <body>
 <aside>
-  <h1>Model Viewer <small>block-model-renderer</small></h1>
+  <h1><small>block-model-renderer</small> Model Viewer</h1>
 
   <section>
     <h2>Pack</h2>
@@ -98,6 +98,14 @@
         <option value="off">Off</option>
       </select>
     </div>
+    <div class="row">
+      <label for="wireframe">Wireframe</label>
+      <select id="wireframe" style="flex: 2">
+        <option value="off" selected>Off</option>
+        <option value="overlay">Overlay</option>
+        <option value="wire">Wireframe</option>
+      </select>
+    </div>
     <label class="check" id="animaterow"><input type="checkbox" id="animate" checked> Animate textures</label>
   </section>
 
@@ -124,7 +132,6 @@
       <label class="check"><input type="checkbox" id="ortho"> Orthographic</label>
       <label class="check"><input type="checkbox" id="grid" checked> Grid</label>
     </div>
-    <label class="check"><input type="checkbox" id="wireframe"> Wireframe</label>
   </section>
 </aside>
 
@@ -135,7 +142,7 @@
 
 <script type="module">
   const BUST = Date.now()
-  const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
+  const LIB = `../../../src/web.js?${BUST}`
 
   const { getThree, prepareAssets, listDirectory, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createAnimator } = await import(LIB)
   const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
@@ -280,11 +287,18 @@
     setOrtho(orthoManual)
   })
   controls.addEventListener("start", () => {
+    if (iconView) {
+      iconView = false
+      camera.up.set(0, 1, 0)
+      controls.target.set(0, 0, 0)
+      camera.lookAt(0, 0, 0)
+      syncView()
+    }
     if (camera === orthoCam && !orthoManual) setOrtho(false)
   })
 
-  const GRID_COLOR = 0x555555
-  const grid = new THREE.GridHelper(24, 24, 0x333333, 0x333333)
+  const GRID_COLOR = 0x6a6a76
+  const grid = new THREE.GridHelper(24, 24, 0x4c4c58, 0x4c4c58)
   grid.position.y = -8.01
   scene.add(grid)
 
@@ -300,29 +314,21 @@
   blockOutline.position.y = -8.005
   scene.add(blockOutline)
 
-  const northCanvas = document.createElement("canvas")
-  northCanvas.width = northCanvas.height = 64
-  {
-    const cx = northCanvas.getContext("2d")
-    cx.font = "bold 52px sans-serif"
-    cx.textAlign = "center"
-    cx.textBaseline = "middle"
-    cx.fillStyle = "#" + GRID_COLOR.toString(16).padStart(6, "0")
-    cx.fillText("N", 32, 34)
-  }
-  const north = new THREE.Mesh(
-    new THREE.PlaneGeometry(4, 4),
-    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(northCanvas), transparent: true, depthWrite: false })
+  const north = new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-0.625, 0, -13), new THREE.Vector3(-0.625, 0, -14.5),
+      new THREE.Vector3(-0.625, 0, -14.5), new THREE.Vector3(0.625, 0, -13),
+      new THREE.Vector3(0.625, 0, -13), new THREE.Vector3(0.625, 0, -14.5)
+    ]),
+    new THREE.LineBasicMaterial({ color: GRID_COLOR })
   )
-  north.rotation.x = -Math.PI / 2
-  north.position.set(0, -8, -15)
+  north.position.y = -8.005
   scene.add(north)
 
-  const wireMat = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x9a9aa6 })
+  const wireMat = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x9fd0ff })
+  let iconView = false
   function syncView() {
-    const wire = $("wireframe").checked
-    scene.overrideMaterial = wire ? wireMat : null
-    grid.visible = north.visible = blockOutline.visible = $("grid").checked && !wire
+    grid.visible = north.visible = blockOutline.visible = $("grid").checked && $("wireframe").value !== "wire" && !iconView
   }
   $("grid").addEventListener("change", syncView)
   $("wireframe").addEventListener("change", syncView)
@@ -332,9 +338,19 @@
     $("displayrow").hidden = !item
     $("props").hidden = item
     $("cullsection").hidden = item
+    $("icon").hidden = !item
     syncIdList()
   }
   $("kind").addEventListener("change", syncKind)
+
+  function syncAspect() {
+    const aspect = (canvas.clientWidth || 1) / (canvas.clientHeight || 1)
+    scene.traverse(o => {
+      for (const mat of [].concat(o.material ?? [])) {
+        if (mat?.uniforms?.Aspect) mat.uniforms.Aspect.value = aspect
+      }
+    })
+  }
 
   let lastW = 0
   let lastH = 0
@@ -346,6 +362,7 @@
       lastH = h
       renderer.setSize(w, h, false)
       updateProjection()
+      syncAspect()
     }
   }
   new ResizeObserver(resize).observe(canvas)
@@ -446,8 +463,10 @@
       : await parseBlockstate(assets, id, { data: propsData() })
 
     const group = new THREE.Group()
+    let gui = null
     for (const model of models) {
       const resolved = await resolveModelData(assets, model)
+      gui ??= resolved.display?.gui ?? null
       await loadModel(group, assets, resolved, { display, lighting, cull, animate })
     }
 
@@ -457,7 +476,8 @@
     }
     modelGroup = group
     scene.add(group)
-    current = { kind, id }
+    syncAspect()
+    current = { kind, id, gui }
     $("animaterow").hidden = !createAnimator(group).animated
     syncUrl()
   }
@@ -486,7 +506,7 @@
 
   function resetToggles() {
     $("animate").checked = true
-    $("wireframe").checked = false
+    $("wireframe").value = "off"
     for (const box of cullBoxes) box.checked = false
     syncView()
   }
@@ -525,29 +545,34 @@
     }
   })
 
-  const FRAME_HALF = VIEW_DIST * Math.tan(THREE.MathUtils.degToRad(FOV / 2))
   $("icon").addEventListener("click", () => {
-    const kind = current?.kind ?? $("kind").value
-    camera.up.set(0, 1, 0)
+    const gui = $("display").value === "none" ? current?.gui : null
+    const rot = gui?.rotation ?? [0, 0, 0]
+    const trans = gui?.translation ?? [0, 0, 0]
+    const scale = gui?.scale ?? [1, 1, 1]
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+      THREE.MathUtils.degToRad(rot[0]),
+      THREE.MathUtils.degToRad(rot[1]),
+      THREE.MathUtils.degToRad(rot[2]),
+      "XYZ"
+    )).invert()
     camera.zoom = 1
-    if (kind === "block") {
-      const q = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(THREE.MathUtils.degToRad(30), THREE.MathUtils.degToRad(225), 0, "XYZ")
-      ).invert()
-      camera.position.set(0, 0, VIEW_DIST).applyQuaternion(q)
-    } else {
-      camera.position.set(0, 0, VIEW_DIST)
-    }
-    controls.target.set(0, 0, 0)
-    camera.lookAt(0, 0, 0)
-    setOrtho(true, FRAME_HALF)
+    camera.up.set(0, 1, 0).applyQuaternion(q)
+    camera.position.set(-trans[0] / scale[0], -trans[1] / scale[1], VIEW_DIST).applyQuaternion(q)
+    controls.target.set(-trans[0] / scale[0], -trans[1] / scale[1], 0).applyQuaternion(q)
+    camera.lookAt(controls.target)
+    setOrtho(true, 8 / Math.abs(scale[1] || 1) / 0.75)
     camera.zoom = 1
     updateProjection()
     controls.update()
+    iconView = true
+    syncView()
   })
 
   $("reset").addEventListener("click", () => {
     orthoManual = false
+    iconView = false
+    syncView()
     setOrtho(false)
     camera.up.set(0, 1, 0)
     camera.zoom = 1
@@ -562,7 +587,19 @@
     requestAnimationFrame(frame)
     resize()
     controls.update()
+    scene.overrideMaterial = $("wireframe").value === "wire" ? wireMat : null
     renderer.render(scene, camera)
+    if ($("wireframe").value === "overlay") {
+      scene.overrideMaterial = wireMat
+      const helpers = [grid, north, blockOutline]
+      const vis = helpers.map(h => h.visible)
+      for (const h of helpers) h.visible = false
+      renderer.autoClear = false
+      renderer.render(scene, camera)
+      renderer.autoClear = true
+      helpers.forEach((h, i) => h.visible = vis[i])
+      scene.overrideMaterial = null
+    }
   }
   frame()
 

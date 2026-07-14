@@ -30,7 +30,7 @@
 </head>
 <body>
 <aside>
-  <h1>Render Gallery <small>block-model-renderer</small></h1>
+  <h1><small>block-model-renderer</small> Render Gallery</h1>
 
   <section>
     <h2>Pack</h2>
@@ -72,11 +72,11 @@
         <option value="">All</option>
       </select>
       <label for="fstarts">Starts with</label>
-      <input type="text" id="fstarts">
+      <input type="text" id="fstarts" placeholder="oak_, stripped_">
       <label for="fends">Ends with</label>
-      <input type="text" id="fends">
+      <input type="text" id="fends" placeholder="_log, _stairs">
       <label for="fcontains">Contains</label>
-      <input type="text" id="fcontains">
+      <input type="text" id="fcontains" placeholder="copper">
     </div>
     <label class="check" id="fanimatedrow"><input type="checkbox" id="fanimated"> Animated only</label>
   </section>
@@ -96,7 +96,7 @@
 
 <script type="module">
   const BUST = Date.now()
-  const LIB = location.hostname === "localhost" ? `http://localhost:8080/src/web.js?${BUST}` : "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/src/web.js"
+  const LIB = `../../../src/web.js?${BUST}`
 
   const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, parseBlockstate, resolveModelData, isCrossModel } = await import(LIB)
   const { loadMojangJar } = await import(`../mojang-pack.js?${BUST}`)
@@ -186,7 +186,7 @@
     $("grid").append(empty)
   }
 
-  async function render(requested) {
+  async function render(requested, target) {
     const run = ++runId
     clear()
     setRunning(true)
@@ -204,6 +204,7 @@
     }
 
     let done = 0
+    const rendered = []
     for (const id of ids) {
       if (run !== runId) return
       const figure = document.createElement("figure")
@@ -238,6 +239,7 @@
         } else {
           canvas.style.width = canvas.style.height = size + "px"
           figure.append(canvas, caption)
+          rendered.push(id)
           if (player?.animated) {
             players.push(player)
             figure.classList.add("animated")
@@ -251,10 +253,17 @@
       }
       if (!skip) $("grid").append(figure)
       done++
-      $("progress").style.width = done / ids.length * 100 + "%"
-      if (ids.length > 50) $("packstatus").textContent = `Rendering ${done}/${ids.length}…`
+      if (target) {
+        $("progress").style.width = rendered.length / Math.min(target, ids.length) * 100 + "%"
+        $("packstatus").textContent = `Rendering ${rendered.length}/${target}…`
+      } else {
+        $("progress").style.width = done / ids.length * 100 + "%"
+        if (ids.length > 50) $("packstatus").textContent = `Rendering ${done}/${ids.length}…`
+      }
+      if (target && rendered.length >= target) break
     }
     if (run === runId) {
+      if (target) $("ids").value = rendered.join(", ")
       if (!$("grid").children.length) {
         showEmpty(requested.length && !ids.length
           ? "None of the requested IDs were found in the loaded pack"
@@ -345,6 +354,14 @@
       return
     }
     const count = Math.max(1, Math.min(+$("count").value || 24, ids.length))
+    if ($("animenable").checked && $("fanimated").checked) {
+      for (let i = ids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[ids[i], ids[j]] = [ids[j], ids[i]]
+      }
+      render(ids, count)
+      return
+    }
     const picks = new Set()
     while (picks.size < count) {
       picks.add(ids[Math.floor(Math.random() * ids.length)])
