@@ -7,6 +7,8 @@ Render any block, item, or custom model JSON, with full support for vanilla reso
 [![jsDelivr](https://data.jsdelivr.com/v1/package/npm/block-model-renderer/badge)](https://www.jsdelivr.com/package/npm/block-model-renderer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[**Live Examples**](https://block-model-renderer.ewanhowell.com/)
+
 ## Features
 
 * Renders blocks, items, and custom models from a resource pack
@@ -130,8 +132,15 @@ The full documentation lives in [`docs/`](docs/):
 
 ## Examples
 
-* [Node examples](https://example.com/node): simple renders, batch-rendering every block and item in a pack, animated output, the bundled overrides, and two worked custom model loaders
-* [Browser examples](https://example.com/web): a block gallery, a spritesheet grid, a live three.js scene, and an animated model viewer
+Everything on the live pages runs in your browser, on the latest vanilla Minecraft assets:
+
+* [Live Examples](https://block-model-renderer.ewanhowell.com/): the main demo page, every feature rendered live
+* [Model Viewer](https://block-model-renderer.ewanhowell.com/viewer/): inspect any block or item up close: blockstates, display transforms, lighting modes, culling, wireframe
+* [Render Gallery](https://block-model-renderer.ewanhowell.com/gallery/): batch-render blocks straight to canvases, with live animation players
+* [Rotating Grid](https://block-model-renderer.ewanhowell.com/grid/): an endless scrolling wall of spinning blocks and items
+* [Scenes](https://block-model-renderer.ewanhowell.com/scene/): voxel dioramas with neighbor-aware culling, fluid surface shaping, and world lighting
+* [Structure Viewer](https://structure-viewer.ewanhowell.com/): a full website built on the library: browse every vanilla structure, open your own `.nbt` files, and walk around inside builds
+* [Node examples](examples/node): simple renders, batch-rendering every block and item in a pack, animated output, the bundled overrides, and two worked custom model loaders
 
 ## License
 
