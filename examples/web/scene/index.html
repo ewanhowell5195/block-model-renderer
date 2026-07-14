@@ -26,6 +26,8 @@
   main { position: relative; }
   #view { width: 100%; height: 100%; display: block; }
   #scenestatus { color: var(--muted); font-size: 12px; }
+  #daytime { accent-color: var(--accent); min-width: 0; }
+  #daytimevalue { color: var(--muted); font-size: 12px; min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
   #status {
     position: absolute; left: 12px; bottom: 12px; max-width: min(60ch, calc(100% - 24px));
     background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px;
@@ -69,14 +71,9 @@
     </div>
     <div class="row" id="daytimerow">
       <label for="daytime">Daytime</label>
-      <select id="daytime" style="flex: 2">
-        <option value="day">Day</option>
-        <option value="noon" selected>Noon</option>
-        <option value="sunset">Sunset</option>
-        <option value="night">Night</option>
-        <option value="midnight">Midnight</option>
-        <option value="sunrise">Sunrise</option>
-      </select>
+      <input id="daytime" type="range" min="0" max="23999" value="6000" style="flex: 2">
+      <span id="daytimevalue">6000</span>
+      <button id="daytimereset" class="icon" title="Reset to noon" aria-label="Reset to noon" disabled>&#8634;</button>
     </div>
     <div class="row">
       <label for="wireframe">Wireframe</label>
@@ -3003,7 +3000,7 @@
     clearScene()
     const { blocks, dims } = parseScene(SCENES[$("scene").value])
     sceneSpan = Math.max(dims.w, dims.h, dims.d)
-    const opts = { lighting: $("lighting").value, animate: true, daytime: $("daytime").value, shaderScale: 4 }
+    const opts = { lighting: $("lighting").value, animate: true, daytime: +$("daytime").value, shaderScale: 4 }
     $("daytimerow").hidden = opts.lighting !== "world"
     const placements = []
     let done = 0
@@ -3049,13 +3046,20 @@
 
   $("build").addEventListener("click", build)
   $("lighting").addEventListener("change", build)
-  const DAYTIMES = { day: 1000, noon: 6000, sunset: 12000, night: 13000, midnight: 18000, sunrise: 23000 }
-  $("daytime").addEventListener("change", () => {
-    const v = DAYTIMES[$("daytime").value] ?? 6000
+  const NOON = 6000
+  function applyDaytime() {
+    const v = +$("daytime").value
+    $("daytimevalue").textContent = v
+    $("daytimereset").disabled = v === NOON
     modelGroup?.traverse(o => {
       if (!o.isMesh) return
       for (const m of [].concat(o.material)) if (m?.uniforms?.daytime) m.uniforms.daytime.value = v
     })
+  }
+  $("daytime").addEventListener("input", applyDaytime)
+  $("daytimereset").addEventListener("click", () => {
+    $("daytime").value = NOON
+    applyDaytime()
   })
   $("scene").addEventListener("change", () => {
     const url = new URL(location)
