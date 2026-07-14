@@ -5,7 +5,10 @@ import { parseZip } from "./zip.js"
 const config = {}
 
 export function configure(opts) {
-  if ("assetsUrl" in opts && opts.assetsUrl !== config.assetsUrl) bundledZipPromise = null
+  if ("assetsUrl" in opts && opts.assetsUrl !== config.assetsUrl) {
+    bundledZipPromise = null
+    warnedBundled = false
+  }
   Object.assign(config, opts)
 }
 
@@ -404,6 +407,7 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
 }
 
 let bundledZipPromise
+let warnedBundled = false
 function loadBundledZip() {
   return bundledZipPromise ??= (async () => {
     const url = config.assetsUrl ?? new URL("../assets.zip", import.meta.url)
@@ -447,7 +451,17 @@ function makePlatform() {
     },
 
     async addBundledEntries(arr) {
-      const files = await loadBundledZip()
+      if (config.assetsUrl === false) return
+      let files
+      try {
+        files = await loadBundledZip()
+      } catch (e) {
+        if (!warnedBundled) {
+          warnedBundled = true
+          console.warn(`block-model-renderer: continuing without the bundled assets.zip: block entities won't render, and biome tints and the end sky fall back to flat colors (${e.message}). Set configure({ assetsUrl }) to point at assets.zip, or to false to opt out`)
+        }
+        return
+      }
       const overrides = await zipEntryFromFiles(files, "overrides/")
       overrides.bundledOverrides = true
       arr.unshift(overrides)

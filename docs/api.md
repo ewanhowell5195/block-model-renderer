@@ -91,7 +91,7 @@ Not exported on Node.
 
 | Export | Description |
 |---|---|
-| `configure({ THREE, assetsUrl })` | Provide the three.js instance and/or the bundled `assets.zip` URL. [Details](browser.md#browser-only-exports) |
+| `configure({ THREE, assetsUrl })` | Provide the three.js instance and/or the bundled `assets.zip` URL (`false` skips the bundled assets entirely). [Details](browser.md#browser-only-exports) |
 | `getThree()` | Resolve and return the three.js instance the library uses. [Details](browser.md#providing-threejs) |
 | `THREE` | Live binding to that instance, populated after first use. [Details](browser.md#providing-threejs) |
 | `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. [Details](browser.md#animated-renders) |
