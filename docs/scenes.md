@@ -248,9 +248,9 @@ for (const block of blocks) {
 }
 ```
 
-The propagation mirrors the game's light engine, checked against the decompiled source. Emission levels come from [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault), so lit furnaces, candle counts, and other state-dependent emitters are right automatically. Light spreads one level per block, blocked by full opaque cubes (read off the actual models, like [`getCullFaces`](api.md), sharing its cache) and by the partial shapes of the blocks the game flags for it (stairs, slabs, snow layers), so a slab roof shadows the room under it while light wraps through the open half. Water attenuates sky light one level per block. Sky light pours straight down and spreads with falloff, so a roofed room goes dark inside while its doorway stays a lit gradient. The niche per-block dampening overrides the game hardcodes (leaves and slime dimming one level, tinted glass blocking fully) are deliberately not modeled; opacity comes from the models alone.
+Light propagates accurately to the game: block light from emitters (via [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault)) and sky light from above, both spreading one level per block and blocked by the block shapes read from the models, so a slab roof shadows the room while light wraps through the open half. Opacity comes from those models alone, so the game's few hardcoded exceptions (leaves, slime, tinted glass) aren't applied.
 
-The shading applies the vanilla lightmap: sky and block light add, block light carries the game's warm torchlight tint, and `daytime` dims and blues the sky term only (both tints are [configurable](rendering.md#lighting-modes)). At the default full-bright `noon` most of the volume reads as fully lit, so emitters mainly show indoors. Set a darker `daytime` to see them everywhere.
+Shading uses the vanilla lightmap: sky and block light add, block light carries a warm torchlight tint, and `daytime` dims and blues the sky term (both tints are [configurable](rendering.md#lighting-modes)). At the default full-bright `noon` most of the scene reads as lit, so emitters mainly show indoors; use a darker `daytime` to see them everywhere.
 
 The result:
 
