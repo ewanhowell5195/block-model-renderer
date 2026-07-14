@@ -96,7 +96,7 @@ three is a peer dependency you supply, resolved lazily on first use:
    ```
 3. A [`THREE`](api.md) global, if you made one
 
-The recommended version is **0.162.0**, the version the renderer is built and tested against. Other versions from ~0.152 up will probably work, but if a newer three shifts colors or breaks behavior, adjusting for it is on you. The instance the library resolved is re-exported (`import { THREE } from "block-model-renderer"`, populated after the first call, or `await getThree()`); build your own scenes from it rather than a second three copy.
+The recommended version is **0.162.0**, the version the renderer is built and tested against. Other versions from ~0.152 up will probably work, but if a newer three shifts colors or breaks behavior, adjusting for it is on you. Versions below the supported floor technically work too, your mileage may vary: the renderer opts out of modern three's color management and lighting anyway, so on old versions that setup becomes a no-op and core rendering has been seen working fine as far back as r129, but nothing below 0.152 is tested or supported. The instance the library resolved is re-exported (`import { THREE } from "block-model-renderer"`, populated after the first call, or `await getThree()`); build your own scenes from it rather than a second three copy.
 
 ## Rendering to canvases
 
