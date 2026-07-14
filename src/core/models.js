@@ -1441,14 +1441,17 @@ export async function loadModel(scene, assets, model, args) {
 
         const legacyShade = !model.version || isBefore(model.version, "26.3")
         const modernShade = !model.version || !isBefore(model.version, "26.3")
-        const shadeDir = modernShade && SHADE_DIR_VECS[element.shade_direction_override] ? element.shade_direction_override : null
-        const shade = (legacyShade ? element.shade !== false : true) || !!shadeDir
+        let shadeDir = null
+        if (model.type !== "item") {
+          if (modernShade && SHADE_DIR_VECS[element.shade_direction_override]) shadeDir = element.shade_direction_override
+          else if (legacyShade && element.shade === false) shadeDir = "up"
+        }
         const side = back ? "back" : model.double_sided
         const emission = Math.max(blockEmission, !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0)
-        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shade}\0${shadeDir ?? ""}\0${side}\0${emission}`
+        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shadeDir ?? ""}\0${side}\0${emission}`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, shade, lightConfig, lighting, shadeDir, emission)
+          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, true, lightConfig, lighting, shadeDir, emission)
           if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
           materialCache.set(mkey, material)
         }
@@ -1955,9 +1958,11 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           float blockBrightness = blockLevel / (4.0 - 3.0 * blockLevel) * 1.4;
           vec3 blockColor = mix(blockLightTint, vec3(1.0), 0.9 * (2.0 * blockLevel - 1.0) * (2.0 * blockLevel - 1.0));
           light = clamp(skyColor * skyBrightness + blockColor * blockBrightness, 0.0, 1.0);
-        } else {
+        } else if (shadeEnabled) {
           mat3 v = mat3(viewMatrix);
-          shade = min(1.0, ambient + d0 * max(0.0, dot(vNormal, v * light0)) + d1 * max(0.0, dot(vNormal, v * light1)));
+          bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
+          vec3 n = hasOverride ? v * shadeOverride : vNormal;
+          shade = min(1.0, ambient + d0 * max(0.0, dot(n, v * light0)) + d1 * max(0.0, dot(n, v * light1)));
         }
         gl_FragColor = vec4(texColor.rgb * shade * light, texColor.a);
       }
