@@ -147,7 +147,7 @@ Component values take the same shape as in game data. Two conveniences: a bare n
 
 ## `resolveModelData(assets, model)`
 
-Recursively resolves a model's `parent` chain, merging `textures`, `elements`, and other fields into a single flat model. `builtin/generated` item layers are converted into real geometry (the classic extruded item quads), with animated layer frames accounted for in the extrusion; the resolved data carries `generated: true` when that conversion happened, since the elements alone can't tell you afterwards.
+Recursively resolves a model's `parent` chain, merging `textures`, `elements`, and other fields into a single flat model. `builtin/generated` item layers are converted into real geometry (the classic extruded item quads), with animated layer frames accounted for in the extrusion.
 
 | Argument | Description |
 |---|---|
@@ -155,6 +155,13 @@ Recursively resolves a model's `parent` chain, merging `textures`, `elements`, a
 | `model` | A model reference or inline model object |
 
 Returns the resolved model object.
+
+When the layer conversion happened, the resolved model carries `generated: true`, since afterwards the elements look like any other elements. A model that inherits `builtin/generated` but declares its own `elements` is not marked: like the game, its elements win and the generator never runs (the parent still contributes `gui_light: "front"`).
+
+```js
+const resolved = await resolveModelData(assets, { model: "minecraft:item/apple", type: "item" })
+resolved.generated // true, and resolved.elements holds the extruded quads
+```
 
 ## `makeModelScene()`
 
