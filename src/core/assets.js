@@ -1,4 +1,4 @@
-import { platform, loadImage, toBytes, parseJson, textDecoder, normalize, resolveNamespace } from "./platform.js"
+import { platform, loadImage, toBytes, parseJson, textDecoder, normalize, resolveNamespace, isBefore } from "./platform.js"
 import { parseZip } from "../zip.js"
 import fallbackData from "./data/fallbacks.json" with { type: "json" }
 
@@ -130,6 +130,7 @@ export async function prepareAssets(assets, opts) {
   if (Array.isArray(assets) && assets.prepared) {
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
     if (opts?.translucency) assets.translucency = opts.translucency
+    if (opts?.version && !assets.version) assets.version = opts.version
     return assets
   }
 
@@ -149,6 +150,7 @@ export async function prepareAssets(assets, opts) {
   prepared.prepared = true
   if (opts?.cache) prepared.cache = makeCache()
   if (opts?.translucency) prepared.translucency = opts.translucency
+  if (opts?.version) prepared.version = opts.version
   await loadAtlases(prepared)
   return prepared
 }
@@ -296,10 +298,17 @@ function applyUnstitchSource(src, sprites, assets) {
   }
 }
 
+function readPaletteTexture(id, assets) {
+  const { namespace, item } = resolveNamespace(normalize(id))
+  const modern = `assets/${namespace}/textures/palettes/${item}.png`
+  const legacy = `assets/${namespace}/textures/${item}.png`
+  if (assets.version) return readFile(isBefore(assets.version, "26.3") ? legacy : modern, assets)
+  return readFile(modern, assets).then(buf => buf ?? readFile(legacy, assets))
+}
+
 function applyPalettedPermutationsSource(src, sprites, assets) {
   if (!src.palette_key) return
   const separator = src.separator ?? "_"
-  const keyPath = spritePathOf(src.palette_key)
   const textures = src.textures ?? []
   const permutations = src.permutations ?? {}
 
@@ -307,13 +316,12 @@ function applyPalettedPermutationsSource(src, sprites, assets) {
     const basePath = spritePathOf(tex)
     const { namespace: texNs, item: texItem } = resolveNamespace(normalize(tex))
     for (const [suffix, palId] of Object.entries(permutations)) {
-      const palPath = spritePathOf(palId)
       const outPath = `assets/${texNs}/textures/${texItem}${separator}${suffix}.png`
       const generator = memoizeAsync(async () => {
         const [baseBuf, keyBuf, palBuf] = await Promise.all([
           readFile(basePath, assets),
-          readFile(keyPath, assets),
-          readFile(palPath, assets)
+          readPaletteTexture(src.palette_key, assets),
+          readPaletteTexture(palId, assets)
         ])
         if (!baseBuf || !keyBuf || !palBuf) return await getMissingTexturePng(assets)
         try {

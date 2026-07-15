@@ -90,6 +90,10 @@ disposeCache(oldAssets)
 
 Caching stays enabled after a dispose; it just repopulates. Don't dispose while something from that bundle is still rendering (a live player, a scene on screen).
 
+### Bundle version
+
+Pass `{ version: "1.21.11" }` to pin the Minecraft version the bundle's assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (currently the armor trim palette locations). Without it, the first render that passes a `version` stamps it onto the bundle, and a bundle with no version at all probes both the modern and legacy forms.
+
 ### Translucency detection
 
 Whether a texture renders blended (water, stained glass, ice) or solid is decided by inspecting its pixels, since packs can't declare it: a texture counts as translucent when any pixel's alpha falls strictly between the cutoffs. The defaults treat alpha at or below 5 as cutout (discarded anyway) and at or above 240 as opaque, so textures exported at 98% opacity or with anti-aliased edges render solid like the game's cutout pass instead of joining the sorted transparent pass. Tune per bundle when a pack draws the line somewhere else:

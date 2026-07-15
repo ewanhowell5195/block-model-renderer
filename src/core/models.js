@@ -1,4 +1,4 @@
-import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace } from "./platform.js"
+import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace, isBefore } from "./platform.js"
 import { COLORS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, isWaterlogged, parseColor, getPotionColor } from "./colors.js"
 import { getLightEmission } from "./emission.js"
 import { fluidHeights } from "./fluids.js"
@@ -128,7 +128,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   if (assets == null || assets.length === 0) throw new Error("parseBlockstate requires assets")
   const data = args?.data ?? {}
   const rand = args?.seed != null ? seededRandom(args.seed) : null
-  assets = await prepareAssets(assets)
+  assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   const defaults = await defaultBlockstates(assets)
 
   const { namespace, item: block } = resolveNamespace(blockstate)
@@ -358,7 +358,7 @@ export async function parseItemDefinition(assets, itemId, args) {
     data.dyed_color = data.dyed_color.rgb
   }
   const display = args?.display ?? "gui"
-  assets = await prepareAssets(assets)
+  assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
 
   const { namespace, item } = resolveNamespace(itemId)
 
@@ -985,16 +985,6 @@ async function makeThreeTexture(img) {
   return texture
 }
 
-function isBefore(version, target) {
-  const parse = s => s.split("-")[0].split(".").map(n => +n || 0)
-  const a = parse(version), b = parse(target)
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    const av = a[i] ?? 0, bv = b[i] ?? 0
-    if (av !== bv) return av < bv
-  }
-  return false
-}
-
 function bakeMirroredScale(displayGroup, solid) {
   const sign = new THREE.Matrix4().makeScale(
     Math.sign(displayGroup.scale.x),
@@ -1132,7 +1122,7 @@ export async function loadModel(scene, assets, model, args) {
   if (scene) scene.userData.daytime = daytime
   const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
   if (args?.version && !model.version) model.version = args.version
-  assets = await prepareAssets(assets)
+  assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
 
   let blockEmission = 0
   if (block?.id) {
