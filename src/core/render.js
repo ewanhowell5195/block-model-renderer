@@ -4,7 +4,7 @@ import { sortObjectOnce } from "./sorting.js"
 import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
-import { computeAnimationTimeline, collectAnimated } from "./animation.js"
+import { computeAnimationTimeline, collectAnimated, applyFrame } from "./animation.js"
 
 const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east: "west", west: "east" }
 
@@ -271,8 +271,7 @@ export async function renderModelScene(scene, camera, args) {
           break
         }
       }
-      s.tex.image = s.frames[frameIdx]
-      s.tex.needsUpdate = true
+      applyFrame(s, s.frames[frameIdx])
     }
 
     frameRenderer.renderFrame(scene, camera)

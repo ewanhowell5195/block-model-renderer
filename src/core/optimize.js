@@ -61,7 +61,14 @@ function isTranslucent(tex, cutoff) {
 }
 
 const texHash = new WeakMap()
+const animHash = new WeakMap()
+let animHashId = 0
 function hashTexture(tex) {
+  if (tex.userData?.frames) {
+    let ah = animHash.get(tex)
+    if (ah === undefined) animHash.set(tex, ah = `anim${++animHashId}_${tex.image.width}x${tex.image.height}`)
+    return ah
+  }
   const img = tex.image
   let h = texHash.get(img)
   if (h !== undefined) return h
@@ -298,6 +305,10 @@ export async function optimizeScene(placements, opts = {}) {
         if (!tex && !matAnimated(mat)) continue
         const cull = o.userData.cullface?.[g.materialIndex] ?? null
         if (matAnimated(mat)) {
+          if (tex?.userData?.frames && isTranslucent(tex, cutoff)) {
+            atlasFace(o, toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull }))
+            continue
+          }
           const id = tex ?? mat
           if (!animTexId.has(id)) animTexId.set(id, animTexId.size)
           const key = matSignature(mat) + "|a" + animTexId.get(id)
@@ -398,6 +409,17 @@ export async function optimizeScene(placements, opts = {}) {
     await breathe()
     if (shouldCancel?.()) return null
     const { atlases: ats, rects, sizes } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe)
+    const regionLists = ats.map(() => [])
+    const claimed = new Set()
+    for (const t of grp.textures) {
+      if (!t.userData?.frames) continue
+      const r = rects.get(t)
+      const key = r.ai + ":" + r.x + "," + r.y
+      if (claimed.has(key)) continue
+      claimed.add(key)
+      regionLists[r.ai].push({ x: r.x, y: r.y, w: r.w, h: r.h, frames: t.userData.frames, times: t.userData.times, interpolate: !!t.userData.interpolate })
+    }
+    regionLists.forEach((regions, i) => { if (regions.length) ats[i].userData.regions = regions })
     created.textures.push(...ats)
     const materials = ats.map(a => {
       const m = grp.repMat.clone()
@@ -471,7 +493,9 @@ export async function optimizeScene(placements, opts = {}) {
     geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.P, 3))
     geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.N, 3))
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.U, 2))
-    group.add(new THREE.Mesh(geo, material))
+    const mesh = new THREE.Mesh(geo, material)
+    if (material.transparent) mesh.renderOrder = material.side === THREE.BackSide ? 0 : 1
+    group.add(mesh)
     drawCalls++
     tris += acc.P.length / 9
   }

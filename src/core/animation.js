@@ -1,12 +1,34 @@
 import { Canvas } from "./platform.js"
 
+function textureChannels(tex) {
+  const regions = tex.userData.regions
+  if (!regions) return [{ tex, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate, region: null }]
+  return regions.map(r => ({ tex, frames: r.frames, times: r.times, interpolate: !!r.interpolate, region: r }))
+}
+
+export function applyFrame(s, image) {
+  if (s.region) {
+    const { x, y, w, h } = s.region
+    const ctx = s.tex.image.getContext("2d")
+    ctx.clearRect(x - 1, y - 1, w + 2, h + 2)
+    ctx.drawImage(image, x, y)
+    ctx.drawImage(image, 0, 0, w, 1, x, y - 1, w, 1)
+    ctx.drawImage(image, 0, h - 1, w, 1, x, y + h, w, 1)
+    ctx.drawImage(image, 0, 0, 1, h, x - 1, y, 1, h)
+    ctx.drawImage(image, w - 1, 0, 1, h, x + w, y, 1, h)
+  } else {
+    s.tex.image = image
+  }
+  s.tex.needsUpdate = true
+}
+
 export function computeAnimationTimeline(animatedTextures, maxFrameCount) {
   let schedules, totalDuration, events, frameCount
   for (let maxSubFrames = 8; maxSubFrames >= 1; maxSubFrames--) {
-    schedules = animatedTextures.map(tex => {
-      let frames = tex.userData.frames
-      let times = tex.userData.times ?? frames.map(() => 1)
-      if (tex.userData.interpolate) {
+    schedules = animatedTextures.flatMap(textureChannels).map(ch => {
+      let frames = ch.frames
+      let times = ch.times ?? frames.map(() => 1)
+      if (ch.interpolate) {
         const exp = expandInterpolated(frames, times, maxSubFrames)
         frames = exp.frames
         times = exp.times
@@ -18,7 +40,7 @@ export function computeAnimationTimeline(animatedTextures, maxFrameCount) {
         acc += t
         boundaries.push(acc)
       }
-      return { tex, frames, times, total, boundaries }
+      return { tex: ch.tex, region: ch.region, frames, times, total, boundaries }
     })
     totalDuration = schedules.reduce((acc, s) => {
       let a = acc, b = s.total
@@ -150,20 +172,20 @@ export function collectAnimated(root) {
       if (!mat) continue
       if (mat.uniforms?.GameTime && !shaders.includes(mat)) shaders.push(mat)
       const tex = mat.uniforms?.map?.value ?? mat.map
-      if (tex?.userData?.frames && !textures.includes(tex)) textures.push(tex)
+      if ((tex?.userData?.frames || tex?.userData?.regions) && !textures.includes(tex)) textures.push(tex)
     }
   })
   return { textures, shaders }
 }
 
 export function buildSchedules(textures) {
-  return textures.map(tex => {
-    const frames = tex.userData.frames
-    const times = tex.userData.times ?? frames.map(() => 1)
+  return textures.flatMap(textureChannels).map(ch => {
+    const frames = ch.frames
+    const times = ch.times ?? frames.map(() => 1)
     const boundaries = [0]
     let acc = 0
     for (const t of times) boundaries.push(acc += t)
-    return { tex, frames, times, total: acc, boundaries, interpolate: !!tex.userData.interpolate, lastKey: null }
+    return { tex: ch.tex, region: ch.region, frames, times, total: acc, boundaries, interpolate: ch.interpolate, lastKey: null }
   })
 }
 
@@ -196,10 +218,9 @@ export function evaluateAnimation(schedules, shaders, tickTime) {
     }
     if (key !== s.lastKey) {
       s.lastKey = key
-      s.tex.image = s.interpolate
+      applyFrame(s, s.interpolate
         ? interpolateFrames(s.frames[idx], s.frames[(idx + 1) % s.frames.length], ratio)
-        : s.frames[idx]
-      s.tex.needsUpdate = true
+        : s.frames[idx])
       changed = true
     }
   }
