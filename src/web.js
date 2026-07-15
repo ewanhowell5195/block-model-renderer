@@ -546,6 +546,7 @@ export const resolveModelData = wrap("resolveModelData")
 export const renderModelScene = wrap("renderModelScene")
 export const getCullFaces = wrap("getCullFaces")
 export const computeSceneLight = wrap("computeSceneLight")
+export const getBiomeTint = wrap("getBiomeTint")
 
 export async function loadModel(scene, assets, model, args) {
   await init()

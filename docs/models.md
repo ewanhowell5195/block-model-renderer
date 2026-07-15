@@ -120,6 +120,18 @@ await renderBlock({
 })
 ```
 
+## `getBiomeTint(assets, map, biome?)`
+
+Resolves the tint color the renderer would use for a colormap-tinted block, as a hex string. `map` is the colormap name: `"grass"`, `"foliage"`, or `"dry_foliage"` (which blocks sample which map is listed in [`COLORS`](#colors)`.colormap`). `biome` takes the same value as the `biome` render option: one `{ temperature, downfall, tint, combine, weight }` object, or an array of them to blend. Omit it for the default climate sample (temperature `0.5`, downfall `1`).
+
+```js
+import { getBiomeTint } from "block-model-renderer"
+
+await getBiomeTint(assets, "grass")                                          // "#7CBD6C"
+await getBiomeTint(assets, "grass", { temperature: 2, downfall: 0 })         // "#BFB755" (savanna)
+await getBiomeTint(assets, "foliage", { tint: "#df6827" })                   // "#DF6827" (fixed override)
+```
+
 ## `COLORS`
 
 The color tables the renderer tints with, exported as one object for lookups in your own tooling (or careful tweaking; it's the live data):

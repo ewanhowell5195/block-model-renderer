@@ -298,7 +298,7 @@ function waterPart() {
   }
 }
 
-async function getBiomeTint(assets, mapName, biome) {
+export async function getBiomeTint(assets, mapName, biome) {
   const entries = biome == null ? [{}] : Array.isArray(biome) ? biome : [biome]
   if (!entries.length) entries.push({})
   const toInt = t => typeof t === "number" ? t : parseInt(String(t).replace("#", ""), 16)

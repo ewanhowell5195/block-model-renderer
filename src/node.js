@@ -155,7 +155,7 @@ export {
   COLORS, isWaterloggable, isWaterlogged, getLightEmission, computeSceneLight, getCullFaces, prepareAssets, disposeCache, listDirectory, readFile,
   renderBlock, renderItem, renderModel,
   makeModelScene, renderModelScene,
-  parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel,
+  parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
   optimizeScene, sortTranslucent,
   zipAssets
