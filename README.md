@@ -32,7 +32,7 @@ npm install block-model-renderer
 Or in the browser, import it straight from a [CDN](https://www.jsdelivr.com/package/npm/block-model-renderer):
 
 ```js
-import { renderBlock } from "https://cdn.jsdelivr.net/npm/block-model-renderer@latest/+esm"
+import { renderBlock } from "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
 ```
 
 In the browser you also provide three.js yourself; see [Standard API: Browser](docs/browser.md).

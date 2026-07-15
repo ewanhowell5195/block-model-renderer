@@ -6,16 +6,17 @@
   "license": "MIT",
   "type": "module",
   "main": "./index.js",
-  "jsdelivr": "./src/web.js",
+  "jsdelivr": "./dist/block-model-renderer.min.js",
   "exports": {
     ".": {
       "node": "./src/node.js",
-      "default": "./src/web.js"
+      "default": "./dist/block-model-renderer.min.js"
     }
   },
   "files": [
     "index.js",
     "src/",
+    "dist/",
     "assets/",
     "assets.zip",
     "docs/"
@@ -36,7 +37,8 @@
     "resource-pack"
   ],
   "scripts": {
-    "prepublishOnly": "node tools/build-assets.js",
+    "prepublishOnly": "node tools/build-assets.js && node tools/build.js",
+    "build": "node tools/build.js",
     "build:assets": "node tools/build-assets.js",
     "generate": "node tools/generate/generate.js",
     "test": "node tools/generate/test.js",
@@ -62,5 +64,8 @@
     "three": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
   }
 }
