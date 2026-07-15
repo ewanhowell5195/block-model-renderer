@@ -90,9 +90,9 @@ disposeCache(oldAssets)
 
 Caching stays enabled after a dispose; it just repopulates. Don't dispose while something from that bundle is still rendering (a live player, a scene on screen).
 
-### Bundle version
+### Minecraft version
 
-Pass `{ version: "1.21.11" }` to pin the Minecraft version the bundle's assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (currently the armor trim palette locations). Without it, the first render that passes a `version` stamps it onto the bundle, and a bundle with no version at all probes both the modern and legacy forms.
+Pass `{ version: "1.21.11" }` to pin the Minecraft version the assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (currently the armor trim palette locations). Without it, the first render that passes a `version` stamps it onto the prepared assets, and with no version at all both the modern and legacy forms are probed.
 
 ### Translucency detection
 
