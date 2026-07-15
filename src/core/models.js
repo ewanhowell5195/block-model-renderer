@@ -259,7 +259,7 @@ export async function parseBlockstate(assets, blockstate, args) {
     }
 
     if (COLORMAP_BLOCKS[block]) {
-      const tint = await getColorMapTint(assets, COLORMAP_BLOCKS[block], 0.5, 1)
+      const tint = await getBiomeTint(assets, COLORMAP_BLOCKS[block], args?.biome)
       const index = COLORS.tintindex[block] ?? 0
       model.tints = []
       for (let t = 0; t <= index; t++) model.tints.push(t === index ? tint : "#FFFFFF")
@@ -298,8 +298,34 @@ function waterPart() {
   }
 }
 
+async function getBiomeTint(assets, mapName, biome) {
+  const entries = biome == null ? [{}] : Array.isArray(biome) ? biome : [biome]
+  if (!entries.length) entries.push({})
+  const toInt = t => typeof t === "number" ? t : parseInt(String(t).replace("#", ""), 16)
+  let r = 0, g = 0, b = 0, total = 0
+  for (const entry of entries) {
+    let v
+    if (entry.tint !== undefined && !entry.combine) {
+      v = toInt(entry.tint)
+    } else {
+      const hex = await getColorMapTint(assets, mapName, entry.temperature ?? 0.5, entry.downfall ?? 1)
+      v = parseInt(hex.slice(1), 16)
+      if (entry.tint !== undefined) v = ((v & 0xFEFEFE) + toInt(entry.tint)) >> 1
+    }
+    const w = entry.weight ?? 1
+    r += ((v >> 16) & 255) * w
+    g += ((v >> 8) & 255) * w
+    b += (v & 255) * w
+    total += w
+  }
+  const c = (Math.round(r / total) << 16 | Math.round(g / total) << 8 | Math.round(b / total)) >>> 0
+  return "#" + c.toString(16).padStart(6, "0").toUpperCase()
+}
+
 async function getColorMapTint(assets, mapName, temperature, downfall) {
   if (isNaN(temperature) || isNaN(downfall)) return "#FF00FF"
+  temperature = Math.min(1, Math.max(0, temperature))
+  downfall = Math.min(1, Math.max(0, downfall))
 
   const buf = await readFile(`assets/minecraft/textures/colormap/${mapName}.png`, assets)
   if (!buf) return "#FFFFFF"
@@ -779,23 +805,27 @@ export async function resolveModelData(assets, model) {
           const width = image.width
           const height = image.height
           const depth = 16 / Math.max(width, height)
-          const elements = []
-          const alphaMask = new Uint8Array(width * height)
           const sourceFrames = loaded.frames ?? [image]
           const probe = new Canvas(width, height)
           const pctx = probe.getContext("2d", { willReadFrequently: true })
-          for (const frame of sourceFrames) {
+          const frameMasks = sourceFrames.map(frame => {
             pctx.clearRect(0, 0, width, height)
             pctx.drawImage(frame, 0, 0, width, height)
             const fdata = pctx.getImageData(0, 0, width, height).data
+            const mask = new Uint8Array(width * height)
             for (let p = 0; p < width * height; p++) {
-              if (fdata[p * 4 + 3] >= 1) alphaMask[p] = 1
+              if (fdata[p * 4 + 3] >= 1) mask[p] = 1
             }
+            return mask
+          })
+
+          function isOpaque(mask, x, y) {
+            if (x < 0 || x >= width || y < 0 || y >= height) return
+            return mask[y * width + x] === 1
           }
 
-          function isOpaque(x, y) {
-            if (x < 0 || x >= width || y < 0 || y >= height) return
-            return alphaMask[y * width + x] === 1
+          function isEdge(x, y, dx, dy) {
+            return frameMasks.some(mask => isOpaque(mask, x, y) && !isOpaque(mask, x + dx, y + dy))
           }
 
           merged.elements.push({
@@ -817,7 +847,7 @@ export async function resolveModelData(assets, model) {
             for (const [face, dy] of [["up", -1], ["down", 1]]) {
               let start = -1
               for (let x = 0; x <= width; x++) {
-                const edge = x < width && isOpaque(x, y) && !isOpaque(x, y + dy)
+                const edge = x < width && isEdge(x, y, 0, dy)
                 if (edge && start === -1) start = x
                 else if (!edge && start !== -1) {
                   addRun(face, start * depth, 16 - (y + 1) * depth, x * depth, 16 - y * depth,
@@ -832,7 +862,7 @@ export async function resolveModelData(assets, model) {
             for (const [face, dx] of [["west", -1], ["east", 1]]) {
               let start = -1
               for (let y = 0; y <= height; y++) {
-                const edge = y < height && isOpaque(x, y) && !isOpaque(x + dx, y)
+                const edge = y < height && isEdge(x, y, dx, 0)
                 if (edge && start === -1) start = y
                 else if (!edge && start !== -1) {
                   addRun(face, x * depth, 16 - y * depth, (x + 1) * depth, 16 - start * depth,
