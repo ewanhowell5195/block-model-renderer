@@ -147,7 +147,7 @@ Component values take the same shape as in game data. Two conveniences: a bare n
 
 ## `resolveModelData(assets, model)`
 
-Recursively resolves a model's `parent` chain, merging `textures`, `elements`, and other fields into a single flat model. `builtin/generated` item layers are converted into real geometry (the classic extruded item quads), with animated layer frames accounted for in the extrusion.
+Recursively resolves a model's `parent` chain, merging `textures`, `elements`, and other fields into a single flat model. `builtin/generated` item layers are converted into real geometry (the classic extruded item quads), with animated layer frames accounted for in the extrusion; the resolved data carries `generated: true` when that conversion happened, since the elements alone can't tell you afterwards.
 
 | Argument | Description |
 |---|---|

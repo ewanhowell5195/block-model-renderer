@@ -793,6 +793,7 @@ export async function resolveModelData(assets, model) {
     }
 
     if (!merged.elements) {
+      merged.generated = true
       merged.elements = []
       for (const [key, texRef] of Object.entries(merged.textures)) {
         const match = key.match(/^layer(\d+)$/)
