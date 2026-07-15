@@ -1,6 +1,6 @@
 # Building scenes
 
-For custom rendering pipelines, lower-level functions are available. The typical flow: parse a blockstate or item definition into model references, resolve each reference into a flat model, load it into a scene, render the scene.
+For custom rendering pipelines, lower-level functions are available. The typical flow: parse a blockstate or item definition into model references, resolve each reference into a flat model, load it into a scene, render the scene. For whole block scenes there's [`createScene`](#createsceneassets-blocks-args), which runs the entire pipeline in one call.
 
 ```js
 import {
@@ -27,6 +27,78 @@ const buffer = await renderModelScene(scene, camera, {
   height: 512
 })
 ```
+
+## `createScene(assets, blocks, args?)`
+
+Builds a whole block scene in one call: blockstate parsing, per-position variant picks, hidden-face culling, fluid surface shaping, waterlogging, block entity models, lighting, and scene optimization with live translucent sorting. You add the returned group wherever you want it. Everything below this section is the manual pipeline underneath it, for when you need finer control.
+
+```js
+const handle = await createScene(assets, [
+  { id: "grass_block", pos: [0, 0, 0], biome: { temperature: 0.8, downfall: 0.4 } },
+  { id: "oak_log", properties: { axis: "y" }, pos: [0, 1, 0] },
+  { id: "water", pos: [1, 0, 0] }
+])
+scene.add(handle.group)
+```
+
+Each block entry:
+
+| Field | Description |
+|---|---|
+| `id` | The block id. Namespace optional; air ids place nothing |
+| `properties` | Blockstate property values (e.g. `{ axis: "y", waterlogged: "true" }`) |
+| `pos` | Block grid position `[x, y, z]`, integers. Geometry comes out at 16 world units per block, block centres at `pos * 16`. When two entries share a position, the last one wins |
+| `biome` | Biome tinting for this block's colormap tints, same value as the `biome` render option. Overrides `args.biome` |
+
+Options:
+
+| Option | Default | Description |
+|---|---|---|
+| `biome` | | Scene-wide biome tinting; a block's own `biome` overrides it |
+| `lighting` | `"world"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`). `"world"` computes the light volume from the blocks automatically. See [Lighting modes](rendering.md#lighting-modes) |
+| `light` | | `"world"` mode light volume control: an existing [`computeSceneLight`](#scene-lighting) handle to use instead of computing one (it stays yours to dispose), or `false` to skip the volume entirely (fullbright world shading) |
+| `daytime` | `"noon"` | `"world"` mode sky brightness, as in [`renderBlock`](node.md#renderblockargs) |
+| `blockLightTint` | `#FFD88C` | `"world"` mode torchlight color |
+| `nightSkyTint` | `#7A7AFF` | `"world"` mode moonlight color |
+| `optimize` | `true` | Merge the built scene with [`optimizeScene`](#scene-optimization). `false` keeps one group clone per block, which renders far slower on big scenes but leaves every block individually addressable |
+| `resortDistance`, `maxAtlas`, `translucency` | | Passed through to the optimize pass |
+| `onProgress` | | `(stage, done, total)` progress callback, see below |
+| `shouldCancel` | | Checked between work slices; return `true` to abort. A cancelled `createScene` resolves `null` |
+| `animate` | `true` | Browser: auto-play texture animations, like [`loadModel`](#loadmodelscene-assets-model-args). On Node, animated output goes through [`renderModelScene`](#rendermodelscenescene-camera-args) as usual |
+| `shaderScale` | `1` | Screen-space shader density (the end portal), as in [`renderBlock`](node.md#renderblockargs) |
+| `keepTemplates` | `false` | Retain the internal per-state template groups and return them on the handle, for tooling that needs per-block geometry (collision, hit-testing). Holds their memory for the scene's lifetime |
+| `ignoreAtlases` | `false` | Skip texture atlas membership rules |
+| `version` | | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
+
+Weighted blockstate variants pick deterministically per position (the position seeds the pick), so a field of grass blocks gets a natural rotation spread like in game, though not the game's exact per-position picks. Block entity contents and sign text are out of scope.
+
+### Progress stages
+
+`onProgress(stage, done, total)` reports per stage. `stage` is `{ index, count, name }`: `index` counts from 0, `count` is fixed for the whole call (computed up front from the options), and `done`/`total` are monotonic within the stage. An overall bar can use `(stage.index + done / total) / stage.count`.
+
+| Name | Present | Work |
+|---|---|---|
+| `"parse"` | always | Blockstate parsing, variant picks, culling, fluid shapes |
+| `"light"` | `lighting: "world"` only (the default) | Flood-filling the light volume |
+| `"build"` | always | Building geometry |
+| `"optimize"` | `optimize: true` | Merging the scene; [`optimizeScene`](#scene-optimization)'s own progress passes through |
+
+### Return value
+
+Resolves to a handle, or `null` when cancelled:
+
+| Field | Description |
+|---|---|
+| `group` | The built `THREE.Group`; add it to your scene (or any parent) yourself |
+| `palette` | The unique states used: `{ id, properties, biome, models }` per entry, with the parsed model references. For tooling like hover info or collision, without re-parsing |
+| `blockPalette` | `Uint32Array` mapping each input block index to its `palette` index |
+| `templates` | With `keepTemplates`: the built template list, `{ palette, group }` per entry. `group` is the block-local geometry stamped at every position using it (a state can own several: one per variant pick, one per fluid shape); merged element meshes carry `userData.collision` boxes. `null` otherwise |
+| `blockTemplate` | With `keepTemplates`: `Uint32Array` mapping each input block index to its `templates` index (`0xFFFFFFFF` where nothing was placed). `null` otherwise |
+| `bounds` | `THREE.Box3` of the built geometry, for camera fitting |
+| `light` | The [`computeSceneLight`](#scene-lighting) handle when world lighting ran, else `null`. If you reposition the group, call `light.setOffset(group.position)` so torchlight stays aligned |
+| `drawCalls`, `tris` | Draw call and triangle counts from the optimize pass |
+| `sortTranslucent(camera)` | Force a translucent sort now, before a single-frame capture |
+| `dispose()` | Frees the geometry, materials, and atlas textures, and removes the group from its parent |
 
 ## `parseBlockstate(assets, id, args?)`
 

@@ -555,6 +555,13 @@ export async function loadModel(scene, assets, model, args) {
   return group
 }
 
+export async function createScene(assets, blocks, args) {
+  await init()
+  const handle = await core.createScene(assets, blocks, args)
+  if (handle && args?.animate !== false) attachAutoAnimation(handle.group)
+  return handle
+}
+
 function attachAutoAnimation(root) {
   const { textures, shaders } = collectAnimated(root)
   if (!textures.length && !shaders.length) return
