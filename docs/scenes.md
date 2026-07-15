@@ -197,7 +197,9 @@ Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` 
 | `args.mergeElements` | `false` keeps one mesh per model element instead of merging them into shared geometry, for tooling that edits or inspects individual cubes (a model editor). More draw calls, and no per-element `userData.collision` boxes, since the merge pass is what produces those. Default `true` |
 | `args.version` | Minecraft version the assets are for. Sets `model.version` if not already present. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
-Returns a `THREE.Group` containing the loaded model. The group carries `userData.model` (the resolved model it was built from, exactly as built, so a missing-model swap is reflected). Meshes that correspond to a single element carry `userData.element` (that element's JSON, the same object as in `userData.model.elements`); with `mergeElements: false` that's every element mesh, otherwise only models whose single element skipped the merge.
+Returns a `THREE.Group` containing the loaded model.
+
+The group carries the resolved model it was built from as `userData.model`. This is the model after any missing-model swap, so it always describes what actually got built. Meshes that map to one element carry that element's JSON as `userData.element`, the same object as its entry in `userData.model.elements`. With `mergeElements: false` that's every mesh; with merging on, merged geometry no longer maps to individual elements, so only single-element models have it.
 
 ### Animation (browser)
 
