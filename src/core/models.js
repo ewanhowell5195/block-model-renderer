@@ -1493,6 +1493,7 @@ export async function loadModel(scene, assets, model, args) {
 
     const mesh = new THREE.Mesh(geometry, materials)
     mesh.userData.cullface = cullDirs
+    mesh.userData.element = element
     mesh.position.set(
       from.x + size.x / 2 - 8,
       from.y + size.y / 2 - 8,
@@ -1621,7 +1622,7 @@ export async function loadModel(scene, assets, model, args) {
     }
   }
 
-  if (!model.fluid && (model.elements?.length ?? 0) > 1) mergeElementMeshes(containerGroup)
+  if (args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1) mergeElementMeshes(containerGroup)
 
   for (const loader of activeLoaders()) {
     if (loader.build && loader.match?.(model)) {
@@ -1640,7 +1641,7 @@ export async function loadModel(scene, assets, model, args) {
           buildElements: async (elements = []) => {
             const g = new THREE.Group()
             for (const element of elements) await buildElement(element, g)
-            if (!model.fluid && elements.length > 1) mergeElementMeshes(g)
+            if (args?.mergeElements !== false && !model.fluid && elements.length > 1) mergeElementMeshes(g)
             return g
           },
           resolveTexture: ref => {
@@ -1707,6 +1708,7 @@ export async function loadModel(scene, assets, model, args) {
     bakeMirroredScale(displayGroup, model.version && isBefore(model.version, "1.15"))
   }
 
+  rootGroup.userData.model = model
   if (scene) scene.add(rootGroup)
 
   return rootGroup
