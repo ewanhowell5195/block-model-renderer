@@ -40,7 +40,7 @@
     <h2>Scene</h2>
     <select id="scene"></select>
     <span id="scenestatus"></span>
-    <p id="hint">Each block is culled against its neighbors with getCullFaces, and fluids shape their surface from the blocks around them</p>
+    <p id="hint">The whole diorama is one createScene call: neighbor culling, fluid surfaces, lighting, and scene optimization all happen inside it</p>
   </section>
 
   <section>
@@ -96,9 +96,9 @@
 </script>
 
 <script type="module">
-  const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/+esm"
+  const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
 
-  const { getThree, prepareAssets, disposeCache, parseBlockstate, resolveModelData, loadModel, getCullFaces, createAnimator, optimizeScene, computeSceneLight } = await import(LIB)
+  const { getThree, prepareAssets, disposeCache, createScene } = await import(LIB)
   const { loadMojangJar } = await import("../mojang-pack.js")
   const { OrbitControls } = await import("three/addons/controls/OrbitControls.js")
 
@@ -2915,14 +2915,7 @@
 
   let modelGroup = null
   let optimized = null
-  let sceneLight = null
-  let animator = null
   function clearScene() {
-    animator = null
-    if (sceneLight) {
-      sceneLight.dispose()
-      sceneLight = null
-    }
     if (optimized) {
       optimized.dispose()
       optimized = null
@@ -2936,15 +2929,6 @@
   }
 
   const key = (x, y, z) => `${x},${y},${z}`
-
-  function cellKey(dx, dy, dz) {
-    let k = dy === 1 ? "up" : dy === -1 ? "down" : ""
-    if (dz === -1) k += (k ? "_" : "") + "north"
-    else if (dz === 1) k += (k ? "_" : "") + "south"
-    if (dx === -1) k += (k ? "_" : "") + "west"
-    else if (dx === 1) k += (k ? "_" : "") + "east"
-    return k || "self"
-  }
 
   function parseScene(def) {
     const blocks = new Map()
@@ -2964,30 +2948,9 @@
     return { blocks, dims }
   }
 
-  async function buildBlock(run, blocks, block, opts) {
-    const { x, y, z, id, properties } = block
-    const neighbors = {}
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dz = -1; dz <= 1; dz++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const n = blocks.get(key(x + dx, y + dy, z + dz))
-          if (n) neighbors[cellKey(dx, dy, dz)] = { id: n.id, ...n.properties }
-        }
-      }
-    }
-    const cull = await getCullFaces({ id, blockstates: properties, neighbors, assets })
-    const models = await parseBlockstate(assets, id, { data: properties, seed: x | y << 8 | z << 16 })
-    const group = new THREE.Group()
-    for (const model of models) {
-      const resolved = await resolveModelData(assets, model)
-      const built = await loadModel(null, assets, resolved, { ...opts, cull, neighbors })
-      if (run !== runId) return null
-      group.add(built)
-    }
-    return { pos: [x, y, z], group }
-  }
-
   let runId = 0
+
+  const STAGE_LABELS = { parse: "Parsing", light: "Computing light", build: "Building", optimize: "Optimising" }
 
   async function build() {
     if (!assets) return
@@ -2997,40 +2960,27 @@
     clearScene()
     const { blocks, dims } = parseScene(SCENES[$("scene").value])
     sceneSpan = Math.max(dims.w, dims.h, dims.d)
-    const opts = { lighting: $("lighting").value, animate: true, daytime: +$("daytime").value, shaderScale: 4 }
-    $("daytimerow").hidden = opts.lighting !== "world"
-    const placements = []
-    let done = 0
+    const lighting = $("lighting").value
+    $("daytimerow").hidden = lighting !== "world"
     const started = performance.now()
     try {
-      if (opts.lighting === "world") {
-        $("scenestatus").textContent = "Computing light…"
-        const light = await computeSceneLight(Array.from(blocks.values()), {
-          assets,
-          onProgress: (done, total) => { $("scenestatus").textContent = `Computing light ${done}/${total}…` }
-        })
-        if (run !== runId) { light.dispose(); return }
-        sceneLight = light
-        opts.light = light
-      }
-      for (const block of blocks.values()) {
-        if (run !== runId) return
-        const placement = await buildBlock(run, blocks, block, opts)
-        if (placement) placements.push(placement)
-        done++
-        $("scenestatus").textContent = `Building ${done}/${blocks.size}…`
-      }
-      if (run !== runId) return
-      const opt = await optimizeScene(placements, { shouldCancel: () => run !== runId })
-      if (!opt || run !== runId) { opt?.dispose(); return }
-      opt.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
-      sceneLight?.setOffset(opt.group.position)
-      scene.add(opt.group)
+      const handle = await createScene(assets, Array.from(blocks.values(), b => ({ id: b.id, properties: b.properties, pos: [b.x, b.y, b.z] })), {
+        lighting,
+        daytime: +$("daytime").value,
+        shaderScale: 4,
+        onProgress: (stage, done, total) => {
+          $("scenestatus").textContent = `${STAGE_LABELS[stage.name]} ${Math.round(done / total * 100)}%…`
+        },
+        shouldCancel: () => run !== runId
+      })
+      if (!handle || run !== runId) { handle?.dispose(); return }
+      handle.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
+      handle.light?.setOffset(handle.group.position)
+      scene.add(handle.group)
       syncAspect()
-      optimized = opt
-      modelGroup = opt.group
-      $("scenestatus").textContent = `${blocks.size} blocks · ${opt.drawCalls} draws · ${(opt.tris / 1000).toFixed(1)}K tris · ${((performance.now() - started) / 1000).toFixed(1)}s`
-      animator = createAnimator(opt.group)
+      optimized = handle
+      modelGroup = handle.group
+      $("scenestatus").textContent = `${blocks.size} blocks · ${handle.drawCalls} draws · ${(handle.tris / 1000).toFixed(1)}K tris · ${((performance.now() - started) / 1000).toFixed(1)}s`
     } catch (err) {
       status(String(err))
     }
@@ -3070,7 +3020,6 @@
     requestAnimationFrame(frame)
     resize()
     controls.update()
-    animator?.update()
     scene.overrideMaterial = $("wireframe").value === "wire" ? wireMat : null
     renderer.render(scene, camera)
     if ($("wireframe").value === "overlay") {

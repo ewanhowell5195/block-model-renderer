@@ -875,7 +875,7 @@ renderer.render(scene, camera)</code></pre>
 
       <div class="section">
         <h2>Building Scenes</h2>
-        <p>The low-level API loads models straight into your own three.js scene, so you can build viewers, editors, and whole worlds around it. Each block is culled against its neighbors with <code>getCullFaces</code>, fluids shape their surfaces from the blocks around them (waterfalls, flowing rivers, waterlogged blocks), and <code>optimizeScene</code> merges everything into a handful of draw calls. World lighting runs on a live day/night clock, with light-emitting blocks keeping their in-game glow. Everything here is live; drag to rotate:</p>
+        <p>Models load straight into your own three.js scene, so you can build viewers, editors, and whole worlds around it. For whole dioramas, <code>createScene</code> takes a block list and does everything in one call: each block is culled against its neighbors, fluids shape their surfaces from the blocks around them (waterfalls, flowing rivers, waterlogged blocks), and the result merges into a handful of draw calls. World lighting runs on a live day/night clock, with light-emitting blocks keeping their in-game glow. Everything here is live; drag to rotate:</p>
         <div class="tab-bar">
           <button class="tab-bar-button active" data-tab="campfire">Single Block</button>
           <button class="tab-bar-button" data-tab="camp">Small Scene</button>
@@ -913,29 +913,21 @@ animator.update()</code></pre>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
               </button>
             </div>
-            <pre><code>import { computeSceneLight, getCullFaces, optimizeScene } from "block-model-renderer"
+            <pre><code>import { createScene } from "block-model-renderer"
 
-// flood-fills block and sky light the way the game does: torches and
-// campfires glow, light wraps around corners, and interiors darken
-const light = await computeSceneLight(blocks, { assets })
-
-const placements = []
-for (const block of blocks) {
-  // faces hidden by neighboring blocks get culled, like in the game
-  const cull = await getCullFaces({ id: block.id, blockstates: block.properties, neighbors: block.neighbors, assets })
-  const group = new THREE.Group()
-  // a per-position seed picks weighted variants, so grass and stone vary like in the game
-  for (const model of await parseBlockstate(assets, block.id, { data: block.properties, seed: block.x | block.y << 8 | block.z << 16 })) {
-    const resolved = await resolveModelData(assets, model)
-    await loadModel(group, assets, resolved, { lighting: "world", animate: true, cull, neighbors: block.neighbors, block, light })
-  }
-  placements.push({ pos: [block.x, block.y, block.z], group })
-}
-
-// merge the whole scene into a handful of draw calls, with far fewer polygons
-const optimized = await optimizeScene(placements)
-light.setOffset(optimized.group.position)
-scene.add(optimized.group)</code></pre>
+// the whole pipeline in one call: every face hidden by a neighbor gets
+// culled, fluids shape their surfaces from the blocks around them,
+// weighted variants pick per position so grass and stone vary like in
+// the game, world lighting flood-fills the way the game does (torches
+// and campfires glow, interiors darken), and the whole scene merges
+// into a handful of draw calls
+const handle = await createScene(assets, [
+  { id: "grass_block", pos: [0, 0, 0] },
+  { id: "campfire", properties: { lit: "true" }, pos: [0, 1, 0] },
+  { id: "water", pos: [1, 1, 0] },
+  // ...
+])
+scene.add(handle.group)</code></pre>
           </div>
           <div class="tab-content" data-tab="campsite">
             <div class="demo demo-three">
@@ -953,16 +945,13 @@ scene.add(optimized.group)</code></pre>
             <pre><code>// bigger scenes work exactly the same way: the waterfall and river shape
 // themselves from their neighbors, every hidden face gets culled, and the
 // whole valley still merges down to a handful of draw calls
-const optimized = await optimizeScene(placements)
-console.log(`${optimized.drawCalls} draws, ${(optimized.tris / 1000).toFixed(1)}K tris`)
+const handle = await createScene(assets, blocks)
+console.log(`${handle.drawCalls} draws, ${(handle.tris / 1000).toFixed(1)}K tris`)
 
-// world lighting runs on a shared day/night clock: seed every block's group
-// with one uniform and the entire scene follows it live, with light sources
-// (the campfire, lanterns, glowing plants) keeping their in-game glow
-const daytime = { value: 6000 } // noon, in ticks
-group.userData.daytime = daytime
-// later, from the slider:
-daytime.value = 18000 // midnight</code></pre>
+// world lighting runs on a shared day/night clock the entire scene follows
+// live, with light sources (the campfire, lanterns, glowing plants)
+// keeping their in-game glow
+handle.group.userData.daytime.value = 18000 // midnight, in ticks</code></pre>
           </div>
         </div>
       </div>
@@ -988,7 +977,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
   </footer>
 
   <script type="module">
-    const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/+esm"
+    const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
 
     const $ = id => document.getElementById(id)
     const status = $("loadstatus")
@@ -1022,8 +1011,8 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
     try {
       const {
         renderBlock, renderItem, renderModel, prepareAssets, disposeCache, listDirectory, readFile,
-        getThree, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, makeModelScene, getCullFaces, optimizeScene, createAnimator,
-        computeSceneLight, pauseAnimations, resumeAnimations
+        getThree, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, makeModelScene, createScene, createAnimator,
+        pauseAnimations, resumeAnimations
       } = await import(LIB)
       const windmillModel = {"textures":{"1":"block/stone","2":"block/oak_planks","3":"block/scaffolding_top","4":"block/stone_bricks","5":"block/spruce_planks","6":"block/dark_oak_log","7":"block/cobblestone"},"elements":[{"from":[1,-16,1],"to":[15,-13,15],"faces":{"north":{"uv":[0,0,14,3],"texture":"#7"},"east":{"uv":[0,0,14,3],"texture":"#7"},"south":{"uv":[0,0,14,3],"texture":"#7"},"west":{"uv":[0,0,14,3],"texture":"#7"},"up":{"uv":[0,0,14,14],"texture":"#7"},"down":{"uv":[0,0,14,14],"texture":"#7"}}},{"from":[2.5,-13,2.5],"to":[13.5,0,13.5],"faces":{"north":{"uv":[2.5,0,13.5,13],"texture":"#4"},"east":{"uv":[2.5,0,13.5,13],"texture":"#4"},"south":{"uv":[2.5,0,13.5,13],"texture":"#4"},"west":{"uv":[2.5,0,13.5,13],"texture":"#4"},"up":{"uv":[2,2.25,13,13.25],"texture":"#1"}}},{"from":[3.5,0,3.5],"to":[12.5,11,12.5],"rotation":{"angle":0,"axis":"y","origin":[0,2,0]},"faces":{"north":{"uv":[3.5,5,12.5,16],"texture":"#4"},"east":{"uv":[3.5,5,12.5,16],"texture":"#4"},"south":{"uv":[3.5,5,12.5,16],"texture":"#4"},"west":{"uv":[3.5,5,12.5,16],"texture":"#4"},"up":{"uv":[6,1,15,10],"texture":"#1"}}},{"from":[4.5,11,4.5],"to":[11.5,16,11.5],"faces":{"north":{"uv":[4.5,0,11.5,5],"texture":"#4"},"east":{"uv":[4.5,0,11.5,5],"texture":"#4"},"south":{"uv":[4.5,0,11.5,5],"texture":"#4"},"west":{"uv":[4.5,0,11.5,5],"texture":"#4"}}},{"from":[4.5,16,4.5],"to":[11.5,22,11.5],"rotation":{"angle":0,"axis":"y","origin":[0,11,0]},"faces":{"north":{"uv":[4.5,10,11.5,16],"texture":"#4"},"east":{"uv":[4.5,10,11.5,16],"texture":"#4"},"south":{"uv":[4.5,10,11.5,16],"texture":"#4"},"west":{"uv":[4.5,10,11.5,16],"texture":"#4"},"up":{"uv":[4.5,4.5,11.5,11.5],"texture":"#4"},"down":{"uv":[4.5,4.5,11.5,11.5],"texture":"#4"}}},{"from":[6.5,22,4.5],"to":[9.5,24,11.5],"rotation":{"angle":0,"axis":"y","origin":[0,11,0]},"faces":{"north":{"uv":[6.5,8,9.5,10],"texture":"#4"},"east":{"uv":[4.5,8,11.5,10],"texture":"#4"},"south":{"uv":[6.5,8,9.5,10],"texture":"#4"},"west":{"uv":[4.5,8,11.5,10],"texture":"#4"}}},{"from":[-0.5,24,3.5],"to":[8.5,26,12.5],"rotation":{"angle":45,"axis":"z","origin":[8.5,25,8]},"faces":{"north":{"uv":[0,0,9,2],"texture":"#5"},"east":{"uv":[0,1,2,10],"rotation":90,"texture":"#5"},"south":{"uv":[0,0,9,2],"texture":"#5"},"west":{"uv":[0,1,2,10],"rotation":90,"texture":"#5"},"up":{"uv":[0,1,9,10],"texture":"#5"},"down":{"uv":[0,1,9,10],"texture":"#5"}}},{"from":[6.5,17,3.5],"to":[8.5,24,12.5],"rotation":{"angle":45,"axis":"z","origin":[8.5,25,8]},"faces":{"north":{"uv":[8,0,15,2],"rotation":90,"texture":"#5"},"east":{"uv":[3.5,1,10.5,10],"rotation":90,"texture":"#5"},"south":{"uv":[6,0,13,2],"rotation":90,"texture":"#5"},"west":{"uv":[3.5,1,10.5,10],"rotation":90,"texture":"#5"},"down":{"uv":[6,1,8,10],"texture":"#5"}}},{"name":"rotate","from":[7,15,-1],"to":[9,17,5],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,0,2,2],"texture":"#6"},"east":{"uv":[0,0,6,2],"texture":"#6"},"south":{"uv":[0,0,2,2],"texture":"#6"},"west":{"uv":[0,0,6,2],"texture":"#6"},"up":{"uv":[0,0,2,6],"texture":"#6"},"down":{"uv":[0,0,2,6],"texture":"#6"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}}]}
       const chairModel = {"textures":{"1":"block/red_wool","2":"block/oak_planks","3":"block/stripped_oak_log"},"elements":[{"from":[3,0,3],"to":[5,7,5],"faces":{"north":{"uv":[11,9,13,16],"texture":"#3"},"east":{"uv":[11,9,13,16],"texture":"#3"},"south":{"uv":[3,9,5,16],"texture":"#3"},"west":{"uv":[3,9,5,16],"texture":"#3"},"down":{"uv":[3,11,5,13],"texture":"#3"}}},{"from":[3,0,11],"to":[5,7,13],"rotation":{"angle":0,"axis":"y","origin":[0,0,8]},"faces":{"north":{"uv":[11,9,13,16],"texture":"#3"},"east":{"uv":[3,9,5,16],"texture":"#3"},"south":{"uv":[3,9,5,16],"texture":"#3"},"west":{"uv":[11,9,13,16],"texture":"#3"},"down":{"uv":[3,3,5,5],"texture":"#3"}}},{"from":[11,0,3],"to":[13,7,5],"faces":{"north":{"uv":[3,9,5,16],"texture":"#3"},"east":{"uv":[11,9,13,16],"texture":"#3"},"south":{"uv":[11,9,13,16],"texture":"#3"},"west":{"uv":[3,9,5,16],"texture":"#3"},"down":{"uv":[11,11,13,13],"texture":"#3"}}},{"from":[11,0,11],"to":[13,7,13],"rotation":{"angle":0,"axis":"y","origin":[0,0,8]},"faces":{"north":{"uv":[3,9,5,16],"texture":"#3"},"east":{"uv":[3,9,5,16],"texture":"#3"},"south":{"uv":[11,9,13,16],"texture":"#3"},"west":{"uv":[11,9,13,16],"texture":"#3"},"down":{"uv":[11,3,13,5],"texture":"#3"}}},{"from":[11,9,11],"to":[13,21,13],"rotation":{"angle":7.5,"axis":"x","origin":[8,9,11]},"faces":{"north":{"uv":[3,0,5,12],"texture":"#3"},"east":{"uv":[3,0,5,12],"texture":"#3"},"south":{"uv":[11,0,13,12],"texture":"#3"},"west":{"uv":[11,0,13,12],"texture":"#3"},"up":{"uv":[11,11,13,13],"texture":"#3"}}},{"from":[3,9,11],"to":[5,21,13],"rotation":{"angle":7.5,"axis":"x","origin":[8,9,11]},"faces":{"north":{"uv":[11,0,13,12],"texture":"#3"},"east":{"uv":[3,0,5,12],"texture":"#3"},"south":{"uv":[3,0,5,12],"texture":"#3"},"west":{"uv":[11,0,13,12],"texture":"#3"},"up":{"uv":[3,11,5,13],"texture":"#3"}}},{"from":[2.5,7,2.5],"to":[13.5,8,13.5],"faces":{"north":{"uv":[2,14,13,15],"texture":"#2"},"east":{"uv":[2,14,13,15],"texture":"#2"},"south":{"uv":[2,14,13,15],"texture":"#2"},"west":{"uv":[2,14,13,15],"texture":"#2"},"down":{"uv":[0,0,11,11],"texture":"#2"}}},{"from":[2.5,8,2.5],"to":[13.5,9,13.5],"rotation":{"angle":0,"axis":"y","origin":[0,1,0]},"faces":{"north":{"uv":[0,7,11,8],"texture":"#1"},"east":{"uv":[0,7,11,8],"texture":"#1"},"south":{"uv":[0,7,11,8],"texture":"#1"},"west":{"uv":[0,7,11,8],"texture":"#1"},"up":{"uv":[0,0,11,11],"texture":"#1"}}},{"from":[5,17.5,11.5],"to":[11,19.5,12.5],"rotation":{"angle":7.5,"axis":"x","origin":[8,9,11]},"faces":{"north":{"uv":[5,0,11,2],"texture":"#2"},"south":{"uv":[5,0,11,2],"texture":"#2"},"up":{"uv":[0,0,6,1],"texture":"#2"},"down":{"uv":[0,0,6,1],"texture":"#2"}}},{"from":[5,13.5,11.5],"to":[11,15.5,12.5],"rotation":{"angle":7.5,"axis":"x","origin":[8,9,11]},"faces":{"north":{"uv":[5,0,11,2],"texture":"#2"},"south":{"uv":[5,0,11,2],"texture":"#2"},"up":{"uv":[0,0,6,1],"texture":"#2"},"down":{"uv":[0,0,6,1],"texture":"#2"}}}]}
@@ -1311,8 +1300,10 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       const THREE = await getThree()
 
       const daytime = { value: 6000 }
+      let campsiteDaytime = null
       $("daytime").addEventListener("input", () => {
         daytime.value = +$("daytime").value
+        if (campsiteDaytime) campsiteDaytime.value = daytime.value
         const h = Math.floor(daytime.value / 1000 + 6) % 24
         const m = Math.floor(daytime.value % 1000 * 60 / 1000)
         $("daytimeclock").textContent = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
@@ -1451,15 +1442,6 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
 
       const cellId = (x, y, z) => `${x},${y},${z}`
 
-      function cellKey(dx, dy, dz) {
-        let k = dy === 1 ? "up" : dy === -1 ? "down" : ""
-        if (dz === -1) k += (k ? "_" : "") + "north"
-        else if (dz === 1) k += (k ? "_" : "") + "south"
-        if (dx === -1) k += (k ? "_" : "") + "west"
-        else if (dx === 1) k += (k ? "_" : "") + "east"
-        return k || "self"
-      }
-
       function parseScene(def) {
         const blocks = new Map()
         const dims = { w: 0, h: def.layers.length, d: 0 }
@@ -1478,80 +1460,28 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         return { blocks, dims }
       }
 
-      function disposeGroup(group) {
-        group.traverse(obj => {
-          if (!obj.isMesh) return
-          obj.geometry?.dispose()
-          for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
-            if (!mat) continue
-            for (const uniform of Object.values(mat.uniforms ?? {})) {
-              if (uniform?.value?.isTexture && !uniform.value.userData?.cached) uniform.value.dispose()
-            }
-            mat.dispose()
-          }
-        })
-      }
-
-      async function assembleScene(name, daytimeRef, stale) {
+      async function assembleScene(name, stale) {
         const { blocks, dims } = parseScene(SCENES[name])
-        const single = blocks.size === 1
-        const light = await computeSceneLight(Array.from(blocks.values()), { assets })
-        if (stale()) {
-          light.dispose()
+        const handle = await createScene(assets, Array.from(blocks.values(), b => ({ id: b.id, properties: b.properties, pos: [b.x, b.y, b.z] })), {
+          daytime: daytime.value,
+          animate: false,
+          shouldCancel: stale
+        })
+        if (!handle || stale()) {
+          handle?.dispose()
           return null
         }
-        const placements = []
-        for (const block of blocks.values()) {
-          let cull
-          let neighbors
-          if (!single) {
-            neighbors = {}
-            for (let dy = -1; dy <= 1; dy++) {
-              for (let dz = -1; dz <= 1; dz++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                  const n = blocks.get(cellId(block.x + dx, block.y + dy, block.z + dz))
-                  if (n) neighbors[cellKey(dx, dy, dz)] = { id: n.id, ...n.properties }
-                }
-              }
-            }
-            cull = await getCullFaces({ id: block.id, blockstates: block.properties, neighbors, assets })
-          }
-          const group = new THREE.Group()
-          if (daytimeRef) group.userData.daytime = daytimeRef
-          for (const model of await parseBlockstate(assets, block.id, { data: block.properties, seed: block.x | block.y << 8 | block.z << 16 })) {
-            const resolved = await resolveModelData(assets, model)
-            await loadModel(group, assets, resolved, { lighting: "world", animate: true, cull, neighbors, block, light })
-          }
-          if (stale()) {
-            light.dispose()
-            return null
-          }
-          placements.push({ pos: [block.x, block.y, block.z], group })
-        }
-        let handle
-        if (single) {
-          const group = placements[0].group
-          light.setOffset(group.position)
-          handle = { group, dispose: () => { disposeGroup(group); light.dispose() } }
-        } else {
-          const optimized = await optimizeScene(placements, { shouldCancel: stale })
-          if (!optimized || stale()) {
-            optimized?.dispose()
-            light.dispose()
-            return null
-          }
-          optimized.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
-          light.setOffset(optimized.group.position)
-          handle = { group: optimized.group, dispose: () => { optimized.dispose(); light.dispose() } }
-        }
+        handle.group.position.set(-(dims.w - 1) * 8, -(dims.h - 1) * 8, -(dims.d - 1) * 8)
+        handle.light?.setOffset(handle.group.position)
         return { handle, span: Math.max(dims.w, dims.h, dims.d) }
       }
 
       async function buildScene(name) {
         const run = ++sceneRuns[name]
         const stale = () => run !== sceneRuns[name]
-        const result = await assembleScene(name, name === "campsite" ? daytime : null, stale)
+        const result = await assembleScene(name, stale)
         if (!result) return
+        if (name === "campsite") campsiteDaytime = result.handle.group.userData.daytime
         viewers[name].setHandle(result.handle, result.span)
       }
 
@@ -1975,7 +1905,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
             s.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
             s.renderer.setSize(182, 134, false)
           }
-          const result = await assembleScene("camp", null, () => run !== buildRun)
+          const result = await assembleScene("camp", () => run !== buildRun)
           if (!result || run !== buildRun) {
             result?.handle.dispose()
             return

@@ -115,7 +115,7 @@
 </script>
 
 <script type="module">
-  const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/+esm"
+  const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
 
   const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, parseBlockstate, resolveModelData, isCrossModel } = await import(LIB)
   const { loadMojangJar } = await import("../mojang-pack.js")
