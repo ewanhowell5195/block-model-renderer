@@ -80,7 +80,7 @@ Within a single render call nothing is ever decoded or resolved twice: the block
 const assets = await prepareAssets(sources, { cache: true })
 ```
 
-Decoded textures, resolved models, and culling data then persist on the bundle, so repeat renders from the same pack skip the load work (several times faster once warm). The cache is bounded by the pack's unique textures and models, but it holds real texture memory, so free it when you swap packs:
+Decoded textures, resolved models, and culling data then persist on the prepared assets, so repeat renders from the same pack skip the load work (several times faster once warm). The cache is bounded by the pack's unique textures and models, but it holds real texture memory, so free it when you swap packs:
 
 ```js
 import { disposeCache } from "block-model-renderer"
@@ -88,7 +88,7 @@ import { disposeCache } from "block-model-renderer"
 disposeCache(oldAssets)
 ```
 
-Caching stays enabled after a dispose; it just repopulates. Don't dispose while something from that bundle is still rendering (a live player, a scene on screen).
+Caching stays enabled after a dispose; it just repopulates. Don't dispose while something from those assets is still rendering (a live player, a scene on screen).
 
 ### Minecraft version
 
@@ -96,7 +96,7 @@ Pass `{ version: "1.21.11" }` to pin the Minecraft version the assets are for, f
 
 ### Translucency detection
 
-Whether a texture renders blended (water, stained glass, ice) or solid is decided by inspecting its pixels, since packs can't declare it: a texture counts as translucent when any pixel's alpha falls strictly between the cutoffs. The defaults treat alpha at or below 5 as cutout (discarded anyway) and at or above 240 as opaque, so textures exported at 98% opacity or with anti-aliased edges render solid like the game's cutout pass instead of joining the sorted transparent pass. Tune per bundle when a pack draws the line somewhere else:
+Whether a texture renders blended (water, stained glass, ice) or solid is decided by inspecting its pixels, since packs can't declare it: a texture counts as translucent when any pixel's alpha falls strictly between the cutoffs. The defaults treat alpha at or below 5 as cutout (discarded anyway) and at or above 240 as opaque, so textures exported at 98% opacity or with anti-aliased edges render solid like the game's cutout pass instead of joining the sorted transparent pass. Tune per prepared assets when a pack draws the line somewhere else:
 
 ```js
 const assets = await prepareAssets(sources, { translucency: { min: 5, max: 240 } })

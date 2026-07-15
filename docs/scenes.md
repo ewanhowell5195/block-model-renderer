@@ -410,7 +410,7 @@ The result:
 | `drawCalls`, `tris` | Stats for the merged output |
 | `atlasTextures` | The atlas textures the call built (already applied to the merged materials) |
 | [`sortTranslucent(camera)`](api.md) | Force a translucent sort now, before a single-frame capture |
-| `dispose()` | Frees everything the call created (merged geometry, atlas textures, cloned materials). Must be called when you discard or replace the scene; GPU resources don't garbage collect. Textures from the assets bundle are untouched; those belong to [`disposeCache`](api.md) |
+| `dispose()` | Frees everything the call created (merged geometry, atlas textures, cloned materials). Must be called when you discard or replace the scene; GPU resources don't garbage collect. Textures from the assets are untouched; those belong to [`disposeCache`](api.md) |
 
 Animated textures (water, lava, fire) stay live in the merged output and keep playing through [`createAnimator`](api.md) or the automatic animator.
 

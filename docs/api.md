@@ -36,12 +36,12 @@ import {
 
 | Export | Description |
 |---|---|
-| `prepareAssets(assets, options?)` | Normalize and bundle asset sources once for reuse. [Details](assets.md#prepareassetsassets-options) |
+| `prepareAssets(assets, options?)` | Normalize asset sources once for reuse. [Details](assets.md#prepareassetsassets-options) |
 | `readFile(path, assets, hint?)` | Read one file from a set of asset sources. [Details](assets.md#readfilepath-assets-hint) |
 | `listDirectory(dir, assets)` | List a directory across layered sources. [Details](assets.md#listdirectorydir-assets) |
 | `zipAssets(input)` | Wrap a zip (bytes, `Blob`, or `File`) as an asset source. [Details](assets.md#zipassetsinput) |
 | `parseZip(bytes)` | Parse a zip into its entries. [Details](assets.md#parsezipbytes) |
-| `disposeCache(assets)` | Free textures and GPU data cached on a prepared bundle. [Details](assets.md#caching) |
+| `disposeCache(assets)` | Free textures and GPU data cached on prepared assets. [Details](assets.md#caching) |
 
 ## Model data
 

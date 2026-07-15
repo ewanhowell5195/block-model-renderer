@@ -182,7 +182,7 @@ Optional, may be async. Adds three.js objects to the model's group. Runs after t
 |---|---|---|
 | `group` | The `THREE.Group` to add your objects to | `new THREE.Group()` (empty) |
 | `model` | The resolved model data | `{ type: "block", "my_mod:overlays": [{…}] }` |
-| `assets` | The prepared assets | `[…]` (a prepared bundle) |
+| `assets` | The prepared assets | `[…]` (prepared assets) |
 | `args` | The render args | `{ width: 128, height: 128, lighting: "world" }` |
 | `block` | Placement context `{ id, properties, neighbors }`, or `null` when the caller gave no placement info. See [Placement-aware models](#placement-aware-models) | `{ id: "minecraft:oak_stairs", properties: { facing: "east" }, neighbors: {…} }` |
 | `helpers` | Helpers that keep loader geometry consistent with the rest (below) | `{ THREE, createMaterial, … }` |
