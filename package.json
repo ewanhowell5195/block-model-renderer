@@ -1,6 +1,6 @@
 {
   "name": "block-model-renderer",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Minecraft block and item model rendering for Node.js and the browser",
   "author": "Ewan Howell <ewanhowell5195>",
   "license": "MIT",
