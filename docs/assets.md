@@ -161,9 +161,9 @@ Lists files in a directory across all assets entries, merging results and respec
 
 Returns a list of filenames.
 
-### `loadAnimatedTexture(path, assets)`
+### `readTexture(path, assets)`
 
-Reads a texture and its `.mcmeta`, slicing the image into animation frames with the game's rules: frame size from `animation.width`/`height` (square by the smaller image dimension when absent), row-major frame indexing, a `frames` list with per-entry times falling back to `frametime` (default 1 tick), and `interpolate` blending. Textures without an `animation` section come back as a single frame.
+Reads a texture for drawing yourself, when you want an image rather than a model: GUI sprites, map decorations, particles, item art. [`readFile`](#readfilepath-assets-hint) gives the raw PNG bytes; this gives a ready image, and animated textures also work: the `.mcmeta` is read alongside, slicing the sheet into frames with the game's rules (frame size from `animation.width`/`height`, square by the smaller image dimension when absent; row-major frame indexing; a `frames` list with per-entry times falling back to `frametime`, default 1 tick; `interpolate` blending).
 
 | Argument | Description |
 |---|---|
@@ -174,14 +174,13 @@ Returns `null` if the texture is missing, else:
 
 | Field | Description |
 |---|---|
-| `frames` | The frame images, in playback order |
+| `image` | The texture image (the first frame when animated) |
+| `frames` | The frame images, in playback order (just the image for still textures) |
 | `times` | Each frame's duration in ticks |
 | `animated` | Whether there is more than one frame |
 | `interpolate` | Whether the animation blends between frames |
 | `meta` | The parsed `.mcmeta` JSON (e.g. `meta.gui.scaling` for GUI sprites), or `null` |
-| `frameAt(tick)` | The frame image for a game tick (20/s, e.g. `performance.now() / 50`), stepping and interpolating like the game |
-
-Useful whenever you want a texture rather than a model: GUI sprites, map decorations, particles, or any other art you draw yourself, with animations behaving like the game's.
+| `frameAt(tick)` | The frame image for a game tick (20/s, e.g. `performance.now() / 50`), stepping and interpolating like the game. Still textures just return the image |
 
 ### `zipAssets(input)`
 

@@ -135,7 +135,7 @@ export function buildAnimation(image, meta) {
   return { image: playback[0], frames: playback, times: playbackTimes, interpolate: !!meta.interpolate, animated: playback.length > 1 }
 }
 
-export async function loadAnimatedTexture(path, assets) {
+export async function readTexture(path, assets) {
   const buf = await readFile(path, assets)
   if (!buf) return null
   const image = await loadImage(buf)
