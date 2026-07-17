@@ -63,15 +63,19 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 
 Renders a texture on its own: the flat image, pixel-crisp, with animated textures playing per their `.mcmeta`. The texture-drawing counterpart to `renderBlock`, when you want the art rather than a model (see [`readTexture`](assets.md#readtexturepath-assets-opts) for the raw frames instead).
 
+Unlike the model renderers this is a plain 2d canvas draw, so there's no render caching or player machinery. It always returns the canvas (the one you passed, or a fresh one); with `animated: true` the canvas keeps redrawing on the shared animation clock (so [`pauseAnimations`](#animated-renders) freezes it), and gets a `stop()` method to end it.
+
 | Option | Default | Description |
 |---|---|---|
 | `texture` | required | The texture path, relative to the pack root (e.g. `"assets/minecraft/textures/block/magma.png"`) |
+| `assets` | required | The assets source |
 | `width`, `height` | the texture's frame size | Output size. The image scales with nearest-neighbor sampling |
-| `assets`, `canvas`, `x`, `y`, `clear`, `background`, `animated`, `cache`, `cacheBudget`, `pauseOffscreen`, `maxAnimationFrames` | | Same as [`renderBlock`](api.md) |
+| `canvas` | a fresh canvas | Draw into this canvas instead (resized to the output size) |
+| `animated` | `false` | Play the texture's animation |
 
 ## Return value
 
-All four render functions return a canvas: the one you passed, or a fresh one (if `canvas` was an array, you get the array back):
+The three model render functions return a canvas: the one you passed, or a fresh one (if `canvas` was an array, you get the array back). [`renderTexture`](#rendertextureargs) always returns its canvas directly, as above.
 
 ```js
 const canvas = await renderBlock({ id: "stone", assets })

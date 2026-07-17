@@ -547,7 +547,30 @@ export const renderModelScene = wrap("renderModelScene")
 export const getCullFaces = wrap("getCullFaces")
 export const computeSceneLight = wrap("computeSceneLight")
 export const getBiomeTint = wrap("getBiomeTint")
-export const renderTexture = wrap("renderTexture")
+export async function renderTexture(args = {}) {
+  await init()
+  if (!args.texture) throw new Error("renderTexture requires the texture option")
+  if (args.assets == null || args.assets.length === 0) throw new Error("renderTexture requires the assets option")
+  let ctx = null
+  const draw = frame => {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+    ctx.drawImage(frame, 0, 0, ctx.canvas.width, ctx.canvas.height)
+  }
+  const texture = await readTexture(args.texture, args.assets, args.animated ? { onChange: draw } : undefined)
+  if (!texture) throw new Error(`Texture not found: ${args.texture}`)
+  const canvas = args.canvas ?? document.createElement("canvas")
+  const width = args.width ?? texture.image.width
+  const height = args.height ?? texture.image.height
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width
+    canvas.height = height
+  }
+  ctx = canvas.getContext("2d")
+  ctx.imageSmoothingEnabled = false
+  draw(texture.current ?? texture.image)
+  if (args.animated && texture.animated) canvas.stop = texture.stop
+  return canvas
+}
 
 export async function readTexture(path, assets, opts) {
   await init()
