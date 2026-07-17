@@ -570,13 +570,18 @@
     for (const { col, row } of slots) pendingSlots.add(col + "," + row)
     const queue = await idPool(mode)
     let cursor = 0
+    let misses = 0
     const nextPick = async () => {
-      while (cursor < queue.length && run === runId) {
-        const id = queue[cursor++]
+      while (misses < queue.length && run === runId) {
+        const id = queue[cursor++ % queue.length]
         try {
           const models = await eligible(id, mode)
-          if (models) return { id, models }
+          if (models) {
+            misses = 0
+            return { id, models }
+          }
         } catch {}
+        misses++
       }
       return null
     }
@@ -790,7 +795,7 @@
       while (y > yLimit) { y -= spanH; u.row += rows }
       item.position.x = x
       item.position.y = y
-      u.inner.rotation.y = elapsed + (offsetsCtl.checked ? (u.col + u.row) * Math.PI / 4 : 0)
+      u.inner.rotation.y = elapsed + (offsetsCtl.checked ? (canon(u.col, cols) + canon(u.row, rows)) * Math.PI / 4 : 0)
     }
     renderer.render(scene, camera)
   }
