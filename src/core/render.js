@@ -61,15 +61,15 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     if (n == null || n === false) continue
     if (n === true) { cull.add(dir); continue }
     const nid = typeof n === "string" ? n : n.id
+    const props = typeof n === "string" ? undefined : (({ id, ...rest }) => rest)(n)
     if (typeof n === "object" && "occludes" in n) {
-      if (n.occludes || selfCulls(id, nid, dir)) cull.add(dir)
+      if (n.occludes || selfCulls(id, nid, dir, blockstates, props)) cull.add(dir)
       continue
     }
     if (!nid) continue
-    if (selfCulls(id, nid, dir)) { cull.add(dir); continue }
+    if (selfCulls(id, nid, dir, blockstates, props)) { cull.add(dir); continue }
     const sm = (await selfMasks())?.[dir]
     if (!sm || faceIsEmpty(sm)) continue
-    const props = typeof n === "string" ? undefined : (({ id, ...rest }) => rest)(n)
     const nm = await masksFor(nid, props)
     if (nm && faceCovered(sm, nm[OPPOSITE[dir]])) cull.add(dir)
   }

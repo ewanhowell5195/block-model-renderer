@@ -8,18 +8,22 @@ const SELF_CULL_Y = rule(blocks.selfCullY)
 
 const isFluid = id => /(^|_)(water|lava)$/.test(id)
 const fluidFamily = id => id.includes("lava") ? "lava" : "water"
+const OPPOSITE = { north: "south", south: "north", east: "west", west: "east" }
 
 export function canOcclude(block) {
   block = normalize(block)
   return !isFluid(block) && !matchId(block, NON_OCCLUDING)
 }
 
-export function selfCulls(block, neighbor, direction) {
+export function selfCulls(block, neighbor, direction, properties, neighborProperties) {
   if (!block || !neighbor) return false
   block = normalize(block); neighbor = normalize(neighbor)
   if (isFluid(block) && isFluid(neighbor)) return fluidFamily(block) === fluidFamily(neighbor)
   if (block !== neighbor) return false
   if (matchId(block, SELF_CULL_ALL)) return true
-  if (matchId(block, SELF_CULL_Y) && (direction === "up" || direction === "down")) return true
+  if (matchId(block, SELF_CULL_Y)) {
+    if (direction === "up" || direction === "down") return true
+    if (String(properties?.[direction]) === "true" && String(neighborProperties?.[OPPOSITE[direction]]) === "true") return true
+  }
   return false
 }
