@@ -160,6 +160,12 @@
         "defaults": {
           "mode": "start"
         }
+      },
+      {
+        "match": "player_head|zombie_head|creeper_head|piglin_head|dragon_head|skeleton_skull|wither_skeleton_skull",
+        "defaults": {
+          "rotation": 0
+        }
       }
     ]
   },
