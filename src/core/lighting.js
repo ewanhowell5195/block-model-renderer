@@ -167,7 +167,7 @@ export async function computeSceneLight(blocks, opts = {}) {
 
   const dimOpt = opts.dimension
   const hasSkyLight = (typeof dimOpt === "object" && dimOpt
-    ? dimOpt.hasSkyLight ?? (LIGHT_DIMENSIONS[dimOpt.dimension] ?? LIGHT_DIMENSIONS.overworld).hasSkyLight
+    ? dimOpt.hasSkyLight
     : (LIGHT_DIMENSIONS[dimOpt] ?? LIGHT_DIMENSIONS.overworld).hasSkyLight) !== false
   if (hasSkyLight) {
     for (let z = 0; z < d; z++) {

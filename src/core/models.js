@@ -40,7 +40,7 @@ export function resolveWorldLighting(param) {
   const o = param && typeof param === "object" ? param : {}
   const d = o.dimension
   const dim = typeof d === "object" && d
-    ? { ...(LIGHT_DIMENSIONS[d.dimension] ?? LIGHT_DIMENSIONS.overworld), ...d }
+    ? { ...LIGHT_DIMENSIONS.overworld, ...d }
     : LIGHT_DIMENSIONS[d] ?? LIGHT_DIMENSIONS.overworld
   const c = dim.cardinalLight
   const cardinal = typeof c === "object" && c ? { ...CARDINAL_LIGHTS.default, ...c } : CARDINAL_LIGHTS[c] ?? CARDINAL_LIGHTS.default

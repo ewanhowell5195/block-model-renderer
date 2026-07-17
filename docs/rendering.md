@@ -67,7 +67,7 @@ lighting: {
 | `brightness` | `0.5` | The in-game brightness setting, `0` (Moody) to `1` (Bright), applied with the game's exact curve. `0.5` is the game's default |
 | `light` | | A [`computeSceneLight`](scenes.md#scene-lighting) volume for per-block light levels, or `false` for none. Without one, faces get full sky light and only `emission` feeds block light |
 
-Each dimension carries the game's lightmap attributes; pass an object as `dimension` to override any of them (optionally starting `{ dimension: "the_nether", ... }` from a preset):
+Each dimension carries the game's lightmap attributes; pass an object as `dimension` to override any of them, with missing fields defaulting to the overworld's. To tweak another dimension instead, spread its preset: `dimension: { ...LIGHT_DIMENSIONS.the_nether, ambientColor: 0x000000 }`.
 
 | Field | overworld | the_nether | the_end | Description |
 |---|---|---|---|---|
