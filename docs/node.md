@@ -62,6 +62,16 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 | `model` | required | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
 | `assets`, `width`, `height`, `path`, `format`, `output`, `background`, `display`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames`, `lighting`, `daytime`, `blockLightTint`, `nightSkyTint`, `cull`, `shaderScale`, `ignoreAtlases`, `version` | | Same as [`renderBlock`](api.md) |
 
+## `renderTexture(args)`
+
+Renders a texture on its own: the flat image, pixel-crisp, with animated textures playing per their `.mcmeta`. The texture-drawing counterpart to `renderBlock`, when you want the art rather than a model (see [`readTexture`](assets.md#readtexturepath-assets-opts) for the raw frames instead).
+
+| Option | Default | Description |
+|---|---|---|
+| `texture` | required | The texture path, relative to the pack root (e.g. `"assets/minecraft/textures/block/magma.png"`) |
+| `width`, `height` | the texture's frame size | Output size. The image scales with nearest-neighbor sampling |
+| `assets`, `path`, `format`, `output`, `background`, `canvas`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames` | | Same as [`renderBlock`](api.md) |
+
 ## Return value
 
 All three render functions return a `Uint8Array` (a `Buffer`) of the encoded image:

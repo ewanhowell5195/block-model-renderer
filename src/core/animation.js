@@ -149,6 +149,8 @@ export async function readTexture(path, assets) {
   return {
     ...anim,
     meta,
+    current: anim.frames[0],
+    stop() {},
     frameAt(tick) {
       if (!anim.animated) return anim.frames[0]
       const t = Math.floor(((tick % total) + total) % total)

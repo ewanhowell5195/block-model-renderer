@@ -1,10 +1,10 @@
-import { platform, render, THREE } from "./platform.js"
+import { platform, render, THREE, loadTexture } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
 import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
-import { computeAnimationTimeline, collectAnimated, applyFrame } from "./animation.js"
+import { computeAnimationTimeline, collectAnimated, applyFrame, readTexture } from "./animation.js"
 
 const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east: "west", west: "east" }
 
@@ -131,6 +131,46 @@ export async function renderItem(args = {}) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, daytime: args.daytime, blockLightTint: args.blockLightTint, nightSkyTint: args.nightSkyTint, shaderScale: args.shaderScale })
   }
+
+  return renderModelScene(scene, camera, args)
+}
+
+export async function renderTexture(args = {}) {
+  if (!args.texture) throw new Error("renderTexture requires the texture option")
+  if (args.assets == null || args.assets.length === 0) throw new Error("renderTexture requires the assets option")
+
+  args.assets = await prepareAssets(args.assets)
+  const texture = await readTexture(args.texture, args.assets)
+  if (!texture) throw new Error(`Texture not found: ${args.texture}`)
+
+  const frame = texture.frames[0]
+  if (args.canvas == null) {
+    args.width ??= frame.width
+    args.height ??= frame.height
+  }
+  const size = platform.resolveRenderSize?.(args)
+  const width = size?.width ?? args.width ?? frame.width
+  const height = size?.height ?? args.height ?? frame.height
+
+  const { scene, camera } = makeModelScene()
+  scene.userData.ephemeral = true
+
+  const tex = await loadTexture(frame)
+  tex.colorSpace = THREE.NoColorSpace
+  tex.magFilter = THREE.NearestFilter
+  tex.minFilter = THREE.NearestFilter
+  tex.generateMipmaps = false
+  if (texture.animated) {
+    tex.userData.frames = texture.frames
+    tex.userData.times = texture.times
+    tex.userData.interpolate = texture.interpolate
+  }
+
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(16 * (width / height), 16),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+  )
+  scene.add(mesh)
 
   return renderModelScene(scene, camera, args)
 }

@@ -161,14 +161,15 @@ Lists files in a directory across all assets entries, merging results and respec
 
 Returns a list of filenames.
 
-### `readTexture(path, assets)`
+### `readTexture(path, assets, opts?)`
 
-Reads a texture for drawing yourself, when you want an image rather than a model: GUI sprites, map decorations, particles, item art. [`readFile`](#readfilepath-assets-hint) gives the raw PNG bytes; this gives a ready image, and animated textures also work: the `.mcmeta` is read alongside, slicing the sheet into frames with the game's rules (frame size from `animation.width`/`height`, square by the smaller image dimension when absent; row-major frame indexing; a `frames` list with per-entry times falling back to `frametime`, default 1 tick; `interpolate` blending).
+Reads a texture for drawing yourself, when you want an image rather than a model: GUI sprites, map decorations, particles, item art. [`readFile`](#readfilepath-assets-hint) gives the raw PNG bytes; this gives a ready image, and animated textures also work: the `.mcmeta` is read alongside, slicing the sheet into frames with the game's rules (frame size from `animation.width`/`height`, square by the smaller image dimension when absent; row-major frame indexing; a `frames` list with per-entry times falling back to `frametime`, default 1 tick; `interpolate` blending). To render a texture instead of drawing it yourself, see [`renderTexture`](api.md).
 
 | Argument | Description |
 |---|---|
 | `path` | The texture path, relative to the pack root |
 | `assets` | The assets source |
+| `opts.onChange(frame)` | Browser only: called whenever the displayed frame changes, on the shared animation clock (so `pauseAnimations` freezes it). Fires only on real changes, so redraw from it without polling. `current` is updated before each call |
 
 Returns `null` if the texture is missing, else:
 
@@ -180,7 +181,9 @@ Returns `null` if the texture is missing, else:
 | `animated` | Whether there is more than one frame |
 | `interpolate` | Whether the animation blends between frames |
 | `meta` | The parsed `.mcmeta` JSON (e.g. `meta.gui.scaling` for GUI sprites), or `null` |
+| `current` | The latest frame: kept live while an `onChange` subscription runs, else the first frame |
 | `frameAt(tick)` | The frame image for a game tick (20/s, e.g. `performance.now() / 50`), stepping and interpolating like the game. Still textures just return the image |
+| `stop()` | Ends the `onChange` subscription |
 
 ### `zipAssets(input)`
 

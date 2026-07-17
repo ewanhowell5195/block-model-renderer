@@ -30,6 +30,7 @@ import {
 | `renderBlock(args)` | Render a block state by id. [Node](node.md#renderblockargs) · [Web](browser.md#renderblockargs) |
 | `renderItem(args)` | Render an item by id. [Node](node.md#renderitemargs) · [Web](browser.md#renderitemargs) |
 | `renderModel(args)` | Render a raw model JSON. [Node](node.md#rendermodelargs) · [Web](browser.md#rendermodelargs) |
+| `renderTexture(args)` | Render a texture by path, animated per its mcmeta. [Node](node.md#rendertextureargs) · [Web](browser.md#rendertextureargs) |
 | `getCullFaces(args)` | Which faces a block's neighbors hide, for [culling](scenes.md#culling-hidden-faces). [Details](scenes.md#getcullfacesargs) |
 
 ## Assets and files
@@ -39,6 +40,7 @@ import {
 | `prepareAssets(assets, options?)` | Normalize asset sources once for reuse. [Details](assets.md#prepareassetsassets-options) |
 | `readFile(path, assets, hint?)` | Read one file from a set of asset sources. [Details](assets.md#readfilepath-assets-hint) |
 | `listDirectory(dir, assets)` | List a directory across layered sources. [Details](assets.md#listdirectorydir-assets) |
+| `readTexture(path, assets, opts?)` | Read a texture as ready-to-draw frames. [Details](assets.md#readtexturepath-assets-opts) |
 | `zipAssets(input)` | Wrap a zip (bytes, `Blob`, or `File`) as an asset source. [Details](assets.md#zipassetsinput) |
 | `parseZip(bytes)` | Parse a zip into its entries. [Details](assets.md#parsezipbytes) |
 | `disposeCache(assets)` | Free textures and GPU data cached on prepared assets. [Details](assets.md#caching) |

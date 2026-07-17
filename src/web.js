@@ -547,7 +547,33 @@ export const renderModelScene = wrap("renderModelScene")
 export const getCullFaces = wrap("getCullFaces")
 export const computeSceneLight = wrap("computeSceneLight")
 export const getBiomeTint = wrap("getBiomeTint")
-export const readTexture = wrap("readTexture")
+export const renderTexture = wrap("renderTexture")
+
+export async function readTexture(path, assets, opts) {
+  await init()
+  const texture = await core.readTexture(path, assets)
+  if (!texture) return texture
+  if (texture.animated && opts?.onChange) {
+    texture.current = texture.frameAt(clockNow() / 50)
+    const sub = {
+      playing: true,
+      _visible: true,
+      animated: true,
+      play() {},
+      pause() {},
+      _renderTick(tick) {
+        const frame = texture.frameAt(tick)
+        if (frame === texture.current) return
+        texture.current = frame
+        opts.onChange(frame)
+      }
+    }
+    players.add(sub)
+    wakeScheduler()
+    texture.stop = () => players.delete(sub)
+  }
+  return texture
+}
 
 export async function loadModel(scene, assets, model, args) {
   await init()

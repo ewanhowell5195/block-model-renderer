@@ -9,7 +9,7 @@ export { prepareAssets, disposeCache, readFile, listDirectory, zipAssets, zipEnt
 export { computeAnimationTimeline, interpolateFrames, collectAnimated, buildSchedules, evaluateAnimation, readTexture } from "./core/animation.js"
 export { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel, getBiomeTint } from "./core/models.js"
 export { fluidHeights, fluidTypeOf } from "./core/fluids.js"
-export { renderBlock, renderItem, renderModel, makeModelScene, renderModelScene, getCullFaces } from "./core/render.js"
+export { renderBlock, renderItem, renderModel, renderTexture, makeModelScene, renderModelScene, getCullFaces } from "./core/render.js"
 export { optimizeScene } from "./core/optimize.js"
 export { sortTranslucent } from "./core/sorting.js"
 export { createScene } from "./core/scene.js"
