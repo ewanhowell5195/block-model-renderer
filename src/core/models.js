@@ -1134,6 +1134,7 @@ export async function loadModel(scene, assets, model, args) {
       return Array.isArray(raw) ? raw[0] : raw
     })
   }
+  if (args?.emission != null) blockEmission = Math.max(blockEmission, Math.max(0, Math.min(15, args.emission)))
 
   if (!(await modelPassesAtlasRules(model, assets))) {
     const missing = await resolveModelData(assets, { model: "block-model-renderer:missing" })
