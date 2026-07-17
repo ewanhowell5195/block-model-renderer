@@ -1463,7 +1463,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       async function assembleScene(name, stale) {
         const { blocks, dims } = parseScene(SCENES[name])
         const handle = await createScene(assets, Array.from(blocks.values(), b => ({ id: b.id, properties: b.properties, pos: [b.x, b.y, b.z] })), {
-          daytime: daytime.value,
+          lighting: { daytime: daytime.value },
           animate: false,
           shouldCancel: stale
         })

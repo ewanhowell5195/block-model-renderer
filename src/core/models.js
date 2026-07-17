@@ -25,6 +25,28 @@ const SHADE_DIR_VECS = {
 
 const NAMED_TIMES = { day: 1000, noon: 6000, sunset: 12000, night: 13000, midnight: 18000, sunrise: 23000 }
 
+const CARDINAL_LIGHTS = {
+  default: { down: 0.5, up: 1, north: 0.8, south: 0.8, west: 0.6, east: 0.6 },
+  nether: { down: 0.9, up: 0.9, north: 0.8, south: 0.8, west: 0.6, east: 0.6 }
+}
+
+export const LIGHT_DIMENSIONS = {
+  overworld: { skyLightFactor: "overworld", skyLightColor: 0x7A7AFF, ambientColor: 0x0A0A0A, blockLightTint: 0xFFD88C, cardinalLight: "default", hasSkyLight: true },
+  the_nether: { skyLightFactor: 0, skyLightColor: 0x7A7AFF, ambientColor: 0x302821, blockLightTint: 0xFFD88C, cardinalLight: "nether", hasSkyLight: false },
+  the_end: { skyLightFactor: 0, skyLightColor: 0xAC60CD, ambientColor: 0x3F473F, blockLightTint: 0xFFD88C, cardinalLight: "default", hasSkyLight: true }
+}
+
+export function resolveWorldLighting(param) {
+  const o = param && typeof param === "object" ? param : {}
+  const d = o.dimension
+  const dim = typeof d === "object" && d
+    ? { ...(LIGHT_DIMENSIONS[d.dimension] ?? LIGHT_DIMENSIONS.overworld), ...d }
+    : LIGHT_DIMENSIONS[d] ?? LIGHT_DIMENSIONS.overworld
+  const c = dim.cardinalLight
+  const cardinal = typeof c === "object" && c ? { ...CARDINAL_LIGHTS.default, ...c } : CARDINAL_LIGHTS[c] ?? CARDINAL_LIGHTS.default
+  return { dim, cardinal, daytime: o.daytime, brightness: Math.max(0, Math.min(1, o.brightness ?? 0.5)), light: o.light }
+}
+
 function parseDaytime(v) {
   if (v == null) return NAMED_TIMES.noon
   if (typeof v === "number") return ((v % 24000) + 24000) % 24000
@@ -1117,9 +1139,11 @@ export async function loadModel(scene, assets, model, args) {
   if (model == null) throw new Error("loadModel requires a model")
   if (assets == null || assets.length === 0) throw new Error("loadModel requires assets")
   const display = args?.display ?? "gui"
-  const lighting = args?.lighting
-  const light = lighting === "world" ? args?.light : null
-  const daytime = scene?.userData?.daytime ?? { value: parseDaytime(args?.daytime) }
+  const lightingArg = args?.lighting
+  const lighting = lightingArg && typeof lightingArg === "object" ? "world" : lightingArg
+  const world = lighting === "world" ? resolveWorldLighting(lightingArg) : null
+  const light = world?.light && typeof world.light === "object" ? world.light : null
+  const daytime = scene?.userData?.daytime ?? { value: parseDaytime(world?.daytime) }
   if (scene) scene.userData.daytime = daytime
   const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
   if (args?.version && !model.version) model.version = args.version
@@ -1217,8 +1241,12 @@ export async function loadModel(scene, assets, model, args) {
   }
   lightConfig.daytime = daytime
   lightConfig.light = light
-  lightConfig.blockLightTint = tintVec(args?.blockLightTint, 0xFFD88C)
-  lightConfig.nightSkyTint = tintVec(args?.nightSkyTint, 0x7A7AFF)
+  lightConfig.blockLightTint = tintVec(world?.dim.blockLightTint, 0xFFD88C)
+  lightConfig.skyLightColor = tintVec(world?.dim.skyLightColor, 0x7A7AFF)
+  lightConfig.ambientColor = tintVec(world?.dim.ambientColor, 0x0A0A0A)
+  lightConfig.skyLightFactor = typeof world?.dim.skyLightFactor === "number" ? world.dim.skyLightFactor : -1
+  lightConfig.brightness = world?.brightness ?? 0.5
+  lightConfig.cardinal = world?.cardinal
 
   const rootGroup = new THREE.Group()
   const displayGroup = new THREE.Group()
@@ -1869,7 +1897,12 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       daytime: lightConfig?.daytime ?? { value: NAMED_TIMES.noon },
       emission: { value: emission / 15 },
       blockLightTint: { value: lightConfig?.blockLightTint ?? tintVec(null, 0xFFD88C) },
-      nightSkyTint: { value: lightConfig?.nightSkyTint ?? tintVec(null, 0x7A7AFF) },
+      skyLightColor: { value: lightConfig?.skyLightColor ?? tintVec(null, 0x7A7AFF) },
+      ambientColor: { value: lightConfig?.ambientColor ?? tintVec(null, 0x0A0A0A) },
+      skyLightFactor: { value: lightConfig?.skyLightFactor ?? -1 },
+      brightness: { value: lightConfig?.brightness ?? 0.5 },
+      shadePos: { value: new THREE.Vector3(lightConfig?.cardinal?.up ?? 1, lightConfig?.cardinal?.south ?? 0.8, lightConfig?.cardinal?.east ?? 0.6) },
+      shadeNeg: { value: new THREE.Vector3(lightConfig?.cardinal?.down ?? 0.5, lightConfig?.cardinal?.north ?? 0.8, lightConfig?.cardinal?.west ?? 0.6) },
       ...(volume ? volume.uniforms : {}),
     },
     vertexShader: `
@@ -1911,7 +1944,12 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform float daytime;
       uniform float emission;
       uniform vec3 blockLightTint;
-      uniform vec3 nightSkyTint;
+      uniform vec3 skyLightColor;
+      uniform vec3 ambientColor;
+      uniform float skyLightFactor;
+      uniform float brightness;
+      uniform vec3 shadePos;
+      uniform vec3 shadeNeg;
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
@@ -1948,25 +1986,32 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
             vec3 wn = hasOverride ? shadeOverride : vWorldNormal;
             vec3 n2 = wn * wn;
-            shade = (n2.y * (wn.y >= 0.0 ? 1.0 : 0.5) + n2.z * 0.8 + n2.x * 0.6) / (n2.x + n2.y + n2.z);
+            shade = (n2.y * (wn.y >= 0.0 ? shadePos.x : shadeNeg.x)
+              + n2.z * (wn.z >= 0.0 ? shadePos.y : shadeNeg.y)
+              + n2.x * (wn.x >= 0.0 ? shadePos.z : shadeNeg.z)) / (n2.x + n2.y + n2.z);
           }
-          float td = mod(daytime - 730.0, 24000.0) + 730.0;
           float skyFactor;
           vec3 skyColor;
-          if (td < 11270.0) {
-            skyFactor = 1.0;
-            skyColor = vec3(1.0);
-          } else if (td < 13140.0) {
-            float k = (td - 11270.0) / 1870.0;
-            skyFactor = mix(1.0, 0.24, k);
-            skyColor = mix(vec3(1.0), nightSkyTint, k);
-          } else if (td < 22860.0) {
-            skyFactor = 0.24;
-            skyColor = nightSkyTint;
+          if (skyLightFactor < 0.0) {
+            float td = mod(daytime - 730.0, 24000.0) + 730.0;
+            if (td < 11270.0) {
+              skyFactor = 1.0;
+              skyColor = vec3(1.0);
+            } else if (td < 13140.0) {
+              float k = (td - 11270.0) / 1870.0;
+              skyFactor = mix(1.0, 0.24, k);
+              skyColor = mix(vec3(1.0), skyLightColor, k);
+            } else if (td < 22860.0) {
+              skyFactor = 0.24;
+              skyColor = skyLightColor;
+            } else {
+              float k = (td - 22860.0) / 1870.0;
+              skyFactor = mix(0.24, 1.0, k);
+              skyColor = mix(skyLightColor, vec3(1.0), k);
+            }
           } else {
-            float k = (td - 22860.0) / 1870.0;
-            skyFactor = mix(0.24, 1.0, k);
-            skyColor = mix(nightSkyTint, vec3(1.0), k);
+            skyFactor = skyLightFactor;
+            skyColor = skyLightColor;
           }
           #ifdef LIGHT_VOLUME
             vec3 sn = gl_FrontFacing ? vWorldNormal : -vWorldNormal;
@@ -1981,7 +2026,13 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           float skyBrightness = skyLevel / (4.0 - 3.0 * skyLevel) * skyFactor;
           float blockBrightness = blockLevel / (4.0 - 3.0 * blockLevel) * 1.4;
           vec3 blockColor = mix(blockLightTint, vec3(1.0), 0.9 * (2.0 * blockLevel - 1.0) * (2.0 * blockLevel - 1.0));
-          light = clamp(skyColor * skyBrightness + blockColor * blockBrightness, 0.0, 1.0);
+          light = clamp(ambientColor + skyColor * skyBrightness + blockColor * blockBrightness, 0.0, 1.0);
+          float lmMax = max(light.r, max(light.g, light.b));
+          if (lmMax > 0.0) {
+            float lmInv = 1.0 - lmMax;
+            vec3 lmScaled = light * ((1.0 - lmInv * lmInv * lmInv * lmInv) / lmMax);
+            light = mix(light, lmScaled, brightness);
+          }
         } else if (shadeEnabled) {
           mat3 v = mat3(viewMatrix);
           bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;

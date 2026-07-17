@@ -55,11 +55,7 @@ Options:
 | Option | Default | Description |
 |---|---|---|
 | `biome` | | Scene-wide biome tinting; a block's own `biome` overrides it |
-| `lighting` | `"world"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`). `"world"` computes the light volume from the blocks automatically. See [Lighting modes](rendering.md#lighting-modes) |
-| `light` | | `"world"` mode light volume control: an existing [`computeSceneLight`](#scene-lighting) handle to use instead of computing one (it stays yours to dispose), or `false` to skip the volume entirely (fullbright world shading) |
-| `daytime` | `"noon"` | `"world"` mode sky brightness, as in [`renderBlock`](node.md#renderblockargs) |
-| `blockLightTint` | `#FFD88C` | `"world"` mode torchlight color |
-| `nightSkyTint` | `#7A7AFF` | `"world"` mode moonlight color |
+| `lighting` | `"world"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting): dimension, daytime, brightness, and `light`. World mode computes the light volume from the blocks automatically (respecting the dimension's `hasSkyLight`); set `lighting: { light }` to reuse an existing [`computeSceneLight`](#scene-lighting) handle (it stays yours to dispose), or `{ light: false }` to skip the volume entirely |
 | `optimize` | `true` | Merge the built scene with [`optimizeScene`](#scene-optimization). `false` keeps one group clone per block, which renders far slower on big scenes but leaves every block individually addressable |
 | `resortDistance`, `maxAtlas`, `translucency` | | Passed through to the optimize pass |
 | `onProgress` | | `(stage, done, total)` progress callback, see below |
@@ -183,11 +179,7 @@ Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` 
 | `assets` | The assets source |
 | `model` | A resolved model (from [`resolveModelData`](api.md)) |
 | `args.display` | Display transform to apply to the model. See [Display transforms](models.md#display-transforms) |
-| `args.lighting` | Lighting mode (`"item"` (default), `"world"`, `"scene"`, `"off"`). See [Lighting modes](rendering.md#lighting-modes) |
-| `args.daytime` | `"world"` mode sky brightness, as a tick `0`-`23999` or a name (`"day"`, `"noon"`, `"sunset"`, `"night"`, `"midnight"`, `"sunrise"`). Defaults to `noon` (full bright). Exposed live as `scene.userData.daytime`. See [Lighting modes](rendering.md#lighting-modes) |
-| `args.light` | `"world"` mode per-block light, a [`computeSceneLight`](#scene-lighting) result. Faces sample the volume, so torches glow and interiors darken. Ignored in other lighting modes |
-| `args.blockLightTint` | `"world"` mode torchlight color, default vanilla's `#FFD88C`. See [Lighting modes](rendering.md#lighting-modes) |
-| `args.nightSkyTint` | `"world"` mode moonlight color, default vanilla's `#7A7AFF`. See [Lighting modes](rendering.md#lighting-modes) |
+| `args.lighting` | Lighting mode (`"item"` (default), `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting) with the dimension, daytime, brightness, and `light` volume. With a `light` volume, faces sample per-block light, so torches glow and interiors darken |
 | `args.shaderScale` | Density multiplier for screen-space shader effects, as in [`renderBlock`](api.md) |
 | `args.cull` | Face directions to drop, as a `Set` from [`getCullFaces`](api.md) or a plain object like `{ north: true }`. Faces whose `cullface` points at a culled direction are skipped |
 | `args.neighbors` | The surrounding blocks as a direction-keyed object (`north`, `north_east`, `up`, `self`, ...). Shapes fluid surfaces (see [Fluids](fluids.md)), and is merged into `args.block` as the placement context's `neighbors` for loaders |
@@ -313,9 +305,10 @@ Because occlusion comes from the models, modded blocks and custom packs just wor
 | `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too). Cell coordinates, as in [`optimizeScene`](api.md) placements |
 | `options.assets` | required | The assets source |
 | `options.version` | | Minecraft version, as in [`renderBlock`](api.md) |
+| `options.dimension` | `"overworld"` | The dimension, as in [world lighting](rendering.md#world-lighting): dimensions without sky light (the nether) skip the sky seeding, so their volumes carry block light only |
 | `options.onProgress` | | `(done, total)` while the scene's blocks are processed, for progress bars. The flood fill after the last call is quick |
 
-Pass the result as the `light` option to every [`loadModel`](api.md) call in the scene (alongside `lighting: "world"`):
+Pass the result to every [`loadModel`](api.md) call in the scene through the world lighting config:
 
 ```js
 import { computeSceneLight, loadModel } from "block-model-renderer"
@@ -327,13 +320,13 @@ const blocks = [
 const light = await computeSceneLight(blocks, { assets })
 for (const block of blocks) {
   // build as usual, passing the same light to each block
-  await loadModel(scene, assets, resolved, { lighting: "world", light })
+  await loadModel(scene, assets, resolved, { lighting: { light } })
 }
 ```
 
 Light propagates accurately to the game: block light from emitters (via [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault)) and sky light from above, both spreading one level per block and blocked by the block shapes read from the models, so a slab roof shadows the room while light wraps through the open half. Opacity comes from those models alone, so the game's few hardcoded exceptions (leaves, slime, tinted glass) aren't applied.
 
-Shading uses the vanilla lightmap: sky and block light add, block light carries a warm torchlight tint, and `daytime` dims and blues the sky term (both tints are [configurable](rendering.md#lighting-modes)). At the default full-bright `noon` most of the scene reads as lit, so emitters mainly show indoors; use a darker `daytime` to see them everywhere.
+Shading uses the vanilla lightmap: the dimension's ambient floor, sky and block light adding on top, the warm torchlight tint, and the brightness setting (all [configurable](rendering.md#world-lighting)). In the overworld at the default full-bright `noon` most of the scene reads as lit, so emitters mainly show indoors; use a darker `daytime` (or the nether or end) to see them everywhere.
 
 The result:
 

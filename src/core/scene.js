@@ -58,14 +58,16 @@ export async function createScene(assets, blocks, args = {}) {
   if (assets == null || assets.length === 0) throw new Error("createScene requires assets")
   if (!Array.isArray(blocks)) throw new Error("createScene requires an array of blocks")
   assets = scopedCache(await prepareAssets(assets))
-  const lighting = args.lighting ?? "world"
+  const lightingArg = args.lighting ?? "world"
+  const worldCfg = lightingArg && typeof lightingArg === "object" ? lightingArg : lightingArg === "world" ? {} : null
+  const lighting = worldCfg ? "world" : lightingArg
   const optimize = args.optimize !== false
   const version = args.version
   const onProgress = args.onProgress
   const shouldCancel = args.shouldCancel
 
-  const givenLight = args.light && typeof args.light === "object" ? args.light : null
-  const computeLight = lighting === "world" && !givenLight && args.light !== false
+  const givenLight = worldCfg?.light && typeof worldCfg.light === "object" ? worldCfg.light : null
+  const computeLight = worldCfg != null && !givenLight && worldCfg.light !== false
   const stageNames = ["parse", ...(computeLight ? ["light"] : []), "build", ...(optimize ? ["optimize"] : [])]
   let stage = null, stageIndex = -1
   const enter = name => {
@@ -178,11 +180,12 @@ export async function createScene(assets, blocks, args = {}) {
     if (cells.size) {
       light = await computeSceneLight(Array.from(cells.values(), c => ({
         id: palette[c.palette].id, properties: palette[c.palette].properties ?? undefined, pos: c.pos
-      })), { assets, version })
+      })), { assets, version, dimension: worldCfg?.dimension })
     }
     report(1, 1)
     if (shouldCancel?.()) return null
   }
+  const lightingOpt = worldCfg ? { ...worldCfg, light } : lighting
 
   enter("build")
   const group = new THREE.Group()
@@ -200,8 +203,7 @@ export async function createScene(assets, blocks, args = {}) {
     for (const model of models) {
       try {
         await loadModel(tmpl, assets, await resolveModelData(assets, model), {
-          display: {}, animate: false, lighting, light,
-          daytime: args.daytime, blockLightTint: args.blockLightTint, nightSkyTint: args.nightSkyTint,
+          display: {}, animate: false, lighting: lightingOpt,
           shaderScale: args.shaderScale,
           block: { id: spec.entry.id, properties: spec.entry.properties ?? {} },
           fluidHeights: spec.fh, version
@@ -256,8 +258,7 @@ export async function createScene(assets, blocks, args = {}) {
           for (const model of models) {
             try {
               await loadModel(culled, assets, await resolveModelData(assets, model), {
-                display: {}, animate: false, lighting, light, cull: cell.cull,
-                daytime: args.daytime, blockLightTint: args.blockLightTint, nightSkyTint: args.nightSkyTint,
+                display: {}, animate: false, lighting: lightingOpt, cull: cell.cull,
                 shaderScale: args.shaderScale,
                 block: { id: spec.entry.id, properties: spec.entry.properties ?? {} },
                 fluidHeights: spec.fh, version

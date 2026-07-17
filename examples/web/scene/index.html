@@ -2965,8 +2965,7 @@
     const started = performance.now()
     try {
       const handle = await createScene(assets, Array.from(blocks.values(), b => ({ id: b.id, properties: b.properties, pos: [b.x, b.y, b.z] })), {
-        lighting,
-        daytime: +$("daytime").value,
+        lighting: lighting === "world" ? { daytime: +$("daytime").value } : lighting,
         shaderScale: 4,
         onProgress: (stage, done, total) => {
           $("scenestatus").textContent = `${STAGE_LABELS[stage.name]} ${Math.round(done / total * 100)}%…`

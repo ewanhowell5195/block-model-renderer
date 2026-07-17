@@ -1,7 +1,7 @@
 import { THREE, normalize } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { getLightEmission, usesShapeLightOcclusion } from "./emission.js"
-import { parseBlockstate, resolveModelData, loadModel, defaultBlockstates, AIR_BLOCKS } from "./models.js"
+import { parseBlockstate, resolveModelData, loadModel, defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS } from "./models.js"
 import { occludingFaces } from "./occlusion.js"
 import { fluidTypeOf } from "./fluids.js"
 
@@ -165,17 +165,23 @@ export async function computeSceneLight(blocks, opts = {}) {
     }
   }
 
-  for (let z = 0; z < d; z++) {
-    for (let x = 0; x < w; x++) {
-      let aboveMasks = null
-      for (let y = h - 1; y >= 0; y--) {
-        const i = (z * h + y) * w + x
-        const state = states[cellState[i]]
-        if (state && state.damp !== 0) break
-        const masks = state?.masks
-        if ((aboveMasks || masks) && unionCovers(aboveMasks?.down, masks?.up)) break
-        skyLight[i] = 15
-        aboveMasks = masks
+  const dimOpt = opts.dimension
+  const hasSkyLight = (typeof dimOpt === "object" && dimOpt
+    ? dimOpt.hasSkyLight ?? (LIGHT_DIMENSIONS[dimOpt.dimension] ?? LIGHT_DIMENSIONS.overworld).hasSkyLight
+    : (LIGHT_DIMENSIONS[dimOpt] ?? LIGHT_DIMENSIONS.overworld).hasSkyLight) !== false
+  if (hasSkyLight) {
+    for (let z = 0; z < d; z++) {
+      for (let x = 0; x < w; x++) {
+        let aboveMasks = null
+        for (let y = h - 1; y >= 0; y--) {
+          const i = (z * h + y) * w + x
+          const state = states[cellState[i]]
+          if (state && state.damp !== 0) break
+          const masks = state?.masks
+          if ((aboveMasks || masks) && unionCovers(aboveMasks?.down, masks?.up)) break
+          skyLight[i] = 15
+          aboveMasks = masks
+        }
       }
     }
   }

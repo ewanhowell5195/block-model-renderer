@@ -105,7 +105,7 @@ export async function renderBlock(args = {}) {
   const block = { id: args.id, properties: args.blockstates }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, daytime: args.daytime, blockLightTint: args.blockLightTint, nightSkyTint: args.nightSkyTint, shaderScale: args.shaderScale })
+    await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale })
   }
 
   return renderModelScene(scene, camera, args)
@@ -129,7 +129,7 @@ export async function renderItem(args = {}) {
 
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, daytime: args.daytime, blockLightTint: args.blockLightTint, nightSkyTint: args.nightSkyTint, shaderScale: args.shaderScale })
+    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale })
   }
 
   return renderModelScene(scene, camera, args)
@@ -190,7 +190,7 @@ export async function renderModel(args = {}) {
   scene.userData.ephemeral = true
 
   const resolved = await resolveModelData(args.assets, { model: args.model})
-  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, daytime: args.daytime, blockLightTint: args.blockLightTint, nightSkyTint: args.nightSkyTint, shaderScale: args.shaderScale })
+  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale })
 
   return renderModelScene(scene, camera, args)
 }

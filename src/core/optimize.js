@@ -17,7 +17,8 @@ function matSignature(m) {
     const u = m.uniforms
     return ["shader", m.side, u.shadeEnabled?.value, u.shadeOverride?.value?.toArray().join(","), u.d0?.value, u.d1?.value, u.ambient?.value,
       u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(","), u.emission?.value,
-      u.blockLightTint?.value?.toArray().join(","), u.nightSkyTint?.value?.toArray().join(",")].join("|")
+      u.blockLightTint?.value?.toArray().join(","), u.skyLightColor?.value?.toArray().join(","), u.ambientColor?.value?.toArray().join(","),
+      u.skyLightFactor?.value, u.brightness?.value, u.shadePos?.value?.toArray().join(","), u.shadeNeg?.value?.toArray().join(",")].join("|")
   }
   return [m.type, m.side].join("|")
 }
