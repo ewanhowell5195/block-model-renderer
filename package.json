@@ -48,7 +48,8 @@
     "fixed": "node examples/node/render_fixed.js",
     "overrides": "node examples/node/render_overrides.js",
     "simple": "node examples/node/render_simple.js",
-    "full": "npm run example && npm run all && npm run animated && npm run fixed && npm run overrides && npm run simple && npm run loader",
+    "textures": "node examples/node/render_textures.js",
+    "full": "npm run example && npm run all && npm run animated && npm run fixed && npm run overrides && npm run simple && npm run textures && npm run loader",
     "loader": "node examples/node/render_loader.js"
   },
   "dependencies": {
