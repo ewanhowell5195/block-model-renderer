@@ -67,11 +67,11 @@ Renders a texture on its own: the flat image, pixel-crisp, with animated texture
 |---|---|---|
 | `texture` | required | The texture path, relative to the pack root (e.g. `"assets/minecraft/textures/block/magma.png"`) |
 | `width`, `height` | the texture's frame size | Output size. The image scales with nearest-neighbor sampling |
-| `assets`, `path`, `format`, `output`, `background`, `canvas`, `animated`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames` | | Same as [`renderBlock`](api.md) |
+| `assets`, `canvas`, `x`, `y`, `clear`, `background`, `animated`, `cache`, `cacheBudget`, `pauseOffscreen`, `maxAnimationFrames` | | Same as [`renderBlock`](api.md) |
 
 ## Return value
 
-All three render functions return a canvas: the one you passed, or a fresh one (if `canvas` was an array, you get the array back):
+All four render functions return a canvas: the one you passed, or a fresh one (if `canvas` was an array, you get the array back):
 
 ```js
 const canvas = await renderBlock({ id: "stone", assets })

@@ -71,7 +71,7 @@ Renders a texture on its own: the flat image, pixel-crisp, with animated texture
 
 ## Return value
 
-All three render functions return a `Uint8Array` (a `Buffer`) of the encoded image:
+All four render functions return a `Uint8Array` (a `Buffer`) of the encoded image:
 
 ```js
 const buffer = await renderBlock({ id: "stone", assets })
