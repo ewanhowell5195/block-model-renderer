@@ -1,4 +1,5 @@
-import { Canvas } from "./platform.js"
+import { Canvas, loadImage, parseJson } from "./platform.js"
+import { readFile } from "./assets.js"
 
 function textureChannels(tex) {
   const regions = tex.userData.regions
@@ -132,6 +133,43 @@ export function buildAnimation(image, meta) {
   }
 
   return { image: playback[0], frames: playback, times: playbackTimes, interpolate: !!meta.interpolate, animated: playback.length > 1 }
+}
+
+export async function loadAnimatedTexture(path, assets) {
+  const buf = await readFile(path, assets)
+  if (!buf) return null
+  const image = await loadImage(buf)
+  let meta = null
+  try { meta = parseJson(await readFile(path + ".mcmeta", assets, buf.hintIndex)) } catch {}
+  const anim = meta?.animation ? buildAnimation(image, meta.animation) : { image, frames: [image], times: [1], interpolate: false, animated: false }
+  const boundaries = [0]
+  let total = 0
+  for (const t of anim.times) boundaries.push(total += t)
+  let lastKey = null, lastFrame = anim.frames[0]
+  return {
+    ...anim,
+    meta,
+    frameAt(tick) {
+      if (!anim.animated) return anim.frames[0]
+      const t = Math.floor(((tick % total) + total) % total)
+      let idx = 0
+      for (let i = 0; i < boundaries.length - 1; i++) {
+        if (t >= boundaries[i] && t < boundaries[i + 1]) {
+          idx = i
+          break
+        }
+      }
+      const ratio = anim.interpolate ? (t - boundaries[idx]) / anim.times[idx] : 0
+      const key = idx + ":" + Math.round(ratio * 1000)
+      if (key !== lastKey) {
+        lastKey = key
+        lastFrame = anim.interpolate
+          ? interpolateFrames(anim.frames[idx], anim.frames[(idx + 1) % anim.frames.length], ratio)
+          : anim.frames[idx]
+      }
+      return lastFrame
+    }
+  }
 }
 
 function applyTint(img, tint) {

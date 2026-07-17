@@ -158,6 +158,6 @@ export {
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, isCrossModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
   optimizeScene, sortTranslucent,
-  zipAssets
+  zipAssets, loadAnimatedTexture
 } from "./core.js"
 export { parseZip } from "./zip.js"
