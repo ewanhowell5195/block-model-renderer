@@ -262,7 +262,7 @@ await renderBlock({
 The rules follow Minecraft's `shouldRenderFace`. A `cullface`-authored face is dropped when:
 
 * the neighbor's shape fully covers it. This is state-aware, so two adjacent bottom slabs cull their touching sides but a top slab against a bottom slab doesn't
-* the block self-culls against its own kind (glass against glass, water against water)
+* the block self-culls against its own kind (glass against glass, water against water). Panes and bars follow the game's connection rule: vertically against their own kind, sideways only when both sides connect toward each other
 
 And never against blocks the game flags as non-occluding (glass, leaves, powder snow), no matter how solid they look.
 
