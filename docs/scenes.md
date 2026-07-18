@@ -127,7 +127,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 
 Returns a list of model references, one per matching model.
 
-Properties you don't pass fall back to the [default blockstates](extending.md#default-blockstates) rules, per property. Along the way it also applies the block's built-in behaviors: biome colormap, fixed, and property-indexed tints (grass, foliage, water, redstone wire, stems), the end portal / end gateway shader, fluid marking on water and lava, and the automatic water layer on waterloggable blocks given `{ waterlogged: true }` (always added for the inherently water-filled blocks, per [`isWaterlogged`](models.md#iswaterloggedid)). Air ids (`air`, `cave_air`, `void_air`) resolve to no models. So does `moving_piston`, the invisible placeholder the game uses while a piston moves a block.
+Properties you don't pass fall back to the [default blockstates](extending.md#default-blockstates) rules, per property. Along the way it also applies the block's built-in behaviors: biome colormap, fixed, and property-indexed tints (grass, foliage, water, redstone wire, stems), the end portal / end gateway shader, fluid marking on water and lava, and the automatic water layer on waterloggable blocks given `{ waterlogged: true }` (always added for the inherently water-filled blocks, per [`isWaterlogged`](models.md#iswaterloggedid)). Air ids (`air`, `cave_air`, `void_air`) resolve to no models, as does `moving_piston`, the invisible placeholder the game uses while a piston moves a block.
 
 ## `parseItemDefinition(assets, id, args?)`
 
