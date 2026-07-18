@@ -128,7 +128,7 @@ The following categories are covered:
 * Shulker Boxes
 * Tridents
 * Water & Lava
-* Technical blocks (barrier, light, structure void, moving piston)
+* Technical blocks (barrier, light, structure void)
 
 **Limitation:** the overrides pack is prepended to your assets array at the highest priority. Any blockstate or model covered by it will override whatever your own packs provide, the bundled version always wins. This is a renderer limitation, not a design choice. That said, since these blocks are rendered dynamically by vanilla, you're very unlikely to actually have modified these blockstates and models.
 
