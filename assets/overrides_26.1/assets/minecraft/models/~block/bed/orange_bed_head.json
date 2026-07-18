@@ -1,7 +1,0 @@
-{
-  "ignore_atlas_restrictions": true,
-  "parent": "~block/bed/_template_bed_head",
-  "textures": {
-    "bed": "entity/bed/orange"
-  }
-}

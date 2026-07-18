@@ -925,7 +925,7 @@ async function resolveSpecialModel(assets, data, base) {
     modelPath = `block-model-renderer:block/copper_golem_statue/_template_copper_golem_statue_${data.pose}`
   } else if (originalType === "bed") {
     if (!assets.version || !isBefore(assets.version, "26.2")) return
-    modelPath = `~block/bed/_template_bed_${normalize(data.part ?? "head")}`
+    modelPath = `block-model-renderer:block/bed/_template_bed_${normalize(data.part ?? "head")}`
   } else {
     const baseItem = base ? resolveNamespace(base).item : null
     if (baseItem && await readFile(`assets/block-model-renderer/models/${baseItem}.json`, assets)) {

@@ -1,18 +1,18 @@
 {
   "variants": {
     "facing=north": {
-      "model": "~block/sign/dark_oak_wall_hanging_sign"
+      "model": "block-model-renderer:block/sign/dark_oak_wall_hanging_sign"
     },
     "facing=east": {
-      "model": "~block/sign/dark_oak_wall_hanging_sign",
+      "model": "block-model-renderer:block/sign/dark_oak_wall_hanging_sign",
       "y": 90
     },
     "facing=south": {
-      "model": "~block/sign/dark_oak_wall_hanging_sign",
+      "model": "block-model-renderer:block/sign/dark_oak_wall_hanging_sign",
       "y": 180
     },
     "facing=west": {
-      "model": "~block/sign/dark_oak_wall_hanging_sign",
+      "model": "block-model-renderer:block/sign/dark_oak_wall_hanging_sign",
       "y": -90
     }
   }

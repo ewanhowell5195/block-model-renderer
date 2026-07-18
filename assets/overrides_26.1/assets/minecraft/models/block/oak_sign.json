@@ -1,7 +1,0 @@
-{
-  "ignore_atlas_restrictions": true,
-  "parent": "~block/sign/_template_sign",
-  "textures": {
-    "sign": "entity/signs/oak"
-  }
-}

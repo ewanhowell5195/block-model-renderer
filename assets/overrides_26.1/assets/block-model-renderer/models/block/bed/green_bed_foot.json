@@ -1,0 +1,7 @@
+{
+  "ignore_atlas_restrictions": true,
+  "parent": "block-model-renderer:block/bed/_template_bed_foot",
+  "textures": {
+    "bed": "entity/bed/green"
+  }
+}
