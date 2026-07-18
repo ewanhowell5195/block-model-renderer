@@ -45,12 +45,13 @@
     "example": "node examples/node/example.js",
     "all": "node examples/node/render_all.js",
     "animated": "node examples/node/render_animated.js",
+    "banners": "node examples/node/render_banners.js",
     "fixed": "node examples/node/render_fixed.js",
     "overrides": "node examples/node/render_overrides.js",
     "scene": "node examples/node/render_scene.js",
     "simple": "node examples/node/render_simple.js",
     "textures": "node examples/node/render_textures.js",
-    "full": "npm run example && npm run all && npm run animated && npm run fixed && npm run overrides && npm run scene && npm run simple && npm run textures && npm run loader",
+    "full": "npm run example && npm run all && npm run animated && npm run banners && npm run fixed && npm run overrides && npm run scene && npm run simple && npm run textures && npm run loader",
     "loader": "node examples/node/render_loader.js"
   },
   "dependencies": {
