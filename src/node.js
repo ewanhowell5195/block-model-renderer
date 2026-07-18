@@ -1,4 +1,4 @@
-import { Canvas, Image, ImageData, loadImage } from "skia-canvas"
+import { Canvas as SkiaCanvas, Image, ImageData, loadImage } from "skia-canvas"
 import { fileURLToPath } from "node:url"
 import getTHREE from "headless-three"
 import createContext from "gl"
@@ -9,6 +9,13 @@ import fs from "node:fs"
 import { setPlatform, parsePackFilter, zipAssets } from "./core.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+class Canvas extends SkiaCanvas {
+  constructor(...args) {
+    super(...args)
+    this.gpu = false
+  }
+}
 
 const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageData }))
 
