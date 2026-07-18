@@ -1,5 +1,5 @@
 import { platform, render, THREE, loadTexture } from "./platform.js"
-import { prepareAssets, scopedCache } from "./assets.js"
+import { prepareAssets, scopedCache, getMissingImage } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
 import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt } from "./models.js"
 import { selfCulls } from "./culling.js"
@@ -153,9 +153,7 @@ export async function renderTexture(args = {}) {
 
   args.assets = await prepareAssets(args.assets)
   const texture = await readTexture(args.texture, args.assets)
-  if (!texture) throw new Error(`Texture not found: ${args.texture}`)
-
-  const frame = texture.frames[0]
+  const frame = texture ? texture.frames[0] : await getMissingImage(args.assets)
   if (args.canvas == null) {
     args.width ??= frame.width
     args.height ??= frame.height
@@ -172,7 +170,7 @@ export async function renderTexture(args = {}) {
   tex.magFilter = THREE.NearestFilter
   tex.minFilter = THREE.NearestFilter
   tex.generateMipmaps = false
-  if (texture.animated) {
+  if (texture?.animated) {
     tex.userData.frames = texture.frames
     tex.userData.times = texture.times
     tex.userData.interpolate = texture.interpolate

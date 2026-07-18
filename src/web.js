@@ -567,8 +567,11 @@ export async function renderTexture(args = {}) {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
     ctx.drawImage(frame, 0, 0, ctx.canvas.width, ctx.canvas.height)
   }
-  const texture = await readTexture(args.texture, args.assets, args.animated ? { onChange: draw } : undefined)
-  if (!texture) throw new Error(`Texture not found: ${args.texture}`)
+  let texture = await readTexture(args.texture, args.assets, args.animated ? { onChange: draw } : undefined)
+  if (!texture) {
+    const image = await core.getMissingImage(await core.prepareAssets(args.assets))
+    texture = { image, animated: false }
+  }
   const canvas = args.canvas ?? document.createElement("canvas")
   const width = args.width ?? texture.image.width
   const height = args.height ?? texture.image.height
