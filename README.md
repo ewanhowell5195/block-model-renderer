@@ -17,6 +17,7 @@ Render any block, item, or custom model JSON, with full support for vanilla reso
 * Bundled overrides for block entities that Minecraft renders dynamically (banners, chests, heads, etc)
 * Stack resource pack folders, zips, and virtual handlers, with higher packs overriding lower ones just like in Minecraft
 * Animated textures: WebP and GIF output on Node, live self-updating canvases in the browser
+* Game-accurate world lighting: torches glow and light up spaces, with working day/night cycles
 * Scene optimization: near game-accurate hidden-face culling from neighboring blocks, and the whole scene merged into a handful of draw calls, with far fewer polygons
 * Extensible model loaders: write your own to support modded formats (OBJ models, connected textures, etc)
 * PNG, JPEG, WebP, GIF, and AVIF output on Node

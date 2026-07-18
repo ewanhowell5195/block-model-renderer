@@ -180,6 +180,7 @@ Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` 
 | `model` | A resolved model (from [`resolveModelData`](api.md)) |
 | `args.display` | Display transform to apply to the model. See [Display transforms](models.md#display-transforms) |
 | `args.lighting` | Lighting mode (`"item"` (default), `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting) with the dimension, daytime, brightness, and `light` volume. With a `light` volume, faces sample per-block light, so torches glow and interiors darken |
+| `args.emission` | Floor every element's light emission at this level (0-15), like a glow item frame's contents. See [Lighting modes](rendering.md#lighting-modes) |
 | `args.shaderScale` | Density multiplier for screen-space shader effects, as in [`renderBlock`](api.md) |
 | `args.cull` | Face directions to drop, as a `Set` from [`getCullFaces`](api.md) or a plain object like `{ north: true }`. Faces whose `cullface` points at a culled direction are skipped |
 | `args.neighbors` | The surrounding blocks as a direction-keyed object (`north`, `north_east`, `up`, `self`, ...). Shapes fluid surfaces (see [Fluids](fluids.md)), and is merged into `args.block` as the placement context's `neighbors` for loaders |
