@@ -1,4 +1,5 @@
 import { ModelLoader, renderModel, prepareAssets } from "../../index.js"
+import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 
 // A model format built from scratch: no vanilla elements at all, geometry is
@@ -126,7 +127,7 @@ const virtualPack = {
 
 const assets = await prepareAssets([
   virtualPack,
-  "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.3-snapshot-3"
+  await loadMojangJar()
 ])
 
 const outputDir = `${import.meta.dirname}/renders/loader`

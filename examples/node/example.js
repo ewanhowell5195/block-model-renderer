@@ -1,13 +1,14 @@
 import {
-  renderBlock, renderItem, renderModel, prepareAssets,
+  renderBlock, renderItem, renderModel, prepareAssets, readFile,
   makeModelScene, renderModelScene,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel
 } from "../../index.js"
+import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 import sharp from "sharp"
 
-const vanillaPackPath = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.3-snapshot-3"
-const assets = await prepareAssets(vanillaPackPath)
+const vanillaJar = await loadMojangJar()
+const assets = await prepareAssets(vanillaJar)
 
 const outDir = `${import.meta.dirname}/renders/example`
 fs.mkdirSync(outDir, { recursive: true })
@@ -117,7 +118,7 @@ await renderModel({
 const virtualOverride = {
   async read(filePath) {
     if (filePath === "assets/minecraft/textures/block/stone.png") {
-      const src = sharp(`${vanillaPackPath}/${filePath}`)
+      const src = sharp(Buffer.from(await readFile(filePath, assets)))
       const { width, height } = await src.metadata()
       return src.composite([{
         input: { create: { width, height, channels: 4, background: { r: 40, g: 90, b: 255, alpha: 1 } } },
@@ -131,7 +132,7 @@ const virtualOverride = {
 
 await renderBlock({
   id: "stone",
-  assets: [virtualOverride, vanillaPackPath],
+  assets: [virtualOverride, vanillaJar],
   path: `${outDir}/virtual_blue_stone.png`
 })
 

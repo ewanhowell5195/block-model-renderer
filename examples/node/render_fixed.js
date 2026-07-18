@@ -1,14 +1,15 @@
-import { renderModel } from "../../index.js"
+import { renderModel, zipAssets } from "../../index.js"
+import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 
-const packRoot = "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.3-snapshot-3"
+const jar = await zipAssets(await fs.promises.readFile(await loadMojangJar()))
 
 fs.mkdirSync(`${import.meta.dirname}/renders/fixed`, { recursive: true })
 
 await renderModel({
   assets: {
     async read(filePath) {
-      return fs.promises.readFile(`${packRoot}/${filePath}`)
+      return jar.read(filePath)
     }
   },
   model: {

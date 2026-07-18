@@ -1,9 +1,10 @@
 import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets, SKIP_BLOCKS } from "../../index.js"
+import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 import path from "node:path"
 
 const assets = await prepareAssets([
-  "C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/26.3-snapshot-3"
+  await loadMojangJar()
 ])
 const outputDir = `${import.meta.dirname}/renders/overrides`
 const blockDisplay = {
