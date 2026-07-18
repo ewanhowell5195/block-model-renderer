@@ -8,7 +8,9 @@ import { modelLoaders, activeLoaders } from "./loaders.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
-export const AIR_BLOCKS = /(^|:)(air|cave_air|void_air|moving_piston)$/
+export const SKIP_BLOCKS = new Set(["air", "cave_air", "void_air", "moving_piston"])
+export const TECHNICAL_BLOCKS = new Set(["barrier", "light", "structure_void"])
+export const AIR_BLOCKS = new RegExp(`(^|:)(${Array.from(SKIP_BLOCKS).join("|")})$`)
 
 const X_CYCLE = { north: "up", up: "south", south: "down", down: "north" }
 const Y_CYCLE = { north: "east", east: "south", south: "west", west: "north" }

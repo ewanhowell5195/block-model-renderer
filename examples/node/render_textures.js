@@ -17,8 +17,7 @@ const textures = [
   "block/seagrass",
   "block/prismarine",
   "block/sea_lantern",
-  "block/stonecutter_saw",
-  "gui/sprites/tooltip/background"
+  "block/stonecutter_saw"
 ]
 
 for (const texture of textures) {

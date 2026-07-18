@@ -1,4 +1,4 @@
-import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets } from "../../index.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets, SKIP_BLOCKS } from "../../index.js"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -26,7 +26,7 @@ async function processChunk(files, handler) {
   }
 }
 
-const skip = file => ["air.json", "cave_air.json", "void_air.json"].includes(file)
+const skip = file => SKIP_BLOCKS.has(path.basename(file, ".json"))
 
 async function handleBlock(file) {
   if (skip(file)) return

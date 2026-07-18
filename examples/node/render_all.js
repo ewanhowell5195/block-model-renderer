@@ -1,4 +1,4 @@
-import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets } from "../../index.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets, SKIP_BLOCKS } from "../../index.js"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -28,6 +28,7 @@ async function processChunk(files, handler) {
 
 async function handleBlock(file) {
   const modelId = path.basename(file, ".json")
+  if (SKIP_BLOCKS.has(modelId)) return
   const { scene, camera } = makeModelScene()
   const models = await parseBlockstate(assets, modelId)
   for (const model of models) {

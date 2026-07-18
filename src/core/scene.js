@@ -1,6 +1,6 @@
 import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { prepareAssets, scopedCache, readFile } from "./assets.js"
-import { parseBlockstate, resolveModelData, loadModel, AIR_BLOCKS } from "./models.js"
+import { parseBlockstate, resolveModelData, loadModel, AIR_BLOCKS, TECHNICAL_BLOCKS } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -133,6 +133,11 @@ export async function createScene(assets, blocks, args = {}) {
   for (const cell of cells.values()) {
     const entry = palette[cell.palette]
 
+    if (!args.technical && TECHNICAL_BLOCKS.has(entry.id)) {
+      cell.template = null
+      continue
+    }
+
     const neighbors = {}
     let cullKey = String(cell.palette)
     for (const dir in DIRS) {
@@ -229,6 +234,7 @@ export async function createScene(assets, blocks, args = {}) {
     enter("optimize")
     const placements = []
     for (const cell of cells.values()) {
+      if (!cell.template) continue
       placements.push({ group: templateOf.get(cell.template), pos: cell.pos, cull: cell.cull })
     }
     optimized = await optimizeScene(placements, {
@@ -243,6 +249,7 @@ export async function createScene(assets, blocks, args = {}) {
   } else {
     const cullVariants = new Map()
     for (const cell of cells.values()) {
+      if (!cell.template) continue
       let tmpl = templateOf.get(cell.template)
       if (cell.cull) {
         const key = cell.template + "|" + Array.from(cell.cull).sort().join(",")
@@ -300,7 +307,7 @@ export async function createScene(assets, blocks, args = {}) {
       const b = blocks[i]
       if (!b?.pos) continue
       const cell = cells.get(b.pos[0] + "," + b.pos[1] + "," + b.pos[2])
-      if (cell) blockTemplate[i] = templateIdx.get(cell.template)
+      if (cell?.template) blockTemplate[i] = templateIdx.get(cell.template)
     }
   }
 

@@ -174,7 +174,7 @@ setPlatform({
 })
 
 export {
-  COLORS, isWaterloggable, isWaterlogged, getLightEmission, computeSceneLight, getCullFaces, LIGHT_DIMENSIONS, prepareAssets, disposeCache, listDirectory, readFile,
+  COLORS, isWaterloggable, isWaterlogged, getLightEmission, computeSceneLight, getCullFaces, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, prepareAssets, disposeCache, listDirectory, readFile,
   renderBlock, renderItem, renderModel, renderTexture,
   makeModelScene, renderModelScene,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, isCrossModel, getBiomeTint,

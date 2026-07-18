@@ -1,4 +1,4 @@
-import { listDirectory, readFile, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets } from "../../index.js"
+import { listDirectory, readFile, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets, SKIP_BLOCKS } from "../../index.js"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -45,6 +45,7 @@ async function hasAnimatedTexture(resolved) {
 
 async function handleBlock(file) {
   const modelId = path.basename(file, ".json")
+  if (SKIP_BLOCKS.has(modelId)) return
   const models = await parseBlockstate(assets, modelId)
   let animated = false
   const resolvedModels = []

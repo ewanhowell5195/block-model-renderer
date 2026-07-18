@@ -30,7 +30,7 @@ const buffer = await renderModelScene(scene, camera, {
 
 ## `createScene(assets, blocks, args?)`
 
-Builds a whole block scene in one call: blockstate parsing, per-position variant picks, hidden-face culling, fluid surface shaping, waterlogging, block entity models, lighting, and scene optimization with live translucent sorting. You add the returned group wherever you want it. Everything below this section is the manual pipeline underneath it, for when you need finer control.
+Builds a whole block scene in one call: blockstate parsing, per-position variant picks, hidden-face culling, fluid surface shaping, waterlogging, block entity models, lighting, and scene optimization with live translucent sorting. Feed it your raw block list as-is: the [`SKIP_BLOCKS`](models.md#skip_blocks-and-technical_blocks) and [technical](models.md#skip_blocks-and-technical_blocks) ids are handled for you, no pre-filtering needed. You add the returned group wherever you want it. Everything below this section is the manual pipeline underneath it, for when you need finer control.
 
 ```js
 const handle = await createScene(assets, [
@@ -45,7 +45,7 @@ Each block entry:
 
 | Field | Description |
 |---|---|
-| `id` | The block id. Namespace optional; air ids place nothing |
+| `id` | The block id. Namespace optional |
 | `properties` | Blockstate property values (e.g. `{ axis: "y", waterlogged: "true" }`) |
 | `pos` | Block grid position `[x, y, z]`, integers. Geometry comes out at 16 world units per block, block centres at `pos * 16`. When two entries share a position, the last one wins |
 | `biome` | Biome tinting for this block's colormap tints, same value as the `biome` render option. Overrides `args.biome` |
@@ -57,6 +57,7 @@ Options, grouped by what they affect. How the scene looks:
 | `biome` | | Scene-wide biome tinting; a block's own `biome` overrides it |
 | `lighting` | `"world"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting): dimension, daytime, brightness, and `light`. World mode computes the light volume from the blocks automatically (respecting the dimension's `hasSkyLight`); set `lighting: { light }` to reuse an existing [`computeSceneLight`](#scene-lighting) handle (it stays yours to dispose), or `{ light: false }` to skip the volume entirely |
 | `shaderScale` | `1` | Screen-space shader density (the end portal), as in [`renderBlock`](standard-api.md#renderblockargs) |
+| `technical` | `false` | Build the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void) with their placeholder icons. Off, they're invisible like in game, but still feed the light volume, so a light block lights its area either way |
 
 Asset interpretation:
 

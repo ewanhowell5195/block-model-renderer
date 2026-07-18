@@ -132,6 +132,25 @@ await getBiomeTint(assets, "grass", { temperature: 2, downfall: 0 })         // 
 await getBiomeTint(assets, "foliage", { tint: "#df6827" })                   // "#DF6827" (fixed override)
 ```
 
+## `SKIP_BLOCKS` and `TECHNICAL_BLOCKS`
+
+Two `Set`s of block ids for tooling that iterates every block:
+
+- `SKIP_BLOCKS`: ids that resolve to no models and render nothing: `air`, `cave_air`, `void_air`, and `moving_piston`. Skip these when batch-rendering
+- `TECHNICAL_BLOCKS`: ids that are invisible in game but render with placeholder icon models here: `barrier`, `light`, `structure_void`. Skip them too for game-accurate output, or keep them where the icons are useful, like an editor view. [`createScene`](scenes.md#createsceneassets-blocks-args) hides them by default; its `technical: true` option builds the icons
+
+The ids are bare, without a namespace.
+
+```js
+import { SKIP_BLOCKS, TECHNICAL_BLOCKS } from "block-model-renderer"
+
+for (const id of allBlockIds) {
+  const bare = id.replace("minecraft:", "")
+  if (SKIP_BLOCKS.has(bare) || TECHNICAL_BLOCKS.has(bare)) continue
+  await renderBlock({ id, assets, path: `${id}.png` })
+}
+```
+
 ## `COLORS`
 
 The color tables the renderer tints with, exported as one object for lookups in your own tooling (or careful tweaking; it's the live data). Packs can override the tables per entry by shipping their own [`colors.json`](extending.md#block-data-and-colors); this export always reports the built-in data.
