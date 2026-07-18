@@ -134,7 +134,7 @@ The following categories are covered:
 
 #### Versioned overrides
 
-Blocks that vanilla has since made data-driven live in versioned override packs alongside the main one, named for the last version they apply to: `overrides_26.1` carries the bed and sign models, since both were block entities without models until 26.2. A versioned pack only activates when the [`version` option](versions.md#legacy-minecraft-versions) falls at or below its name; without a `version` it is inert, so modern renders always use the real vanilla models. With [`{ cache: true }`](#caching) assets, pass the version to `prepareAssets`: a render-call `version` that doesn't match the cached assets' pinned version [throws](#minecraft-version), since the cache would otherwise mix resolutions from before and after the pack activates.
+Blocks that vanilla has since moved from entity models to block models live in versioned override packs alongside the main one, named for the last version they apply to: `overrides_26.1` carries the bed and sign models, since both used entity models until 26.2. A versioned pack only activates when the [`version` option](versions.md#legacy-minecraft-versions) falls at or below its name; without a `version` it is inert, so modern renders always use the real vanilla models. With [`{ cache: true }`](#caching) assets, pass the version to `prepareAssets`: a render-call `version` that doesn't match the cached assets' pinned version [throws](#minecraft-version), since the cache would otherwise mix resolutions from before and after the pack activates.
 
 ### Fallback pack (lowest priority)
 
