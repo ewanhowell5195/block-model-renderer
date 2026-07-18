@@ -1,12 +1,22 @@
 import { platform, render, THREE, loadTexture } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
-import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS } from "./models.js"
+import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, collectAnimated, applyFrame, readTexture } from "./animation.js"
 
 const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east: "west", west: "east" }
+
+let verifiedPrograms = 0
+
+function buffersEqual(a, b) {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
 
 async function buildBlockModel(assets, id, props, version) {
   const g = new THREE.Group()
@@ -297,6 +307,7 @@ export async function renderModelScene(scene, camera, args) {
   const { schedules, events, frameCount, delay } = computeAnimationTimeline(animatedTextures, maxFrameCount)
 
   const frameRenderer = platform.createFrameRenderer({ width, height, background: args?.background, camera })
+  applyShaderSalt(scene)
 
   const stacked = new Uint8Array(width * height * 4 * frameCount)
 
@@ -315,6 +326,18 @@ export async function renderModelScene(scene, camera, args) {
     }
 
     frameRenderer.renderFrame(scene, camera)
+    if (f === 0 && frameRenderer.programCount && frameRenderer.programCount() > verifiedPrograms) {
+      let prev = frameRenderer.readPixels()
+      for (let attempt = 0; attempt < 3; attempt++) {
+        bumpShaderSalt(scene)
+        frameRenderer.renderFrame(scene, camera)
+        const cur = frameRenderer.readPixels()
+        const agreed = buffersEqual(prev, cur)
+        prev = cur
+        if (agreed) break
+      }
+      verifiedPrograms = frameRenderer.programCount()
+    }
     stacked.set(frameRenderer.readPixels(), f * width * height * 4)
   }
 

@@ -141,6 +141,9 @@ setPlatform({
         }
         return flipped
       },
+      programCount() {
+        return renderer.info.programs.length
+      },
       dispose() {}
     }
   },

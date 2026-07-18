@@ -1743,6 +1743,30 @@ export async function loadModel(scene, assets, model, args) {
   return rootGroup
 }
 
+let shaderSalt = 0
+
+function patchShaderSalt(scene) {
+  scene.traverse(obj => {
+    const mats = Array.isArray(obj.material) ? obj.material : obj.material ? [obj.material] : []
+    for (const mat of mats) {
+      const m = mat.fragmentShader?.match(/\/\/salt:(\d+)$/)
+      if (m && Number(m[1]) !== shaderSalt) {
+        mat.fragmentShader = mat.fragmentShader.slice(0, m.index) + `//salt:${shaderSalt}`
+        mat.needsUpdate = true
+      }
+    }
+  })
+}
+
+export function applyShaderSalt(scene) {
+  if (shaderSalt) patchShaderSalt(scene)
+}
+
+export function bumpShaderSalt(scene) {
+  shaderSalt++
+  patchShaderSalt(scene)
+}
+
 function tintVec(input, fallback) {
   if (input == null) input = fallback
   if (Array.isArray(input)) return new THREE.Vector3(input[0], input[1], input[2])
@@ -1877,7 +1901,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           }
           gl_FragColor = vec4(color, 1.0);
         }
-      `,
+        //salt:${shaderSalt}`,
       clipping: true
     })
   }
@@ -2041,7 +2065,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         }
         gl_FragColor = vec4(texColor.rgb * shade * light, texColor.a);
       }
-    `,
+      //salt:${shaderSalt}`,
     transparent: texture?.userData?.translucent === true,
     depthWrite: texture?.userData?.translucent !== true,
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
