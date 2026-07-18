@@ -6,7 +6,7 @@ The `assets` option tells the renderer where to find resource pack files. It can
 * A **zip in memory**: `Uint8Array`, `ArrayBuffer`, `Blob`, or `File`
 * A **virtual handler object**, see [Virtual handlers](#virtual-handlers)
 * An **array** of any combination of the above
-* **Prepared assets**, the return value of [`prepareAssets()`](api.md)
+* **Prepared assets**, the return value of [`prepareAssets()`](#prepareassetsassets-options)
 
 When given an array, entries are checked in order: the first entry that has a file wins (higher-priority packs override lower-priority ones). This lets you layer packs on top of vanilla, just like Minecraft does.
 
@@ -57,7 +57,7 @@ await renderBlock({ id: "stone", assets: handler, path: "out.png" })
 
 ## `prepareAssets(assets, options?)`
 
-The renderer internally calls [`prepareAssets(assets)`](api.md) on each render to normalize the input, parse `pack.mcmeta` filters, and index atlas definitions. If you're running many renders with the same assets, call it once yourself and pass the result for faster subsequent renders:
+The renderer internally calls `prepareAssets(assets)` on each render to normalize the input, parse `pack.mcmeta` filters, and index atlas definitions. If you're running many renders with the same assets, call it once yourself and pass the result for faster subsequent renders:
 
 ```js
 import { prepareAssets, renderBlock } from "block-model-renderer"
@@ -163,7 +163,7 @@ Returns a list of filenames.
 
 ### `readTexture(path, assets, opts?)`
 
-Reads a texture for drawing yourself, when you want an image rather than a model: GUI sprites, map decorations, particles, item art. [`readFile`](#readfilepath-assets-hint) gives the raw PNG bytes; this gives a ready image, and animated textures also work: the `.mcmeta` is read alongside, slicing the sheet into frames with the game's rules (frame size from `animation.width`/`height`, square by the smaller image dimension when absent; row-major frame indexing; a `frames` list with per-entry times falling back to `frametime`, default 1 tick; `interpolate` blending). To render a texture instead of drawing it yourself, see [`renderTexture`](api.md).
+Reads a texture for drawing yourself, when you want an image rather than a model: GUI sprites, map decorations, particles, item art. [`readFile`](#readfilepath-assets-hint) gives the raw PNG bytes; this gives a ready image, and animated textures also work: the `.mcmeta` is read alongside, slicing the sheet into frames with the game's rules (frame size from `animation.width`/`height`, square by the smaller image dimension when absent; row-major frame indexing; a `frames` list with per-entry times falling back to `frametime`, default 1 tick; `interpolate` blending). To render a texture instead of drawing it yourself, see [`renderTexture`](standard-api.md#rendertextureargs).
 
 | Argument | Description |
 |---|---|
@@ -193,7 +193,7 @@ Returns (async) a [virtual handler](#virtual-handlers) entry with `read`/`list`/
 
 ### `parseZip(bytes)`
 
-The low-level reader behind [`zipAssets`](api.md). Takes a `Uint8Array`/`ArrayBuffer`. Useful for enumerating paths outside the `assets/` tree (e.g. the structures inside a client jar), then reading them through [`readFile`](api.md), which handles decompression.
+The low-level reader behind [`zipAssets`](#zipassetsinput). Takes a `Uint8Array`/`ArrayBuffer`. Useful for enumerating paths outside the `assets/` tree (e.g. the structures inside a client jar), then reading them through [`readFile`](#readfilepath-assets-hint), which handles decompression.
 
 Returns a `Map` from each file path to its raw entry:
 

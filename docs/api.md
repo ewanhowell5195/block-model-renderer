@@ -5,17 +5,17 @@ Every export the package provides, grouped by area, with a link to where each is
 ```js
 import {
   // rendering
-  renderBlock, renderItem, renderModel, getCullFaces,
+  renderBlock, renderItem, renderModel, renderTexture, getCullFaces,
   // assets and files
-  prepareAssets, readFile, listDirectory, zipAssets, parseZip, disposeCache,
+  prepareAssets, readFile, listDirectory, readTexture, zipAssets, parseZip, disposeCache,
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
-  makeModelScene, loadModel, renderModelScene, optimizeScene, sortTranslucent, computeSceneLight,
+  makeModelScene, createScene, loadModel, renderModelScene, optimizeScene, sortTranslucent, computeSceneLight,
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
-  isWaterloggable, isWaterlogged, isCrossModel, getLightEmission, COLORS,
+  isWaterloggable, isWaterlogged, isCrossModel, getLightEmission, getBiomeTint, COLORS, LIGHT_DIMENSIONS,
   // extending
   ModelLoader,
   // browser only
@@ -27,10 +27,10 @@ import {
 
 | Export | Description |
 |---|---|
-| `renderBlock(args)` | Render a block state by id. [Node](node.md#renderblockargs) · [Web](browser.md#renderblockargs) |
-| `renderItem(args)` | Render an item by id. [Node](node.md#renderitemargs) · [Web](browser.md#renderitemargs) |
-| `renderModel(args)` | Render a raw model JSON. [Node](node.md#rendermodelargs) · [Web](browser.md#rendermodelargs) |
-| `renderTexture(args)` | Render a texture by path, animated per its mcmeta. [Node](node.md#rendertextureargs) · [Web](browser.md#rendertextureargs) |
+| `renderBlock(args)` | Render a block state by id. [Details](standard-api.md#renderblockargs) |
+| `renderItem(args)` | Render an item by id. [Details](standard-api.md#renderitemargs) |
+| `renderModel(args)` | Render a raw model JSON. [Details](standard-api.md#rendermodelargs) |
+| `renderTexture(args)` | Render a texture by path, animated per its mcmeta. [Details](standard-api.md#rendertextureargs) |
 | `getCullFaces(args)` | Which faces a block's neighbors hide, for [culling](scenes.md#culling-hidden-faces). [Details](scenes.md#getcullfacesargs) |
 
 ## Assets and files
@@ -96,8 +96,8 @@ Not exported on Node.
 
 | Export | Description |
 |---|---|
-| `configure({ THREE, assetsUrl })` | Provide the three.js instance and/or the bundled `assets.zip` URL (`false` skips the bundled assets entirely). [Details](browser.md#browser-only-exports) |
-| `getThree()` | Resolve and return the three.js instance the library uses. [Details](browser.md#providing-threejs) |
-| `THREE` | Live binding to that instance, populated after first use. [Details](browser.md#providing-threejs) |
-| `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. [Details](browser.md#animated-renders) |
+| `configure({ THREE, assetsUrl })` | Provide the three.js instance and/or the bundled `assets.zip` URL (`false` skips the bundled assets entirely). [Details](standard-api.md#browser-only-exports) |
+| `getThree()` | Resolve and return the three.js instance the library uses. [Details](standard-api.md#providing-threejs-browser) |
+| `THREE` | Live binding to that instance, populated after first use. [Details](standard-api.md#providing-threejs-browser) |
+| `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. [Details](standard-api.md#animated-renders-browser) |
 | `createAnimator(root)` | Manual animation control for `loadModel` scenes. [Details](scenes.md#animation-browser) |

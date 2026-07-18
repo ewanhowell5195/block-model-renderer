@@ -36,7 +36,7 @@ Or in the browser, import it straight from a [CDN](https://www.jsdelivr.com/pack
 import { renderBlock } from "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
 ```
 
-In the browser you also provide three.js yourself; see [Standard API: Browser](docs/browser.md).
+In the browser you also provide three.js yourself; see [Providing three.js](docs/standard-api.md#providing-threejs-browser).
 
 ## Quick Start
 
@@ -100,7 +100,7 @@ document.body.append(player.canvas)
 
 ### Options
 
-A quick preview of the most-used [`renderBlock`](docs/api.md) options (full lists, and [`renderItem`](docs/api.md)/[`renderModel`](docs/api.md), in [Standard API: Node](docs/node.md) and [Standard API: Browser](docs/browser.md)):
+A quick preview of the most-used [`renderBlock`](docs/standard-api.md#renderblockargs) options (full lists, and [`renderItem`](docs/standard-api.md#renderitemargs)/[`renderModel`](docs/standard-api.md#rendermodelargs), in the [Standard API](docs/standard-api.md)):
 
 | Option | Default | Description |
 |---|---|---|
@@ -121,8 +121,7 @@ The full documentation lives in [`docs/`](docs/):
 | Doc | Covers |
 |---|---|
 | [API reference](docs/api.md) | Every export in one place, grouped and linked to its full docs |
-| [Standard API: Node](docs/node.md) | The render functions on Node: all options, file and buffer output, animated WebP/GIF |
-| [Standard API: Browser](docs/browser.md) | The render functions in the browser: all options, canvases, animation players, providing three.js |
+| [Standard API](docs/standard-api.md) | The render functions on both platforms: all options, file and buffer output, animated WebP/GIF, canvases, animation players, providing three.js |
 | [Rendering](docs/rendering.md) | How a render looks: backgrounds and lighting modes |
 | [Models](docs/models.md) | Model-level behavior: display transforms, model-inspection helpers, the tint tables |
 | [Assets](docs/assets.md) | Asset sources, pack layering, virtual handlers, [`prepareAssets`](docs/api.md) and caching, the bundled packs, file access |

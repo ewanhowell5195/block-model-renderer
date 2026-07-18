@@ -4,7 +4,7 @@ Model-level behavior and data: posing a model with display transforms, inspectin
 
 ## Display transforms
 
-The `display` option controls how the model is rotated, translated, and scaled before rendering. The render functions and [`loadModel`](api.md) both take it. It takes one of three forms:
+The `display` option controls how the model is rotated, translated, and scaled before rendering. The render functions and [`loadModel`](scenes.md#loadmodelscene-assets-model-args) both take it. It takes one of three forms:
 
 **String**: name of a context in the model's `display` block (`"gui"`, `"fixed"`, `"ground"`, `"firstperson_righthand"`, etc.). The renderer uses that context's transform from the model.
 
@@ -41,7 +41,7 @@ Translation values are clamped to ±80 and scale to ±4, like the game. Mirrored
 
 ## `isWaterloggable(id)`
 
-Checks whether the renderer recognizes a block id as waterloggable. When `true`, passing `{ waterlogged: true }` in the blockstate properties to [`renderBlock`](api.md) or [`parseBlockstate`](api.md) will add a water layer to the returned model. When `false`, the `waterlogged` property has no effect.
+Checks whether the renderer recognizes a block id as waterloggable. When `true`, passing `{ waterlogged: true }` in the blockstate properties to [`renderBlock`](standard-api.md#renderblockargs) or [`parseBlockstate`](scenes.md#parseblockstateassets-id-args) will add a water layer to the returned model. When `false`, the `waterlogged` property has no effect.
 
 | Argument | Description |
 |---|---|
@@ -58,7 +58,7 @@ isWaterloggable("stone")      // false
 
 ## `isWaterlogged(id)`
 
-Checks whether a block id is inherently water-filled: blocks that always contain water in game without carrying a `waterlogged` property (kelp, seagrass, bubble columns). [`renderBlock`](api.md) and [`parseBlockstate`](api.md) add the water layer to these automatically, and [`fluidTypeOf`](fluids.md#fluidtypeofid-properties) counts them as water cells.
+Checks whether a block id is inherently water-filled: blocks that always contain water in game without carrying a `waterlogged` property (kelp, seagrass, bubble columns). [`renderBlock`](standard-api.md#renderblockargs) and [`parseBlockstate`](scenes.md#parseblockstateassets-id-args) add the water layer to these automatically, and [`fluidTypeOf`](fluids.md#fluidtypeofid-properties) counts them as water cells.
 
 | Argument | Description |
 |---|---|

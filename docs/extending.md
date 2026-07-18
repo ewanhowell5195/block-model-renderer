@@ -29,7 +29,7 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 
 ### Item components
 
-Extra fields that can be passed through the `components` arg on [`renderItem`](api.md), or the `data` arg on [`parseItemDefinition`](api.md). These aren't real Minecraft item components, they stand in for runtime context that the game would normally provide:
+Extra fields that can be passed through the `components` arg on [`renderItem`](standard-api.md#renderitemargs), or the `data` arg on [`parseItemDefinition`](scenes.md#parseitemdefinitionassets-id-args). These aren't real Minecraft item components, they stand in for runtime context that the game would normally provide:
 
 | Field | Example | Description |
 |---|---|---|
@@ -41,7 +41,7 @@ Any future non-component select properties vanilla adds will work without render
 
 ## Default blockstates
 
-Blockstate properties you don't pass to [`renderBlock`](api.md) fall back to sensible defaults (stairs face the camera, campfires are lit, mushroom blocks show caps on all sides). The defaults merge with whatever `blockstates` you do provide, per property. Those rules live in a pack file, so any pack can extend or override them by shipping its own:
+Blockstate properties you don't pass to [`renderBlock`](standard-api.md#renderblockargs) fall back to sensible defaults (stairs face the camera, campfires are lit, mushroom blocks show caps on all sides). The defaults merge with whatever `blockstates` you do provide, per property. Those rules live in a pack file, so any pack can extend or override them by shipping its own:
 
 ```
 assets/block-model-renderer/default_blockstates.json
@@ -150,7 +150,7 @@ Everything a loader object can hold. The hooks are detailed below.
 | `replaceElements` | If `true`, suppresses the standard `elements` build for matched models, so the format fully owns its geometry instead of adding alongside |
 | [`mergeKey`](#mergekeykey-values-merged-stack) | Optional. Claim and merge a custom model json key across the parent chain |
 | [`match`](#matchmodel) | Which resolved models this loader builds for |
-| [`build`](#buildgroup-model-assets-args-block-helpers) | Optional. Add your own three.js geometry to a matched model |
+| [`build`](#build-group-model-assets-args-block-helpers) | Optional. Add your own three.js geometry to a matched model |
 | [`variantKey`](#variantkeymodel-block) | Optional. Key placement variants apart so caches don't share geometry |
 
 ### `mergeKey(key, values, merged, stack)`
@@ -191,13 +191,13 @@ The `helpers` object:
 
 | Helper | Description |
 |---|---|
-| [`THREE`](api.md) | The three.js instance the library uses |
+| `THREE` | The three.js instance the library uses |
 | `lighting` | The active [lighting mode](rendering.md#lighting-modes) |
-| [`readFile(path, hint?)`](api.md) | Read any file from the asset stack (obj files, custom json, whatever the format needs) |
+| [`readFile(path, hint?)`](assets.md#readfilepath-assets-hint) | Read any file from the asset stack (obj files, custom json, whatever the format needs) |
 | `loadTexture(id, tint?)` | Load a texture by id with the standard caching, animation frames, and optional tint |
 | `resolveTexture(ref)` | Follow `#slot` references through the model's texture map |
 | `buildElements(elements)` | Run an array of vanilla-format elements through the standard cube pipeline (uv defaults, face rotation, uvlock, cullfaces, rotation with rescale, mesh merging) and get back a group to add. For formats that are "vanilla elements, chosen differently", so they don't reimplement cube building |
-| `createMaterial(id, opts?)` | A material matching the active lighting mode. `opts`: `tint`, `shade` (false = unshaded in world mode, the pre-26.3 element field), `shade_direction` (shade as if facing this direction, the 26.3+ replacement; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)), `double_sided`, `light_emission` (0-15, self-illumination in scene mode), `shader` |
+| `createMaterial(id, opts?)` | A material matching the active lighting mode. `opts`: `tint`, `shade` (false = unshaded in world mode, the pre-26.3 element field), `shade_direction` (shade as if facing this direction, the 26.3+ replacement; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)), `double_sided`, `light_emission` (0-15, the element emission floor as in [Lighting modes](rendering.md#lighting-modes)), `shader` |
 
 ### `variantKey(model, block)`
 
@@ -210,8 +210,8 @@ Optional. A loader whose output varies by placement returns a short string (e.g.
 
 ### Placement-aware models
 
-Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbors). The `block` argument to `build` carries that context: `{ id, properties, neighbors }`, with `neighbors` in the same shape as [culling neighbors](scenes.md#culling-hidden-faces). [`renderBlock`](api.md) fills it in automatically from its `id`/`blockstates`/`neighbors` args; when calling [`loadModel`](api.md) directly, pass `block: { id, properties }` and the surrounding blocks as the separate `neighbors` arg, which gets merged in as `block.neighbors`. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
+Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbors). The `block` argument to `build` carries that context: `{ id, properties, neighbors }`, with `neighbors` in the same shape as [culling neighbors](scenes.md#culling-hidden-faces). [`renderBlock`](standard-api.md#renderblockargs) fills it in automatically from its `id`/`blockstates`/`neighbors` args; when calling [`loadModel`](scenes.md#loadmodelscene-assets-model-args) directly, pass `block: { id, properties }` and the surrounding blocks as the separate `neighbors` arg, which gets merged in as `block.neighbors`. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
 
 A loader whose output varies by placement should also implement [`variantKey`](#variantkeymodel-block), so anything caching built models keys the variants apart.
 
-Two worked loaders ship as examples: [a from-scratch polygon model format](https://example.com/node/render_loader) with concatenating inheritance, and [the (Neo)Forge OBJ format](https://example.com/node/render_loader) (`"loader": "forge:obj"`, mtl materials resolving `#slot` textures, `flip_v`).
+Two worked loaders ship as examples in [`examples/node/render_loader.js`](../examples/node/render_loader.js): a from-scratch polygon model format with concatenating inheritance, and the (Neo)Forge OBJ format (`"loader": "forge:obj"`, mtl materials resolving `#slot` textures, `flip_v`).

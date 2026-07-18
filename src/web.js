@@ -282,13 +282,14 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
   const CACHE_DROP_MS = 10000
   const cacheMode = args?.cache ?? "auto"
   const cacheBudget = args?.cacheBudget ?? 4194304
-  let cacheEnabled = cacheMode === true ? true : cacheMode === false ? false : null
+  let cacheEnabled = cacheMode === false ? false : null
   let frameCache = null
   let dropTimer = null
 
   function resolveCacheEnabled() {
     if (cacheEnabled !== null) return cacheEnabled
     if (gameTimeMats.length || !schedules.length) return cacheEnabled = false
+    if (cacheMode === true) return cacheEnabled = true
     return cacheEnabled = getTimeline().frameCount * width * height * 4 <= cacheBudget
   }
 
@@ -568,8 +569,23 @@ export async function renderTexture(args = {}) {
   ctx = canvas.getContext("2d")
   ctx.imageSmoothingEnabled = false
   draw(texture.current ?? texture.image)
-  if (args.animated && texture.animated) canvas.stop = texture.stop
-  return canvas
+  if (!args.animated) return canvas
+  if (!texture.animated) {
+    return { canvas, animated: false, playing: false, duration: 0, play() {}, pause() {}, dispose() {} }
+  }
+  const sub = texture._player
+  return {
+    canvas,
+    animated: true,
+    duration: texture.times.reduce((total, t) => total + t, 0) * 50,
+    get playing() { return sub.playing },
+    play() { sub.play() },
+    pause() { sub.pause() },
+    dispose() {
+      sub.pause()
+      texture.stop()
+    }
+  }
 }
 
 export async function readTexture(path, assets, opts) {
@@ -582,8 +598,14 @@ export async function readTexture(path, assets, opts) {
       playing: true,
       _visible: true,
       animated: true,
-      play() {},
-      pause() {},
+      play() {
+        if (this.playing) return
+        this.playing = true
+        wakeScheduler()
+      },
+      pause() {
+        this.playing = false
+      },
       _renderTick(tick) {
         const frame = texture.frameAt(tick)
         if (frame === texture.current) return
@@ -593,6 +615,7 @@ export async function readTexture(path, assets, opts) {
     }
     players.add(sub)
     wakeScheduler()
+    texture._player = sub
     texture.stop = () => players.delete(sub)
   }
   return texture

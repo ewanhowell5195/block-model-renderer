@@ -50,21 +50,36 @@ Each block entry:
 | `pos` | Block grid position `[x, y, z]`, integers. Geometry comes out at 16 world units per block, block centres at `pos * 16`. When two entries share a position, the last one wins |
 | `biome` | Biome tinting for this block's colormap tints, same value as the `biome` render option. Overrides `args.biome` |
 
-Options:
+Options, grouped by what they affect. How the scene looks:
 
 | Option | Default | Description |
 |---|---|---|
 | `biome` | | Scene-wide biome tinting; a block's own `biome` overrides it |
 | `lighting` | `"world"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting): dimension, daytime, brightness, and `light`. World mode computes the light volume from the blocks automatically (respecting the dimension's `hasSkyLight`); set `lighting: { light }` to reuse an existing [`computeSceneLight`](#scene-lighting) handle (it stays yours to dispose), or `{ light: false }` to skip the volume entirely |
+| `shaderScale` | `1` | Screen-space shader density (the end portal), as in [`renderBlock`](standard-api.md#renderblockargs) |
+
+Asset interpretation:
+
+| Option | Default | Description |
+|---|---|---|
+| `version` | | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
+| `ignoreAtlases` | `false` | Skip texture atlas membership rules |
+
+The optimize pass:
+
+| Option | Default | Description |
+|---|---|---|
 | `optimize` | `true` | Merge the built scene with [`optimizeScene`](#scene-optimization). `false` keeps one group clone per block, which renders far slower on big scenes but leaves every block individually addressable |
 | `resortDistance`, `maxAtlas`, `translucency` | | Passed through to the optimize pass |
+
+The build itself:
+
+| Option | Default | Description |
+|---|---|---|
 | `onProgress` | | `(stage, done, total)` progress callback, see below |
 | `shouldCancel` | | Checked between work slices; return `true` to abort. A cancelled `createScene` resolves `null` |
 | `animate` | `true` | Browser: auto-play texture animations, like [`loadModel`](#loadmodelscene-assets-model-args). On Node, animated output goes through [`renderModelScene`](#rendermodelscenescene-camera-args) as usual |
-| `shaderScale` | `1` | Screen-space shader density (the end portal), as in [`renderBlock`](node.md#renderblockargs) |
 | `keepTemplates` | `false` | Retain the internal per-state template groups and return them on the handle, for tooling that needs per-block geometry (collision, hit-testing). Holds their memory for the scene's lifetime |
-| `ignoreAtlases` | `false` | Skip texture atlas membership rules |
-| `version` | | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
 Weighted blockstate variants pick deterministically per position (the position seeds the pick), so a field of grass blocks gets a natural rotation spread like in game, though not the game's exact per-position picks. Block entity contents and sign text are out of scope.
 
@@ -106,7 +121,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `id` | The blockstate id |
 | `args.data` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `args.seed` | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. Omit to always take the first variant. The picks don't match the game's per-position randomness |
-| `args.biome` | Biome tinting for the colormap tints: one `{ temperature, downfall, tint, combine, weight }` biome, or an array of them for a weighted blend. Same as [`renderBlock`](api.md) |
+| `args.biome` | Biome tinting for the colormap tints: one `{ temperature, downfall, tint, combine, weight }` biome, or an array of them for a weighted blend. Same as [`renderBlock`](standard-api.md#renderblockargs) |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
 | `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
@@ -165,7 +180,7 @@ Creates a fresh three.js scene and orthographic camera configured for block rend
 
 Returns `{ scene, camera }`.
 
-The returned camera has a `fitAspect = true` flag that tells [`renderModelScene`](api.md) to adjust the camera's frustum to match the output aspect ratio (so non-square renders aren't squished). Set the same property on your own camera (`camera.fitAspect = true`) if you want the same behavior. Works for both `OrthographicCamera` and `PerspectiveCamera`. Without the flag, the camera is left exactly as you configured it.
+The returned camera has a `fitAspect = true` flag that tells [`renderModelScene`](#rendermodelscenescene-camera-args) to adjust the camera's frustum to match the output aspect ratio (so non-square renders aren't squished). Set the same property on your own camera (`camera.fitAspect = true`) if you want the same behavior. Works for both `OrthographicCamera` and `PerspectiveCamera`. Without the flag, the camera is left exactly as you configured it.
 
 ## `loadModel(scene, assets, model, args?)`
 
@@ -177,16 +192,31 @@ Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` 
 |---|---|
 | `scene` | The three.js scene to add the model to, or `null` to skip adding it |
 | `assets` | The assets source |
-| `model` | A resolved model (from [`resolveModelData`](api.md)) |
+| `model` | A resolved model (from [`resolveModelData`](#resolvemodeldataassets-model)) |
+
+The `args` object, grouped by what it affects. How the model looks:
+
+| Option | Description |
+|---|---|
 | `args.display` | Display transform to apply to the model. See [Display transforms](models.md#display-transforms) |
 | `args.lighting` | Lighting mode (`"item"` (default), `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting) with the dimension, daytime, brightness, and `light` volume. With a `light` volume, faces sample per-block light, so torches glow and interiors darken |
 | `args.emission` | Floor every element's light emission at this level (0-15), like a glow item frame's contents. See [Lighting modes](rendering.md#lighting-modes) |
-| `args.shaderScale` | Density multiplier for screen-space shader effects, as in [`renderBlock`](api.md) |
-| `args.cull` | Face directions to drop, as a `Set` from [`getCullFaces`](api.md) or a plain object like `{ north: true }`. Faces whose `cullface` points at a culled direction are skipped |
+| `args.shaderScale` | Density multiplier for screen-space shader effects, as in [`renderBlock`](standard-api.md#renderblockargs) |
+
+Where the block sits:
+
+| Option | Description |
+|---|---|
+| `args.cull` | Face directions to drop, as a `Set` from [`getCullFaces`](#getcullfacesargs) or a plain object like `{ north: true }`. Faces whose `cullface` points at a culled direction are skipped |
 | `args.neighbors` | The surrounding blocks as a direction-keyed object (`north`, `north_east`, `up`, `self`, ...). Shapes fluid surfaces (see [Fluids](fluids.md)), and is merged into `args.block` as the placement context's `neighbors` for loaders |
-| `args.fluidHeights` | Fluid models only: a precomputed [`fluidHeights`](api.md) result, reused instead of deriving it from `neighbors` again |
+| `args.fluidHeights` | Fluid models only: a precomputed [`fluidHeights`](fluids.md#fluidheightsassets-type-neighbors) result, reused instead of deriving it from `neighbors` again |
 | `args.block` | Placement context (`{ id, properties }`) for [placement-aware model loaders](extending.md#placement-aware-models). Its `neighbors` are filled from `args.neighbors`, so don't set them here |
-| `args.animate` | Browser only. `false` disables the automatic animator (see [Animation](#animation-browser)); drive it yourself with [`createAnimator`](api.md). Default `true` |
+
+How the group is built:
+
+| Option | Description |
+|---|---|
+| `args.animate` | Browser only. `false` disables the automatic animator (see [Animation](#animation-browser)); drive it yourself with [`createAnimator`](#animation-browser). Default `true` |
 | `args.mergeElements` | `false` keeps one mesh per model element instead of merging them into shared geometry, for tooling that edits or inspects individual cubes (a model editor). More draw calls, and no per-element `userData.collision` boxes, since the merge pass is what produces those. Default `true` |
 | `args.version` | Minecraft version the assets are for. Sets `model.version` if not already present. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
@@ -196,9 +226,9 @@ The group carries the resolved model it was built from as `userData.model`. This
 
 ### Animation (browser)
 
-In the browser, a model loaded with [`loadModel`](api.md) animates on its own. Its textures and the end portal shader advance every time the scene is drawn, driven off the page-global clock via `onBeforeRender`, so nothing per-frame is yours to do: if your app already has a render loop (as any interactive three.js scene does), the animation just plays. Only a one-off render freezes it, since a single draw captures a single frame.
+In the browser, a model loaded with [`loadModel`](#loadmodelscene-assets-model-args) animates on its own. Its textures and the end portal shader advance every time the scene is drawn, driven off the page-global clock via `onBeforeRender`, so nothing per-frame is yours to do: if your app already has a render loop (as any interactive three.js scene does), the animation just plays. Only a one-off render freezes it, since a single draw captures a single frame.
 
-For manual control (scrubbing, pausing, or driving from your own clock), pass `{ animate: false }` to [`loadModel`](api.md) and use [`createAnimator(root)`](api.md). It scans the object once and `update(ms?)` advances everything animated in it (defaulting to the global clock); `animator.animated` is `false` if there's nothing to animate.
+For manual control (scrubbing, pausing, or driving from your own clock), pass `{ animate: false }` to [`loadModel`](#loadmodelscene-assets-model-args) and use [`createAnimator(root)`](#animation-browser). It scans the object once and `update(ms?)` advances everything animated in it (defaulting to the global clock); `animator.animated` is `false` if there's nothing to animate.
 
 ```js
 import { loadModel, createAnimator } from "block-model-renderer"
@@ -222,21 +252,21 @@ requestAnimationFrame(frame)
 
 ## `renderModelScene(scene, camera, args?)`
 
-Renders a scene to an image buffer. Takes all the same output options as [`renderBlock`](api.md) / [`renderItem`](api.md) / [`renderModel`](api.md).
+Renders a scene to an image buffer. Takes all the same output options as [`renderBlock`](standard-api.md#renderblockargs) / [`renderItem`](standard-api.md#renderitemargs) / [`renderModel`](standard-api.md#rendermodelargs).
 
 | Argument | Description |
 |---|---|
 | `scene` | The three.js scene to render |
 | `camera` | The camera to render from |
-| `args` | The output options of [`renderBlock`](api.md), same as the standard API ([Node](node.md#renderblockargs), [Browser](browser.md#renderblockargs)) |
+| `args` | The output options of [`renderBlock`](standard-api.md#renderblockargs), same as the [standard API](standard-api.md) on both platforms |
 
 Returns an image buffer, or `{ buffer, format }` when `args.animated` is truthy. In the browser it returns a canvas or player instead, honoring the browser `canvas`/placement options.
 
-Translucent faces in the scene are depth-sorted once against the given camera before rendering, so water behind glass draws correctly. For live scenes where the camera moves, see [`sortTranslucent`](api.md).
+Translucent faces in the scene are depth-sorted once against the given camera before rendering, so water behind glass draws correctly. For live scenes where the camera moves, see [`sortTranslucent`](#translucent-sorting).
 
 ## Culling hidden faces
 
-Blocks in the world hide the faces pressed against their neighbors. To render a block the way it looks in place (no bottom face against the ground, no side faces against adjacent blocks), pass `neighbors` to [`renderBlock`](api.md):
+Blocks in the world hide the faces pressed against their neighbors. To render a block the way it looks in place (no bottom face against the ground, no side faces against adjacent blocks), pass `neighbors` to [`renderBlock`](standard-api.md#renderblockargs):
 
 ```js
 await renderBlock({
@@ -263,17 +293,17 @@ It's *near* game-accurate rather than exact: the game hardcodes each block's occ
 
 ### `getCullFaces(args)`
 
-The same logic as a standalone helper, for building your own scenes with [`loadModel`](api.md):
+The same logic as a standalone helper, for building your own scenes with [`loadModel`](#loadmodelscene-assets-model-args):
 
 | Option | Default | Description |
 |---|---|---|
 | `id` | required | The block id |
 | `assets` | required | The assets source |
 | `blockstates` | `{}` | The block's blockstate property values |
-| `neighbors` | | The surrounding blocks, as in [`renderBlock`](api.md) above |
-| `version` | | Minecraft version, as in [`renderBlock`](api.md) |
+| `neighbors` | | The surrounding blocks, as in [`renderBlock`](standard-api.md#renderblockargs) above |
+| `version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
 
-Returns a `Set` of directions to drop (`"down"`, `"up"`, `"north"`, `"south"`, `"west"`, `"east"`). Pass it as the `cull` option to any render function or [`loadModel`](api.md); a plain object like `{ north: true }` works there too. Air ids return an empty set without touching the assets, and air neighbors count as absent.
+Returns a `Set` of directions to drop (`"down"`, `"up"`, `"north"`, `"south"`, `"west"`, `"east"`). Pass it as the `cull` option to any render function or [`loadModel`](#loadmodelscene-assets-model-args); a plain object like `{ north: true }` works there too. Air ids return an empty set without touching the assets, and air neighbors count as absent.
 
 ```js
 import { getCullFaces, loadModel } from "block-model-renderer"
@@ -293,23 +323,23 @@ await loadModel(scene, assets, resolved, { cull })
 
 A neighbor entry can also carry an explicit `occludes` boolean (`{ id: "stone", occludes: false }`, or just `{ occludes: true }`). That skips the model-based occlusion check entirely and uses your answer, with only the self-culling rule still applying on top. Useful when you've already computed occlusion yourself, or need to override a specific pairing.
 
-Because occlusion comes from the models, modded blocks and custom packs just work. The models a call builds are cached for that call; with [`prepareAssets(assets, { cache: true })`](api.md) they're cached across calls too.
+Because occlusion comes from the models, modded blocks and custom packs just work. The models a call builds are cached for that call; with [`prepareAssets(assets, { cache: true })`](assets.md#caching) they're cached across calls too.
 
 ## Scene lighting
 
-`"world"` lighting on its own shades every face as if it stood under open sky, with `daytime` scaling the whole scene evenly. [`computeSceneLight`](api.md) adds real per-block light: torches and other emitters glow, light falls off with distance and wraps around corners, and interiors and overhangs darken because the sky can't reach them. It runs Minecraft's flood fill over the scene's block grid and packs the result into a light volume texture the `"world"` shader samples per fragment, so the gradients are smooth and merged geometry from [`optimizeScene`](api.md) is lit correctly with no extra draw calls.
+`"world"` lighting on its own shades every face as if it stood under open sky, with `daytime` scaling the whole scene evenly. [`computeSceneLight`](#scene-lighting) adds real per-block light: torches and other emitters glow, light falls off with distance and wraps around corners, and interiors and overhangs darken because the sky can't reach them. It runs Minecraft's flood fill over the scene's block grid and packs the result into a light volume texture the `"world"` shader samples per fragment, so the gradients are smooth and merged geometry from [`optimizeScene`](#scene-optimization) is lit correctly with no extra draw calls.
 
 ### `computeSceneLight(blocks, options)`
 
 | Option | Default | Description |
 |---|---|---|
-| `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too). Cell coordinates, as in [`optimizeScene`](api.md) placements |
+| `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too). Cell coordinates, as in [`optimizeScene`](#scene-optimization) placements |
 | `options.assets` | required | The assets source |
-| `options.version` | | Minecraft version, as in [`renderBlock`](api.md) |
+| `options.version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `options.dimension` | `"overworld"` | The dimension, as in [world lighting](rendering.md#world-lighting): dimensions without sky light (the nether) skip the sky seeding, so their volumes carry block light only |
 | `options.onProgress` | | `(done, total)` while the scene's blocks are processed, for progress bars. The flood fill after the last call is quick |
 
-Pass the result to every [`loadModel`](api.md) call in the scene through the world lighting config:
+Pass the result to every [`loadModel`](#loadmodelscene-assets-model-args) call in the scene through the world lighting config:
 
 ```js
 import { computeSceneLight, loadModel } from "block-model-renderer"
@@ -336,14 +366,14 @@ The result:
 | `origin`, `size` | The volume's min cell corner and dimensions in cells (the scene bounds plus a one-cell border) |
 | `blockLight`, `skyLight` | The raw levels (0-15), one `Uint8Array` cell each, x fastest then y then z |
 | `lightAt(x, y, z)` | `{ block, sky }` levels at a cell, for your own use |
-| `setOffset(position)` | Call with the world offset you move the built scene by (a `Vector3`, array, or `x, y, z` numbers), e.g. the centering translation on [`optimizeScene`](api.md)'s group, so the shader keeps sampling the right cells. Rotation and scaling aren't supported |
+| `setOffset(position)` | Call with the world offset you move the built scene by (a `Vector3`, array, or `x, y, z` numbers), e.g. the centering translation on [`optimizeScene`](#scene-optimization)'s group, so the shader keeps sampling the right cells. Rotation and scaling aren't supported |
 | `dispose()` | Frees the light texture. Call it when you discard the scene |
 
 The volume uploads as a single 2D texture of stacked slices with trilinear filtering done in the shader, so it behaves identically on the web and on Node's WebGL1 context. Lighting is static: it's computed once from the block list, so moving or removing emitters means computing a fresh volume and rebuilding the scene.
 
 ## Scene optimization
 
-Building a world out of per-block [`loadModel`](api.md) groups works, but every block is its own meshes and draw calls. [`optimizeScene`](api.md) merges the whole scene into a handful of draw calls, with far fewer polygons, so a wall of different blocks becomes roughly one draw call:
+Building a world out of per-block [`loadModel`](#loadmodelscene-assets-model-args) groups works, but every block is its own meshes and draw calls. [`optimizeScene`](#scene-optimization) merges the whole scene into a handful of draw calls, with far fewer polygons, so a wall of different blocks becomes roughly one draw call:
 
 ```js
 import { parseBlockstate, resolveModelData, loadModel, getCullFaces, optimizeScene } from "block-model-renderer"
@@ -398,9 +428,9 @@ const optimized = await optimizeScene(placements, {
 threeScene.add(optimized.group)
 ```
 
-Each placement is `{ pos, group, cull }`: `pos` is the block's `[x, y, z]` cell coordinate (16 units per cell), `group` is [`loadModel`](api.md) output, and `cull` is an optional `Set` of face directions hidden at that placement (from [`getCullFaces`](api.md)). Above, the two stone blocks cull their touching faces and the log culls its underside, so those faces never reach the merged mesh.
+Each placement is `{ pos, group, cull }`: `pos` is the block's `[x, y, z]` cell coordinate (16 units per cell), `group` is [`loadModel`](#loadmodelscene-assets-model-args) output, and `cull` is an optional `Set` of face directions hidden at that placement (from [`getCullFaces`](#getcullfacesargs)). Above, the two stone blocks cull their touching faces and the log culls its underside, so those faces never reach the merged mesh.
 
-Share one `group` reference across placements of the same block state, as `groupFor` caches here; it's classified once and instanced per placement. That sharing is why `cull` lives on the placement rather than being baked in at [`loadModel`](api.md) time.
+Share one `group` reference across placements of the same block state, as `groupFor` caches here; it's classified once and instanced per placement. That sharing is why `cull` lives on the placement rather than being baked in at [`loadModel`](#loadmodelscene-assets-model-args) time.
 
 You *can* cull the other way, pre-culling a separate group per placement and passing those with no `cull` field, and it renders the same. But then no two placements share a build, so you're back to one build per block instead of one per block state. Passing `cull` per placement keeps the single shared build and drops each instance's hidden faces as it merges, which is far cheaper for anything bigger than a handful of blocks.
 
@@ -413,18 +443,18 @@ The result:
 | `group` | The merged `THREE.Group` to add to your scene |
 | `drawCalls`, `tris` | Stats for the merged output |
 | `atlasTextures` | The atlas textures the call built (already applied to the merged materials) |
-| [`sortTranslucent(camera)`](api.md) | Force a translucent sort now, before a single-frame capture |
-| `dispose()` | Frees everything the call created (merged geometry, atlas textures, cloned materials). Must be called when you discard or replace the scene; GPU resources don't garbage collect. Textures from the assets are untouched; those belong to [`disposeCache`](api.md) |
+| [`sortTranslucent(camera)`](#translucent-sorting) | Force a translucent sort now, before a single-frame capture |
+| `dispose()` | Frees everything the call created (merged geometry, atlas textures, cloned materials). Must be called when you discard or replace the scene; GPU resources don't garbage collect. Textures from the assets are untouched; those belong to [`disposeCache`](assets.md#caching) |
 
-Animated textures (water, lava, fire) stay live in the merged output and keep playing through [`createAnimator`](api.md) or the automatic animator.
+Animated textures (water, lava, fire) stay live in the merged output and keep playing through [`createAnimator`](#animation-browser) or the automatic animator.
 
 Every material the library creates (merged or per-model) compiles with clipping support, so three.js clipping planes work as with any standard material: assign `renderer.clippingPlanes` globally, or enable `renderer.localClippingEnabled` and set `clippingPlanes` per material.
 
 ### Translucent sorting
 
-Translucent faces (water, stained glass, ice) blend, and blending is order dependent: they must draw far-to-near or things behind show through things in front. The render functions handle this automatically against their fixed camera. [`optimizeScene`](api.md) attaches a movement-gated sorter to its merged translucent meshes: whenever the live camera has moved `resortDistance` units (default 16, one block) since a mesh last sorted, its triangles re-sort far-to-near, budgeted to one mesh per frame.
+Translucent faces (water, stained glass, ice) blend, and blending is order dependent: they must draw far-to-near or things behind show through things in front. The render functions handle this automatically against their fixed camera. [`optimizeScene`](#scene-optimization) attaches a movement-gated sorter to its merged translucent meshes: whenever the live camera has moved `resortDistance` units (default 16, one block) since a mesh last sorted, its triangles re-sort far-to-near, budgeted to one mesh per frame.
 
-For your own live scenes (a model viewer orbiting a [`loadModel`](api.md) group), attach the same behavior manually:
+For your own live scenes (a model viewer orbiting a [`loadModel`](#loadmodelscene-assets-model-args) group), attach the same behavior manually:
 
 ```js
 import { sortTranslucent } from "block-model-renderer"

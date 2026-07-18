@@ -1,8 +1,8 @@
 # Fluids
 
-Water and lava render like any other block: [`renderBlock({ id: "water", assets })`](api.md) just works, and waterloggable blocks given `{ waterlogged: true }` in their `blockstates` gain the water layer automatically. A standalone render uses the still texture at the game's resting height.
+Water and lava render like any other block: [`renderBlock({ id: "water", assets })`](standard-api.md#renderblockargs) just works, and waterloggable blocks given `{ waterlogged: true }` in their `blockstates` gain the water layer automatically. A standalone render uses the still texture at the game's resting height.
 
-In the world a fluid's shape depends on its surroundings: each surface corner averages with the neighboring fluid columns, rising to full height against taller fluid and dipping where the fluid falls away, a flowing surface angles its texture along the flow, sides pressed against glass or leaves switch to the overlay texture, and faces shared with the same fluid disappear. To get all of that, give [`loadModel`](api.md) the surrounding blocks:
+In the world a fluid's shape depends on its surroundings: each surface corner averages with the neighboring fluid columns, rising to full height against taller fluid and dipping where the fluid falls away, a flowing surface angles its texture along the flow, sides pressed against glass or leaves switch to the overlay texture, and faces shared with the same fluid disappear. To get all of that, give [`loadModel`](scenes.md#loadmodelscene-assets-model-args) the surrounding blocks:
 
 ```js
 import { parseBlockstate, resolveModelData, loadModel } from "block-model-renderer"
@@ -24,7 +24,7 @@ for (const model of await parseBlockstate(assets, "water", { data: { level: "2" 
 }
 ```
 
-The object uses the same per-direction values as [`renderBlock`](api.md)'s culling `neighbors` (a block id string, or `{ id, ...properties }`), extended with diagonal and vertical keys since the surface shape needs them. Anything missing counts as air. Non-fluid models ignore it. [`renderBlock`](api.md) forwards its `neighbors` here automatically, so a fluid rendered through it gets both culling and surface shaping from the one object.
+The object uses the same per-direction values as [`renderBlock`](standard-api.md#renderblockargs)'s culling `neighbors` (a block id string, or `{ id, ...properties }`), extended with diagonal and vertical keys since the surface shape needs them. Anything missing counts as air. Non-fluid models ignore it. [`renderBlock`](standard-api.md#renderblockargs) forwards its `neighbors` here automatically, so a fluid rendered through it gets both culling and surface shaping from the one object.
 
 | Key | Used for |
 |---|---|
@@ -42,7 +42,7 @@ That's the whole API for a single block. The two helpers below only matter when 
 
 The fluid a block contributes: `"water"` for water (including any blockstate with `waterlogged: true`, and blocks that are always water-filled per [`isWaterlogged`](models.md#iswaterloggedid): kelp, seagrass, bubble columns), `"lava"` for lava, `null` for everything else. Flowing variants count as their fluid.
 
-Use it when walking blocks to decide which cells need fluid handling at all, instead of reimplementing those rules; the return value is also the `type` to pass to [`fluidHeights`](api.md).
+Use it when walking blocks to decide which cells need fluid handling at all, instead of reimplementing those rules; the return value is also the `type` to pass to [`fluidHeights`](#fluidheightsassets-type-neighbors).
 
 ```js
 import { fluidTypeOf } from "block-model-renderer"
@@ -56,9 +56,9 @@ fluidTypeOf("stone")                               // null
 
 ## `fluidHeights(assets, type, neighbors)`
 
-The vanilla surface calculation as a standalone helper: exactly what [`loadModel`](api.md) computes internally from `neighbors`.
+The vanilla surface calculation as a standalone helper: exactly what [`loadModel`](scenes.md#loadmodelscene-assets-model-args) computes internally from `neighbors`.
 
-Use it to compute a block's surface shape once and share it: a waterlogged block is several models needing the same shape (pass the result to each [`loadModel`](api.md) as [`fluidHeights`](api.md)), and across a scene, cells with identical results can share one built model instead of rebuilding geometry per block.
+Use it to compute a block's surface shape once and share it: a waterlogged block is several models needing the same shape (pass the result to each [`loadModel`](scenes.md#loadmodelscene-assets-model-args) as its `fluidHeights` arg), and across a scene, cells with identical results can share one built model instead of rebuilding geometry per block.
 
 ```js
 import { parseBlockstate, resolveModelData, loadModel, fluidTypeOf, fluidHeights } from "block-model-renderer"
@@ -77,10 +77,10 @@ for (const model of await parseBlockstate(assets, "oak_fence", { data: { waterlo
 | Argument | Description |
 |---|---|
 | `assets` | The assets source (neighbor solidity is read from their models) |
-| `type` | `"water"` or `"lava"`, or `null` for a non-fluid (this is [`fluidTypeOf`](api.md)'s return, passed straight through) |
+| `type` | `"water"` or `"lava"`, or `null` for a non-fluid (this is [`fluidTypeOf`](#fluidtypeofid-properties)'s return, passed straight through) |
 | `neighbors` | The surrounding blocks, in the same direction-keyed form shown above |
 
-Returns an object you can pass to [`loadModel`](api.md) as [`fluidHeights`](api.md) (or `null` when `type` was `null`):
+Returns an object you can pass to [`loadModel`](scenes.md#loadmodelscene-assets-model-args) as its `fluidHeights` arg (or `null` when `type` was `null`):
 
 | Field | Description |
 |---|---|
