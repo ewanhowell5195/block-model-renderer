@@ -485,8 +485,9 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
       const model = {
         model: def.base
       }
-      model.special = def.model
-      model.special.type = normalize(model.special.type)
+      model.special = Object.assign({}, def.model, { type: normalize(def.model.type) })
+      if (data["banner_patterns"]) model.special.patterns = data["banner_patterns"]
+      if (data["base_color"] != null) model.special.base_color = data["base_color"]
       if (currentTransform) model.transformation = currentTransform.elements
       return [model]
     }
@@ -924,6 +925,32 @@ export async function resolveModelData(assets, model) {
   return merged
 }
 
+function applyPatternLayers(model, data, dye, folder, isBase) {
+  if (!data.patterns?.length) return
+  const layers = model.elements.filter(isBase)
+  data.patterns.forEach((entry, i) => {
+    const ref = typeof entry.pattern === "string" ? entry.pattern : entry.pattern?.asset_id
+    if (!ref) return
+    const { namespace, item } = resolveNamespace(normalize(ref))
+    const key = `pattern_${i}`
+    model.textures[key] = `${namespace === "minecraft" ? "" : `${namespace}:`}entity/${folder}/${item}`
+    const grow = 0.02 * (i + 1)
+    const tintIndex = model.tints.length
+    model.tints.push(dye[normalize(entry.color ?? "white")])
+    for (const el of layers) {
+      const clone = structuredClone(el)
+      delete clone.type
+      clone.from = clone.from.map(v => v - grow)
+      clone.to = clone.to.map(v => v + grow)
+      for (const face of Object.values(clone.faces)) {
+        face.texture = `#${key}`
+        face.tintindex = tintIndex
+      }
+      model.elements.push(clone)
+    }
+  })
+}
+
 async function resolveSpecialModel(assets, data, base) {
   const originalType = data.type
 
@@ -954,12 +981,15 @@ async function resolveSpecialModel(assets, data, base) {
   let translation, rotation, scale
 
   switch (originalType) {
-    case "banner":
+    case "banner": {
       translation = [-8, -20, -8]
       rotation = [0, 0, 180]
       scale = [1.5, 1.5, 1.5]
-      model.tints = [(await colorTables(assets)).tables.dye[data.color]]
+      const dye = (await colorTables(assets)).tables.dye
+      model.tints = [dye[data.color]]
+      applyPatternLayers(model, data, dye, "banner", el => Object.values(el.faces).some(f => f.texture === "#tinted"))
       break
+    }
     case "bed":
       model.textures = { bed: `entity/bed/${normalize(data.texture)}` }
       rotation = [-90, 180, 0]
@@ -1010,6 +1040,18 @@ async function resolveSpecialModel(assets, data, base) {
       break
     case "decorated_pot":
       rotation = [0, 180, 0]
+      break
+    case "shield":
+      if (data.base_color != null) {
+        const dye = (await colorTables(assets)).tables.dye
+        model.textures = { shield: "entity/shield/base" }
+        model.tints = [dye[normalize(data.base_color)]]
+        for (const el of model.elements) {
+          if (el.type !== "plate") continue
+          for (const face of Object.values(el.faces)) face.tintindex = 0
+        }
+        applyPatternLayers(model, data, dye, "shield", el => el.type === "plate")
+      }
       break
   }
   return {
