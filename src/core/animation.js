@@ -49,16 +49,20 @@ export function computeAnimationTimeline(animatedTextures, maxFrameCount) {
       return (acc * s.total) / a
     }, 1)
 
+    const cap = maxFrameCount + 1
     const eventSet = new Set()
     for (const s of schedules) {
-      for (let loop = 0; loop * s.total < totalDuration; loop++) {
-        for (const b of s.boundaries) {
-          const t = loop * s.total + b
-          if (t < totalDuration) eventSet.add(t)
+      let added = 0
+      outer: for (let loop = 0; loop * s.total < totalDuration; loop++) {
+        for (let i = 0; i < s.boundaries.length - 1; i++) {
+          const t = loop * s.total + s.boundaries[i]
+          if (t >= totalDuration) break outer
+          eventSet.add(t)
+          if (++added >= cap) break outer
         }
       }
     }
-    events = Array.from(eventSet).sort((a, b) => a - b)
+    events = Array.from(eventSet).sort((a, b) => a - b).slice(0, cap)
     frameCount = events.length
 
     if (frameCount <= maxFrameCount) break
