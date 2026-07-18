@@ -328,14 +328,14 @@ export async function createScene(assets, blocks, args = {}) {
       for (const t of templates ?? []) {
         t.group.traverse(o => {
           if (!o.isMesh) return
-          o.geometry?.dispose()
-          for (const m of [].concat(o.material)) m?.dispose?.()
+          try { o.geometry?.dispose() } catch {}
+          for (const m of [].concat(o.material)) { try { m?.dispose?.() } catch {} }
         })
       }
       group.traverse(o => {
         if (!o.isMesh) return
-        o.geometry?.dispose()
-        for (const m of [].concat(o.material)) m?.dispose?.()
+        try { o.geometry?.dispose() } catch {}
+        for (const m of [].concat(o.material)) { try { m?.dispose?.() } catch {} }
       })
       group.removeFromParent()
     }

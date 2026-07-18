@@ -527,9 +527,9 @@ export async function optimizeScene(placements, opts = {}) {
     sortTranslucent: camera => sorter.sort(camera),
     dispose() {
       sorter.detach()
-      group.traverse(o => { if (o.isMesh) o.geometry.dispose() })
-      for (const m of created.materials) m.dispose()
-      for (const t of created.textures) t.dispose()
+      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} } })
+      for (const m of created.materials) { try { m.dispose() } catch {} }
+      for (const t of created.textures) { try { t.dispose() } catch {} }
       group.removeFromParent()
     }
   }
