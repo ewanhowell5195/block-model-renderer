@@ -92,7 +92,9 @@ Caching stays enabled after a dispose; it just repopulates. Don't dispose while 
 
 ### Minecraft version
 
-Pass `{ version: "1.21.11" }` to pin the Minecraft version the assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (currently the armor trim palette locations). Without it, the first render that passes a `version` stamps it onto the prepared assets, and with no version at all both the modern and legacy forms are probed.
+Pass `{ version: "1.21.11" }` to pin the Minecraft version the assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (the armor trim palette locations, the [versioned override packs](#versioned-overrides)). Without it, the first render that passes a `version` stamps it onto the prepared assets, and with no version at all both the modern and legacy forms are probed.
+
+With [`{ cache: true }`](#caching) the version must be decided here: the cross-call cache isn't version-aware, so a render-call `version` that doesn't match the prepared assets' version throws instead of silently mixing cached resolutions from two eras.
 
 ### Translucency detection
 
@@ -129,6 +131,10 @@ The following categories are covered:
 * Technical blocks (barrier, light, structure void, moving piston)
 
 **Limitation:** the overrides pack is prepended to your assets array at the highest priority. Any blockstate or model covered by it will override whatever your own packs provide, the bundled version always wins. This is a renderer limitation, not a design choice. That said, since these blocks are rendered dynamically by vanilla, you're very unlikely to actually have modified these blockstates and models.
+
+#### Versioned overrides
+
+Blocks that vanilla has since made data-driven live in versioned override packs alongside the main one, named for the last version they apply to: `overrides_26.1` carries the bed and sign models, since both were block entities without models until 26.2. A versioned pack only activates when the [`version` option](versions.md#legacy-minecraft-versions) falls at or below its name; without a `version` it is inert, so modern renders always use the real vanilla models. With [`{ cache: true }`](#caching) assets, pass the version to `prepareAssets`: a render-call `version` that doesn't match the cached assets' pinned version [throws](#minecraft-version), since the cache would otherwise mix resolutions from before and after the pack activates.
 
 ### Fallback pack (lowest priority)
 

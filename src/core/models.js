@@ -923,6 +923,9 @@ async function resolveSpecialModel(assets, data, base) {
     modelPath = `block-model-renderer:block/chest/_template_chest_${data.chest_type}`
   } else if (originalType === "copper_golem_statue" && data.pose && data.pose !== "standing") {
     modelPath = `block-model-renderer:block/copper_golem_statue/_template_copper_golem_statue_${data.pose}`
+  } else if (originalType === "bed") {
+    if (!assets.version || !isBefore(assets.version, "26.2")) return
+    modelPath = `~block/bed/_template_bed_${normalize(data.part ?? "head")}`
   } else {
     const baseItem = base ? resolveNamespace(base).item : null
     if (baseItem && await readFile(`assets/block-model-renderer/models/${baseItem}.json`, assets)) {
@@ -943,6 +946,10 @@ async function resolveSpecialModel(assets, data, base) {
       rotation = [0, 0, 180]
       scale = [1.5, 1.5, 1.5]
       model.tints = [(await colorTables(assets)).tables.dye[data.color]]
+      break
+    case "bed":
+      model.textures = { bed: `entity/bed/${normalize(data.texture)}` }
+      rotation = [-90, 180, 0]
       break
     case "chest": {
       rotation = [0, 180, 0]

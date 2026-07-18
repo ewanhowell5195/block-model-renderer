@@ -6,7 +6,7 @@ import sharp from "sharp"
 import zlib from "node:zlib"
 import path from "node:path"
 import fs from "node:fs"
-import { setPlatform, parsePackFilter, zipAssets } from "./core.js"
+import { setPlatform, parsePackFilter, zipAssets, overridesVersionBound } from "./core.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -73,19 +73,31 @@ setPlatform({
   },
 
   async addBundledEntries(arr) {
-    const overridesPath = path.join(__dirname, "../assets/overrides")
-    const fallbacksPath = path.join(__dirname, "../assets/fallbacks")
+    const assetsDir = path.join(__dirname, "../assets")
+    const overridesPath = path.join(assetsDir, "overrides")
+    const fallbacksPath = path.join(assetsDir, "fallbacks")
     function find(target) {
       const resolved = path.resolve(target)
       return arr.find(e => typeof e?.path === "string" && path.resolve(e.path) === resolved)
     }
-    const existingOverrides = find(overridesPath)
-    if (existingOverrides) {
-      existingOverrides.bundledOverrides = true
+    let main = find(overridesPath)
+    if (main) {
+      main.bundledOverrides = true
     } else {
-      const entry = await makeFolderEntry(overridesPath)
-      entry.bundledOverrides = true
-      arr.unshift(entry)
+      main = await makeFolderEntry(overridesPath)
+      main.bundledOverrides = true
+      arr.unshift(main)
+    }
+    let names = []
+    try { names = await fs.promises.readdir(assetsDir) } catch {}
+    for (const name of names.sort()) {
+      const bound = overridesVersionBound(name)
+      if (!bound) continue
+      const versionedPath = path.join(assetsDir, name)
+      if (find(versionedPath)) continue
+      const entry = await makeFolderEntry(versionedPath)
+      entry.versionBefore = bound
+      arr.splice(arr.indexOf(main) + 1, 0, entry)
     }
     if (!find(fallbacksPath)) {
       arr.push(await makeFolderEntry(fallbacksPath))

@@ -94,6 +94,19 @@ function splitResourcePath(filePath) {
   return { namespace: "minecraft", path: filePath }
 }
 
+export function overridesVersionBound(name) {
+  const m = /^overrides_(\d+(?:\.\d+)*)$/.exec(name)
+  if (!m) return null
+  const parts = m[1].split(".")
+  parts[parts.length - 1] = String(Number(parts[parts.length - 1]) + 1)
+  return parts.join(".")
+}
+
+function entryActive(entry, assets) {
+  if (!entry.versionBefore) return true
+  return !!assets.version && isBefore(assets.version, entry.versionBefore)
+}
+
 async function isBlocked(entry, filePath) {
   if (!entry) return
   if (typeof entry.filter === "function") return !!(await entry.filter(filePath))
@@ -109,6 +122,7 @@ async function isBlocked(entry, filePath) {
 
 async function isFilteredByHigher(entries, index, filePath) {
   for (let j = 0; j < index; j++) {
+    if (!entryActive(entries[j], entries)) continue
     if (await isBlocked(entries[j], filePath)) return true
   }
 }
@@ -130,9 +144,14 @@ function builtinFallbackFiles() {
 export async function prepareAssets(assets, opts) {
   if (assets == null || assets.length === 0) throw new Error("prepareAssets requires assets")
   if (Array.isArray(assets) && assets.prepared) {
+    if (opts?.version && opts.version !== assets.version && assets.cache && !assets.cache.ephemeral) {
+      throw new Error(assets.version
+        ? `these cached assets are pinned to version ${assets.version}; a render can't use version ${opts.version} with them`
+        : `cached assets resolve versioned behavior at prepare time; pass { version: "${opts.version}" } to prepareAssets alongside { cache: true }`)
+    }
+    if (opts?.version && !assets.version) assets.version = opts.version
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
     if (opts?.translucency) assets.translucency = opts.translucency
-    if (opts?.version && !assets.version) assets.version = opts.version
     return assets
   }
 
@@ -183,6 +202,7 @@ export async function readFileAll(file, assets) {
   for (let i = 0; i < assets.length; i++) {
     const entry = assets[i]
     if (!entry.read) continue
+    if (!entryActive(entry, assets)) continue
     if (await isFilteredByHigher(assets, i, file)) continue
     try {
       const data = await entry.read(file)
@@ -501,6 +521,7 @@ export async function listDirectory(dir, assets) {
   const out = new Set()
   for (let i = 0; i < assets.length; i++) {
     const entry = assets[i]
+    if (!entryActive(entry, assets)) continue
     let files = []
     if (entry.list) {
       files = (await entry.list(dir)) ?? []
@@ -530,6 +551,7 @@ export async function readFile(file, assets, hint) {
   const range = hint !== undefined ? [hint] : assets.map((_, i) => i)
   for (const i of range) {
     const entry = assets[i]
+    if (!entryActive(entry, assets)) continue
     if (await isFilteredByHigher(assets, i, file)) continue
 
     const resolver = entry.virtualSprites?.get(file)

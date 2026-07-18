@@ -1,5 +1,6 @@
-// Packs assets/overrides + assets/fallbacks into a single assets.zip so the
-// web platform can fetch the bundled assets in one request. Run on prepublish.
+// Packs every assets/ directory (overrides, versioned overrides_*, fallbacks)
+// into a single assets.zip so the web platform can fetch the bundled assets in
+// one request. Run on prepublish.
 import { buildZip } from "../src/zip.js"
 import { fileURLToPath } from "node:url"
 import zlib from "node:zlib"
@@ -19,8 +20,9 @@ function collect(dir, prefix, out) {
 }
 
 const files = {}
-collect(path.join(root, "assets/overrides"), "overrides", files)
-collect(path.join(root, "assets/fallbacks"), "fallbacks", files)
+for (const entry of fs.readdirSync(path.join(root, "assets"), { withFileTypes: true })) {
+  if (entry.isDirectory()) collect(path.join(root, "assets", entry.name), entry.name, files)
+}
 
 const zip = buildZip(files, data => zlib.deflateRawSync(data, { level: 9 }))
 fs.writeFileSync(path.join(root, "assets.zip"), zip)
