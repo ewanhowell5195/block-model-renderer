@@ -1,5 +1,5 @@
 import { THREE, Canvas } from "./platform.js"
-import { canOcclude } from "./culling.js"
+import { builtinRules } from "./data.js"
 
 function emptyMask() { return new Uint16Array(16) }
 const EMPTY_MASKS = () => ({ east: emptyMask(), west: emptyMask(), up: emptyMask(), down: emptyMask(), south: emptyMask(), north: emptyMask() })
@@ -51,9 +51,9 @@ function rasterize(mask, ax, a, b, c) {
   }
 }
 
-export function occludingFaces(model, id, geometric) {
+export function occludingFaces(model, id, geometric, rules = builtinRules) {
   const masks = EMPTY_MASKS()
-  if (!geometric && id != null && !canOcclude(id)) return masks
+  if (!geometric && id != null && !rules.canOcclude(id)) return masks
   if (!_va) { _va = new THREE.Vector3(); _vb = new THREE.Vector3(); _vc = new THREE.Vector3() }
   model.updateMatrixWorld(true)
   model.traverse(o => {

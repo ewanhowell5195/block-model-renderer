@@ -68,12 +68,13 @@ function javaBin(name) {
   return home ? path.join(home, "bin", name) : name
 }
 
-// Compress an id list into a minimal { suffix, exact, except? } that matchId()
-// reproduces exactly against the current block set, but generalises to future
-// blocks via suffix rules (a new *_stairs is covered without regenerating).
-// Verified against the full block set; falls back to a plain exact list if a
-// cover would ever be wrong.
-function compress(targetIds, allIds) {
+// Compress an id list into { suffix, exact, except? } that matchId() reproduces
+// exactly against the current block set, preferring the loosest suffixes that
+// stay vanilla-exact so modded ids are as likely as possible to match too (a
+// new *_stairs or ruby_torch is covered without regenerating). freeIds are ids
+// an earlier rule in an ordered list already claims, so matching them here is
+// harmless. Falls back to a plain exact list if a cover would ever be wrong.
+function compress(targetIds, allIds, freeIds = null) {
   const target = new Set(targetIds)
   const candidates = new Set()
   for (const id of targetIds) {
@@ -85,16 +86,20 @@ function compress(targetIds, allIds) {
   for (const s of candidates) {
     const matched = allIds.filter(id => id.endsWith(s))
     const hits = matched.filter(id => target.has(id))
-    if (hits.length >= 2) rules.push({ s, hits, miss: matched.filter(id => !target.has(id)) })
+    if (hits.length) rules.push({ s, hits, miss: matched.filter(id => !target.has(id) && !freeIds?.has(id)) })
   }
   const covered = new Set(), exceptSet = new Set(), suffix = []
   while (true) {
-    let best = null, bestGain = 1
+    let best = null
     for (const r of rules) {
       const newHits = r.hits.filter(id => !covered.has(id)).length
-      if (newHits < 2) continue
-      const gain = newHits - r.miss.filter(id => !exceptSet.has(id)).length
-      if (gain > bestGain) { bestGain = gain; best = r }
+      if (!newHits) continue
+      const newMiss = r.miss.filter(id => !exceptSet.has(id)).length
+      const gain = newHits - newMiss
+      if (gain < 1) continue
+      if (!best || gain > best.gain || (gain === best.gain && (newMiss < best.newMiss || (newMiss === best.newMiss && r.s.length < best.s.length)))) {
+        best = { s: r.s, hits: r.hits, miss: r.miss, gain, newMiss }
+      }
     }
     if (!best) break
     suffix.push(best.s)
@@ -107,14 +112,16 @@ function compress(targetIds, allIds) {
 
   const exactS = new Set(rule.exact), exceptS = new Set(rule.except || [])
   const produced = allIds.filter(id => !exceptS.has(id) && (exactS.has(id) || rule.suffix.some(s => id.endsWith(s))))
-  const ok = produced.length === target.size && produced.every(id => target.has(id))
+  const ok = targetIds.every(id => produced.includes(id)) && produced.every(id => target.has(id) || freeIds?.has(id))
   return ok ? rule : { suffix: [], exact: [...targetIds].sort() }
 }
 
 // Light emission entries carry a value (a level, or a per-blockstate rule), so
-// the ids are grouped by identical value and each group gets the same
-// suffix/exact/except cover as the plain block lists. Groups can't collide:
-// compress() verifies each cover reproduces exactly its own ids.
+// the ids are grouped by identical value and each group gets a suffix cover.
+// Rules match in order (largest group first), so a later group's suffix may
+// overlap ids an earlier rule already claims exactly, which is what lets the
+// suffixes stay loose. The whole ordered list is then verified to reproduce
+// the game data exactly over every vanilla block.
 function compressEmission(emission, allIds) {
   const groups = new Map()
   for (const [id, value] of Object.entries(emission)) {
@@ -122,9 +129,23 @@ function compressEmission(emission, allIds) {
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(id)
   }
-  return [...groups.entries()]
-    .sort((a, b) => b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1))
-    .map(([key, ids]) => ({ value: JSON.parse(key), ...compress(ids, allIds) }))
+  const free = new Set()
+  const out = []
+  for (const [key, ids] of [...groups.entries()].sort((a, b) => b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1))) {
+    out.push({ value: JSON.parse(key), ...compress(ids, allIds, free) })
+    for (const id of ids) free.add(id)
+  }
+  const runtime = out.map(r => ({ ...r, exactS: new Set(r.exact), exceptS: new Set(r.except ?? []) }))
+  for (const id of allIds) {
+    let got = null
+    for (const r of runtime) {
+      if (r.exceptS.has(id)) continue
+      if (r.exactS.has(id) || r.suffix.some(s => id.endsWith(s))) { got = JSON.stringify(r.value); break }
+    }
+    const want = emission[id] === undefined ? null : JSON.stringify(emission[id])
+    if (got !== want) throw new Error(`emission cover resolves ${id} to ${got}, game says ${want}`)
+  }
+  return out
 }
 
 // Mirrors defaultBlockstates() in src/core/models.js: a block-specific rule wins
@@ -132,7 +153,7 @@ function compressEmission(emission, allIds) {
 // entry is preferred. Returns (block, property) -> the default value the
 // renderer uses for that property.
 function loadDefaultBlockstates() {
-  const json = JSON.parse(fs.readFileSync(path.join(root, "src/core/data/fallbacks.json"), "utf8"))["assets/block-model-renderer/default_blockstates.json"]
+  const json = JSON.parse(fs.readFileSync(path.join(root, "src/core/data/default_blockstates.json"), "utf8"))
   const properties = json.properties ?? {}
   const rules = (json.blocks ?? []).filter(r => r?.match && r.defaults).map(r => ({
     patterns: r.match.split("|").map(p => new RegExp("^" + p.replace(/\*/g, ".*") + "$")),
@@ -189,18 +210,25 @@ async function main() {
   }
 
   fs.mkdirSync(dataDir, { recursive: true })
-  const blocks = {
-    _generated: `from minecraft ${version.id} by tools/generate/generate.js`,
+  const stamp = `from minecraft ${version.id} by tools/generate/generate.js`
+  const waterlogging = {
+    _generated: stamp,
     waterloggable: compress(d.waterloggable, d.allBlocks),
-    waterlogged: compress(d.waterlogged, d.allBlocks),
+    waterlogged: compress(d.waterlogged, d.allBlocks)
+  }
+  const culling = {
+    _generated: stamp,
     nonOccluding: compress(d.nonOccluding, d.allBlocks),
     selfCullAll: compress(d.selfCullAll, d.allBlocks),
-    selfCullY: compress(d.selfCullY, d.allBlocks),
+    selfCullY: compress(d.selfCullY, d.allBlocks)
+  }
+  const lighting = {
+    _generated: stamp,
     lightEmission: compressEmission(d.lightEmission, d.allBlocks),
     shapeLightOcclusion: compressEmission(d.shapeLightOcclusion, d.allBlocks)
   }
   const colors = {
-    _generated: `from minecraft ${version.id} by tools/generate/generate.js`,
+    _generated: stamp,
     colormap: d.colormap,
     dye: d.dye,
     effects: d.effects,
@@ -224,7 +252,9 @@ async function main() {
       log("wrote", rel)
     }
   }
-  write("blocks.json", blocks)
+  write("waterlogging.json", waterlogging)
+  write("culling.json", culling)
+  write("lighting.json", lighting)
   write("colors.json", colors)
 
   log(`${check ? "checked" : "done"}: ${d.waterloggable.length} waterloggable, ${d.nonOccluding.length} non-occluding, ${d.selfCullAll.length} self-cull, ${Object.keys(d.dye).length} dye, ${Object.keys(d.effects).length} effects, ${Object.keys(d.team).length} team`)

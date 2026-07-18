@@ -200,7 +200,7 @@ The `args` object, grouped by what it affects. How the model looks:
 |---|---|
 | `args.display` | Display transform to apply to the model. See [Display transforms](models.md#display-transforms) |
 | `args.lighting` | Lighting mode (`"item"` (default), `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting) with the dimension, daytime, brightness, and `light` volume. With a `light` volume, faces sample per-block light, so torches glow and interiors darken |
-| `args.emission` | Floor every element's light emission at this level (0-15), like a glow item frame's contents. See [Lighting modes](rendering.md#lighting-modes) |
+| `args.emission` | Floor every element's light emission at this level (0-15), like a glow item frame's contents. When present it replaces the automatic block-level glow from `args.block`, so `0` disables it. See [Lighting modes](rendering.md#lighting-modes) |
 | `args.shaderScale` | Density multiplier for screen-space shader effects, as in [`renderBlock`](standard-api.md#renderblockargs) |
 
 Where the block sits:
@@ -289,7 +289,7 @@ The rules follow Minecraft's `shouldRenderFace`. A `cullface`-authored face is d
 
 And never against blocks the game flags as non-occluding (glass, leaves, powder snow), no matter how solid they look.
 
-It's *near* game-accurate rather than exact: the game hardcodes each block's occlusion shape, while this library rasterizes it off the actual model geometry and texture opacity instead, since copying the game's full per-block shape table would be unsustainable. The non-occluders above (glass, leaves, and such) are the exception, since they can't be read off geometry, so those stay a small hardcoded id list.
+It's *near* game-accurate rather than exact: the game hardcodes each block's occlusion shape, while this library rasterizes it off the actual model geometry and texture opacity instead, since copying the game's full per-block shape table would be unsustainable. The non-occluders above (glass, leaves, and such) are the exception, since they can't be read off geometry, so those stay a small built-in id list, which packs can extend through [`culling.json`](extending.md#block-data-and-colors).
 
 ### `getCullFaces(args)`
 

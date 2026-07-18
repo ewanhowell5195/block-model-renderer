@@ -76,7 +76,7 @@ isWaterlogged("oak_stairs")    // false: waterloggable, but not always water
 
 ## `getLightEmission(id, properties?, resolveDefault?)`
 
-The light level (0-15) a block emits, straight from the game's per-blockstate data. Uniform emitters (glowstone, torches, lava) return their level for any state; state-dependent emitters (lit furnaces and campfires, candle counts, the light block's `level`) read the deciding properties from `properties`.
+The light level (0-15) a block emits, straight from the game's per-blockstate data. Uniform emitters (glowstone, torches, lava) return their level for any state; state-dependent emitters (lit furnaces and campfires, candle counts, the light block's `level`) read the deciding properties from `properties`. Packs can extend or override the underlying data through [`lighting.json`](extending.md#block-data-and-colors); this helper reports the built-in data.
 
 | Argument | Description |
 |---|---|
@@ -95,7 +95,7 @@ getLightEmission("candle", { candles: 3, lit: true })        // 9
 getLightEmission("stone")                                    // 0
 ```
 
-The renderer applies this automatically: rendering a block that glows in game (via `renderBlock` or a `loadModel` call with `args.block`) floors every element's [`light_emission`](rendering.md#lighting-modes) at the block's own level, so glowstone stays bright at a dark [`daytime`](rendering.md#lighting-modes) without the model needing `light_emission`. Missing properties resolve through the same `default_blockstates` data the model picker uses, so a bare `campfire` glows lit, matching the model it renders.
+The renderer applies this automatically: rendering a block that glows in game (via `renderBlock` or a `loadModel` call with `args.block`) floors every element's [`light_emission`](rendering.md#lighting-modes) at the block's own level (unless an explicit `emission` option overrides it), so glowstone stays bright at a dark [`daytime`](rendering.md#lighting-modes) without the model needing `light_emission`. Missing properties resolve through the same `default_blockstates` data the model picker uses, so a bare `campfire` glows lit, matching the model it renders.
 
 ## `isCrossModel(models)`
 
@@ -134,7 +134,7 @@ await getBiomeTint(assets, "foliage", { tint: "#df6827" })                   // 
 
 ## `COLORS`
 
-The color tables the renderer tints with, exported as one object for lookups in your own tooling (or careful tweaking; it's the live data):
+The color tables the renderer tints with, exported as one object for lookups in your own tooling (or careful tweaking; it's the live data). Packs can override the tables per entry by shipping their own [`colors.json`](extending.md#block-data-and-colors); this export always reports the built-in data.
 
 | Key | Contents |
 |---|---|

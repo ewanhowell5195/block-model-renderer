@@ -84,7 +84,7 @@ An element's `light_emission` (0-15) is the light level it emits: the element fe
 
 Blocks that glow in game without their models using `light_emission` (glowstone, lanterns, lava) get it automatically: when the renderer knows the block being rendered (`renderBlock`, or `loadModel` with `args.block`), every element's emission is floored at the block's own in-game light level, including state-dependent ones like a lit furnace or candle counts (see [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault)). So a glowstone stays bright at midnight with no model changes.
 
-`loadModel` also takes an `emission` option (0-15) that floors every element the same way. It covers renders the game draws at full lightmap while keeping their normal face shading, like the contents of a glow item frame: pass `emission: 15` and the model stays bright at any `daytime` or light level without the flat look of `lighting: "off"`.
+The render functions and `loadModel` also take an `emission` option (0-15) that floors every element the same way, and when present it replaces the automatic block level entirely. `emission: 15` keeps a model bright at any `daytime` or light level without the flat look of `lighting: "off"`, covering renders the game draws at full lightmap while keeping their normal face shading, like the contents of a glow item frame; `emission: 0` turns a glowing block's automatic glow off.
 
 Emission alone keeps a glowing block bright; it doesn't light anything around it. For scenes where torches should light up their surroundings, compute a light volume with [`computeSceneLight`](scenes.md#scene-lighting) and pass it as `lighting: { light }`.
 

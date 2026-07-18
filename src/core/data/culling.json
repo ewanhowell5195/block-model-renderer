@@ -1,0 +1,56 @@
+{
+  "_generated": "from minecraft 26.3-snapshot-3 by tools/generate/generate.js",
+  "nonOccluding": {
+    "suffix": [
+      "_box",
+      "_instance_block",
+      "_moss_carpet",
+      "_snow",
+      "azalea",
+      "barrier",
+      "beacon",
+      "campfire",
+      "door",
+      "glass",
+      "grate",
+      "ladder",
+      "leaves",
+      "scaffolding",
+      "spawner",
+      "vault"
+    ],
+    "exact": [
+      "chorus_flower",
+      "frosted_ice",
+      "honey_block",
+      "ice",
+      "mangrove_roots",
+      "slime_block",
+      "straw_bed"
+    ]
+  },
+  "selfCullAll": {
+    "suffix": [
+      "_snow",
+      "glass",
+      "grate",
+      "ice"
+    ],
+    "exact": [
+      "honey_block",
+      "slime_block"
+    ],
+    "except": [
+      "packed_ice"
+    ]
+  },
+  "selfCullY": {
+    "suffix": [
+      "bars",
+      "pane"
+    ],
+    "exact": [
+      "mangrove_roots"
+    ]
+  }
+}

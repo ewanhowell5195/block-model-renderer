@@ -5,6 +5,7 @@ import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, collectAnimated, applyFrame, readTexture } from "./animation.js"
+import { blockRules } from "./data.js"
 
 const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east: "west", west: "east" }
 
@@ -33,6 +34,7 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
   if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
   const occCache = assets.cache.occlusion
+  const rules = await blockRules(assets)
   function stateKey(bid, props) {
     let key = bid
     if (props) for (const k of Object.keys(props).sort()) key += "," + k + "=" + props[k]
@@ -45,7 +47,7 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     if (m === undefined) {
       try {
         const g = await buildBlockModel(assets, bid, props, version)
-        m = g ? occludingFaces(g, bid) : null
+        m = g ? occludingFaces(g, bid, false, rules) : null
       } catch { m = null }
       occCache.set(key, m)
     }
@@ -73,11 +75,11 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     const nid = typeof n === "string" ? n : n.id
     const props = typeof n === "string" ? undefined : (({ id, ...rest }) => rest)(n)
     if (typeof n === "object" && "occludes" in n) {
-      if (n.occludes || selfCulls(id, nid, dir, blockstates, props)) cull.add(dir)
+      if (n.occludes || selfCulls(id, nid, dir, blockstates, props, rules)) cull.add(dir)
       continue
     }
     if (!nid) continue
-    if (selfCulls(id, nid, dir, blockstates, props)) { cull.add(dir); continue }
+    if (selfCulls(id, nid, dir, blockstates, props, rules)) { cull.add(dir); continue }
     const sm = (await selfMasks())?.[dir]
     if (!sm || faceIsEmpty(sm)) continue
     const nm = await masksFor(nid, props)
@@ -115,7 +117,7 @@ export async function renderBlock(args = {}) {
   const block = { id: args.id, properties: args.blockstates }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale })
+    await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
   }
 
   return renderModelScene(scene, camera, args)
@@ -139,7 +141,7 @@ export async function renderItem(args = {}) {
 
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale })
+    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
   }
 
   return renderModelScene(scene, camera, args)
@@ -200,7 +202,7 @@ export async function renderModel(args = {}) {
   scene.userData.ephemeral = true
 
   const resolved = await resolveModelData(args.assets, { model: args.model})
-  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale })
+  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
 
   return renderModelScene(scene, camera, args)
 }

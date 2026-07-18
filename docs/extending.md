@@ -67,6 +67,45 @@ assets/block-model-renderer/default_blockstates.json
 
 Lookup order for a property: the `blockstates` option → the first matching `blocks` rule → `properties`.
 
+## Block data and colors
+
+The renderer's built-in block behavior data and color tables are pack files too, resolved through the same layered stack, so any pack can extend or override them:
+
+```
+assets/block-model-renderer/waterlogging.json
+assets/block-model-renderer/culling.json
+assets/block-model-renderer/lighting.json
+assets/block-model-renderer/colors.json
+```
+
+### `waterlogging.json`, `culling.json`, `lighting.json`
+
+Id-matching rules for block behaviors, split by concern:
+
+| File | Sections |
+|---|---|
+| `waterlogging.json` | `waterloggable` (the `waterlogged` property works), `waterlogged` (inherently water-filled, like kelp) |
+| `culling.json` | `nonOccluding` (never hides neighbor faces), `selfCullAll` (culls against its own kind on all sides), `selfCullY` (vertically, plus connected sides: panes, bars) |
+| `lighting.json` | `lightEmission` (in-game light levels), `shapeLightOcclusion` (light blocked by model shape rather than as a full cube: slabs, stairs) |
+
+The boolean sections each hold one rule of the form `{ "suffix": [...], "exact": [...], "except": [...] }`: an id matches by exact name or by suffix, unless listed in `except`. The `lightEmission` and `shapeLightOcclusion` sections are ordered rule lists where each rule adds a `value`: a flat level, or `{ "default": n, "cases": [[{ "prop": "value" }, level], ...] }` resolved against the blockstate properties.
+
+```json
+{
+  "lightEmission": [
+    { "value": { "default": 0, "cases": [[{ "on": "true" }, 15]] }, "suffix": [], "exact": ["my_mod_lamp"] }
+  ]
+}
+```
+
+Every pack's file applies. The boolean sections are additive: a block matches when any pack's rule matches it. The valued sections consult higher packs first, so a pack can both add modded blocks and override the built-in level of a vanilla one. The built-in data (generated from the game) sits at the bottom of the stack, and already matches loosely on purpose: modded ids like `ruby_torch` or `crystal_lantern` pick up sensible values from the suffix rules without any pack file at all.
+
+### `colors.json`
+
+The tint tables, in the same shape as [`COLORS`](models.md#colors): `colormap`, `fixed`, `indexed`, `tintindex`, `dye`, `effects`, `potions`, and `team`. Files merge per entry with higher packs winning, so `{ "fixed": { "birch_leaves": "#FF0000" } }` recolors birch leaves and touches nothing else. Listing a block under a `colormap` map assigns it to that map, overriding any lower pack's assignment.
+
+Pack overrides apply to what renders; the assets-free helpers ([`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault), [`isWaterloggable`](models.md#iswaterloggableid), [`isWaterlogged`](models.md#iswaterloggedid), [`fluidTypeOf`](fluids.md#fluidtypeofid-properties), [`COLORS`](models.md#colors)) keep reporting the built-in data, since they have no pack stack to consult.
+
 ## Custom model loaders
 
 Mods extend the model format in their own ways: extra keys on standard models, embedded mesh data, references to other formats entirely. `ModelLoader` lets you plug that in without forking the pipeline. Loaders are global and identical on Node and in the browser, and consulted by `priority` (a number, default `0`, higher first; ties keep registration order), read live so setting `loader.priority` any time takes effect on the next render.

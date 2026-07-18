@@ -4,6 +4,7 @@ import { parseBlockstate, resolveModelData, loadModel, AIR_BLOCKS } from "./mode
 import { getCullFaces } from "./render.js"
 import { computeSceneLight } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
+import { blockRules } from "./data.js"
 import { optimizeScene } from "./optimize.js"
 
 const nextTask = globalThis.scheduler?.yield
@@ -58,6 +59,7 @@ export async function createScene(assets, blocks, args = {}) {
   if (assets == null || assets.length === 0) throw new Error("createScene requires assets")
   if (!Array.isArray(blocks)) throw new Error("createScene requires an array of blocks")
   assets = scopedCache(await prepareAssets(assets))
+  const rules = await blockRules(assets)
   const lightingArg = args.lighting ?? "world"
   const worldCfg = lightingArg && typeof lightingArg === "object" ? lightingArg : lightingArg === "world" ? {} : null
   const lighting = worldCfg ? "world" : lightingArg
@@ -147,7 +149,7 @@ export async function createScene(assets, blocks, args = {}) {
     cell.cull = cull.size ? cull : null
 
     let fh = null
-    if (fluidTypeOf(entry.id, entry.properties)) {
+    if (fluidTypeOf(entry.id, entry.properties, rules)) {
       const hood = {}
       for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy && !dz) continue
@@ -155,7 +157,7 @@ export async function createScene(assets, blocks, args = {}) {
         if (n) hood[cellKey3(dx, dy, dz)] = n.flat
       }
       hood[""] = { id: entry.id, ...(entry.properties ?? {}) }
-      fh = await fluidHeights(assets, fluidTypeOf(entry.id, entry.properties), hood)
+      fh = await fluidHeights(assets, fluidTypeOf(entry.id, entry.properties, rules), hood)
     }
 
     let seed = null

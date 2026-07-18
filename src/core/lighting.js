@@ -1,6 +1,6 @@
 import { THREE, normalize } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
-import { getLightEmission, usesShapeLightOcclusion } from "./emission.js"
+import { blockRules } from "./data.js"
 import { parseBlockstate, resolveModelData, loadModel, defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS } from "./models.js"
 import { occludingFaces } from "./occlusion.js"
 import { fluidTypeOf } from "./fluids.js"
@@ -54,6 +54,7 @@ export async function computeSceneLight(blocks, opts = {}) {
   const version = opts.version
   const occCache = assets.cache.occlusion
   const defaults = await defaultBlockstates(assets)
+  const rules = await blockRules(assets)
 
   function stateKey(bid, props) {
     let key = bid
@@ -68,7 +69,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     if (m === undefined) {
       try {
         const g = await buildBlockModel(assets, bid, props, version)
-        m = g ? occludingFaces(g, bid) : null
+        m = g ? occludingFaces(g, bid, false, rules) : null
       } catch { m = null }
       occCache.set(key, m)
     }
@@ -111,10 +112,10 @@ export async function computeSceneLight(blocks, opts = {}) {
         return Array.isArray(raw) ? raw[0] : raw
       }
       const masks = await masksFor(c.id, c.properties)
-      const useShape = usesShapeLightOcclusion(c.id, c.properties, resolveDefault) && !maskEmpty(masks)
+      const useShape = rules.shapeOcclusion(c.id, c.properties, resolveDefault) && !maskEmpty(masks)
       states.push({
-        emit: getLightEmission(c.id, c.properties, resolveDefault),
-        damp: isFullCube(masks) ? 15 : fluidTypeOf(c.id, c.properties) ? 1 : 0,
+        emit: rules.emission(c.id, c.properties, resolveDefault),
+        damp: isFullCube(masks) ? 15 : fluidTypeOf(c.id, c.properties, rules) ? 1 : 0,
         masks: useShape ? masks : null
       })
       si = states.length - 1

@@ -1,5 +1,6 @@
 import { parseBlockstate, resolveModelData } from "./models.js"
-import { isWaterlogged } from "./colors.js"
+import { builtinRules, blockRules } from "./data.js"
+import { prepareAssets } from "./assets.js"
 
 
 const strip = id => (id ?? "").replace(/^minecraft:/, "")
@@ -29,11 +30,11 @@ async function blockIsSolid(assets, id, properties) {
   return solid
 }
 
-export function fluidTypeOf(id, properties) {
+export function fluidTypeOf(id, properties, rules = builtinRules) {
   const t = TYPE[strip(id)]
   if (t) return t
   if (properties?.waterlogged === true || properties?.waterlogged === "true") return "water"
-  if (isWaterlogged(id)) return "water"
+  if (rules.waterlogged(id)) return "water"
   return null
 }
 
@@ -57,6 +58,7 @@ export async function fluidHeights(assets, type, neighbors) {
   if (type == null) return null
   if (assets == null || assets.length === 0) throw new Error("fluidHeights requires assets")
   if (type !== "water" && type !== "lava") throw new Error('fluidHeights requires a type of "water" or "lava"')
+  const rules = await blockRules(await prepareAssets(assets))
   function getBlock(x, y, z) {
     const v = neighbors?.[cellKey(x, y, z)] ?? (!x && !y && !z ? type : null)
     if (!v) return null
@@ -66,7 +68,7 @@ export async function fluidHeights(assets, type, neighbors) {
   }
   function typeAt(x, y, z) {
     const c = getBlock(x, y, z)
-    return c ? fluidTypeOf(c.id, c.properties) : null
+    return c ? fluidTypeOf(c.id, c.properties, rules) : null
   }
   async function solidAt(x, z) {
     const c = getBlock(x, 0, z)
@@ -74,7 +76,7 @@ export async function fluidHeights(assets, type, neighbors) {
   }
   async function heightAt(x, z) {
     const c = getBlock(x, 0, z)
-    if (c && fluidTypeOf(c.id, c.properties) === type) {
+    if (c && fluidTypeOf(c.id, c.properties, rules) === type) {
       return typeAt(x, 1, z) === type ? 1 : ownHeight(c.id, c.properties)
     }
     return await solidAt(x, z) ? -1 : 0
@@ -110,13 +112,13 @@ export async function fluidHeights(assets, type, neighbors) {
   let fx = 0, fz = 0
   for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
     const c = getBlock(dx, 0, dz)
-    const t = c ? fluidTypeOf(c.id, c.properties) : null
+    const t = c ? fluidTypeOf(c.id, c.properties, rules) : null
     let dist = 0
     if (t === type) dist = selfOwn - ownHeight(c.id, c.properties)
     else if (t) continue
     else if (!c || !await blockIsSolid(assets, c.id, c.properties)) {
       const below = getBlock(dx, -1, dz)
-      if (below && fluidTypeOf(below.id, below.properties) === type) {
+      if (below && fluidTypeOf(below.id, below.properties, rules) === type) {
         dist = selfOwn - (ownHeight(below.id, below.properties) - 8 / 9)
       }
     }
@@ -128,7 +130,7 @@ export async function fluidHeights(assets, type, neighbors) {
   const angle = fx || fz ? Math.atan2(fz, fx) - Math.PI / 2 : null
   async function overlayAt(dx, dz) {
     const c = getBlock(dx, 0, dz)
-    if (!c || fluidTypeOf(c.id, c.properties)) return false
+    if (!c || fluidTypeOf(c.id, c.properties, rules)) return false
     const dir = dx === 1 ? "west" : dx === -1 ? "east" : dz === 1 ? "north" : "south"
     return faceIsFullToward(assets, c.id, c.properties, dir)
   }

@@ -1,45 +1,17 @@
-import { normalize, matchId } from "./platform.js"
-import colorData from "./data/colors.json" with { type: "json" }
-import blocks from "./data/blocks.json" with { type: "json" }
+import { builtinRules, builtinColors } from "./data.js"
 
-export const COLORS = {
-  colormap: colorData.colormap,
-  fixed: colorData.fixed,
-  indexed: colorData.indexed,
-  tintindex: colorData.tintindex,
-  dye: colorData.dye,
-  effects: colorData.effects,
-  potions: colorData.potions,
-  team: colorData.team
-}
+export const COLORS = builtinColors.tables
 
-export const COLORMAP_BLOCKS = {}
-for (const [map, blocks] of Object.entries(COLORS.colormap)) {
-  for (const block of blocks) COLORMAP_BLOCKS[block] = map
-}
+export const COLORMAP_BLOCKS = builtinColors.colormapBlocks
 export const FIXED_TINT_BLOCKS = { ...COLORS.fixed }
 export const INDEXED_TINT_BLOCKS = { ...COLORS.indexed }
 
-const WATERLOGGABLE = {
-  suffix: blocks.waterloggable.suffix,
-  exact: new Set(blocks.waterloggable.exact),
-  except: blocks.waterloggable.except && new Set(blocks.waterloggable.except)
+export function isWaterloggable(block, rules = builtinRules) {
+  return rules.waterloggable(block)
 }
 
-export function isWaterloggable(block) {
-  if (!block) return false
-  return matchId(normalize(block), WATERLOGGABLE)
-}
-
-const WATERLOGGED = blocks.waterlogged && {
-  suffix: blocks.waterlogged.suffix,
-  exact: new Set(blocks.waterlogged.exact),
-  except: blocks.waterlogged.except && new Set(blocks.waterlogged.except)
-}
-
-export function isWaterlogged(block) {
-  if (!block || !WATERLOGGED) return false
-  return matchId(normalize(block), WATERLOGGED)
+export function isWaterlogged(block, rules = builtinRules) {
+  return rules.waterlogged(block)
 }
 
 export function parseColor(c) {
@@ -48,25 +20,6 @@ export function parseColor(c) {
   return "#" + (c >>> 0).toString(16).padStart(8, "0").slice(2)
 }
 
-export function getPotionColor(potionName) {
-  const name = normalize(potionName)
-  const effects = COLORS.potions[name]
-  if (!effects || effects.length === 0) {
-    const direct = COLORS.effects[name]
-    return direct !== undefined ? parseColor(direct) : null
-  }
-  let r = 0, g = 0, b = 0, total = 0
-  for (const entry of effects) {
-    const [effect, amp] = Array.isArray(entry) ? entry : [entry, 0]
-    const hex = COLORS.effects[effect]
-    if (hex === undefined) continue
-    const color = parseInt(hex.slice(1), 16)
-    const weight = amp + 1
-    r += weight * ((color >> 16) & 0xFF)
-    g += weight * ((color >> 8) & 0xFF)
-    b += weight * (color & 0xFF)
-    total += weight
-  }
-  if (total === 0) return null
-  return "#" + (((Math.round(r / total) << 16) | (Math.round(g / total) << 8) | Math.round(b / total)) >>> 0).toString(16).padStart(6, "0")
+export function getPotionColor(potionName, colors = builtinColors) {
+  return colors.potionColor(potionName)
 }

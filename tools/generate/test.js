@@ -9,7 +9,9 @@ import { fileURLToPath } from "node:url"
 import { canOcclude, selfCulls } from "../../src/core/culling.js"
 import { getLightEmission, usesShapeLightOcclusion } from "../../src/core/emission.js"
 import { isWaterloggable, COLORS, getPotionColor, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS } from "../../src/core/colors.js"
-import blocks from "../../src/core/data/blocks.json" with { type: "json" }
+import waterlogging from "../../src/core/data/waterlogging.json" with { type: "json" }
+import culling from "../../src/core/data/culling.json" with { type: "json" }
+import lighting from "../../src/core/data/lighting.json" with { type: "json" }
 import colors from "../../src/core/data/colors.json" with { type: "json" }
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -19,13 +21,13 @@ function test(name, fn) {
   catch (e) { fail++; console.error("FAIL", name, "\n     ", e.message) }
 }
 
-test("blocks.json structure (compressed rules)", () => {
-  for (const k of ["waterloggable", "nonOccluding", "selfCullAll", "selfCullY"]) {
-    const r = blocks[k]
+test("block data structure (compressed rules)", () => {
+  for (const [k, data] of [["waterloggable", waterlogging], ["nonOccluding", culling], ["selfCullAll", culling], ["selfCullY", culling]]) {
+    const r = data[k]
     assert.ok(Array.isArray(r.suffix) && Array.isArray(r.exact), `${k} has suffix/exact arrays`)
     for (const s of [...r.suffix, ...r.exact, ...(r.except ?? [])]) assert.match(s, /^_?[a-z0-9_]+$/, `token: ${s}`)
   }
-  assert.ok(blocks.nonOccluding.suffix.length + blocks.nonOccluding.exact.length >= 8)
+  assert.ok(culling.nonOccluding.suffix.length + culling.nonOccluding.exact.length >= 8)
 })
 
 test("colors.json structure", () => {
@@ -58,8 +60,8 @@ test("colors.json structure", () => {
 })
 
 test("light emission matches the game", () => {
-  assert.ok(Array.isArray(blocks.lightEmission) && blocks.lightEmission.length > 10)
-  for (const g of blocks.lightEmission) {
+  assert.ok(Array.isArray(lighting.lightEmission) && lighting.lightEmission.length > 10)
+  for (const g of lighting.lightEmission) {
     assert.ok(Array.isArray(g.suffix) && Array.isArray(g.exact), "group has suffix/exact arrays")
     assert.ok(typeof g.value === "number" ? g.value > 0 : Array.isArray(g.value.cases), "group value is a level or rule")
   }
@@ -172,7 +174,7 @@ test("COLORS wired to generated data", () => {
 const javac = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, "bin", "javac") : "javac"
 const hasJdk = spawnSync(javac, ["-version"]).status === 0
 if (hasJdk) {
-  const version = /minecraft (\S+)/.exec(blocks._generated)?.[1]
+  const version = /minecraft (\S+)/.exec(lighting._generated)?.[1]
   test(`generator reproduces committed data (--check ${version})`, () => {
     execFileSync("node", [path.join(here, "generate.js"), "--check", version], { stdio: "inherit" })
   })

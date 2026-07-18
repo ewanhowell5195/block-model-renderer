@@ -1,6 +1,6 @@
 import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace, isBefore } from "./platform.js"
-import { COLORS, COLORMAP_BLOCKS, FIXED_TINT_BLOCKS, INDEXED_TINT_BLOCKS, isWaterloggable, isWaterlogged, parseColor, getPotionColor } from "./colors.js"
-import { getLightEmission } from "./emission.js"
+import { COLORS, parseColor, getPotionColor } from "./colors.js"
+import { blockRules, colorTables } from "./data.js"
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
@@ -152,13 +152,15 @@ export async function parseBlockstate(assets, blockstate, args) {
   const rand = args?.seed != null ? seededRandom(args.seed) : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   const defaults = await defaultBlockstates(assets)
+  const rules = await blockRules(assets)
+  const colors = await colorTables(assets)
 
   const { namespace, item: block } = resolveNamespace(blockstate)
 
   const buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
 
   if (!buf) {
-    if (isWaterlogged(block)) return [waterPart()]
+    if (rules.waterlogged(block)) return [waterPart(colors)]
     const m = { type: "block", model: "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (args?.version) m.version = args.version
@@ -280,15 +282,15 @@ export async function parseBlockstate(assets, blockstate, args) {
       }
     }
 
-    if (COLORMAP_BLOCKS[block]) {
-      const tint = await getBiomeTint(assets, COLORMAP_BLOCKS[block], args?.biome)
-      const index = COLORS.tintindex[block] ?? 0
+    if (colors.colormapBlocks[block]) {
+      const tint = await getBiomeTint(assets, colors.colormapBlocks[block], args?.biome)
+      const index = colors.tables.tintindex[block] ?? 0
       model.tints = []
       for (let t = 0; t <= index; t++) model.tints.push(t === index ? tint : "#FFFFFF")
-    } else if (FIXED_TINT_BLOCKS[block]) {
-      model.tints = [FIXED_TINT_BLOCKS[block]]
-    } else if (INDEXED_TINT_BLOCKS[block]) {
-      const entry = INDEXED_TINT_BLOCKS[block]
+    } else if (colors.tables.fixed[block]) {
+      model.tints = [colors.tables.fixed[block]]
+    } else if (colors.tables.indexed[block]) {
+      const entry = colors.tables.indexed[block]
       model.tints = [entry.colors[data[entry.property]] ?? entry.colors[entry.default]]
     }
 
@@ -303,19 +305,19 @@ export async function parseBlockstate(assets, blockstate, args) {
     else if (block === "lava" || block === "flowing_lava") model.fluid = "lava"
   }
 
-  if (((data?.waterlogged === true || data?.waterlogged === "true") && isWaterloggable(block)) || isWaterlogged(block)) {
-    models.push(waterPart())
+  if (((data?.waterlogged === true || data?.waterlogged === "true") && rules.waterloggable(block)) || rules.waterlogged(block)) {
+    models.push(waterPart(colors))
   }
 
   return models
 }
 
-function waterPart() {
+function waterPart(colors) {
   return {
     model: "minecraft:block/water",
     type: "block",
     fluid: "water",
-    tints: ["#3F76E4"],
+    tints: [colors?.tables.fixed.water ?? "#3F76E4"],
     scale: [0.999, 0.999, 0.999]
   }
 }
@@ -398,6 +400,7 @@ export async function parseItemDefinition(assets, itemId, args) {
 
   const normalizedData = {}
   for (const key in data) normalizedData[normalize(key)] = data[key]
+  const itemColors = await colorTables(assets)
   const models = await resolveItemModel(assets, json.model, normalizedData, display, undefined, args?.version)
   for (let i = 0; i < models.length; i++) {
     const model = models[i]
@@ -413,14 +416,14 @@ export async function parseItemDefinition(assets, itemId, args) {
         }
         const type = normalize(tint.type)
         if (type === "team" && normalizedData["team"] !== undefined) {
-          const teamColor = COLORS.team[normalize(normalizedData["team"])]
+          const teamColor = itemColors.tables.team[normalize(normalizedData["team"])]
           tints.push(teamColor !== undefined ? parseColor(teamColor) : parseColor(tint.default ?? 16777215))
         } else if (type === "dye" && normalizedData["dyed_color"] !== undefined) {
           tints.push(parseColor(normalizedData["dyed_color"]))
         } else if (type === "map_color" && normalizedData["map_color"] !== undefined) {
           tints.push(parseColor(normalizedData["map_color"]))
         } else if (type === "potion" && normalizedData["potion_contents"]?.potion) {
-          const color = getPotionColor(normalizedData["potion_contents"].potion)
+          const color = getPotionColor(normalizedData["potion_contents"].potion, itemColors)
           tints.push(color ?? parseColor(tint.default ?? -13083194))
         } else if (type === "custom_model_data" && normalizedData["custom_model_data"]?.colors) {
           const c = normalizedData["custom_model_data"].colors[tint.index ?? 0]
@@ -939,7 +942,7 @@ async function resolveSpecialModel(assets, data, base) {
       translation = [-8, -20, -8]
       rotation = [0, 0, 180]
       scale = [1.5, 1.5, 1.5]
-      model.tints = [COLORS.dye[data.color]]
+      model.tints = [(await colorTables(assets)).tables.dye[data.color]]
       break
     case "chest": {
       rotation = [0, 180, 0]
@@ -1150,15 +1153,16 @@ export async function loadModel(scene, assets, model, args) {
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
 
   let blockEmission = 0
-  if (block?.id) {
+  if (args?.emission != null) {
+    blockEmission = Math.max(0, Math.min(15, args.emission))
+  } else if (block?.id) {
     const blockId = normalize(block.id)
     const defaults = await defaultBlockstates(assets)
-    blockEmission = getLightEmission(blockId, block.properties, k => {
+    blockEmission = (await blockRules(assets)).emission(blockId, block.properties, k => {
       const raw = defaults.unique(blockId)[k] ?? defaults.properties[k]
       return Array.isArray(raw) ? raw[0] : raw
     })
   }
-  if (args?.emission != null) blockEmission = Math.max(blockEmission, Math.max(0, Math.min(15, args.emission)))
 
   if (!(await modelPassesAtlasRules(model, assets))) {
     const missing = await resolveModelData(assets, { model: "block-model-renderer:missing" })

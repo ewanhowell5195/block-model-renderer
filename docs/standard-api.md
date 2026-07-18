@@ -27,6 +27,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 |---|---|---|
 | `display` | see below | Display transform applied to the rendered block. See [Display transforms](models.md#display-transforms) |
 | `lighting` | `"item"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting) (dimension, daytime, brightness, light volume) |
+| `emission` | the block's in-game glow | Floor every element's light emission at this level (0-15), replacing the automatic level: `0` renders a glowing block unlit, `15` keeps a model bright at any `daytime`. See [Lighting modes](rendering.md#lighting-modes) |
 | `background` | transparent | See [Background](rendering.md#background) |
 | `shaderScale` | `1` | Density multiplier for screen-space shader effects (the end portal). The pattern is sized as if the block filled the viewport, so raise this when the block renders small in a larger scene. Exposed as the `Scale` uniform on the shader material, so it can also be updated live. The material also has an `Aspect` uniform (default `1`): set it to the viewport's width/height ratio on non-square viewports, which anchors the pattern to the viewport height so it neither stretches nor changes size as the width changes |
 
@@ -87,7 +88,7 @@ Renders an item by id using its item definition.
 | `id` | required | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn). See [Item definitions](scenes.md#item-definitions) for what's supported |
 | `display` | `{ type: "fallback", display: "gui" }` | Same as [`renderBlock`](#renderblockargs), with a plainer default (no rotation or scale) |
-| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen` | | Same as [`renderBlock`](#renderblockargs) |
+| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderModel(args)`
 
@@ -96,7 +97,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 | Option | Default | Description |
 |---|---|---|
 | `model` | required | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
-| `assets`, `width`, `height`, `background`, `display`, `animated`, `maxAnimationFrames`, `lighting`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen` | | Same as [`renderBlock`](#renderblockargs) |
+| `assets`, `width`, `height`, `background`, `display`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderTexture(args)`
 

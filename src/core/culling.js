@@ -1,29 +1,9 @@
-import { normalize, matchId } from "./platform.js"
-import blocks from "./data/blocks.json" with { type: "json" }
+import { builtinRules } from "./data.js"
 
-const rule = r => ({ suffix: r.suffix, exact: new Set(r.exact), except: r.except && new Set(r.except) })
-const NON_OCCLUDING = rule(blocks.nonOccluding)
-const SELF_CULL_ALL = rule(blocks.selfCullAll)
-const SELF_CULL_Y = rule(blocks.selfCullY)
-
-const isFluid = id => /(^|_)(water|lava)$/.test(id)
-const fluidFamily = id => id.includes("lava") ? "lava" : "water"
-const OPPOSITE = { north: "south", south: "north", east: "west", west: "east" }
-
-export function canOcclude(block) {
-  block = normalize(block)
-  return !isFluid(block) && !matchId(block, NON_OCCLUDING)
+export function canOcclude(block, rules = builtinRules) {
+  return rules.canOcclude(block)
 }
 
-export function selfCulls(block, neighbor, direction, properties, neighborProperties) {
-  if (!block || !neighbor) return false
-  block = normalize(block); neighbor = normalize(neighbor)
-  if (isFluid(block) && isFluid(neighbor)) return fluidFamily(block) === fluidFamily(neighbor)
-  if (block !== neighbor) return false
-  if (matchId(block, SELF_CULL_ALL)) return true
-  if (matchId(block, SELF_CULL_Y)) {
-    if (direction === "up" || direction === "down") return true
-    if (String(properties?.[direction]) === "true" && String(neighborProperties?.[OPPOSITE[direction]]) === "true") return true
-  }
-  return false
+export function selfCulls(block, neighbor, direction, properties, neighborProperties, rules = builtinRules) {
+  return rules.selfCulls(block, neighbor, direction, properties, neighborProperties)
 }

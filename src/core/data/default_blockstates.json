@@ -1,0 +1,170 @@
+{
+  "properties": {
+    "facing": "north",
+    "half": [
+      "bottom",
+      "lower"
+    ],
+    "attachment": "floor",
+    "shape": [
+      "straight",
+      "north_south"
+    ],
+    "age": [
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0
+    ],
+    "tilt": "none",
+    "north": false,
+    "east": false,
+    "south": false,
+    "west": false,
+    "axis": "y",
+    "face": "wall",
+    "orientation": "north_up",
+    "powered": false,
+    "segment_amount": 4,
+    "flower_amount": 4,
+    "rotation": 8,
+    "lit": false
+  },
+  "blocks": [
+    {
+      "match": "*_mushroom_block|mushroom_stem",
+      "defaults": {
+        "north": true,
+        "east": true,
+        "south": true,
+        "west": true
+      }
+    },
+    {
+      "match": "*_stairs|*_glazed_terracotta|cocoa|repeater|comparator",
+      "defaults": {
+        "facing": "south"
+      }
+    },
+    {
+      "match": "*_amethyst_bud|amethyst_cluster|barrel|end_rod|*lightning_rod|*piston*|*shulker_box",
+      "defaults": {
+        "facing": "up"
+      }
+    },
+    {
+      "match": "*campfire|redstone_torch|redstone_wall_torch",
+      "defaults": {
+        "lit": true
+      }
+    },
+    {
+      "match": "glow_lichen|sculk_vein|resin_clump|chorus_plant",
+      "defaults": {
+        "up": false,
+        "down": true
+      }
+    },
+    {
+      "match": "grindstone",
+      "defaults": {
+        "face": "floor"
+      }
+    },
+    {
+      "match": "vine",
+      "defaults": {
+        "south": true
+      }
+    },
+    {
+      "match": "hopper",
+      "defaults": {
+        "facing": "down"
+      }
+    },
+    {
+      "match": "brewing_stand",
+      "defaults": {
+        "has_bottle_0": false,
+        "has_bottle_1": false,
+        "has_bottle_2": false
+      }
+    },
+    {
+      "match": "redstone_wire",
+      "defaults": {
+        "north": "side",
+        "south": "side",
+        "east": "side",
+        "west": "side",
+        "power": 0
+      }
+    },
+    {
+      "match": "*cauldron",
+      "defaults": {
+        "level": 3
+      }
+    },
+    {
+      "match": "*_bed",
+      "defaults": {
+        "part": "foot",
+        "facing": "south"
+      }
+    },
+    {
+      "match": "chiseled_bookshelf",
+      "defaults": {
+        "slot_0_occupied": false,
+        "slot_1_occupied": false,
+        "slot_2_occupied": false,
+        "slot_3_occupied": false,
+        "slot_4_occupied": false,
+        "slot_5_occupied": false
+      }
+    },
+    {
+      "match": "*_leaves",
+      "defaults": {
+        "persistent": false,
+        "distance": 1
+      }
+    },
+    {
+      "match": "bamboo",
+      "defaults": {
+        "leaves": "none"
+      }
+    },
+    {
+      "match": "light",
+      "defaults": {
+        "level": 15
+      }
+    },
+    {
+      "match": "structure_block",
+      "defaults": {
+        "mode": "load"
+      }
+    },
+    {
+      "match": "test_block",
+      "defaults": {
+        "mode": "start"
+      }
+    },
+    {
+      "match": "player_head|zombie_head|creeper_head|piglin_head|dragon_head|skeleton_skull|wither_skeleton_skull",
+      "defaults": {
+        "rotation": 0
+      }
+    }
+  ]
+}
