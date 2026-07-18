@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "block-model-renderer:block/enchanting_table_book"
+      }
+    }
+  ]
+}

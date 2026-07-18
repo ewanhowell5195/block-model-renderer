@@ -2,7 +2,7 @@ import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJs
 import { COLORS, parseColor, getPotionColor } from "./colors.js"
 import { blockRules, colorTables } from "./data.js"
 import { fluidHeights } from "./fluids.js"
-import { prepareAssets, readFile, readFileAll, getMissingImage, getAtlasesContaining } from "./assets.js"
+import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
 import { modelLoaders, activeLoaders } from "./loaders.js"
 
@@ -159,9 +159,11 @@ export async function parseBlockstate(assets, blockstate, args) {
 
   const { namespace, item: block } = resolveNamespace(blockstate)
 
-  const buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
+  let buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
+  const overlayBuf = await readOverlayFile(`assets/${namespace}/blockstates/${block}.json`, assets)
+  if (buf && assets[buf.hintIndex]?.overrideRole === "additional") buf = null
 
-  if (!buf) {
+  if (!buf && !overlayBuf) {
     if (rules.waterlogged(block)) return [waterPart(colors)]
     const m = { type: "block", model: "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
@@ -169,111 +171,120 @@ export async function parseBlockstate(assets, blockstate, args) {
     return [m]
   }
 
-  const json = parseJson(buf)
-
   const models = []
+  let invalid = false
+  if (buf) collectStateModels(parseJson(buf))
+  if (overlayBuf) collectStateModels(parseJson(overlayBuf))
+  if (invalid) return ["block-model-renderer:missing.json"]
 
-  if (json.variants) {
-    const variants = Object.entries(json.variants)
+  function collectStateModels(json) {
 
-    const scored = variants.map(([key, value]) => {
-      let score = 0
-      if (key === "") {
-        score = 0.1
-      } else {
-        const parts = key.split(",").map(s => s.trim())
-        score = parts.reduce((acc, part) => {
-          const [k, v] = part.split("=")
-          const raw = data[k] ?? defaults.unique(blockstate)[k] ?? defaults.properties[k]
-          const actuals = Array.isArray(raw) ? raw.map(e => e.toString()) : [raw?.toString()]
-          const index = actuals.indexOf(v)
-          if (index === -1) return acc
-          return acc + (actuals.length - index)
-        }, 0)
+    const start = models.length
+
+    if (json.variants) {
+      const variants = Object.entries(json.variants)
+
+      const scored = variants.map(([key, value]) => {
+        let score = 0
+        if (key === "") {
+          score = 0.1
+        } else {
+          const parts = key.split(",").map(s => s.trim())
+          score = parts.reduce((acc, part) => {
+            const [k, v] = part.split("=")
+            const raw = data[k] ?? defaults.unique(blockstate)[k] ?? defaults.properties[k]
+            const actuals = Array.isArray(raw) ? raw.map(e => e.toString()) : [raw?.toString()]
+            const index = actuals.indexOf(v)
+            if (index === -1) return acc
+            return acc + (actuals.length - index)
+          }, 0)
+        }
+
+        return { score, value }
+      }).filter(e => Array.isArray(e.value) ? e.value.length : e.value)
+
+      if (scored.length > 0) {
+        scored.sort((a, b) => b.score - a.score)
+        models.push(pickWeighted(scored[0].value, rand))
       }
+    } else if (json.multipart) {
+      const ranges = new Set
+      const multipartDefaults = getMultipartDefaults(json.multipart)
 
-      return { score, value }
-    }).filter(e => Array.isArray(e.value) ? e.value.length : e.value)
+      const scoredParts = json.multipart.map((part, index) => {
+        const when = part.when
+        if (!when) return { score: 0, values: [], part, index, match: true }
 
-    if (scored.length > 0) {
-      scored.sort((a, b) => b.score - a.score)
-      models.push(pickWeighted(scored[0].value, rand))
-    }
-  } else if (json.multipart) {
-    const ranges = new Set
-    const multipartDefaults = getMultipartDefaults(json.multipart)
+        const conds = when.OR ?? when.AND ?? [when]
+        const isOr = !!when.OR
 
-    const scoredParts = json.multipart.map((part, index) => {
-      const when = part.when
-      if (!when) return { score: 0, values: [], part, index, match: true }
+        let score = 0
+        let match = isOr ? false : true
 
-      const conds = when.OR ?? when.AND ?? [when]
-      const isOr = !!when.OR
+        const values = {}
 
-      let score = 0
-      let match = isOr ? false : true
+        for (const cond of conds) {
+          const matches = Object.entries(cond).every(([k, v]) => {
+            const allowed = v.toString().split("|")
+            const raw = data[k] ?? defaults.unique(blockstate)[k] ?? defaults.properties[k] ?? multipartDefaults[k]
+            let actuals
+            if (Array.isArray(raw)) {
+              actuals = raw.map(e => e.toString())
+              ranges.add(k)
+            } else {
+              actuals = [raw?.toString()]
+            }
+            const matchIndex = actuals.findIndex(val => allowed.includes(val ?? "none"))
+            if (matchIndex !== -1) score += actuals.length - matchIndex
+            return matchIndex !== -1
+          })
 
-      const values = {}
-
-      for (const cond of conds) {
-        const matches = Object.entries(cond).every(([k, v]) => {
-          const allowed = v.toString().split("|")
-          const raw = data[k] ?? defaults.unique(blockstate)[k] ?? defaults.properties[k] ?? multipartDefaults[k]
-          let actuals
-          if (Array.isArray(raw)) {
-            actuals = raw.map(e => e.toString())
-            ranges.add(k)
-          } else {
-            actuals = [raw?.toString()]
+          if (matches) {
+            for (const key in cond) {
+              values[key] = cond[key]
+            }
           }
-          const matchIndex = actuals.findIndex(val => allowed.includes(val ?? "none"))
-          if (matchIndex !== -1) score += actuals.length - matchIndex
-          return matchIndex !== -1
+
+          if (isOr && matches) {
+            match = true
+            break
+          }
+          if (!isOr && !matches) {
+            match = false
+            break
+          }
+        }
+
+        return { score, values: Object.entries(values), part, index, match }
+      }).filter(p => p.match)
+
+      const usedKeyValues = {}
+
+      scoredParts
+        .sort((a, b) => b.score - a.score || a.index - b.index)
+        .forEach(({ values, part }) => {
+          if (values.some(([k, v]) => usedKeyValues[k] && usedKeyValues[k] !== v)) return
+          for (const [key, value] of values) {
+            if (ranges.has(key)) {
+              usedKeyValues[key] = value
+            }
+          }
+          const apply = pickWeighted(part.apply, rand)
+          if (apply?.model) models.push(apply)
         })
+    }
 
-        if (matches) {
-          for (const key in cond) {
-            values[key] = cond[key]
-          }
-        }
-
-        if (isOr && matches) {
-          match = true
-          break
-        }
-        if (!isOr && !matches) {
-          match = false
-          break
-        }
+    for (const model of models.slice(start)) {
+      if (args?.version && isBefore(args.version, "1.21.11")) delete model.z
+      if (json.allow_invalid_rotations) {
+        model.allow_invalid_rotations = true
+      } else if (model.x && model.x % 90 !== 0 || model.y && model.y % 90 !== 0 || model.z && model.z % 90 !== 0) {
+        invalid = true
       }
-
-      return { score, values: Object.entries(values), part, index, match }
-    }).filter(p => p.match)
-
-    const usedKeyValues = {}
-
-    scoredParts
-      .sort((a, b) => b.score - a.score || a.index - b.index)
-      .forEach(({ values, part }) => {
-        if (values.some(([k, v]) => usedKeyValues[k] && usedKeyValues[k] !== v)) return
-        for (const [key, value] of values) {
-          if (ranges.has(key)) {
-            usedKeyValues[key] = value
-          }
-        }
-        const apply = pickWeighted(part.apply, rand)
-        if (apply?.model) models.push(apply)
-      })
+    }
   }
 
   for (const model of models) {
-    if (args?.version && isBefore(args.version, "1.21.11")) delete model.z
-    if (json.allow_invalid_rotations) {
-      model.allow_invalid_rotations = true
-    } else if (model.x && model.x % 90 !== 0 || model.y && model.y % 90 !== 0 || model.z && model.z % 90 !== 0) {
-      return ["block-model-renderer:missing.json"]
-    }
-
     model.type = "block"
     if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
     if (args?.version) model.version = args.version

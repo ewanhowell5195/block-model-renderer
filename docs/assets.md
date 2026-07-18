@@ -106,35 +106,36 @@ const assets = await prepareAssets(sources, { translucency: { min: 5, max: 240 }
 
 ## Bundled packs
 
-Two built-in packs are added around your assets array on every render:
+Minecraft renders some blocks dynamically at runtime with hardcoded geometry, with no usable model JSON in the vanilla resource pack. block-model-renderer ships bundled packs that supply models for these cases, so they render correctly without any setup from you. They come in two categories that mirror how the game treats each block:
 
-### Block entity overrides (highest priority)
+### Forced (highest priority)
 
-Minecraft renders some blocks dynamically at runtime using hardcoded geometry, with no corresponding model JSON in the vanilla resource pack. block-model-renderer ships with a bundled overrides pack that supplies model JSONs for these cases, so they render correctly without any setup from you.
+Blocks that vanilla never renders from resource pack models at all: the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void), the end portal and end gateway, and the fluids (water, lava). A resource pack can't remodel these in game, so the renderer matches that: the bundled blockstates and models always win, shadowing anything your packs provide for them.
+
+### Additional (rendered alongside)
+
+Blocks where the game draws an entity model on top of whatever the blockstate produces (vanilla's own blockstates for them point at stub models with no geometry). Here your packs stay fully in effect: [`parseBlockstate`](models.md#parseblockstateassets-blockstate-args) returns the models your blockstates resolve to plus the bundled overlay models together, the same layering the game draws. Remodel the block in your pack and both render.
 
 The following categories are covered:
 
 * Banners
-* Bells
+* Bells (the swinging bell body; the frame is a real vanilla model)
 * Chests (including the copper chest family)
 * Conduits
 * Copper Golem Statues
 * Cushions
 * Decorated Pots
-* Enchanting Table Books
-* End Portal & End Gateway
+* Enchanting Table Books (the floating book; the table is a real vanilla model)
 * Mob Heads and Skulls
 * Shields
 * Shulker Boxes
 * Tridents
-* Water & Lava
-* Technical blocks (barrier, light, structure void)
 
-**Limitation:** the overrides pack is prepended to your assets array at the highest priority. Any blockstate or model covered by it will override whatever your own packs provide, the bundled version always wins. This is a renderer limitation, not a design choice. That said, since these blocks are rendered dynamically by vanilla, you're very unlikely to actually have modified these blockstates and models.
+These packs stay out of your way in the `minecraft` namespace: their blockstates only resolve through [`readFile`](#readfilepath-assets-hint) when nothing else provides the file (cushions, for example, have no vanilla blockstate), their atlas definitions merge in, and everything else they ship lives under the `block-model-renderer` namespace.
 
-#### Versioned overrides
+#### Versioned packs
 
-Blocks that vanilla has since moved from entity models to block models live in versioned override packs alongside the main one, named for the last version they apply to: `overrides_26.1` carries the bed and sign models, since both used entity models until 26.2. A versioned pack only activates when the [`version` option](versions.md#legacy-minecraft-versions) falls at or below its name; without a `version` it is inert, so modern renders always use the real vanilla models. With [`{ cache: true }`](#caching) assets, pass the version to `prepareAssets`: a render-call `version` that doesn't match the cached assets' pinned version [throws](#minecraft-version), since the cache would otherwise mix resolutions from before and after the pack activates.
+Blocks that vanilla has since moved from entity models to block models live in versioned packs alongside the main ones, named for the last version they apply to: `additional_26.1` carries the bed and sign models, since both used entity models until 26.2. A versioned pack only activates when the [`version` option](versions.md#legacy-minecraft-versions) falls at or below its name; without a `version` it is inert, so modern renders always use the real vanilla models. With [`{ cache: true }`](#caching) assets, pass the version to `prepareAssets`: a render-call `version` that doesn't match the cached assets' pinned version [throws](#minecraft-version), since the cache would otherwise mix resolutions from before and after the pack activates.
 
 ### Fallback pack (lowest priority)
 

@@ -1,5 +1,5 @@
 import * as core from "./core.js"
-import { setPlatform, zipEntryFromFiles, overridesVersionBound, computeAnimationTimeline, collectAnimated, buildSchedules, evaluateAnimation } from "./core.js"
+import { setPlatform, zipEntryFromFiles, overridesRole, computeAnimationTimeline, collectAnimated, buildSchedules, evaluateAnimation } from "./core.js"
 import { parseZip } from "./zip.js"
 
 const config = {}
@@ -463,18 +463,19 @@ function makePlatform() {
         }
         return
       }
-      const overrides = await zipEntryFromFiles(files, "overrides/")
-      overrides.bundledOverrides = true
-      arr.unshift(overrides)
       const tops = new Set()
       for (const p of files.keys()) tops.add(p.split("/", 1)[0])
+      const bundled = []
       for (const top of Array.from(tops).sort()) {
-        const bound = overridesVersionBound(top)
-        if (!bound) continue
+        const role = overridesRole(top)
+        if (!role) continue
         const entry = await zipEntryFromFiles(files, top + "/")
-        entry.versionBefore = bound
-        arr.splice(arr.indexOf(overrides) + 1, 0, entry)
+        entry.bundledOverrides = true
+        entry.overrideRole = role.role
+        if (role.versionBefore) entry.versionBefore = role.versionBefore
+        bundled.push(entry)
       }
+      arr.unshift(...bundled)
       arr.push(await zipEntryFromFiles(files, "fallbacks/"))
     },
 

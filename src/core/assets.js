@@ -94,17 +94,45 @@ function splitResourcePath(filePath) {
   return { namespace: "minecraft", path: filePath }
 }
 
-export function overridesVersionBound(name) {
-  const m = /^overrides_(\d+(?:\.\d+)*)$/.exec(name)
+export function overridesRole(name) {
+  const m = /^(forced|additional)(?:_(\d+(?:\.\d+)*))?$/.exec(name)
   if (!m) return null
-  const parts = m[1].split(".")
-  parts[parts.length - 1] = String(Number(parts[parts.length - 1]) + 1)
-  return parts.join(".")
+  let versionBefore = null
+  if (m[2]) {
+    const parts = m[2].split(".")
+    parts[parts.length - 1] = String(Number(parts[parts.length - 1]) + 1)
+    versionBefore = parts.join(".")
+  }
+  return { role: m[1], versionBefore }
 }
 
 function entryActive(entry, assets) {
   if (!entry.versionBefore) return true
   return !!assets.version && isBefore(assets.version, entry.versionBefore)
+}
+
+function entryVisible(entry, assets, file) {
+  if (!entryActive(entry, assets)) return false
+  if (entry.overrideRole === "additional" && file.startsWith("assets/minecraft/") && !file.startsWith("assets/minecraft/atlases")) return false
+  return true
+}
+
+export async function readOverlayFile(file, assets) {
+  assets = await prepareAssets(assets)
+  for (let i = 0; i < assets.length; i++) {
+    const entry = assets[i]
+    if (entry.overrideRole !== "additional" || !entry.read) continue
+    if (!entryActive(entry, assets)) continue
+    try {
+      const data = await entry.read(file)
+      if (data !== undefined && data !== null && data !== false) {
+        const buf = toBytes(data)
+        buf.path = file
+        buf.hintIndex = i
+        return buf
+      }
+    } catch {}
+  }
 }
 
 async function isBlocked(entry, filePath) {
@@ -202,7 +230,7 @@ export async function readFileAll(file, assets) {
   for (let i = 0; i < assets.length; i++) {
     const entry = assets[i]
     if (!entry.read) continue
-    if (!entryActive(entry, assets)) continue
+    if (!entryVisible(entry, assets, file)) continue
     if (await isFilteredByHigher(assets, i, file)) continue
     try {
       const data = await entry.read(file)
@@ -551,7 +579,7 @@ export async function readFile(file, assets, hint) {
   const range = hint !== undefined ? [hint] : assets.map((_, i) => i)
   for (const i of range) {
     const entry = assets[i]
-    if (!entryActive(entry, assets)) continue
+    if (!entryVisible(entry, assets, file)) continue
     if (await isFilteredByHigher(assets, i, file)) continue
 
     const resolver = entry.virtualSprites?.get(file)
@@ -577,4 +605,5 @@ export async function readFile(file, assets, hint) {
       } catch {}
     }
   }
+  if (hint === undefined) return readOverlayFile(file, assets)
 }

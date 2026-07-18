@@ -28,7 +28,7 @@ Each threshold below only kicks in when the `version` you pass falls in its rang
 | **before 1.21.4** | Items with no [item definition](scenes.md#parseitemdefinitionassets-id-args) fall back to `models/item/<id>.json` | Item definitions didn't exist yet; models lived directly under `models/item` |
 | **before 1.21.6** | Element rotation angles that aren't multiples of 22.5° render as the missing model | The game rejected off-grid rotations before 1.21.6 |
 | **before 1.21.11** | Texture atlas membership rules are skipped; element rotations outside ±45° or using the multi-axis `x`/`y`/`z` form render as missing; blockstate variant `z` rotations are ignored | The block/item atlas restriction and the wider rotation form both arrived in 1.21.11, and the game didn't read variant `z` before it |
-| **before 26.2** | Beds and signs render through bundled override models (the versioned `overrides_26.1` pack activates) | They used entity models until 26.2 changed them to block models |
+| **before 26.2** | Beds and signs render through bundled override models (the versioned `additional_26.1` pack activates) | They used entity models until 26.2 changed them to block models |
 | **before 26.3** | The element `shade_direction_override` field is ignored; `paletted_permutations` palette references read from their literal texture locations (`textures/trims/color_palettes/…`) | Neither the field nor the 26.3 palette folder existed yet |
 | **26.3 and later** | The element `shade` field is ignored; `paletted_permutations` palette references resolve as palette IDs under `textures/palettes/` | 26.3 removed `shade` in favor of `shade_direction_override`, and moved trim palettes |
 
