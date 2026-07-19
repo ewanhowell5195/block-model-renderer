@@ -53,14 +53,27 @@ export async function zipAssets(input) {
   const files = parseZip(bytes)
 
   let prefix = ""
-  const roots = new Set()
-  for (const p of files.keys()) roots.add(p.split("/")[0])
-  if (!roots.has("assets") && roots.size === 1) {
-    const [only] = roots
-    for (const p of files.keys()) {
-      if (p.startsWith(`${only}/assets/`)) {
-        prefix = `${only}/`
-        break
+  if (!files.has("pack.mcmeta")) {
+    const roots = new Set()
+    for (const p of files.keys()) roots.add(p.split("/")[0])
+    if (!roots.has("assets") && !roots.has("data")) {
+      let depth = Infinity
+      for (const p of files.keys()) {
+        if (!p.endsWith("/pack.mcmeta")) continue
+        const d = p.split("/").length
+        if (d < depth) {
+          depth = d
+          prefix = p.slice(0, -"pack.mcmeta".length)
+        }
+      }
+      if (!prefix && roots.size === 1) {
+        const [only] = roots
+        for (const p of files.keys()) {
+          if (p.startsWith(`${only}/assets/`)) {
+            prefix = `${only}/`
+            break
+          }
+        }
       }
     }
   }

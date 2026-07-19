@@ -136,6 +136,7 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
   const tw = tex.image.width, th = tex.image.height
   const sub = { sx: Math.round(umin * tw), sy: Math.round((1 - vmax) * th), sw: Math.round((umax - umin) * tw), sh: Math.round((vmax - vmin) * th) }
   if (sub.sw < 1 || sub.sh < 1) return null
+  if (Math.abs(umin * tw - sub.sx) > 1e-3 || Math.abs((1 - vmax) * th - sub.sy) > 1e-3 || Math.abs((umax - umin) * tw - sub.sw) > 1e-3 || Math.abs((vmax - vmin) * th - sub.sh) > 1e-3) return null
   const verts = P.map(p => ({ ha: Math.abs(p.a - a1) < 0.01 ? 1 : 0, hb: Math.abs(p.b - b1) < 0.01 ? 1 : 0, u: (p.u - umin) / (umax - umin), v: (p.v - vmin) / (vmax - vmin) }))
   const srcHash = hashTexture(tex)
   const corners = {}

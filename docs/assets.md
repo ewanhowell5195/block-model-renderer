@@ -23,6 +23,8 @@ assets: [
 
 Each pack's `pack.mcmeta` filter block is respected: files a higher pack filters out are hidden from the packs below it, like in the game.
 
+Zipped packs don't need `pack.mcmeta` at the zip root: if it only exists in a subfolder (a zipped GitHub repo, a release zip with the pack folder inside), the shallowest one marks the pack root and the wrapper folders are stripped automatically.
+
 > **Vanilla assets are not included.** The [bundled packs](#bundled-packs) only cover fallbacks and required overrides. Provide a base pack yourself: an extracted vanilla assets dump, or the client jar directly. Resource packs and mods are overlays, so layered without a base, everything they don't override renders as missing.
 
 ## Virtual handlers
