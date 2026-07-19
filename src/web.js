@@ -653,7 +653,12 @@ function attachAutoAnimation(root) {
   if (!textures.length && !shaders.length) return
   const schedules = buildSchedules(textures)
   root.traverse(obj => {
-    if (obj.isMesh) obj.onBeforeRender = () => evaluateAnimation(schedules, shaders, clockNow() / 50)
+    if (!obj.isMesh) return
+    const prev = obj.onBeforeRender
+    obj.onBeforeRender = function (...args) {
+      evaluateAnimation(schedules, shaders, clockNow() / 50)
+      prev?.apply(this, args)
+    }
   })
 }
 export const zipAssets = wrap("zipAssets")

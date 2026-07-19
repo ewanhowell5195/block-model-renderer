@@ -1,6 +1,6 @@
 import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { prepareAssets, scopedCache, readFile } from "./assets.js"
-import { parseBlockstate, resolveModelData, loadModel, AIR_BLOCKS, TECHNICAL_BLOCKS } from "./models.js"
+import { parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -284,6 +284,7 @@ export async function createScene(assets, blocks, args = {}) {
       group.add(inst)
       inst.traverse(o => {
         if (!o.isMesh) return
+        if (o.userData.billboard) o.onBeforeRender = billboardBeforeRender
         drawCalls++
         tris += (o.geometry.index?.count ?? o.geometry.attributes.position?.count ?? 0) / 3
       })

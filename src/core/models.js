@@ -27,6 +27,18 @@ const SHADE_DIR_VECS = {
 
 const NAMED_TIMES = { day: 1000, noon: 6000, sunset: 12000, night: 13000, midnight: 18000, sunrise: 23000 }
 
+let _bbPos, _bbQuat, _bbFlip, _bbScale
+export function billboardBeforeRender(renderer, scene, camera) {
+  _bbPos ??= new THREE.Vector3()
+  _bbQuat ??= new THREE.Quaternion()
+  _bbFlip ??= new THREE.Quaternion(0, 1, 0, 0)
+  _bbScale ??= new THREE.Vector3()
+  const m = this.matrixWorld
+  _bbPos.setFromMatrixPosition(m)
+  _bbScale.setFromMatrixScale(m)
+  m.compose(_bbPos, camera.getWorldQuaternion(_bbQuat).multiply(_bbFlip), _bbScale)
+}
+
 const CARDINAL_LIGHTS = {
   default: { down: 0.5, up: 1, north: 0.8, south: 0.8, west: 0.6, east: 0.6 },
   nether: { down: 0.9, up: 0.9, north: 0.8, south: 0.8, west: 0.6, east: 0.6 }
@@ -1285,7 +1297,7 @@ export async function loadModel(scene, assets, model, args) {
     settings = model.display?.[display]
   }
 
-  if (model.ignore_rotations) {
+  if (model.billboard) {
     delete settings.rotation
   }
 
@@ -1801,6 +1813,14 @@ export async function loadModel(scene, assets, model, args) {
 
   if (displayGroup.scale.x * displayGroup.scale.y * displayGroup.scale.z < 0) {
     bakeMirroredScale(displayGroup, model.version && isBefore(model.version, "1.15"))
+  }
+
+  if (model.billboard) {
+    rootGroup.traverse(o => {
+      if (!o.isMesh) return
+      o.userData.billboard = true
+      o.onBeforeRender = billboardBeforeRender
+    })
   }
 
   rootGroup.userData.model = model

@@ -1,4 +1,5 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
+import { billboardBeforeRender } from "./models.js"
 import { sortTranslucent } from "./sorting.js"
 
 const nextTask = globalThis.scheduler?.yield
@@ -281,7 +282,7 @@ export async function optimizeScene(placements, opts = {}) {
     if (!p.group || tdata.has(p.group)) continue
     const tmpl = p.group
     tmpl.updateMatrixWorld(true)
-    const flats = [], meshMap = new Map()
+    const flats = [], meshMap = new Map(), billboards = []
     function atlasFace(o, face) {
       let m = meshMap.get(o)
       if (!m) meshMap.set(o, m = { geo: o.geometry, matrix: o.matrixWorld.clone(), faces: [] })
@@ -297,6 +298,10 @@ export async function optimizeScene(placements, opts = {}) {
     }
     tmpl.traverse(o => {
       if (!o.isMesh) return
+      if (o.userData.billboard) {
+        billboards.push({ geo: o.geometry, material: o.material, matrix: o.matrixWorld.clone() })
+        return
+      }
       const geo = o.geometry, mats = [].concat(o.material)
       const nm = new THREE.Matrix3().getNormalMatrix(o.matrixWorld)
       const gs = geo.groups.length ? geo.groups : [{ start: 0, count: geo.index.count, materialIndex: 0 }]
@@ -347,7 +352,7 @@ export async function optimizeScene(placements, opts = {}) {
       if (demote.has(c)) atlasFace(c.o, toAtlas(c.mat, c.tex, { start: c.start, count: c.count, tex: c.tex, cull: c.cull }))
       else merge.push(c.flat)
     }
-    tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()) })
+    tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards })
     report(ti / placements.length)
     await breathe()
     if (shouldCancel?.()) return null
@@ -442,6 +447,7 @@ export async function optimizeScene(placements, opts = {}) {
 
   stage(3000)
   const blockT = new THREE.Matrix4(), full = new THREE.Matrix4(), nmat = new THREE.Matrix3()
+  const billboardMeshes = []
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
     const td = tdata.get(p.group)
@@ -458,6 +464,14 @@ export async function optimizeScene(placements, opts = {}) {
           appendGroup(m.geo, f.start, f.count, full, nmat, rect, s.w, s.h, at.accs[rect.ai])
         }
       }
+    }
+    for (const b of td.billboards) {
+      const mesh = new THREE.Mesh(b.geo, b.material)
+      full.multiplyMatrices(blockT, b.matrix)
+      full.decompose(mesh.position, mesh.quaternion, mesh.scale)
+      mesh.userData.billboard = true
+      mesh.onBeforeRender = billboardBeforeRender
+      billboardMeshes.push(mesh)
     }
     if (i % 2000 === 1999) {
       report((i + 1) / placements.length)
@@ -515,6 +529,11 @@ export async function optimizeScene(placements, opts = {}) {
     addMesh(acc, material)
     report(++mi / meshCount)
     await breathe()
+  }
+  for (const mesh of billboardMeshes) {
+    group.add(mesh)
+    drawCalls++
+    tris += (mesh.geometry.index?.count ?? mesh.geometry.attributes.position?.count ?? 0) / 3
   }
   onProgress?.(10000, 10000)
 

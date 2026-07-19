@@ -13,7 +13,7 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 | `translation` | `[8, 0, 8]` | `[x, y, z]` translation (in voxel units) applied to the whole model before rendering |
 | `scale` | `[0.5, 0.5, 0.5]` | `[x, y, z]` scale applied to the whole model before rendering |
 | `transformation` | `{ translation: [0,0,0], scale: [1,1,1], left_rotation: [0,0,0,1], right_rotation: [0,0,0,1] }` | Translation, rotation, and scale applied to the whole model before rendering. Accepts the vanilla item-definition transformation form (translation/rotations/scale) or a flat 16-element matrix array |
-| `ignore_rotations` | `true` | Skip the [display](models.md#display-transforms) rotation for this model |
+| `billboard` | `true` | Billboard the model: it always faces the camera, ignoring [display](models.md#display-transforms) and blockstate rotations. Works in [`createScene`](scenes.md#createsceneassets-blocks-args) too. Pair with `shade_direction_override: "up"` on the elements so world-mode shading stays constant as it turns |
 | `double_sided` | `true` | Render all faces from both sides |
 | `tints` | `["#FF0000", "#00FF00"]` | Array of hex color strings. Faces with a `tintindex` look up their tint from this array |
 | `shader` | `{ type: "end_portal", layers: 15 }` | Apply the end portal / end gateway shader to the model |
