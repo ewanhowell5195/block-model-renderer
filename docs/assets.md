@@ -112,7 +112,7 @@ Minecraft renders some blocks dynamically at runtime with hardcoded geometry, wi
 
 ### Forced (highest priority)
 
-Blocks that vanilla never renders from resource pack models at all: the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void), the end portal and end gateway, and the fluids (water, lava). A resource pack can't remodel these in game, so the renderer matches that: the bundled blockstates and models always win, shadowing anything your packs provide for them.
+Blocks that vanilla never renders from resource pack models at all: the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void), the end portal and end gateway, and the fluids (water, lava). A resource pack can't remodel these in game, so the renderer matches that: the bundled blockstates for these blocks always win, shadowing anything your packs provide for them.
 
 ### Additional (rendered alongside)
 

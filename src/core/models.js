@@ -327,7 +327,7 @@ export async function parseBlockstate(assets, blockstate, args) {
 
 function waterPart(colors) {
   return {
-    model: "minecraft:block/water",
+    model: "block-model-renderer:block/water",
     type: "block",
     fluid: "water",
     tints: [colors?.tables.fixed.water ?? "#3F76E4"],
