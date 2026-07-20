@@ -1,46 +1,114 @@
 const textDecoder = new TextDecoder()
 const textEncoder = new TextEncoder()
 
+function eocdScan(ua) {
+  for (let i = ua.length - 22; i >= 0; i--) {
+    if (ua[i] === 0x50 && ua[i + 1] === 0x4b && ua[i + 2] === 0x05 && ua[i + 3] === 0x06) return i
+  }
+  return -1
+}
+
+function centralRecord(dv, ua, o) {
+  const nameLen = dv.getUint16(o + 28, true)
+  const extraLen = dv.getUint16(o + 30, true)
+  const commentLen = dv.getUint16(o + 32, true)
+  const filePath = textDecoder.decode(ua.subarray(o + 46, o + 46 + nameLen))
+  const method = dv.getUint16(o + 10, true)
+  let compressedSize = dv.getUint32(o + 20, true)
+  const uncompressedSize = dv.getUint32(o + 24, true)
+  let localOffset = dv.getUint32(o + 42, true)
+  if (compressedSize === 0xFFFFFFFF || localOffset === 0xFFFFFFFF || uncompressedSize === 0xFFFFFFFF) {
+    let eo = o + 46 + nameLen
+    const end = eo + extraLen
+    while (eo + 4 <= end) {
+      const id = dv.getUint16(eo, true), sz = dv.getUint16(eo + 2, true)
+      if (id === 1) {
+        let fo = eo + 4
+        if (uncompressedSize === 0xFFFFFFFF) fo += 8
+        if (compressedSize === 0xFFFFFFFF) {
+          compressedSize = Number(dv.getBigUint64(fo, true))
+          fo += 8
+        }
+        if (localOffset === 0xFFFFFFFF) localOffset = Number(dv.getBigUint64(fo, true))
+        break
+      }
+      eo += 4 + sz
+    }
+  }
+  return { filePath, method, compressedSize, localOffset, next: o + 46 + nameLen + extraLen + commentLen }
+}
+
 export function parseZip(bytes) {
   const ua = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
   const dv = new DataView(ua.buffer, ua.byteOffset, ua.byteLength)
 
-  let offEOCD = -1
-  for (let i = ua.length - 22; i >= 0; i--) {
-    if (ua[i] === 0x50 && ua[i + 1] === 0x4b && ua[i + 2] === 0x05 && ua[i + 3] === 0x06) {
-      offEOCD = i
-      break
-    }
-  }
+  const offEOCD = eocdScan(ua)
   if (offEOCD === -1) throw new Error("Not a zip file (no end of central directory record)")
 
-  const offCenDir = dv.getUint32(offEOCD + 16, true)
-  const recordCount = dv.getUint16(offEOCD + 10, true)
+  let offCenDir = dv.getUint32(offEOCD + 16, true)
+  let recordCount = dv.getUint16(offEOCD + 10, true)
+  if ((offCenDir === 0xFFFFFFFF || recordCount === 0xFFFF) && offEOCD >= 20 && dv.getUint32(offEOCD - 20, true) === 0x07064b50) {
+    const off64 = Number(dv.getBigUint64(offEOCD - 12, true))
+    if (dv.getUint32(off64, true) === 0x06064b50) {
+      recordCount = Number(dv.getBigUint64(off64 + 32, true))
+      offCenDir = Number(dv.getBigUint64(off64 + 48, true))
+    }
+  }
 
   const files = new Map()
   let o = offCenDir
   for (let i = 0; i < recordCount; i++) {
-    const nameLen = dv.getUint16(o + 28, true)
-    const extraLen = dv.getUint16(o + 30, true)
-    const commentLen = dv.getUint16(o + 32, true)
-    const filePath = textDecoder.decode(ua.subarray(o + 46, o + 46 + nameLen))
-
-    if (!filePath.endsWith("/")) {
-      const localOffset = dv.getUint32(o + 42, true)
-      const method = dv.getUint16(localOffset + 8, true)
-      const compressedSize = dv.getUint32(o + 20, true)
-      const localNameLen = dv.getUint16(localOffset + 26, true)
-      const localExtraLen = dv.getUint16(localOffset + 28, true)
-      const dataStart = localOffset + 30 + localNameLen + localExtraLen
-      files.set(filePath, {
-        method,
-        data: ua.subarray(dataStart, dataStart + compressedSize)
+    const r = centralRecord(dv, ua, o)
+    if (!r.filePath.endsWith("/")) {
+      const dataStart = r.localOffset + 30 + dv.getUint16(r.localOffset + 26, true) + dv.getUint16(r.localOffset + 28, true)
+      files.set(r.filePath, {
+        method: r.method,
+        data: ua.subarray(dataStart, dataStart + r.compressedSize)
       })
     }
-
-    o += 46 + nameLen + extraLen + commentLen
+    o = r.next
   }
   return files
+}
+
+export async function parseZipSlices(slice, size) {
+  const tail = await slice(Math.max(0, size - 66000), size)
+  const e = eocdScan(tail)
+  if (e === -1) throw new Error("Not a zip file (no end of central directory record)")
+  const tdv = new DataView(tail.buffer, tail.byteOffset, tail.byteLength)
+  let count = tdv.getUint16(e + 10, true)
+  let cdSize = tdv.getUint32(e + 12, true)
+  let cdOff = tdv.getUint32(e + 16, true)
+  if ((cdOff === 0xFFFFFFFF || cdSize === 0xFFFFFFFF || count === 0xFFFF) && e >= 20 && tdv.getUint32(e - 20, true) === 0x07064b50) {
+    const off64 = Number(tdv.getBigUint64(e - 12, true))
+    const rec = await slice(off64, off64 + 56)
+    const rdv = new DataView(rec.buffer, rec.byteOffset, rec.byteLength)
+    if (rdv.getUint32(0, true) === 0x06064b50) {
+      count = Number(rdv.getBigUint64(32, true))
+      cdSize = Number(rdv.getBigUint64(40, true))
+      cdOff = Number(rdv.getBigUint64(48, true))
+    }
+  }
+  const cd = await slice(cdOff, cdOff + cdSize)
+  const dv = new DataView(cd.buffer, cd.byteOffset, cd.byteLength)
+  const files = new Map()
+  let o = 0
+  for (let i = 0; i < count && o + 46 <= cd.length; i++) {
+    const r = centralRecord(dv, cd, o)
+    if (!r.filePath.endsWith("/")) {
+      files.set(r.filePath, { method: r.method, compressedSize: r.compressedSize, localOffset: r.localOffset, slice })
+    }
+    o = r.next
+  }
+  return files
+}
+
+export async function zipEntryData(f) {
+  if (f.data) return f.data
+  const head = await f.slice(f.localOffset, f.localOffset + 30)
+  const hdv = new DataView(head.buffer, head.byteOffset, head.byteLength)
+  const start = f.localOffset + 30 + hdv.getUint16(26, true) + hdv.getUint16(28, true)
+  return f.slice(start, start + f.compressedSize)
 }
 
 const CRC_TABLE = new Int32Array(256)

@@ -662,6 +662,7 @@ function attachAutoAnimation(root) {
   })
 }
 export const zipAssets = wrap("zipAssets")
+export const zipAssetsFromSlices = wrap("zipAssetsFromSlices")
 export { parseZip } from "./zip.js"
 
 export async function makeModelScene() {

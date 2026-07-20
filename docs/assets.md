@@ -200,6 +200,12 @@ Wraps a zip (`Uint8Array`, `ArrayBuffer`, `Blob`, or `File`) as an assets entry.
 
 Returns (async) a [virtual handler](#virtual-handlers) entry with `read`/`list`/`filter`, ready to drop into an `assets` array.
 
+Zips stay out of memory when they can. A `Blob`/`File` over 256MB is read through slices: only the zip's directory is parsed up front and each file's bytes come off disk when first read. On Node the same applies to paths (read through a file handle instead of loaded whole) and to large buffers, which spill to a temp file (cleaned up at exit) so the original can be collected. Zip64 archives (over 4GB) are supported throughout, so the practical size limit is disk, not memory.
+
+### `zipAssetsFromSlices(slice, size)`
+
+The disk-backed form with a custom byte source: `slice(start, end)` returns a `Promise` of the `Uint8Array` for that range, and `size` is the total archive size. Everything `zipAssets` does (pack root detection, `pack.mcmeta` filters) applies; only where the bytes come from changes. Useful for sources like HTTP range requests or a custom file API.
+
 ### `parseZip(bytes)`
 
 The low-level reader behind [`zipAssets`](#zipassetsinput). Takes a `Uint8Array`/`ArrayBuffer`. Useful for enumerating paths outside the `assets/` tree (e.g. the structures inside a client jar), then reading them through [`readFile`](#readfilepath-assets-hint), which handles decompression.

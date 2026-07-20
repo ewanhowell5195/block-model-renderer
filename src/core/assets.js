@@ -1,5 +1,5 @@
 import { platform, loadImage, toBytes, parseJson, textDecoder, normalize, resolveNamespace, isBefore } from "./platform.js"
-import { parseZip } from "../zip.js"
+import { parseZip, parseZipSlices, zipEntryData } from "../zip.js"
 import fallbackData from "./data/fallbacks.json" with { type: "json" }
 import defaultBlockstatesData from "./data/default_blockstates.json" with { type: "json" }
 
@@ -31,7 +31,8 @@ export async function zipEntryFromFiles(files, prefix = "") {
       const f = files.get(prefix + file)
       if (!f) return null
       if (f.content) return f.content
-      return f.content = f.method === 0 ? f.data : await platform.inflateRaw(f.data)
+      const data = f.data ?? await zipEntryData(f)
+      return f.content = f.method === 0 ? data : await platform.inflateRaw(data)
     },
     list(dir) {
       return Array.from(index.get(dir) ?? [])
@@ -43,15 +44,27 @@ export async function zipEntryFromFiles(files, prefix = "") {
   return entry
 }
 
-export async function zipAssets(input) {
-  let bytes
-  if (typeof Blob !== "undefined" && input instanceof Blob) {
-    bytes = new Uint8Array(await input.arrayBuffer())
-  } else {
-    bytes = toBytes(input)
-  }
-  const files = parseZip(bytes)
+const LARGE_BLOB = 256 * 1048576
 
+export async function zipAssets(input) {
+  let files
+  if (typeof Blob !== "undefined" && input instanceof Blob) {
+    if (input.size > LARGE_BLOB) {
+      files = await parseZipSlices(async (start, end) => new Uint8Array(await input.slice(start, end).arrayBuffer()), input.size)
+    } else {
+      files = parseZip(new Uint8Array(await input.arrayBuffer()))
+    }
+  } else {
+    files = parseZip(toBytes(input))
+  }
+  return finishZipAssets(files)
+}
+
+export async function zipAssetsFromSlices(slice, size) {
+  return finishZipAssets(await parseZipSlices(slice, size))
+}
+
+async function finishZipAssets(files) {
   let prefix = ""
   if (!files.has("pack.mcmeta")) {
     const roots = new Set()

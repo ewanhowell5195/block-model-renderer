@@ -6,7 +6,8 @@ import sharp from "sharp"
 import zlib from "node:zlib"
 import path from "node:path"
 import fs from "node:fs"
-import { setPlatform, parsePackFilter, zipAssets, overridesRole } from "./core.js"
+import os from "node:os"
+import { setPlatform, parsePackFilter, zipAssets, zipAssetsFromSlices, overridesRole } from "./core.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -39,6 +40,33 @@ async function makeFolderEntry(folderPath) {
   return entry
 }
 
+const LARGE_ZIP = 256 * 1048576
+
+async function fdZipAssets(filePath, size) {
+  const fh = await fs.promises.open(filePath, "r")
+  const slice = async (start, end) => {
+    const buf = Buffer.allocUnsafe(end - start)
+    await fh.read(buf, 0, end - start, start)
+    return new Uint8Array(buf.buffer, buf.byteOffset, end - start)
+  }
+  return zipAssetsFromSlices(slice, size)
+}
+
+const tempZips = []
+function spillToTemp(bytes) {
+  const p = path.join(os.tmpdir(), `bmr-${process.pid}-${tempZips.length}.zip`)
+  fs.writeFileSync(p, bytes)
+  if (!tempZips.length) {
+    process.on("exit", () => {
+      for (const t of tempZips) {
+        try { fs.unlinkSync(t) } catch {}
+      }
+    })
+  }
+  tempZips.push(p)
+  return p
+}
+
 let maxTexSize = null
 setPlatform({
   THREE,
@@ -57,7 +85,11 @@ setPlatform({
   },
 
   async prepareEntry(entry) {
-    if (typeof entry !== "string") return zipAssets(entry)
+    if (typeof entry !== "string") {
+      const bytes = entry instanceof ArrayBuffer ? new Uint8Array(entry) : entry
+      if (bytes instanceof Uint8Array && bytes.length > LARGE_ZIP) return fdZipAssets(spillToTemp(bytes), bytes.length)
+      return zipAssets(entry)
+    }
     let stat
     try {
       stat = await fs.promises.stat(entry)
@@ -65,6 +97,7 @@ setPlatform({
       return makeFolderEntry(entry)
     }
     if (stat.isDirectory()) return makeFolderEntry(entry)
+    if (stat.size > LARGE_ZIP) return fdZipAssets(entry, stat.size)
     return zipAssets(await fs.promises.readFile(entry))
   },
 
@@ -175,6 +208,6 @@ export {
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, isCrossModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
   optimizeScene, sortTranslucent,
-  zipAssets, readTexture
+  zipAssets, zipAssetsFromSlices, readTexture
 } from "./core.js"
 export { parseZip } from "./zip.js"
