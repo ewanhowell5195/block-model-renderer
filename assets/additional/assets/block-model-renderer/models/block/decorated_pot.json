@@ -1,6 +1,5 @@
 {
   "ignore_atlas_restrictions": true,
-  "double_sided": true,
   "texture_size": [32, 32],
   "textures": {
     "base": "entity/decorated_pot/decorated_pot_base",
@@ -51,15 +50,13 @@
       "from": [1, 0, 1],
       "to": [15, 16, 1],
       "faces": {
-        "north": {"uv": [1, 0, 15, 16], "texture": "#side"},
-        "south": {"uv": [0, 0, 0, 0], "texture": "#side"}
+        "north": {"uv": [1, 0, 15, 16], "texture": "#side"}
       }
     },
     {
       "from": [1, 0, 15],
       "to": [15, 16, 15],
       "faces": {
-        "north": {"uv": [0, 0, 0, 0], "texture": "#side"},
         "south": {"uv": [1, 0, 15, 16], "texture": "#side"}
       }
     },
@@ -67,15 +64,13 @@
       "from": [15, 0, 1],
       "to": [15, 16, 15],
       "faces": {
-        "east": {"uv": [1, 0, 15, 16], "texture": "#side"},
-        "west": {"uv": [0, 0, 0, 0], "texture": "#side"}
+        "east": {"uv": [1, 0, 15, 16], "texture": "#side"}
       }
     },
     {
       "from": [1, 0, 1],
       "to": [1, 16, 15],
       "faces": {
-        "east": {"uv": [0, 0, 0, 0], "texture": "#side"},
         "west": {"uv": [1, 0, 15, 16], "texture": "#side"}
       }
     }
