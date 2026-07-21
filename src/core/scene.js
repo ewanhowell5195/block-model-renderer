@@ -100,12 +100,12 @@ export async function createScene(assets, blocks, args = {}) {
       continue
     }
     const biome = b.biome ?? args.biome ?? null
-    const stateKey = id + "\0" + JSON.stringify(b.properties ?? null) + "\0" + JSON.stringify(biome)
+    const stateKey = id + "\0" + JSON.stringify(b.properties ?? null) + "\0" + JSON.stringify(biome) + (b.nbt ? "\0" + JSON.stringify(b.nbt) : "")
     let pi = paletteIndex.get(stateKey)
     if (pi === undefined) {
       pi = palette.length
       paletteIndex.set(stateKey, pi)
-      palette.push({ id, properties: b.properties ?? null, biome, models: null })
+      palette.push({ id, properties: b.properties ?? null, biome, nbt: b.nbt ?? null, models: null })
     }
     blockPalette[i] = pi
     cells.set(posKey, { pos: b.pos, palette: pi })
@@ -114,7 +114,7 @@ export async function createScene(assets, blocks, args = {}) {
   enter("parse")
   for (const entry of palette) {
     entry.models = await parseBlockstate(assets, entry.id, {
-      data: entry.properties ?? {}, biome: entry.biome ?? undefined,
+      data: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
       ignoreAtlases: args.ignoreAtlases, version
     })
     await breathe()
@@ -203,7 +203,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (daytimeUniform) tmpl.userData.daytime = daytimeUniform
     const models = spec.seed != null
       ? await parseBlockstate(assets, spec.entry.id, {
-        data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined,
+        data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
         seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version
       })
       : spec.entry.models

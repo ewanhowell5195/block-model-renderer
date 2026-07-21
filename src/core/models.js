@@ -657,7 +657,10 @@ export async function parseBlockstate(assets, blockstate, args) {
   }
 
   if (args?.nbt) {
-    models.push(...await blockEntityItemModels(assets, block, data, args))
+    let drop = false
+    const extra = await blockEntityItemModels(assets, block, data, { ...args, dropModels: () => { drop = true } })
+    if (drop) models.length = 0
+    models.push(...extra)
   }
 
   return models
@@ -688,6 +691,7 @@ async function blockEntityItemModels(assets, block, data, args) {
         new THREE.Vector3(...(s.scale ?? [1, 1, 1]).map(v => Math.max(-4, Math.min(4, v === 0 ? 0.001 : v))))
       ))
     }
+    full.premultiply(new THREE.Matrix4().makeTranslation(8, 8, 8)).multiply(new THREE.Matrix4().makeTranslation(-8, -8, -8))
     const own = entry.transformation
       ? (entry.transformation instanceof THREE.Matrix4 ? entry.transformation : parseTransformation(entry.transformation))
       : null
@@ -701,6 +705,7 @@ async function blockEntityItemModels(assets, block, data, args) {
     const facing = data.facing ?? "north"
     const rot = Number(nbt.ItemRotation ?? 0)
     const invisible = nbt.Invisible === 1 || nbt.Invisible === true
+    if (invisible) args.dropModels?.()
     const f = FRAME_ITEM_ROT[facing]
     const mat = new THREE.Matrix4()
     if (f) mat.makeRotationFromEuler(_e.set(f[0], f[1], 0))
