@@ -261,7 +261,7 @@ The animation runs itself, off the same draw-driven hooks as [animated textures]
 * **Bells** get a `.ring(direction?)` method on their group (`direction` is the side the bell was hit from, default `"north"`). The body swings with the game's decaying oscillation and settles after the game's 50 ticks.
 * **Chests and shulker boxes** get `.open()` and `.close()` methods on their group. Each animates the lid over the game's 10 ticks (500ms) from wherever it currently is, so a `.close()` mid-open reverses smoothly, and the easing matches the game (chests `1 - (1 - t)³`, shulker boxes linear).
 * **Decorated pots** get a `.wobble(style?)` method on their group: `"positive"` plays the game's happy tilt (7 ticks), `"negative"` the refusal shake (10 ticks). Default `"positive"`.
-* **Dragon and piglin heads** rendered with `powered: true` animate continuously like their powered blocks in game (the dragon's jaw chatters, the piglin's ears flap), phase-offset per block position. Unpowered heads stay still.
+* **Dragon and piglin heads** rendered with `powered: true` animate continuously (the dragon's jaw chatters, the piglin's ears flap), phase-offset per block position. Unpowered heads stay still.
 * **Enchanting books** play the full game animation automatically, with the rendering camera as the player: the book opens and tracks the camera within range, and drifts closed when it leaves. The activation range is `userData.range` on the book's group, in blocks (default `3`, the game's), read live so you can change it any time. Each book seeds its idle facing and bob phase from its position, so a room of them doesn't move in lockstep.
 
 Nothing is yours to run per-frame: like texture animation, it advances whenever the scene draws. A single one-off render shows the load pose.
@@ -283,9 +283,9 @@ The pose fields per kind (`root.userData.dynamic`):
 | `"bell"` | `{ ticks, direction }` | Ticks since the bell was rung (fractional for partial ticks) and the side it was hit from (`"north"`, `"south"`, `"east"`, `"west"`). No `direction` means at rest |
 | `"chest"` | `{ openness }` | Opening progress 0-1, as the game's block entity tracks it. The lid renders through the game's `1 - (1 - t)³` easing internally |
 | `"decorated_pot"` | `{ style, progress }` | A wobble (`"positive"` or `"negative"`) at `progress` 0-1 through its run. No `style` means at rest |
-| `"dragon_head"` | `{ ticks }` | Ticks into the powered jaw animation (a 10-tick cycle) |
+| `"dragon_head"` | `{ openness }` | How open the jaw is, 0-1 |
 | `"enchanting_book"` | `{ time, rot, open, flip }` | The game's `EnchantingTableBlockEntity` fields: `time` in ticks drives the hover bob and page ripple, `rot` is the facing angle in radians, `open` is 0-1, `flip` is the page-flip counter (fractional values mid-flip) |
-| `"piglin_head"` | `{ ticks }` | Ticks into the powered ear-flap animation (the ears cycle at slightly different rates) |
+| `"piglin_head"` | `{ left, right }` | How far each ear is raised, 0-1 (0 is the resting droop) |
 | `"shulker_box"` | `{ openness }` | Opening progress 0-1: lifts the lid 8 voxels while twisting it 270°, linear like the game |
 
 Models opt in with the `dynamic` and `part` [extension fields](extending.md#dynamic-models), and [`loadModel`](#loadmodelscene-assets-model-args) applies the model's initial `pose` on build (a chest special's `openness` ends up there).

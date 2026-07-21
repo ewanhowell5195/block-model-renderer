@@ -131,7 +131,12 @@ function headFrame(root, s, now) {
     const hash = Math.floor(p.x / 16) * 7 + Math.floor(p.y / 16) * 9 + Math.floor(p.z / 16) * 13
     s.seed = (hash % 100 + 100) % 100
   }
-  applyDynamicPose(root, { ticks: s.seed + now / 50 })
+  const p = (s.seed + now / 50) * Math.PI * 0.2
+  if (root.userData.dynamic === "dragon_head") {
+    applyDynamicPose(root, { openness: (Math.sin(p) + 1) / 2 })
+  } else {
+    applyDynamicPose(root, { left: (1 - Math.cos(p * 1.2)) / 2, right: (1 - Math.cos(p)) / 2 })
+  }
 }
 
 function potFrame(root, s, now) {
@@ -270,7 +275,7 @@ function applyDynamicPose(root, data = {}) {
     return
   }
   if (kind === "dragon_head") {
-    const a = -(Math.sin((data.ticks ?? 0) * Math.PI * 0.2) + 1) * 0.2
+    const a = -(data.openness ?? 0) * 0.4
     for (const g of parts) {
       if (g.name !== "part:jaw") continue
       g.rotation.set(0, 0, 0)
@@ -319,10 +324,9 @@ function applyDynamicPose(root, data = {}) {
     return
   }
   if (kind === "piglin_head") {
-    const p = (data.ticks ?? 0) * Math.PI * 0.2
     const POSE = {
-      left_ear: -(Math.cos(p * 1.2) + 2.5) * 0.2,
-      right_ear: (Math.cos(p) + 2.5) * 0.2
+      left_ear: -(0.7 - (data.left ?? 0) * 0.4),
+      right_ear: 0.7 - (data.right ?? 0) * 0.4
     }
     for (const g of parts) {
       const a = POSE[g.name.slice(5)]
