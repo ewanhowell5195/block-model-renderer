@@ -687,8 +687,9 @@ export async function optimizeScene(placements, opts = {}) {
     const slots = []
     for (const p of g.parts) {
       const gid = bm.addInstance ? bm.addGeometry(p.geometry) : null
-      for (const e of p.entries) slots.push({ id: bm.addInstance ? bm.addInstance(gid) : bm.addGeometry(p.geometry), e })
+      for (const e of p.entries) slots.push({ id: bm.addInstance ? bm.addInstance(gid) : bm.addGeometry(p.geometry), e, geometry: p.geometry })
     }
+    bm.userData.batchSlots = slots
     let inited = false
     const baseBeforeRender = bm.onBeforeRender
     bm.onBeforeRender = function (renderer, scene, camera, geometry, material, grp) {
