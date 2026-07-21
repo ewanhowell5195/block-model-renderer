@@ -87,6 +87,7 @@ export async function createScene(assets, blocks, args = {}) {
   }
 
   const cells = new Map()
+  const overlays = []
   const paletteIndex = new Map()
   const palette = []
   const blockPalette = new Uint32Array(blocks.length).fill(0xFFFFFFFF)
@@ -108,7 +109,8 @@ export async function createScene(assets, blocks, args = {}) {
       palette.push({ id, properties: b.properties ?? null, biome, nbt: b.nbt ?? null, pos: b.nbt ? b.pos : null, models: null })
     }
     blockPalette[i] = pi
-    cells.set(posKey, { pos: b.pos, palette: pi })
+    if (b.overlay) overlays.push({ pos: b.pos, palette: pi })
+    else cells.set(posKey, { pos: b.pos, palette: pi })
   }
 
   enter("parse")
@@ -179,6 +181,10 @@ export async function createScene(assets, blocks, args = {}) {
       if (shouldCancel?.()) return null
     }
   }
+  for (const o of overlays) {
+    o.template = o.palette + "||"
+    if (!templateSpecs.has(o.template)) templateSpecs.set(o.template, { entry: palette[o.palette], palette: o.palette, seed: null, fh: null })
+  }
   report(1, 1)
 
   let light = givenLight
@@ -237,6 +243,9 @@ export async function createScene(assets, blocks, args = {}) {
       if (!cell.template) continue
       placements.push({ group: templateOf.get(cell.template), pos: cell.pos, cull: cell.cull })
     }
+    for (const o of overlays) {
+      placements.push({ group: templateOf.get(o.template), pos: o.pos, cull: null })
+    }
     optimized = await optimizeScene(placements, {
       maxAtlas: args.maxAtlas, translucency: args.translucency, resortDistance: args.resortDistance,
       onProgress: (done, total) => report(done, total),
@@ -290,6 +299,17 @@ export async function createScene(assets, blocks, args = {}) {
       })
       await breathe()
       if (shouldCancel?.()) return null
+    }
+    for (const o of overlays) {
+      const inst = templateOf.get(o.template).clone()
+      inst.position.set(o.pos[0] * 16, o.pos[1] * 16, o.pos[2] * 16)
+      group.add(inst)
+      inst.traverse(m => {
+        if (!m.isMesh) return
+        if (m.userData.billboard) m.onBeforeRender = billboardBeforeRender
+        drawCalls++
+        tris += (m.geometry.index?.count ?? m.geometry.attributes.position?.count ?? 0) / 3
+      })
     }
   }
 
