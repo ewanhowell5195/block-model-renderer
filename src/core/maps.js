@@ -1,5 +1,5 @@
 import { Canvas, loadImage } from "./platform.js"
-import { readFile } from "./assets.js"
+import { prepareAssets, readFile } from "./assets.js"
 
 const MAP_BASE = [null,
   [127, 178, 56], [247, 233, 163], [199, 199, 199], [255, 0, 0], [160, 160, 255], [167, 167, 167],
@@ -24,6 +24,8 @@ export function mapIdOf(item) {
 }
 
 export async function renderMapColors(assets, colors) {
+  if (colors == null || colors.length < 16384) throw new Error("renderMapColors requires the 16384 map color bytes")
+  assets = await prepareAssets(assets)
   const canvas = new Canvas(128, 128)
   const ctx = canvas.getContext("2d")
   try {

@@ -12,6 +12,7 @@ import {
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
   makeModelScene, createScene, loadModel, renderModelScene, optimizeScene, sortTranslucent, computeSceneLight,
+  renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
@@ -64,6 +65,10 @@ import {
 | `renderModelScene(scene, camera, args?)` | Render a scene to output. [Details](scenes.md#rendermodelscenescene-camera-args) |
 | `optimizeScene(placements, options?)` | Merge the whole scene into a handful of draw calls, with far fewer polygons. [Details](scenes.md#scene-optimization) |
 | `sortTranslucent(group, options?)` | Depth-sort a group's translucent faces for a moving camera. [Details](scenes.md#translucent-sorting) |
+| `renderMapColors(assets, colors)` | Render a save's map color bytes into a 128×128 canvas through the vanilla palette. [Details](scenes.md#map-art) |
+| `MAP_COLORS` | The vanilla map palette, `{ base, shade }`. [Details](scenes.md#map-art) |
+| `mapIdOf(item)` | The map id from an item's components, `null` when absent. [Details](scenes.md#map-art) |
+| `disposeMapArt(assets)` | Clear the cached framed-map art. [Details](scenes.md#map-art) |
 | `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](scenes.md#scene-lighting) |
 
 ## Fluids
