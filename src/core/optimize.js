@@ -1,5 +1,5 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
-import { billboardBeforeRender, initDynamic, dynamicFrame } from "./models.js"
+import { initDynamic, dynamicFrame } from "./models.js"
 import { sortTranslucent } from "./sorting.js"
 
 const nextTask = globalThis.scheduler?.yield
@@ -475,7 +475,7 @@ export async function optimizeScene(placements, opts = {}) {
 
   stage(3000)
   const blockT = new THREE.Matrix4(), full = new THREE.Matrix4(), nmat = new THREE.Matrix3()
-  const billboardMeshes = [], dynamicInstances = [], dynBuckets = new Map()
+  const dynamicInstances = [], dynBuckets = new Map(), bbBuckets = new Map()
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
     const td = tdata.get(p.group)
@@ -494,12 +494,13 @@ export async function optimizeScene(placements, opts = {}) {
       }
     }
     for (const b of td.billboards) {
-      const mesh = new THREE.Mesh(b.geo, b.material)
+      const key = geoHash(b.geo) + "|" + [].concat(b.material).map(x => matSignature(x) + (matMap(x)?.uuid ?? "")).join(",")
+      let bucket = bbBuckets.get(key)
+      if (!bucket) bbBuckets.set(key, bucket = { geometry: b.geo, material: b.material, entries: [] })
       full.multiplyMatrices(blockT, b.matrix)
-      full.decompose(mesh.position, mesh.quaternion, mesh.scale)
-      mesh.userData.billboard = true
-      mesh.onBeforeRender = billboardBeforeRender
-      billboardMeshes.push(mesh)
+      const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scale = new THREE.Vector3()
+      full.decompose(pos, quat, scale)
+      bucket.entries.push({ pos, scale })
     }
     for (const d of td.dynamics) {
       const holder = new THREE.Group()
@@ -581,10 +582,25 @@ export async function optimizeScene(placements, opts = {}) {
     report(++mi / meshCount)
     await breathe()
   }
-  for (const mesh of billboardMeshes) {
-    group.add(mesh)
+  const _bbPos = new THREE.Vector3(), _bbQuat = new THREE.Quaternion(), _bbFlip = new THREE.Quaternion(0, 1, 0, 0), _bbM = new THREE.Matrix4(), _bbInv = new THREE.Matrix4()
+  for (const bucket of bbBuckets.values()) {
+    const entries = bucket.entries
+    const im = new THREE.InstancedMesh(bucket.geometry, bucket.material, entries.length)
+    im.frustumCulled = false
+    im.userData.billboard = true
+    im.onBeforeRender = function (renderer, scene, camera) {
+      _bbInv.copy(this.matrixWorld).invert()
+      camera.getWorldQuaternion(_bbQuat).multiply(_bbFlip)
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i]
+        _bbPos.copy(e.pos).applyMatrix4(this.matrixWorld)
+        this.setMatrixAt(i, _bbM.compose(_bbPos, _bbQuat, e.scale).premultiply(_bbInv))
+      }
+      this.instanceMatrix.needsUpdate = true
+    }
+    group.add(im)
     drawCalls++
-    tris += (mesh.geometry.index?.count ?? mesh.geometry.attributes.position?.count ?? 0) / 3
+    tris += (bucket.geometry.index?.count ?? bucket.geometry.attributes.position?.count ?? 0) / 3 * entries.length
   }
   for (const d of dynamicInstances) group.add(d.holder)
   const _dynM = new THREE.Matrix4(), _dynInv = new THREE.Matrix4()
