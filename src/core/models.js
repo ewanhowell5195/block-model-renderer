@@ -117,8 +117,9 @@ function bannerFrame(root, s, now) {
     const p = _dcam.setFromMatrixPosition(root.matrixWorld)
     const hash = Math.floor(p.x / 16) * 7 + Math.floor(p.y / 16) * 9 + Math.floor(p.z / 16) * 13
     s.seed = (hash % 100 + 100) % 100
+    s.t0 = now
   }
-  applyDynamicPose(root, { phase: ((s.seed + now / 50) % 100) / 100 })
+  applyDynamicPose(root, { phase: ((s.seed + (now - s.t0) / 50) % 100) / 100 })
 }
 
 function bellFrame(root, s, now) {
@@ -134,13 +135,8 @@ function bellFrame(root, s, now) {
 
 function headFrame(root, s, now) {
   if (!s.auto) return
-  if (s.seed === undefined) {
-    _dcam ??= new THREE.Vector3()
-    const p = _dcam.setFromMatrixPosition(root.matrixWorld)
-    const hash = Math.floor(p.x / 16) * 7 + Math.floor(p.y / 16) * 9 + Math.floor(p.z / 16) * 13
-    s.seed = (hash % 100 + 100) % 100
-  }
-  const p = (s.seed + now / 50) * Math.PI * 0.2
+  s.t0 ??= now
+  const p = (now - s.t0) / 50 * Math.PI * 0.2
   if (root.userData.dynamic === "dragon_head") {
     applyDynamicPose(root, { openness: (Math.sin(p) + 1) / 2 })
   } else {
@@ -171,11 +167,8 @@ function bookFrame(root, s, camera, now) {
   if (!s.auto) return
   let b = s.book
   if (!b) {
-    _dcam ??= new THREE.Vector3()
-    const p = _dcam.setFromMatrixPosition(root.matrixWorld)
-    const h = Math.abs(Math.sin(p.x * 12.9898 + p.y * 78.233 + p.z * 37.719) * 43758.5453)
-    const rot = (h % 1) * Math.PI * 2 - Math.PI
-    b = s.book = { time: Math.floor(h * 7919) % 20000, rot, oRot: rot, tRot: rot, open: 0, oOpen: 0, flip: 0, oFlip: 0, flipT: 0, flipA: 0, acc: 0, last: null }
+    const rot = -Math.PI / 2
+    b = s.book = { time: 0, rot, oRot: rot, tRot: rot, open: 0, oOpen: 0, flip: 0, oFlip: 0, flipT: 0, flipA: 0, acc: 0, last: null }
   }
   if (b.last === null) b.last = now
   b.acc = Math.min(b.acc + (now - b.last), 250)
@@ -295,7 +288,7 @@ function applyDynamicPose(root, data = {}) {
   if (kind === "enchanting_book") {
     const time = data.time ?? 0
     const open = data.open ?? 0
-    const rot = data.rot ?? 0
+    const rot = data.rot ?? -Math.PI / 2
     const flip = data.flip ?? 0
     const f = (Math.sin(time * 0.02) * 0.1 + 1.25) * open
     const frac = v => v - Math.floor(v)
@@ -1328,6 +1321,7 @@ async function resolveSpecialModel(assets, data, base) {
       scale = [1.5, 1.5, 1.5]
       const dye = (await colorTables(assets)).tables.dye
       model.tints = [dye[data.color]]
+      model.pose = { phase: 0 }
       applyPatternLayers(model, data, dye, "banner", el => Object.values(el.faces).some(f => f.texture === "#tinted"))
       break
     }
@@ -2163,7 +2157,8 @@ export async function loadModel(scene, assets, model, args) {
   if (model.dynamic) {
     rootGroup.userData.dynamic = model.dynamic
     initDynamic(rootGroup)
-    applyDynamicPose(rootGroup, model.pose ?? {})
+    if (model.pose) poseSpecial(rootGroup, model.pose)
+    else applyDynamicPose(rootGroup, {})
   }
 
   rootGroup.userData.model = model
