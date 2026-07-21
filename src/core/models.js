@@ -41,6 +41,8 @@ export function poseSpecial(root, data = {}) {
   const s = dynState(root)
   if (kind === "banner" || kind === "enchanting_book") {
     s.auto = false
+  } else if (kind === "bell") {
+    s.ring = null
   } else {
     s.openness = data.openness ?? 0
     s.target = null
@@ -52,6 +54,9 @@ export function poseSpecial(root, data = {}) {
 export function initDynamic(root) {
   const kind = root.userData?.dynamic
   if (!kind) return
+  if (kind === "bell") {
+    root.ring = direction => { dynState(root).ring = { t0: dynNow(), dir: typeof direction === "string" ? direction : "north" } }
+  }
   if (kind === "chest" || kind === "shulker_box") {
     root.open = () => { dynState(root).target = 1 }
     root.close = () => { dynState(root).target = 0 }
@@ -71,6 +76,7 @@ function dynamicBeforeRender(renderer, scene, camera) {
   s.frame = frame
   const now = dynNow()
   if (root.userData.dynamic === "banner") return bannerFrame(root, s, now)
+  if (root.userData.dynamic === "bell") return bellFrame(root, s, now)
   if (root.userData.dynamic === "enchanting_book") return bookFrame(root, s, camera, now)
   if (s.target === null) return
   if (s.last === null) s.last = now
@@ -97,6 +103,17 @@ function bannerFrame(root, s, now) {
     s.seed = (hash % 100 + 100) % 100
   }
   applyDynamicPose(root, { phase: ((s.seed + now / 50) % 100) / 100 })
+}
+
+function bellFrame(root, s, now) {
+  if (!s.ring) return
+  const ticks = (now - s.ring.t0) / 50
+  if (ticks >= 50) {
+    applyDynamicPose(root, {})
+    s.ring = null
+    return
+  }
+  applyDynamicPose(root, { ticks, direction: s.ring.dir })
 }
 
 const wrapRad = v => {
@@ -176,6 +193,22 @@ function applyDynamicPose(root, data = {}) {
     for (const g of parts) {
       if (g.name !== "part:flag") continue
       g.rotation.set(a, 0, 0)
+    }
+    return
+  }
+  if (kind === "bell") {
+    let x = 0, z = 0
+    if (data.direction) {
+      const ticks = data.ticks ?? 0
+      const r = Math.sin(ticks / Math.PI) / (4 + ticks / 3)
+      if (data.direction === "north") x = -r
+      else if (data.direction === "south") x = r
+      else if (data.direction === "east") z = -r
+      else if (data.direction === "west") z = r
+    }
+    for (const g of parts) {
+      if (g.name !== "part:bell_body") continue
+      g.rotation.set(x, 0, z)
     }
     return
   }
