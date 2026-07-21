@@ -43,6 +43,8 @@ export function poseSpecial(root, data = {}) {
     s.auto = false
   } else if (kind === "bell") {
     s.ring = null
+  } else if (kind === "decorated_pot") {
+    s.wobble = null
   } else {
     s.openness = data.openness ?? 0
     s.target = null
@@ -61,6 +63,9 @@ export function initDynamic(root) {
     root.open = () => { dynState(root).target = 1 }
     root.close = () => { dynState(root).target = 0 }
   }
+  if (kind === "decorated_pot") {
+    root.wobble = style => { dynState(root).wobble = { t0: dynNow(), style: style === "negative" ? "negative" : "positive" } }
+  }
   root.traverse(o => { if (o.isMesh) o.onBeforeRender = dynamicBeforeRender })
 }
 
@@ -77,6 +82,7 @@ function dynamicBeforeRender(renderer, scene, camera) {
   const now = dynNow()
   if (root.userData.dynamic === "banner") return bannerFrame(root, s, now)
   if (root.userData.dynamic === "bell") return bellFrame(root, s, now)
+  if (root.userData.dynamic === "decorated_pot") return potFrame(root, s, now)
   if (root.userData.dynamic === "enchanting_book") return bookFrame(root, s, camera, now)
   if (s.target === null) return
   if (s.last === null) s.last = now
@@ -114,6 +120,18 @@ function bellFrame(root, s, now) {
     return
   }
   applyDynamicPose(root, { ticks, direction: s.ring.dir })
+}
+
+function potFrame(root, s, now) {
+  if (!s.wobble) return
+  const duration = s.wobble.style === "negative" ? 10 : 7
+  const progress = (now - s.wobble.t0) / 50 / duration
+  if (progress >= 1) {
+    applyDynamicPose(root, {})
+    s.wobble = null
+    return
+  }
+  applyDynamicPose(root, { style: s.wobble.style, progress })
 }
 
 const wrapRad = v => {
@@ -218,6 +236,24 @@ function applyDynamicPose(root, data = {}) {
       if (g.name !== "part:lid") continue
       g.rotation.set(0, 0, 0)
       g.rotateOnAxis(AXIS_VECTORS[g.userData.partAxis ?? "x"], THREE.MathUtils.degToRad(eased * 90))
+    }
+    return
+  }
+  if (kind === "decorated_pot") {
+    let rx = 0, ry = 0, rz = 0
+    const t = data.progress ?? 0
+    if (t >= 0 && t <= 1) {
+      if (data.style === "positive") {
+        const dt = t * Math.PI * 2
+        rx = -1.5 * (Math.cos(dt) + 0.5) * Math.sin(dt / 2) * 0.015625
+        rz = Math.sin(dt) * 0.015625
+      } else if (data.style === "negative") {
+        ry = Math.sin(-t * 3 * Math.PI) * 0.125 * (1 - t)
+      }
+    }
+    for (const g of parts) {
+      if (g.name !== "part:pot") continue
+      g.rotation.set(rx, ry, rz)
     }
     return
   }

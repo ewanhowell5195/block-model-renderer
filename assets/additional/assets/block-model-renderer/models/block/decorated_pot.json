@@ -1,5 +1,6 @@
 {
   "ignore_atlas_restrictions": true,
+  "dynamic": "decorated_pot",
   "texture_size": [32, 32],
   "textures": {
     "base": "entity/decorated_pot/decorated_pot_base",
@@ -7,6 +8,8 @@
   },
   "elements": [
     {
+      "part": "pot",
+      "pivot": [8, 0, 8],
       "from": [4.8, 15.8, 4.8],
       "to": [11.2, 17.2, 11.2],
       "faces": {
@@ -19,6 +22,8 @@
       }
     },
     {
+      "part": "pot",
+      "pivot": [8, 0, 8],
       "from": [4.1, 17.1, 4.1],
       "to": [11.9, 19.9, 11.9],
       "faces": {
@@ -31,6 +36,8 @@
       }
     },
     {
+      "part": "pot",
+      "pivot": [8, 0, 8],
       "from": [1, 16, 1],
       "to": [15, 16, 15],
       "faces": {
@@ -39,6 +46,8 @@
       }
     },
     {
+      "part": "pot",
+      "pivot": [8, 0, 8],
       "from": [1, 0, 1],
       "to": [15, 0, 15],
       "faces": {
@@ -47,6 +56,8 @@
       }
     },
     {
+      "part": "pot",
+      "pivot": [8, 0, 8],
       "from": [1, 0, 1],
       "to": [15, 16, 1],
       "faces": {
@@ -54,6 +65,8 @@
       }
     },
     {
+      "part": "pot",
+      "pivot": [8, 0, 8],
       "from": [1, 0, 15],
       "to": [15, 16, 15],
       "faces": {
@@ -61,6 +74,8 @@
       }
     },
     {
+      "part": "pot",
+      "pivot": [8, 0, 8],
       "from": [15, 0, 1],
       "to": [15, 16, 15],
       "faces": {
@@ -68,6 +83,8 @@
       }
     },
     {
+      "part": "pot",
+      "pivot": [8, 0, 8],
       "from": [1, 0, 1],
       "to": [1, 16, 15],
       "faces": {
