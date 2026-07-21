@@ -1,5 +1,5 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
-import { billboardBeforeRender, initDynamic } from "./models.js"
+import { billboardBeforeRender, initDynamic, dynamicFrame } from "./models.js"
 import { sortTranslucent } from "./sorting.js"
 
 const nextTask = globalThis.scheduler?.yield
@@ -11,6 +11,23 @@ const nextTask = globalThis.scheduler?.yield
   })
 
 const matMap = m => m.uniforms?.map?.value ?? m.map
+
+const geoHashes = new WeakMap()
+function geoHash(geo) {
+  let h = geoHashes.get(geo)
+  if (h !== undefined) return h
+  h = 0x811c9dc5
+  for (const name of ["position", "normal", "uv"]) {
+    const arr = geo.attributes[name]?.array
+    if (!arr) continue
+    const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength)
+    for (let i = 0; i < bytes.length; i++) h = (h ^ bytes[i]) * 0x01000193 >>> 0
+  }
+  const idx = geo.index?.array
+  if (idx) for (let i = 0; i < idx.length; i++) h = (h ^ idx[i]) * 0x01000193 >>> 0
+  geoHashes.set(geo, h)
+  return h
+}
 const matAnimated = m => !!(m.uniforms?.GameTime || matMap(m)?.userData?.frames)
 
 function matSignature(m) {
@@ -458,7 +475,7 @@ export async function optimizeScene(placements, opts = {}) {
 
   stage(3000)
   const blockT = new THREE.Matrix4(), full = new THREE.Matrix4(), nmat = new THREE.Matrix3()
-  const billboardMeshes = [], dynamicInstances = []
+  const billboardMeshes = [], dynamicInstances = [], dynBuckets = new Map()
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
     const td = tdata.get(p.group)
@@ -490,13 +507,19 @@ export async function optimizeScene(placements, opts = {}) {
       holder.matrix.multiplyMatrices(blockT, d.parentMatrix)
       holder.matrixWorldNeedsUpdate = true
       const inst = d.node.clone()
-      const merged = []
-      inst.traverse(o => {
-        if (!o.isMesh) return
-        for (let n = o; n && n !== inst; n = n.parent) if (n.name?.startsWith("part:")) return
-        merged.push(o)
-      })
-      for (const o of merged) o.removeFromParent()
+      const meshes = []
+      inst.traverse(o => { if (o.isMesh) meshes.push(o) })
+      for (const m of meshes) {
+        let inPart = false
+        for (let n = m; n && n !== inst; n = n.parent) if (n.name?.startsWith("part:")) { inPart = true; break }
+        if (inPart) {
+          const key = geoHash(m.geometry) + "|" + [].concat(m.material).map(x => matSignature(x) + (matMap(x)?.uuid ?? "")).join(",")
+          let bucket = dynBuckets.get(key)
+          if (!bucket) dynBuckets.set(key, bucket = { geometry: m.geometry, material: m.material, entries: [] })
+          bucket.entries.push({ parent: m.parent, local: m.matrix.clone(), root: inst })
+        }
+        m.removeFromParent()
+      }
       initDynamic(inst)
       holder.add(inst)
       dynamicInstances.push({ holder, object: inst, pos: p.pos })
@@ -563,13 +586,24 @@ export async function optimizeScene(placements, opts = {}) {
     drawCalls++
     tris += (mesh.geometry.index?.count ?? mesh.geometry.attributes.position?.count ?? 0) / 3
   }
-  for (const d of dynamicInstances) {
-    group.add(d.holder)
-    d.holder.traverse(o => {
-      if (!o.isMesh) return
-      drawCalls++
-      tris += (o.geometry.index?.count ?? o.geometry.attributes.position?.count ?? 0) / 3
-    })
+  for (const d of dynamicInstances) group.add(d.holder)
+  const _dynM = new THREE.Matrix4(), _dynInv = new THREE.Matrix4()
+  for (const bucket of dynBuckets.values()) {
+    const entries = bucket.entries
+    const im = new THREE.InstancedMesh(bucket.geometry, bucket.material, entries.length)
+    im.frustumCulled = false
+    im.onBeforeRender = function (renderer, scene, camera) {
+      _dynInv.copy(this.matrixWorld).invert()
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i]
+        dynamicFrame(e.root, renderer, camera)
+        this.setMatrixAt(i, _dynM.multiplyMatrices(e.parent.matrixWorld, e.local).premultiply(_dynInv))
+      }
+      this.instanceMatrix.needsUpdate = true
+    }
+    group.add(im)
+    drawCalls++
+    tris += (bucket.geometry.index?.count ?? bucket.geometry.attributes.position?.count ?? 0) / 3 * entries.length
   }
   onProgress?.(10000, 10000)
 
@@ -583,7 +617,7 @@ export async function optimizeScene(placements, opts = {}) {
     sortTranslucent: camera => sorter.sort(camera),
     dispose() {
       sorter.detach()
-      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} } })
+      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh) { try { o.dispose() } catch {} } } })
       for (const m of created.materials) { try { m.dispose() } catch {} }
       for (const t of created.textures) { try { t.dispose() } catch {} }
       group.removeFromParent()

@@ -74,17 +74,26 @@ const dynNow = () => typeof performance !== "undefined" ? performance.now() : Da
 function dynamicBeforeRender(renderer, scene, camera) {
   let root = this
   while (root && !root.userData?.dynamic) root = root.parent
-  if (!root) return
+  if (root) dynamicFrame(root, renderer, camera)
+}
+
+export function dynamicFrame(root, renderer, camera) {
   const s = dynState(root)
   const frame = renderer.info.render.frame
   if (s.frame === frame) return
   s.frame = frame
   const now = dynNow()
-  if (root.userData.dynamic === "banner") return bannerFrame(root, s, now)
-  if (root.userData.dynamic === "bell") return bellFrame(root, s, now)
-  if (root.userData.dynamic === "decorated_pot") return potFrame(root, s, now)
-  if (root.userData.dynamic === "dragon_head" || root.userData.dynamic === "piglin_head") return headFrame(root, s, now)
-  if (root.userData.dynamic === "enchanting_book") return bookFrame(root, s, camera, now)
+  const kind = root.userData.dynamic
+  if (kind === "banner") bannerFrame(root, s, now)
+  else if (kind === "bell") bellFrame(root, s, now)
+  else if (kind === "decorated_pot") potFrame(root, s, now)
+  else if (kind === "dragon_head" || kind === "piglin_head") headFrame(root, s, now)
+  else if (kind === "enchanting_book") bookFrame(root, s, camera, now)
+  else lidFrame(root, s, now)
+  root.updateWorldMatrix(false, true)
+}
+
+function lidFrame(root, s, now) {
   if (s.target === null) return
   if (s.last === null) s.last = now
   const dt = Math.min(now - s.last, 250)
