@@ -49,7 +49,7 @@ Each block entry:
 | `properties` | Blockstate property values (e.g. `{ axis: "y", waterlogged: "true" }`) |
 | `pos` | Block grid position `[x, y, z]`, integers. Geometry comes out at 16 world units per block, block centres at `pos * 16`. When two entries share a position, the last one wins |
 | `biome` | Biome tinting for this block's colormap tints, same value as the `biome` render option. Overrides `args.biome` |
-| `nbt` | Block entity data rendered into the scene: an item frame's held item or a shelf's contents, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Entries with the same id, properties, and nbt share one template |
+| `nbt` | Block entity data rendered into the scene: an item frame's held item, a shelf's contents, or a banner's patterns, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Entries with the same id, properties, and nbt share one template |
 | `overlay` | `true` renders the entry without occupying its cell: no face culling in either direction and no light volume contribution, and other blocks (or more overlays) can share the position. Item frames are the intended use, matching their entity nature in game |
 
 Options, grouped by what they affect. How the scene looks:
