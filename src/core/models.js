@@ -673,6 +673,12 @@ export async function parseBlockstate(assets, blockstate, args) {
   }
 
   if (args?.nbt) {
+    if (/(^|_)banner$/.test(block)) {
+      const patterns = bannerPatternsOf(args.nbt)
+      if (patterns.length) {
+        for (const m of models) if (m && typeof m === "object") m.banner_patterns = patterns
+      }
+    }
     let drop = false
     const extra = await blockEntityItemModels(assets, block, data, { ...args, frameMapArt, dropModels: () => { drop = true } })
     if (drop) models.length = 0
@@ -680,6 +686,31 @@ export async function parseBlockstate(assets, blockstate, args) {
   }
 
   return models
+}
+
+const LEGACY_BANNER_PATTERNS = {
+  bl: "square_bottom_left", br: "square_bottom_right", tl: "square_top_left", tr: "square_top_right",
+  bs: "stripe_bottom", ts: "stripe_top", ls: "stripe_left", rs: "stripe_right", cs: "stripe_center",
+  ms: "stripe_middle", drs: "stripe_downright", dls: "stripe_downleft", ss: "small_stripes",
+  cr: "cross", sc: "straight_cross", bt: "triangle_bottom", tt: "triangle_top",
+  bts: "triangles_bottom", tts: "triangles_top", ld: "diagonal_left", rd: "diagonal_right",
+  lud: "diagonal_up_left", rud: "diagonal_up_right", mc: "circle", mr: "rhombus",
+  vh: "half_vertical", hh: "half_horizontal", vhr: "half_vertical_right", hhb: "half_horizontal_bottom",
+  bo: "border", cbo: "curly_border", gra: "gradient", gru: "gradient_up", bri: "bricks",
+  glb: "globe", cre: "creeper", sku: "skull", flo: "flower", moj: "mojang", pig: "piglin"
+}
+const DYE_ORDER = ["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]
+
+function bannerPatternsOf(nbt) {
+  const list = Array.isArray(nbt.patterns) ? nbt.patterns : Array.isArray(nbt.Patterns) ? nbt.Patterns : []
+  const out = []
+  for (const entry of list) {
+    if (!entry) continue
+    const pattern = entry.pattern ?? entry.Pattern?.asset_id ?? LEGACY_BANNER_PATTERNS[entry.Pattern]
+    if (!pattern) continue
+    out.push({ pattern, color: entry.color ?? DYE_ORDER[entry.Color] ?? "white" })
+  }
+  return out
 }
 
 const FRAME_ITEM_ROT = { south: [0, Math.PI], west: [0, Math.PI / 2], east: [0, -Math.PI / 2], up: [-Math.PI / 2, Math.PI], down: [Math.PI / 2, Math.PI] }
@@ -1403,6 +1434,14 @@ export async function resolveModelData(assets, model) {
         }
       }
     }
+  }
+
+  if (merged.banner_patterns && Array.isArray(merged.elements)) {
+    const dye = (await colorTables(assets)).tables.dye
+    merged.textures ??= {}
+    merged.tints ??= []
+    applyPatternLayers(merged, { patterns: merged.banner_patterns }, dye, "banner", el => Object.values(el.faces ?? {}).some(f => f.texture === "#tinted"))
+    delete merged.banner_patterns
   }
 
   if (!loaderOwned.has("parent")) delete merged.parent
