@@ -4,19 +4,19 @@
     {
       "value": 15,
       "suffix": [
-        "beacon",
-        "conduit",
         "froglight",
-        "gateway",
-        "glowstone",
-        "lantern",
-        "lava",
-        "shroomlight"
+        "lantern"
       ],
       "exact": [
+        "beacon",
+        "conduit",
+        "end_gateway",
         "end_portal",
         "fire",
-        "lava_cauldron"
+        "glowstone",
+        "lava",
+        "lava_cauldron",
+        "shroomlight"
       ],
       "except": [
         "soul_lantern"
@@ -81,24 +81,23 @@
     {
       "value": 1,
       "suffix": [
-        "frame",
-        "sensor",
-        "stand"
+        "sensor"
       ],
       "exact": [
+        "brewing_stand",
         "brown_mushroom",
         "dragon_egg",
+        "end_portal_frame",
         "small_amethyst_bud"
       ]
     },
     {
       "value": 10,
-      "suffix": [
-        "_fire",
-        "_obsidian",
-        "lantern"
-      ],
+      "suffix": [],
       "exact": [
+        "crying_obsidian",
+        "soul_fire",
+        "soul_lantern",
         "soul_torch",
         "soul_wall_torch"
       ]
@@ -128,12 +127,11 @@
           ]
         ]
       },
-      "suffix": [
-        "lamp"
-      ],
+      "suffix": [],
       "exact": [
         "campfire",
         "copper_bulb",
+        "redstone_lamp",
         "waxed_copper_bulb"
       ]
     },
@@ -150,10 +148,11 @@
         ]
       },
       "suffix": [
-        "furnace",
-        "smoker"
+        "furnace"
       ],
-      "exact": []
+      "exact": [
+        "smoker"
+      ]
     },
     {
       "value": 2,
@@ -201,11 +200,10 @@
           ]
         ]
       },
-      "suffix": [
-        "_exposed_copper_bulb"
-      ],
+      "suffix": [],
       "exact": [
-        "exposed_copper_bulb"
+        "exposed_copper_bulb",
+        "waxed_exposed_copper_bulb"
       ]
     },
     {
@@ -220,11 +218,10 @@
           ]
         ]
       },
-      "suffix": [
-        "_oxidized_copper_bulb"
-      ],
+      "suffix": [],
       "exact": [
-        "oxidized_copper_bulb"
+        "oxidized_copper_bulb",
+        "waxed_oxidized_copper_bulb"
       ]
     },
     {
@@ -273,19 +270,18 @@
           ]
         ]
       },
-      "suffix": [
-        "_redstone_ore"
-      ],
+      "suffix": [],
       "exact": [
+        "deepslate_redstone_ore",
         "redstone_ore"
       ]
     },
     {
       "value": 11,
-      "suffix": [
-        "portal"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "nether_portal"
+      ]
     },
     {
       "value": 3,
@@ -296,24 +292,24 @@
     },
     {
       "value": 4,
-      "suffix": [
-        "bud"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "large_amethyst_bud"
+      ]
     },
     {
       "value": 5,
-      "suffix": [
-        "cluster"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "amethyst_cluster"
+      ]
     },
     {
       "value": 6,
-      "suffix": [
-        "catalyst"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "sculk_catalyst"
+      ]
     },
     {
       "value": {
@@ -345,10 +341,10 @@
           ]
         ]
       },
-      "suffix": [
-        "anchor"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "respawn_anchor"
+      ]
     },
     {
       "value": {
@@ -446,10 +442,10 @@
           ]
         ]
       },
-      "suffix": [
+      "suffix": [],
+      "exact": [
         "light"
-      ],
-      "exact": []
+      ]
     },
     {
       "value": {
@@ -463,10 +459,10 @@
           ]
         ]
       },
-      "suffix": [
-        "campfire"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "soul_campfire"
+      ]
     },
     {
       "value": {
@@ -502,10 +498,10 @@
           ]
         ]
       },
-      "suffix": [
-        "pickle"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "sea_pickle"
+      ]
     },
     {
       "value": {
@@ -519,10 +515,10 @@
           ]
         ]
       },
-      "suffix": [
+      "suffix": [],
+      "exact": [
         "vault"
-      ],
-      "exact": []
+      ]
     },
     {
       "value": {
@@ -541,10 +537,10 @@
           ]
         ]
       },
-      "suffix": [
-        "lichen"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "glow_lichen"
+      ]
     },
     {
       "value": {
@@ -570,10 +566,10 @@
           ]
         ]
       },
-      "suffix": [
-        "_spawner"
-      ],
-      "exact": []
+      "suffix": [],
+      "exact": [
+        "trial_spawner"
+      ]
     }
   ],
   "shapeLightOcclusion": [
@@ -581,20 +577,20 @@
       "value": 1,
       "suffix": [
         "_shelf",
-        "detector",
-        "farmland",
-        "frame",
-        "lectern",
-        "path",
         "sensor",
-        "shrieker",
-        "stairs",
-        "stonecutter"
+        "stairs"
       ],
       "exact": [
+        "daylight_detector",
+        "dirt_path",
         "enchanting_table",
+        "end_portal_frame",
+        "farmland",
+        "lectern",
         "piston_head",
-        "snow"
+        "sculk_shrieker",
+        "snow",
+        "stonecutter"
       ]
     },
     {

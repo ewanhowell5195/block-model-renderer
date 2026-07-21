@@ -71,7 +71,9 @@ function javaBin(name) {
 // Compress an id list into { suffix, exact, except? } that matchId() reproduces
 // exactly against the current block set, preferring the loosest suffixes that
 // stay vanilla-exact so modded ids are as likely as possible to match too (a
-// new *_stairs or ruby_torch is covered without regenerating). freeIds are ids
+// new *_stairs or ruby_torch is covered without regenerating). A suffix needs
+// at least two vanilla ids behind it: a pattern generalized from a single id
+// would likely false-flag modded ids, so those stay exact. freeIds are ids
 // an earlier rule in an ordered list already claims, so matching them here is
 // harmless. Falls back to a plain exact list if a cover would ever be wrong.
 function compress(targetIds, allIds, freeIds = null) {
@@ -86,7 +88,7 @@ function compress(targetIds, allIds, freeIds = null) {
   for (const s of candidates) {
     const matched = allIds.filter(id => id.endsWith(s))
     const hits = matched.filter(id => target.has(id))
-    if (hits.length) rules.push({ s, hits, miss: matched.filter(id => !target.has(id) && !freeIds?.has(id)) })
+    if (hits.length > 1) rules.push({ s, hits, miss: matched.filter(id => !target.has(id) && !freeIds?.has(id)) })
   }
   const covered = new Set(), exceptSet = new Set(), suffix = []
   while (true) {

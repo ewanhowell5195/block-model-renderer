@@ -3,41 +3,41 @@
   "nonOccluding": {
     "suffix": [
       "_box",
-      "_instance_block",
-      "_moss_carpet",
-      "_snow",
       "azalea",
-      "barrier",
-      "beacon",
       "campfire",
       "door",
       "glass",
       "grate",
-      "ladder",
       "leaves",
-      "scaffolding",
-      "spawner",
-      "vault"
+      "spawner"
     ],
     "exact": [
+      "barrier",
+      "beacon",
       "chorus_flower",
       "frosted_ice",
       "honey_block",
       "ice",
+      "ladder",
       "mangrove_roots",
+      "pale_moss_carpet",
+      "powder_snow",
+      "scaffolding",
       "slime_block",
-      "straw_bed"
+      "straw_bed",
+      "test_instance_block",
+      "vault"
     ]
   },
   "selfCullAll": {
     "suffix": [
-      "_snow",
       "glass",
       "grate",
       "ice"
     ],
     "exact": [
       "honey_block",
+      "powder_snow",
       "slime_block"
     ],
     "except": [

@@ -2,53 +2,53 @@
   "_generated": "from minecraft 26.3-snapshot-3 by tools/generate/generate.js",
   "waterloggable": {
     "suffix": [
-      "_dripleaf_stem",
       "_lightning_rod",
       "_shelf",
-      "barrier",
       "bars",
       "bud",
       "campfire",
       "candle",
       "chain",
       "chest",
-      "clump",
-      "cluster",
-      "conduit",
       "coral",
-      "core",
       "dripleaf",
-      "dripstone",
       "fan",
       "fence",
-      "ghast",
       "grate",
-      "ladder",
       "lantern",
       "leaves",
-      "lichen",
       "pane",
-      "pickle",
       "rail",
-      "scaffolding",
       "sensor",
-      "shrieker",
       "sign",
       "slab",
-      "spike",
       "stairs",
       "statue",
       "trapdoor",
-      "vein",
       "wall"
     ],
     "exact": [
+      "amethyst_cluster",
+      "barrier",
+      "big_dripleaf_stem",
+      "conduit",
       "decorated_pot",
+      "dried_ghast",
+      "glow_lichen",
       "hanging_roots",
+      "heavy_core",
+      "ladder",
       "light",
       "lightning_rod",
       "mangrove_propagule",
-      "mangrove_roots"
+      "mangrove_roots",
+      "pointed_dripstone",
+      "resin_clump",
+      "scaffolding",
+      "sculk_shrieker",
+      "sculk_vein",
+      "sea_pickle",
+      "sulfur_spike"
     ],
     "except": [
       "jack_o_lantern",
@@ -57,11 +57,11 @@
   },
   "waterlogged": {
     "suffix": [
-      "column",
-      "kelp",
       "seagrass"
     ],
     "exact": [
+      "bubble_column",
+      "kelp",
       "kelp_plant"
     ]
   }
