@@ -538,9 +538,11 @@ The bytes can also be built by hand: one per pixel, where the pixel at `(x, y)` 
 ```js
 const colors = new Uint8Array(16384) // every pixel starts unset, showing the parchment
 
-colors[64 + 64 * 128] = 34 * 4 + 2 // (64, 64): podzol brown, full strength
-colors[65 + 64 * 128] = 1 * 4 + 2  // (65, 64): grass green, full strength
-colors[64 + 65 * 128] = 1 * 4 + 0  // (64, 65): grass green, darkest step
+const grass = MAP_COLORS.names.indexOf("grass")
+const water = MAP_COLORS.names.indexOf("water")
+colors[64 + 64 * 128] = grass * 4 + 2 // (64, 64): full strength
+colors[65 + 64 * 128] = water * 4 + 2 // (65, 64): full strength
+colors[64 + 65 * 128] = water * 4 + 0 // (64, 65): darkest step
 
 const art = await renderMapColors(assets, colors)
 ```
