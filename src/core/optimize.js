@@ -64,6 +64,31 @@ function mergeInstanceSource(geometry, material) {
   return { geometry: geo, material: materials.length > 1 ? materials : materials[0] }
 }
 
+function atlasSignature(m) {
+  if (!m.uniforms) return matSignature(m)
+  const u = m.uniforms
+  return ["shader", m.side, u.d0?.value, u.d1?.value, u.ambient?.value,
+    u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(","),
+    u.blockLightTint?.value?.toArray().join(","), u.skyLightColor?.value?.toArray().join(","), u.ambientColor?.value?.toArray().join(","),
+    u.skyLightFactor?.value, u.brightness?.value, u.shadePos?.value?.toArray().join(","), u.shadeNeg?.value?.toArray().join(","), u.worldShade?.value].join("|")
+}
+
+function faceDataOf(m) {
+  const u = m.uniforms
+  if (!u) return null
+  const so = u.shadeOverride?.value
+  let dir = 0
+  if (so) {
+    if (so.y > 0.5) dir = 1
+    else if (so.y < -0.5) dir = 2
+    else if (so.z > 0.5) dir = 3
+    else if (so.z < -0.5) dir = 4
+    else if (so.x > 0.5) dir = 5
+    else if (so.x < -0.5) dir = 6
+  }
+  return [u.emission?.value ?? 0, dir + (u.shadeEnabled?.value !== false ? 8 : 0) + (u.aoEnabled?.value !== false ? 16 : 0)]
+}
+
 function matSignature(m) {
   if (m.uniforms) {
     const u = m.uniforms
@@ -194,8 +219,8 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
   const corners = {}
   for (const c of verts) corners[`${c.ha}${c.hb}`] = `${c.u.toFixed(2)},${c.v.toFixed(2)}`
   const orient = Object.keys(corners).sort().map(k => k + ":" + corners[k]).join("|")
-  const cellKey = `${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}`
-  return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig: matSignature(mat), tex, mat, srcHash, cull, cellKey }
+  const cellKey = `${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}:${faceDataOf(mat)?.join(",") ?? ""}`
+  return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig: atlasSignature(mat), tex, mat, srcHash, cull, cellKey }
 }
 
 function extractFlats(geo, grp, mw, nm, tex, mat, cull) {
@@ -274,7 +299,7 @@ function greedyRects(cellSet) {
 }
 
 let _v = null, _n = null
-function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc) {
+function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
   _v ??= new THREE.Vector3()
   _n ??= new THREE.Vector3()
   const idx = geo.index, pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv
@@ -287,6 +312,7 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc) {
     acc.N.push(_n.x, _n.y, _n.z)
     if (rect) acc.U.push((rect.x + u * rect.w) / W, 1 - (rect.y + (1 - v) * rect.h) / H)
     else acc.U.push(u, v)
+    if (fd) acc.F.push(fd[0], fd[1])
   }
 }
 
@@ -352,11 +378,11 @@ export async function optimizeScene(placements, opts = {}) {
     }
     function toAtlas(mat, tex, face) {
       const translucent = isTranslucent(tex, cutoff)
-      const sig = matSignature(mat) + (translucent ? "|T" : tex.userData?.frames ? "|A" : "|O")
+      const sig = atlasSignature(mat) + (translucent ? "|T" : tex.userData?.frames ? "|A" : "|O")
       let grp = atlasGroups.get(sig)
       if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: mat, translucent })
       grp.textures.add(tex)
-      return { ...face, sig }
+      return { ...face, sig, fd: faceDataOf(mat) }
     }
     tmpl.traverse(o => {
       if (!o.isMesh || inPart(o)) return
@@ -497,6 +523,7 @@ export async function optimizeScene(placements, opts = {}) {
         for (const k of ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]) {
           if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
         }
+        m.defines = { ...m.defines, FACE_ATTRS: "" }
       }
       else m.map = a
       m.transparent = grp.translucent
@@ -504,7 +531,7 @@ export async function optimizeScene(placements, opts = {}) {
       created.materials.push(m)
       return m
     })
-    atlases.set(sig, { rects, sizes, materials, accs: ats.map(() => ({ P: [], N: [], U: [] })) })
+    atlases.set(sig, { rects, sizes, materials, accs: ats.map(() => ({ P: [], N: [], U: [], F: [] })) })
   }
 
   stage(3000)
@@ -523,7 +550,7 @@ export async function optimizeScene(placements, opts = {}) {
         if (f.animKey) appendGroup(m.geo, f.start, f.count, full, nmat, null, 0, 0, anims.get(f.animKey).acc)
         else {
           const at = atlases.get(f.sig), rect = at.rects.get(f.tex), s = at.sizes[rect.ai]
-          appendGroup(m.geo, f.start, f.count, full, nmat, rect, s.w, s.h, at.accs[rect.ai])
+          appendGroup(m.geo, f.start, f.count, full, nmat, rect, s.w, s.h, at.accs[rect.ai], f.fd)
         }
       }
     }
@@ -575,6 +602,7 @@ export async function optimizeScene(placements, opts = {}) {
       if (shouldCancel?.()) return null
     }
     const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo), s = at.sizes[rect.ai], acc = at.accs[rect.ai], f = q.f
+    const fd = faceDataOf(f.mat)
     for (const vert of f.verts) {
       const p = [0, 0, 0], nn = [0, 0, 0]
       p[f.na] = q.wpc
@@ -584,6 +612,7 @@ export async function optimizeScene(placements, opts = {}) {
       acc.P.push(p[0], p[1], p[2])
       acc.N.push(nn[0], nn[1], nn[2])
       acc.U.push((rect.x + vert.u * rect.w) / s.w, 1 - (rect.y + (1 - vert.v) * rect.h) / s.h)
+      if (fd) acc.F.push(fd[0], fd[1])
     }
   }
 
@@ -595,6 +624,7 @@ export async function optimizeScene(placements, opts = {}) {
     geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.P, 3))
     geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.N, 3))
     geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.U, 2))
+    if (acc.F?.length) geo.setAttribute("faceData", new THREE.Float32BufferAttribute(acc.F, 2))
     const mesh = new THREE.Mesh(geo, material)
     if (material.transparent) mesh.renderOrder = material.side === THREE.BackSide ? 0 : 1
     group.add(mesh)

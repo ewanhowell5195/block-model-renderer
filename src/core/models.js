@@ -2621,12 +2621,19 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      #ifdef FACE_ATTRS
+        attribute vec2 faceData;
+        varying vec2 vFaceData;
+      #endif
       #ifdef LIGHT_VOLUME
         varying vec3 vWorldPos;
       #endif
       #include <clipping_planes_pars_vertex>
       void main() {
         vUv = uv;
+        #ifdef FACE_ATTRS
+          vFaceData = faceData;
+        #endif
         ${parseInt(THREE.REVISION) >= 159 ? "#include <batching_vertex>" : ""}
         vec4 pos = vec4(position, 1.0);
         vec3 nrm = normal;
@@ -2670,6 +2677,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      #ifdef FACE_ATTRS
+        varying vec2 vFaceData;
+      #endif
       #ifdef LIGHT_VOLUME
         varying vec3 vWorldPos;
         uniform vec3 lightVolOrigin;
@@ -2709,12 +2719,33 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         if (vUv.x < 0.0 || vUv.x > 1.0 || vUv.y < 0.0 || vUv.y > 1.0) discard;
         vec4 texColor = texture2D(map, vUv);
         if (texColor.a < 0.01) discard;
+        #ifdef FACE_ATTRS
+          float emissionV = vFaceData.x;
+          float faceFlags = vFaceData.y;
+          bool aoOn = faceFlags >= 15.5;
+          float faceDir = faceFlags - (aoOn ? 16.0 : 0.0);
+          bool shadeOn = faceDir >= 7.5;
+          faceDir -= shadeOn ? 8.0 : 0.0;
+          vec3 shadeDirV = vec3(0.0);
+          if (faceDir > 4.5) shadeDirV = vec3(faceDir > 5.5 ? -1.0 : 1.0, 0.0, 0.0);
+          else if (faceDir > 2.5) shadeDirV = vec3(0.0, 0.0, faceDir > 3.5 ? -1.0 : 1.0);
+          else if (faceDir > 0.5) shadeDirV = vec3(0.0, faceDir > 1.5 ? -1.0 : 1.0, 0.0);
+        #else
+          float emissionV = emission;
+          #ifdef LIGHT_VOLUME
+            bool aoOn = aoEnabled;
+          #else
+            bool aoOn = true;
+          #endif
+          bool shadeOn = shadeEnabled;
+          vec3 shadeDirV = shadeOverride;
+        #endif
         float shade = 1.0;
         vec3 light = vec3(1.0);
         if (worldShade) {
-          if (shadeEnabled) {
-            bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
-            vec3 wn = hasOverride ? shadeOverride : vWorldNormal;
+          if (shadeOn) {
+            bool hasOverride = dot(shadeDirV, shadeDirV) > 0.5;
+            vec3 wn = hasOverride ? shadeDirV : vWorldNormal;
             vec3 n2 = wn * wn;
             shade = (n2.y * (wn.y >= 0.0 ? shadePos.x : shadeNeg.x)
               + n2.z * (wn.z >= 0.0 ? shadePos.y : shadeNeg.y)
@@ -2748,9 +2779,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             vec3 sn = gl_FrontFacing ? vWorldNormal : -vWorldNormal;
             vec3 lp = vWorldPos / 16.0 + 0.5 + sn * 0.5 - lightVolOrigin;
             vec2 lv = sampleLightVol(lp);
-            float blockLevel = max(lv.x, emission);
+            float blockLevel = max(lv.x, emissionV);
             float skyLevel = lv.y;
-            if (aoEnabled && emission == 0.0) {
+            if (aoOn && emissionV < 0.001) {
               vec3 an = abs(sn);
               vec3 axis; vec3 t1; vec3 t2;
               if (an.y >= an.x && an.y >= an.z) { axis = vec3(0.0, sign(sn.y), 0.0); t1 = vec3(1.0, 0.0, 0.0); t2 = vec3(0.0, 0.0, 1.0); }
@@ -2774,7 +2805,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
               ao = mix(mix(q00, q10, f1), mix(q01, q11, f1), f2);
             }
           #else
-            float blockLevel = emission;
+            float blockLevel = emissionV;
             float skyLevel = 1.0;
           #endif
           float skyBrightness = skyLevel / (4.0 - 3.0 * skyLevel) * skyFactor;
@@ -2788,10 +2819,10 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             light = mix(light, lmScaled, brightness);
           }
           light *= ao;
-        } else if (shadeEnabled) {
+        } else if (shadeOn) {
           mat3 v = mat3(viewMatrix);
-          bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
-          vec3 n = hasOverride ? v * shadeOverride : vNormal;
+          bool hasOverride = dot(shadeDirV, shadeDirV) > 0.5;
+          vec3 n = hasOverride ? v * shadeDirV : vNormal;
           shade = min(1.0, ambient + d0 * max(0.0, dot(n, v * light0)) + d1 * max(0.0, dot(n, v * light1)));
         }
         gl_FragColor = vec4(texColor.rgb * shade * light, texColor.a);
