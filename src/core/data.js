@@ -35,7 +35,7 @@ export function buildBlockRules({ waterlogging = [], culling = [], lighting = []
     lists[key] = layers.filter(l => l?.[key]).map(l => ruleSet(l[key]))
   }
   const valued = {}
-  for (const key of ["lightEmission", "shapeLightOcclusion"]) {
+  for (const key of ["lightEmission", "shapeLightOcclusion", "lightDampening"]) {
     valued[key] = lighting.flatMap(l => (l?.[key] ?? []).map(r => ({ value: r.value, ...ruleSet(r) })))
   }
   const matches = (key, id) => lists[key].some(r => matchId(id, r))
@@ -66,6 +66,9 @@ export function buildBlockRules({ waterlogging = [], culling = [], lighting = []
     },
     emission(block, properties, resolveDefault) {
       return ruleValue(valued.lightEmission, block, properties, resolveDefault) ?? 0
+    },
+    dampening(block, properties, resolveDefault) {
+      return ruleValue(valued.lightDampening, block, properties, resolveDefault)
     },
     shapeOcclusion(block, properties, resolveDefault) {
       return ruleValue(valued.shapeLightOcclusion, block, properties, resolveDefault) === 1

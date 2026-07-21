@@ -630,5 +630,889 @@
         "moving_piston"
       ]
     }
+  ],
+  "lightDampening": [
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "waterlogged": "true"
+            },
+            1
+          ]
+        ]
+      },
+      "suffix": [
+        "_lightning_rod",
+        "_shelf",
+        "bars",
+        "bud",
+        "campfire",
+        "candle",
+        "chain",
+        "chest",
+        "coral",
+        "dripleaf",
+        "fan",
+        "fence",
+        "lantern",
+        "pane",
+        "rail",
+        "sensor",
+        "sign",
+        "stairs",
+        "statue",
+        "trapdoor",
+        "wall"
+      ],
+      "exact": [
+        "amethyst_cluster",
+        "barrier",
+        "big_dripleaf_stem",
+        "conduit",
+        "decorated_pot",
+        "dried_ghast",
+        "glow_lichen",
+        "hanging_roots",
+        "heavy_core",
+        "ladder",
+        "light",
+        "lightning_rod",
+        "mangrove_propagule",
+        "pointed_dripstone",
+        "scaffolding",
+        "sea_pickle",
+        "sulfur_spike"
+      ],
+      "except": [
+        "jack_o_lantern",
+        "sea_lantern"
+      ]
+    },
+    {
+      "value": {
+        "default": 0,
+        "cases": [
+          [
+            {
+              "type": "bottom",
+              "waterlogged": "true"
+            },
+            1
+          ],
+          [
+            {
+              "type": "top",
+              "waterlogged": "true"
+            },
+            1
+          ]
+        ]
+      },
+      "suffix": [
+        "slab"
+      ],
+      "exact": []
+    },
+    {
+      "value": 1,
+      "suffix": [
+        "_box",
+        "leaves",
+        "seagrass",
+        "spawner"
+      ],
+      "exact": [
+        "beacon",
+        "bubble_column",
+        "chorus_flower",
+        "chorus_plant",
+        "cobweb",
+        "end_gateway",
+        "frosted_ice",
+        "honey_block",
+        "ice",
+        "kelp",
+        "kelp_plant",
+        "lava",
+        "mangrove_roots",
+        "powder_snow",
+        "sculk_shrieker",
+        "slime_block",
+        "test_instance_block",
+        "vault",
+        "water"
+      ]
+    },
+    {
+      "value": {
+        "default": 1,
+        "cases": [
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "false",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "false",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "false",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "false",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "false",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "false",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "false",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "true",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "true",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "true",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "true",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "true",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "true",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "true",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "false",
+              "north": "true",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "false",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "false",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "false",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "false",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "false",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "false",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "false",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "false",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "true",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "true",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "true",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "true",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "true",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "true",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "true",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "false",
+              "east": "true",
+              "north": "true",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "false",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "false",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "false",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "false",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "false",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "false",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "false",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "false",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "true",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "true",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "true",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "true",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "true",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "true",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "true",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "false",
+              "north": "true",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "false",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "false",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "false",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "false",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "false",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "false",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "false",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "false",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "true",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "true",
+              "south": "false",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "true",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "true",
+              "south": "false",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "true",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "true",
+              "south": "true",
+              "up": "false",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "true",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "false"
+            },
+            0
+          ],
+          [
+            {
+              "down": "true",
+              "east": "true",
+              "north": "true",
+              "south": "true",
+              "up": "true",
+              "waterlogged": "false",
+              "west": "true"
+            },
+            0
+          ]
+        ]
+      },
+      "suffix": [],
+      "exact": [
+        "resin_clump",
+        "sculk_vein"
+      ]
+    }
   ]
 }

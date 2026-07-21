@@ -113,9 +113,10 @@ export async function computeSceneLight(blocks, opts = {}) {
       }
       const masks = await masksFor(c.id, c.properties)
       const useShape = rules.shapeOcclusion(c.id, c.properties, resolveDefault) && !maskEmpty(masks)
+      const partial = rules.dampening(c.id, c.properties, resolveDefault)
       states.push({
         emit: rules.emission(c.id, c.properties, resolveDefault),
-        damp: isFullCube(masks) ? 15 : fluidTypeOf(c.id, c.properties, rules) ? 1 : 0,
+        damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(c.id, c.properties, rules) ? 1 : 0),
         masks: useShape ? masks : null
       })
       si = states.length - 1
