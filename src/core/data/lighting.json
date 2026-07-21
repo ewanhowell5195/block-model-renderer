@@ -663,5 +663,25 @@
         "tinted_glass"
       ]
     }
+  ],
+  "aoBlocking": [
+    {
+      "value": 1,
+      "suffix": [
+        "_box",
+        "leaves",
+        "spawner"
+      ],
+      "exact": [
+        "beacon",
+        "chorus_flower",
+        "frosted_ice",
+        "ice",
+        "mangrove_roots",
+        "slime_block",
+        "test_instance_block",
+        "vault"
+      ]
+    }
   ]
 }

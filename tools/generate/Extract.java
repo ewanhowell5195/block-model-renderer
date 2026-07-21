@@ -182,6 +182,7 @@ public class Extract {
     TreeMap<String, String> lightEmission = new TreeMap<>();
     TreeMap<String, String> shapeLightOcclusion = new TreeMap<>();
     TreeMap<String, String> lightDampening = new TreeMap<>();
+    TreeMap<String, String> aoBlocking = new TreeMap<>();
     for (Block block : BuiltInRegistries.BLOCK) {
       String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
       all.add(id);
@@ -241,6 +242,14 @@ public class Extract {
       boolean oddDampen = false;
       for (BlockState s2 : states) { int v = s2.getLightDampening(); if ((v > 0 && v < 15) || (v == 15 && !s2.isSolidRender())) { oddDampen = true; break; } }
       if (oddDampen) lightDampening.put(id, caseValue(block, s2 -> { int v = s2.getLightDampening(); return (v > 0 && v < 15) || (v == 15 && !s2.isSolidRender()) ? v : 0; }));
+
+      // Smooth-lighting occluders the models can't reveal: vanilla darkens AO
+      // corners for any full-collision block (shade brightness 0.2), which
+      // includes leaves, glass and ice. Solid renders are inferred at runtime,
+      // so only the non-solid-render extras are data.
+      boolean oddShade = false;
+      for (BlockState s2 : states) { if (!s2.isSolidRender() && s2.getShadeBrightness(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) == 0.2F) { oddShade = true; break; } }
+      if (oddShade) aoBlocking.put(id, caseValue(block, s2 -> !s2.isSolidRender() && s2.getShadeBrightness(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) == 0.2F ? 1 : 0));
 
       // Blocks whose occlusion shape also blocks light face-to-face (stairs,
       // slabs, snow layers): useShapeForLightOcclusion is an explicit opt-in
@@ -330,6 +339,9 @@ public class Extract {
     sb.append("},\n\"lightDampening\":{");
     fe = true;
     for (var e : lightDampening.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
+    sb.append("},\n\"aoBlocking\":{");
+    fe = true;
+    for (var e : aoBlocking.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
     sb.append("},\n\"colormap\":{");
     boolean fc = true;
     for (var e : colormap.entrySet()) { if (!fc) sb.append(","); fc = false; sb.append("\"").append(e.getKey()).append("\":").append(arr(e.getValue())); }

@@ -236,7 +236,8 @@ async function main() {
     _generated: stamp,
     lightEmission: compressEmission(d.lightEmission, d.allBlocks),
     shapeLightOcclusion: compressEmission(d.shapeLightOcclusion, d.allBlocks),
-    lightDampening: compressEmission(dampening, d.allBlocks)
+    lightDampening: compressEmission(dampening, d.allBlocks),
+    aoBlocking: compressEmission(d.aoBlocking, d.allBlocks)
   }
   const items = {
     _generated: stamp,

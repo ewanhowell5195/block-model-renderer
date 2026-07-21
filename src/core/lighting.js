@@ -117,6 +117,7 @@ export async function computeSceneLight(blocks, opts = {}) {
       states.push({
         emit: rules.emission(c.id, c.properties, resolveDefault),
         damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(c.id, c.properties, rules) ? 1 : 0),
+        ao: rules.aoBlocking(c.id, c.properties, resolveDefault),
         masks: useShape ? masks : null
       })
       si = states.length - 1
@@ -213,7 +214,12 @@ export async function computeSceneLight(blocks, opts = {}) {
   }
 
   const solidCell = new Uint8Array(n)
-  for (let i = 0; i < n; i++) if (states[cellState[i]]?.damp === 15) solidCell[i] = 1
+  const aoCell = new Uint8Array(n)
+  for (let i = 0; i < n; i++) {
+    const st = states[cellState[i]]
+    if (st?.damp === 15) solidCell[i] = 1
+    if (st?.damp === 15 || st?.ao) aoCell[i] = 1
+  }
 
   const W2 = w + 1, H2 = h + 1, D2 = d + 1
   const cols = Math.ceil(Math.sqrt(H2))
@@ -240,7 +246,7 @@ export async function computeSceneLight(blocks, opts = {}) {
         }
         bytes[ti] = Math.round((open ? bl / open : blf / 8) * 17)
         bytes[ti + 1] = Math.round((open ? sl / open : slf / 8) * 17)
-        if (x < w && y < h && z < d && solidCell[(z * h + y) * w + x]) bytes[ti + 2] = 255
+        if (x < w && y < h && z < d && aoCell[(z * h + y) * w + x]) bytes[ti + 2] = 255
         bytes[ti + 3] = 255
       }
     }
