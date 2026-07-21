@@ -88,6 +88,8 @@ The render functions and `loadModel` also take an `emission` option (0-15) that 
 
 Emission alone keeps a glowing block bright; it doesn't light anything around it. For scenes where torches should light up their surroundings, compute a light volume with [`computeSceneLight`](scenes.md#scene-lighting) and pass it as `lighting: { light }`.
 
+A light volume also enables the game's smooth-lighting ambient occlusion: faces darken toward corners where full-cube blocks crowd them, with vanilla's exact neighbor rules and falloff, evaluated per fragment so it stays correct across merged geometry. Matching the game, it skips emitting elements, fluids, and models with `ambientocclusion: false`; without a volume there is no occlusion data, so plain `"world"` lighting renders without it.
+
 ```js
 const group = new THREE.Group()
 for (const model of await parseBlockstate(assets, "stone")) {

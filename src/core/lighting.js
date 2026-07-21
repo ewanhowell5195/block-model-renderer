@@ -239,6 +239,7 @@ export async function computeSceneLight(blocks, opts = {}) {
         }
         bytes[ti] = Math.round((open ? bl / open : blf / 8) * 17)
         bytes[ti + 1] = Math.round((open ? sl / open : slf / 8) * 17)
+        if (x < w && y < h && z < d && solidCell[(z * h + y) * w + x]) bytes[ti + 2] = 255
         bytes[ti + 3] = 255
       }
     }

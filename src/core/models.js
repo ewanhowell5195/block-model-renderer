@@ -1690,7 +1690,7 @@ export async function loadModel(scene, assets, model, args) {
         const mkey = `minecraft:block/water_overlay\0${tint ?? ""}\0false`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay", tint), assets, model.shader, false, true, lightConfig, lighting)
+          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay", tint), assets, model.shader, false, true, lightConfig, lighting, undefined, 0, false)
           materialCache.set(mkey, material)
         }
         mesh.material[mi] = material
@@ -1710,7 +1710,7 @@ export async function loadModel(scene, assets, model, args) {
         const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${side}\0flow`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, true, lightConfig, lighting)
+          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, true, lightConfig, lighting, undefined, 0, false)
           materialCache.set(mkey, material)
         }
         mesh.material[idx] = material
@@ -1882,10 +1882,11 @@ export async function loadModel(scene, assets, model, args) {
         }
         const side = back ? "back" : false
         const emission = Math.max(blockEmission, !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0)
-        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shadeDir ?? ""}\0${side}\0${emission}`
+        const ao = model.ambientocclusion !== false
+        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shadeDir ?? ""}\0${side}\0${emission}\0${ao}`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, true, lightConfig, lighting, shadeDir, emission)
+          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, true, lightConfig, lighting, shadeDir, emission, ao)
           if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
           materialCache.set(mkey, material)
         }
@@ -2086,10 +2087,10 @@ export async function loadModel(scene, assets, model, args) {
           createMaterial: async (id, opts = {}) => {
             const shadeDir = SHADE_DIR_VECS[opts.shade_direction] ? opts.shade_direction : null
             const emission = Math.max(0, blockEmission, Math.min(15, opts.light_emission ?? 0))
-            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}`
+            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}\0${opts.ao !== false}`
             let material = materialCache.get(key)
             if (!material) {
-              material = await makeMaterial(await loadModelTexture(id, opts.tint), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission)
+              material = await makeMaterial(await loadModelTexture(id, opts.tint), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, opts.ao)
               materialCache.set(key, material)
             }
             return material
@@ -2194,7 +2195,7 @@ function tintVec(input, fallback) {
   return new THREE.Vector3(((input >> 16) & 255) / 255, ((input >> 8) & 255) / 255, (input & 255) / 255)
 }
 
-async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0) {
+async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true) {
   if ((lighting === "scene" || lighting === "off") && shader?.type !== "end_portal") {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.needsUpdate = true
@@ -2346,6 +2347,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       brightness: { value: lightConfig?.brightness ?? 0.5 },
       shadePos: { value: new THREE.Vector3(lightConfig?.cardinal?.up ?? 1, lightConfig?.cardinal?.south ?? 0.8, lightConfig?.cardinal?.east ?? 0.6) },
       shadeNeg: { value: new THREE.Vector3(lightConfig?.cardinal?.down ?? 0.5, lightConfig?.cardinal?.north ?? 0.8, lightConfig?.cardinal?.west ?? 0.6) },
+      aoEnabled: { value: ao !== false },
       ...(volume ? volume.uniforms : {}),
     },
     vertexShader: `
@@ -2415,6 +2417,19 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           vec2 l1 = texture2D(lightVol, uv1 / lightVolTex).rg;
           return mix(l0, l1, p.y - y0);
         }
+        uniform bool aoEnabled;
+        float aoShade(vec3 c) {
+          c = clamp(c, vec3(0.0), lightVolSize - 1.0);
+          vec2 tile = lightVolSize.xz + 1.0;
+          vec2 uv = vec2(mod(c.y, lightVolCols) * tile.x, floor(c.y / lightVolCols) * tile.y) + c.xz + 0.5;
+          return texture2D(lightVol, uv / lightVolTex).b > 0.5 ? 0.2 : 1.0;
+        }
+        float aoCorner(vec3 base, vec3 da, vec3 db, vec3 axis, float sa, float sb, float sc) {
+          bool blockedA = aoShade(base + da + axis) < 0.5;
+          bool blockedB = aoShade(base + db + axis) < 0.5;
+          float corner = (blockedA && blockedB) ? sa : aoShade(base + da + db);
+          return (sa + sb + corner + sc) * 0.25;
+        }
       #endif
       #include <clipping_planes_pars_fragment>
       void main() {
@@ -2456,12 +2471,34 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             skyFactor = skyLightFactor;
             skyColor = skyLightColor;
           }
+          float ao = 1.0;
           #ifdef LIGHT_VOLUME
             vec3 sn = gl_FrontFacing ? vWorldNormal : -vWorldNormal;
             vec3 lp = vWorldPos / 16.0 + 0.5 + sn * 0.5 - lightVolOrigin;
             vec2 lv = sampleLightVol(lp);
             float blockLevel = max(lv.x, emission);
             float skyLevel = lv.y;
+            if (aoEnabled && emission == 0.0) {
+              vec3 an = abs(sn);
+              vec3 axis; vec3 t1; vec3 t2;
+              if (an.y >= an.x && an.y >= an.z) { axis = vec3(0.0, sign(sn.y), 0.0); t1 = vec3(1.0, 0.0, 0.0); t2 = vec3(0.0, 0.0, 1.0); }
+              else if (an.x >= an.z) { axis = vec3(sign(sn.x), 0.0, 0.0); t1 = vec3(0.0, 1.0, 0.0); t2 = vec3(0.0, 0.0, 1.0); }
+              else { axis = vec3(0.0, 0.0, sign(sn.z)); t1 = vec3(1.0, 0.0, 0.0); t2 = vec3(0.0, 1.0, 0.0); }
+              vec3 P = vWorldPos / 16.0 + 0.5 - lightVolOrigin;
+              vec3 base = floor(P + axis * 0.5);
+              float sc = aoShade(base);
+              float sA0 = aoShade(base - t1);
+              float sA1 = aoShade(base + t1);
+              float sB0 = aoShade(base - t2);
+              float sB1 = aoShade(base + t2);
+              float q00 = aoCorner(base, -t1, -t2, axis, sA0, sB0, sc);
+              float q10 = aoCorner(base, t1, -t2, axis, sA1, sB0, sc);
+              float q01 = aoCorner(base, -t1, t2, axis, sA0, sB1, sc);
+              float q11 = aoCorner(base, t1, t2, axis, sA1, sB1, sc);
+              float f1 = fract(dot(P, t1));
+              float f2 = fract(dot(P, t2));
+              ao = mix(mix(q00, q10, f1), mix(q01, q11, f1), f2);
+            }
           #else
             float blockLevel = emission;
             float skyLevel = 1.0;
@@ -2476,6 +2513,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             vec3 lmScaled = light * ((1.0 - lmInv * lmInv * lmInv * lmInv) / lmMax);
             light = mix(light, lmScaled, brightness);
           }
+          light *= ao;
         } else if (shadeEnabled) {
           mat3 v = mat3(viewMatrix);
           bool hasOverride = dot(shadeOverride, shadeOverride) > 0.5;
