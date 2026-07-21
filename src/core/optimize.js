@@ -352,7 +352,7 @@ export async function optimizeScene(placements, opts = {}) {
     }
     function toAtlas(mat, tex, face) {
       const translucent = isTranslucent(tex, cutoff)
-      const sig = matSignature(mat) + (translucent ? "|T" : "|O")
+      const sig = matSignature(mat) + (translucent ? "|T" : tex.userData?.frames ? "|A" : "|O")
       let grp = atlasGroups.get(sig)
       if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: mat, translucent })
       grp.textures.add(tex)
@@ -374,7 +374,7 @@ export async function optimizeScene(placements, opts = {}) {
         if (!tex && !matAnimated(mat)) continue
         const cull = o.userData.cullface?.[g.materialIndex] ?? null
         if (matAnimated(mat)) {
-          if (tex?.userData?.frames && isTranslucent(tex, cutoff)) {
+          if (tex?.userData?.frames && !mat.userData?.glint) {
             atlasFace(o, toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull }))
             continue
           }
