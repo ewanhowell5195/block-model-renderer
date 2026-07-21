@@ -253,18 +253,19 @@ requestAnimationFrame(frame)
 
 ## Dynamic models
 
-Some blocks the game animates at runtime load as **dynamic models**: chests and shulker boxes (their lids) and the enchanting table book. Their moving pieces are tagged as [`part`](extending.md#element-json) elements in the bundled models, so the loaded group keeps a named sub-group per part instead of merging it away, and all posing is transforms on those groups: no rebuilds, no new geometry. To find the dynamic models in a built scene, traverse for `userData.dynamic`.
+Some blocks the game animates at runtime load as **dynamic models**: chests and shulker boxes (their lids), banners (their waving flag), and the enchanting table book. Their moving pieces are tagged as [`part`](extending.md#element-json) elements in the bundled models, so the loaded group keeps a named sub-group per part instead of merging it away, and all posing is transforms on those groups: no rebuilds, no new geometry. To find the dynamic models in a built scene, traverse for `userData.dynamic`.
 
 The animation runs itself, off the same draw-driven hooks as [animated textures](#animation-browser):
 
-* **Enchanting books** play the full game animation automatically, with the rendering camera as the player: the book opens and tracks the camera within range, and drifts closed when it leaves. The activation range is `userData.range` on the book's group, in blocks (default `3`, the game's), read live so you can change it any time. Each book seeds its idle facing and bob phase from its position, so a room of them doesn't move in lockstep.
+* **Banners** wave their flag (pattern layers included) on the game's 5-second cycle, phase-offset per block position so a row of them doesn't wave in unison.
 * **Chests and shulker boxes** get `.open()` and `.close()` methods on their group. Each animates the lid over the game's 10 ticks (500ms) from wherever it currently is, so a `.close()` mid-open reverses smoothly, and the easing matches the game (chests `1 - (1 - t)³`, shulker boxes linear).
+* **Enchanting books** play the full game animation automatically, with the rendering camera as the player: the book opens and tracks the camera within range, and drifts closed when it leaves. The activation range is `userData.range` on the book's group, in blocks (default `3`, the game's), read live so you can change it any time. Each book seeds its idle facing and bob phase from its position, so a room of them doesn't move in lockstep.
 
 Nothing is yours to run per-frame: like texture animation, it advances whenever the scene draws. A single one-off render shows the load pose.
 
 ### `poseSpecial(root, pose)`
 
-The manual setter, for driving a pose yourself. Calling it cancels the automatic movement: an in-flight `.open()`/`.close()` stops, and a book's auto animation turns off for good (that book is yours from then on).
+The manual setter, for driving a pose yourself. Calling it cancels the automatic movement: an in-flight `.open()`/`.close()` stops, and a book's or banner's auto animation turns off for good (that one is yours from then on).
 
 | Argument | Description |
 |---|---|
@@ -275,9 +276,10 @@ The pose fields per kind (`root.userData.dynamic`):
 
 | Kind | Pose | Description |
 |---|---|---|
+| `"banner"` | `{ phase }` | Where in the wave cycle the flag is, 0-1 (the game's cycle is 100 ticks) |
 | `"chest"` | `{ openness }` | Opening progress 0-1, as the game's block entity tracks it. The lid renders through the game's `1 - (1 - t)³` easing internally |
-| `"shulker_box"` | `{ openness }` | Opening progress 0-1: lifts the lid 8 voxels while twisting it 270°, linear like the game |
 | `"enchanting_book"` | `{ time, rot, open, flip }` | The game's `EnchantingTableBlockEntity` fields: `time` in ticks drives the hover bob and page ripple, `rot` is the facing angle in radians, `open` is 0-1, `flip` is the page-flip counter (fractional values mid-flip) |
+| `"shulker_box"` | `{ openness }` | Opening progress 0-1: lifts the lid 8 voxels while twisting it 270°, linear like the game |
 
 Models opt in with the `dynamic` and `part` [extension fields](extending.md#model-json), and [`loadModel`](#loadmodelscene-assets-model-args) applies the model's initial `pose` on build (a chest special's `openness` ends up there).
 

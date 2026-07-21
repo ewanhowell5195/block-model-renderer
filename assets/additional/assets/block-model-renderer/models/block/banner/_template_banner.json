@@ -1,6 +1,7 @@
 {
   "ignore_atlas_restrictions": true,
   "double_sided": true,
+  "dynamic": "banner",
   "texture_size": [64, 64],
   "textures": {
     "banner": "entity/banner/banner_base",
@@ -32,6 +33,8 @@
       }
     },
     {
+      "part": "flag",
+      "pivot": [8, 29.33333, 8],
       "from": [1.33333, 2.66667, 6.66667],
       "to": [14.66667, 29.33333, 7.33333],
       "faces": {
@@ -44,6 +47,8 @@
       }
     },
     {
+      "part": "flag",
+      "pivot": [8, 29.33333, 8],
       "from": [1.33333, 2.66667, 6.66667],
       "to": [14.66667, 29.33333, 7.33333],
       "faces": {

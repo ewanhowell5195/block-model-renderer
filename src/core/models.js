@@ -39,7 +39,7 @@ export function poseSpecial(root, data = {}) {
   const kind = root?.userData?.dynamic
   if (!kind) return
   const s = dynState(root)
-  if (kind === "enchanting_book") {
+  if (kind === "banner" || kind === "enchanting_book") {
     s.auto = false
   } else {
     s.openness = data.openness ?? 0
@@ -52,7 +52,7 @@ export function poseSpecial(root, data = {}) {
 export function initDynamic(root) {
   const kind = root.userData?.dynamic
   if (!kind) return
-  if (kind !== "enchanting_book") {
+  if (kind === "chest" || kind === "shulker_box") {
     root.open = () => { dynState(root).target = 1 }
     root.close = () => { dynState(root).target = 0 }
   }
@@ -70,6 +70,7 @@ function dynamicBeforeRender(renderer, scene, camera) {
   if (s.frame === frame) return
   s.frame = frame
   const now = dynNow()
+  if (root.userData.dynamic === "banner") return bannerFrame(root, s, now)
   if (root.userData.dynamic === "enchanting_book") return bookFrame(root, s, camera, now)
   if (s.target === null) return
   if (s.last === null) s.last = now
@@ -85,6 +86,17 @@ function dynamicBeforeRender(renderer, scene, camera) {
     s.openness += Math.sign(d) * step
   }
   applyDynamicPose(root, { openness: s.openness })
+}
+
+function bannerFrame(root, s, now) {
+  if (!s.auto) return
+  if (s.seed === undefined) {
+    _dcam ??= new THREE.Vector3()
+    const p = _dcam.setFromMatrixPosition(root.matrixWorld)
+    const hash = Math.floor(p.x / 16) * 7 + Math.floor(p.y / 16) * 9 + Math.floor(p.z / 16) * 13
+    s.seed = (hash % 100 + 100) % 100
+  }
+  applyDynamicPose(root, { phase: ((s.seed + now / 50) % 100) / 100 })
 }
 
 const wrapRad = v => {
@@ -159,12 +171,60 @@ function applyDynamicPose(root, data = {}) {
   if (!kind) return
   const parts = []
   root.traverse(o => { if (o.name?.startsWith("part:")) parts.push(o) })
+  if (kind === "banner") {
+    const a = (0.0125 - 0.01 * Math.cos(Math.PI * 2 * (data.phase ?? 0))) * Math.PI
+    for (const g of parts) {
+      if (g.name !== "part:flag") continue
+      g.rotation.set(a, 0, 0)
+    }
+    return
+  }
   if (kind === "chest") {
     const eased = 1 - (1 - (data.openness ?? 0)) ** 3
     for (const g of parts) {
       if (g.name !== "part:lid") continue
       g.rotation.set(0, 0, 0)
       g.rotateOnAxis(AXIS_VECTORS[g.userData.partAxis ?? "x"], THREE.MathUtils.degToRad(eased * 90))
+    }
+    return
+  }
+  if (kind === "enchanting_book") {
+    const time = data.time ?? 0
+    const open = data.open ?? 0
+    const rot = data.rot ?? 0
+    const flip = data.flip ?? 0
+    const f = (Math.sin(time * 0.02) * 0.1 + 1.25) * open
+    const frac = v => v - Math.floor(v)
+    const clamp01 = v => Math.max(0, Math.min(1, v))
+    const flipR = clamp01(frac(flip + 0.25) * 1.6 - 0.3)
+    const flipL = clamp01(frac(flip + 0.75) * 1.6 - 0.3)
+    const hover = (0.1 + Math.sin(time * 0.1) * 0.01) * 16
+    _pm[0] ??= new THREE.Matrix4()
+    _pm[1] ??= new THREE.Matrix4()
+    _pm[2] ??= new THREE.Matrix4()
+    const R = _pm[0].makeTranslation(0, 4 + hover, 0)
+      .multiply(_pm[1].makeRotationY(-rot))
+      .multiply(_pm[2].makeRotationZ(THREE.MathUtils.degToRad(80)))
+    const sx = Math.sin(f)
+    const POSE = {
+      cover_left: [Math.PI + f, 0],
+      cover_right: [-f, 0],
+      book_spine: [Math.PI / 2, 0],
+      pages_left: [f, sx],
+      pages_right: [-f, sx],
+      flipping_page_right: [f - f * 2 * flipR, sx],
+      flipping_page_left: [f - f * 2 * flipL, sx]
+    }
+    _pt[0] ??= new THREE.Matrix4()
+    _pt[1] ??= new THREE.Matrix4()
+    for (const g of parts) {
+      const pose = POSE[g.name.slice(5)]
+      if (!pose) continue
+      const p = g.userData.partPivot ?? [0, 0, 0]
+      _pt[0].copy(R)
+        .multiply(_pt[1].makeTranslation(p[0] + pose[1], p[1], p[2]))
+        .multiply(new THREE.Matrix4().makeRotationY(pose[0]))
+      _pt[0].decompose(g.position, g.quaternion, g.scale)
     }
     return
   }
@@ -176,45 +236,6 @@ function applyDynamicPose(root, data = {}) {
       g.rotation.set(0, 0, 0)
       g.rotateOnAxis(AXIS_VECTORS[g.userData.partAxis ?? "y"], THREE.MathUtils.degToRad((data.openness ?? 0) * 270))
     }
-    return
-  }
-  if (kind !== "enchanting_book") return
-  const time = data.time ?? 0
-  const open = data.open ?? 0
-  const rot = data.rot ?? 0
-  const flip = data.flip ?? 0
-  const f = (Math.sin(time * 0.02) * 0.1 + 1.25) * open
-  const frac = v => v - Math.floor(v)
-  const clamp01 = v => Math.max(0, Math.min(1, v))
-  const flipR = clamp01(frac(flip + 0.25) * 1.6 - 0.3)
-  const flipL = clamp01(frac(flip + 0.75) * 1.6 - 0.3)
-  const hover = (0.1 + Math.sin(time * 0.1) * 0.01) * 16
-  _pm[0] ??= new THREE.Matrix4()
-  _pm[1] ??= new THREE.Matrix4()
-  _pm[2] ??= new THREE.Matrix4()
-  const R = _pm[0].makeTranslation(0, 4 + hover, 0)
-    .multiply(_pm[1].makeRotationY(-rot))
-    .multiply(_pm[2].makeRotationZ(THREE.MathUtils.degToRad(80)))
-  const sx = Math.sin(f)
-  const POSE = {
-    cover_left: [Math.PI + f, 0],
-    cover_right: [-f, 0],
-    book_spine: [Math.PI / 2, 0],
-    pages_left: [f, sx],
-    pages_right: [-f, sx],
-    flipping_page_right: [f - f * 2 * flipR, sx],
-    flipping_page_left: [f - f * 2 * flipL, sx]
-  }
-  _pt[0] ??= new THREE.Matrix4()
-  _pt[1] ??= new THREE.Matrix4()
-  for (const g of parts) {
-    const pose = POSE[g.name.slice(5)]
-    if (!pose) continue
-    const p = g.userData.partPivot ?? [0, 0, 0]
-    _pt[0].copy(R)
-      .multiply(_pt[1].makeTranslation(p[0] + pose[1], p[1], p[2]))
-      .multiply(new THREE.Matrix4().makeRotationY(pose[0]))
-    _pt[0].decompose(g.position, g.quaternion, g.scale)
   }
 }
 
