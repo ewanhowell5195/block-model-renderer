@@ -224,11 +224,19 @@ async function main() {
     selfCullAll: compress(d.selfCullAll, d.allBlocks),
     selfCullY: compress(d.selfCullY, d.allBlocks)
   }
+  // dampening stays minimal: fluids and waterlogged states resolve to 1 at
+  // runtime already, so only constant non-derivable attenuators are kept
+  const dampening = {}
+  for (const [id, v] of Object.entries(d.lightDampening)) {
+    if (typeof v !== "number") continue
+    if (id === "water" || id === "lava" || d.waterlogged.includes(id)) continue
+    dampening[id] = v
+  }
   const lighting = {
     _generated: stamp,
     lightEmission: compressEmission(d.lightEmission, d.allBlocks),
     shapeLightOcclusion: compressEmission(d.shapeLightOcclusion, d.allBlocks),
-    lightDampening: compressEmission(d.lightDampening, d.allBlocks)
+    lightDampening: compressEmission(dampening, d.allBlocks)
   }
   const items = {
     _generated: stamp,
