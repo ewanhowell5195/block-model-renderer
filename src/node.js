@@ -209,6 +209,6 @@ export {
   fluidHeights, fluidTypeOf, ModelLoader,
   optimizeScene, sortTranslucent, poseSpecial,
   zipAssets, zipAssetsFromSlices, readTexture,
-  renderMapColors, disposeMapArt, mapIdOf
+  renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS
 } from "./core.js"
 export { parseZip } from "./zip.js"

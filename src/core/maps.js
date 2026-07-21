@@ -16,6 +16,8 @@ const MAP_BASE = [null,
 ]
 const MAP_SHADE = [180, 220, 255, 135]
 
+export const MAP_COLORS = { base: MAP_BASE, shade: MAP_SHADE }
+
 export function mapIdOf(item) {
   const n = Number(item?.components?.["minecraft:map_id"] ?? item?.tag?.map)
   return Number.isFinite(n) ? n : null
@@ -56,7 +58,12 @@ export async function mapArtFor(assets, id, mapArt, info) {
   if (cache?.has(id)) return cache.get(id)
   let art = null
   try {
-    art = await mapArt(id, info) ?? null
+    const raw = await mapArt(id, info)
+    if (raw) {
+      const w = raw.width || 128, h = raw.height || 128
+      art = new Canvas(w, h)
+      art.getContext("2d").drawImage(raw, 0, 0, w, h)
+    }
   } catch {}
   if (art) cache?.set(id, art)
   return art

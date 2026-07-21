@@ -485,7 +485,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   if (!blockstate) throw new Error("parseBlockstate requires a blockstate id")
   if (AIR_BLOCKS.test(blockstate)) return []
   if (assets == null || assets.length === 0) throw new Error("parseBlockstate requires assets")
-  const data = args?.data ?? {}
+  let data = args?.data ?? {}
   const rand = args?.seed != null ? seededRandom(args.seed) : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   const defaults = await defaultBlockstates(assets)
@@ -493,6 +493,12 @@ export async function parseBlockstate(assets, blockstate, args) {
   const colors = await colorTables(assets)
 
   const { namespace, item: block } = resolveNamespace(blockstate)
+
+  let frameMapArt = null
+  if (args?.nbt && /^(glow_)?item_frame$/.test(block) && /(^|:)filled_map$/.test(args.nbt.Item?.id ?? "")) {
+    frameMapArt = await mapArtFor(assets, mapIdOf(args.nbt.Item), args.mapArt, { pos: args.pos, facing: data.facing ?? "north", nbt: args.nbt })
+    if (!frameMapArt) data = { ...data, map: "false" }
+  }
 
   let buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
   const overlayBuf = await readOverlayFile(`assets/${namespace}/blockstates/${block}.json`, assets)
@@ -659,7 +665,7 @@ export async function parseBlockstate(assets, blockstate, args) {
 
   if (args?.nbt) {
     let drop = false
-    const extra = await blockEntityItemModels(assets, block, data, { ...args, dropModels: () => { drop = true } })
+    const extra = await blockEntityItemModels(assets, block, data, { ...args, frameMapArt, dropModels: () => { drop = true } })
     if (drop) models.length = 0
     models.push(...extra)
   }
@@ -705,7 +711,7 @@ async function blockEntityItemModels(assets, block, data, args) {
   let mapHandled = false
   if (/^(glow_)?item_frame$/.test(block) && /(^|:)filled_map$/.test(nbt.Item?.id ?? "")) {
     const facing = data.facing ?? "north"
-    const art = await mapArtFor(assets, mapIdOf(nbt.Item), args.mapArt, { pos: args.pos, facing, nbt })
+    const art = args.frameMapArt ?? null
     mapHandled = !!art
     if (art) {
       const invisible = nbt.Invisible === 1 || nbt.Invisible === true
@@ -720,7 +726,7 @@ async function blockEntityItemModels(assets, block, data, args) {
       const entry = {
         model: {
           textures: { map: "block-model-renderer:map_art" },
-          elements: [{ from: [0, 0, z], to: [16, 16, z], shade: false, faces: { south: { texture: "#map" } } }]
+          elements: [{ from: [0, 0, z], to: [16, 16, z], shade: false, faces: { north: { texture: "#map" } } }]
         },
         texture_images: { "block-model-renderer:map_art": art },
         transformation: mat.elements

@@ -49,7 +49,7 @@ export function buildBlockRules({ waterlogging = [], culling = [], lighting = []
     },
     canOcclude(block) {
       block = normalize(block)
-      return !isFluid(block) && !matches("nonOccluding", block)
+      return !isFluid(block) && !matches("nonOccluding", block) && !/(^|_)item_frame$/.test(block)
     },
     selfCulls(block, neighbor, direction, properties, neighborProperties) {
       if (!block || !neighbor) return false

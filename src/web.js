@@ -683,4 +683,4 @@ export function createAnimator(root) {
   }
 }
 
-export { COLORS, isWaterloggable, isWaterlogged, getLightEmission, isCrossModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, optimizeScene, sortTranslucent, poseSpecial, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, renderMapColors, disposeMapArt, mapIdOf } from "./core.js"
+export { COLORS, isWaterloggable, isWaterlogged, getLightEmission, isCrossModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, optimizeScene, sortTranslucent, poseSpecial, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS } from "./core.js"
