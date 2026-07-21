@@ -253,7 +253,7 @@ requestAnimationFrame(frame)
 
 ## Dynamic models
 
-Some blocks the game animates at runtime load as **dynamic models**: chests and shulker boxes (their lids), banners (their waving flag), and the enchanting table book. Their moving pieces are tagged as [`part`](extending.md#element-json) elements in the bundled models, so the loaded group keeps a named sub-group per part instead of merging it away, and all posing is transforms on those groups: no rebuilds, no new geometry. To find the dynamic models in a built scene, traverse for `userData.dynamic`.
+Some blocks the game animates at runtime load as **dynamic models**: banners, bells, chests, decorated pots, the enchanting table book, and shulker boxes (the kinds and their part names are tabled in [Extending](extending.md#dynamic-models)). Their moving pieces are tagged as [`part`](extending.md#element-json) elements in the bundled models, so the loaded group keeps a named sub-group per part instead of merging it away, and all posing is transforms on those groups: no rebuilds, no new geometry. To find the dynamic models in a built scene, traverse for `userData.dynamic`.
 
 The animation runs itself, off the same draw-driven hooks as [animated textures](#animation-browser):
 
@@ -267,7 +267,7 @@ Nothing is yours to run per-frame: like texture animation, it advances whenever 
 
 ### `poseSpecial(root, pose)`
 
-The manual setter, for driving a pose yourself. Calling it cancels the automatic movement: an in-flight `.open()`/`.close()` stops, and a book's or banner's auto animation turns off for good (that one is yours from then on).
+The manual setter, for driving a pose yourself. Calling it cancels the automatic movement: an in-flight `.open()`/`.close()`, `.ring()`, or `.wobble()` stops, and a book's or banner's auto animation turns off for good (that one is yours from then on).
 
 | Argument | Description |
 |---|---|
@@ -285,7 +285,7 @@ The pose fields per kind (`root.userData.dynamic`):
 | `"enchanting_book"` | `{ time, rot, open, flip }` | The game's `EnchantingTableBlockEntity` fields: `time` in ticks drives the hover bob and page ripple, `rot` is the facing angle in radians, `open` is 0-1, `flip` is the page-flip counter (fractional values mid-flip) |
 | `"shulker_box"` | `{ openness }` | Opening progress 0-1: lifts the lid 8 voxels while twisting it 270°, linear like the game |
 
-Models opt in with the `dynamic` and `part` [extension fields](extending.md#model-json), and [`loadModel`](#loadmodelscene-assets-model-args) applies the model's initial `pose` on build (a chest special's `openness` ends up there).
+Models opt in with the `dynamic` and `part` [extension fields](extending.md#dynamic-models), and [`loadModel`](#loadmodelscene-assets-model-args) applies the model's initial `pose` on build (a chest special's `openness` ends up there).
 
 ## `renderModelScene(scene, camera, args?)`
 

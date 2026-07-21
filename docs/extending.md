@@ -15,7 +15,7 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 | `transformation` | `{ translation: [0,0,0], scale: [1,1,1], left_rotation: [0,0,0,1], right_rotation: [0,0,0,1] }` | Translation, rotation, and scale applied to the whole model before rendering. Accepts the vanilla item-definition transformation form (translation/rotations/scale) or a flat 16-element matrix array |
 | `billboard` | `true` | Billboard the model: it always faces the camera, ignoring [display](models.md#display-transforms) and blockstate rotations. Works in [`createScene`](scenes.md#createsceneassets-blocks-args) too. Pair with `shade_direction_override: "up"` on the elements so world-mode shading stays constant as it turns |
 | `double_sided` | `true` | Render all faces from both sides |
-| `dynamic` | `"chest"` | Mark the model as one of the built-in [dynamic models](scenes.md#dynamic-models): `"banner"`, `"chest"`, `"enchanting_book"`, or `"shulker_box"`. The kinds and their animations are fixed (this isn't a hook for custom animations), but a pack remodeling one of these blocks can set it on its own model and tag the moving elements with [`part`](#element-json) to keep them animating. [`optimizeScene`](scenes.md#scene-optimization) keeps the parts per placement while merging the rest |
+| `dynamic` | `"chest"` | Mark the model as one of the built-in [dynamic model kinds](#dynamic-models), animating its `part`-tagged elements |
 | `pose` | `{ "openness": 1 }` | Initial [`poseSpecial`](scenes.md#posespecialroot-pose) pose applied when a `dynamic` model loads |
 | `tints` | `["#FF0000", "#00FF00"]` | Array of hex color strings. Faces with a `tintindex` look up their tint from this array |
 | `shader` | `{ type: "end_portal", layers: 15 }` | Apply the end portal / end gateway shader to the model |
@@ -27,8 +27,21 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 
 | Field | Example | Description |
 |---|---|---|
-| `part` | `"lid"` | Tag this element as one of a [`dynamic`](#model-json) model's moving pieces. The names are fixed per kind: `flag` for banners; `lid` for chests and shulker boxes; `cover_left`, `cover_right`, `book_spine`, `pages_left`, `pages_right`, `flipping_page_left`, `flipping_page_right` for the enchanting book. Any number of elements can share a name: each is posed around its own pivot. An element with a `rotation` pivots at its rotation `origin`, otherwise set `pivot` |
+| `part` | `"lid"` | Tag this element as one of a [`dynamic`](#model-json) model's moving pieces, using its kind's [part names](#dynamic-models). Any number of elements can share a name: each is posed around its own pivot. An element with a `rotation` pivots at its rotation `origin`, otherwise set `pivot` |
 | `pivot` | `[8, 8, 7]` | The pivot point (model coordinates) for a `part` element that has no `rotation` |
+
+### Dynamic models
+
+The kinds a model can declare with `dynamic`, and the `part` names each animates. The set is fixed: these drive the game's block entity animations, not custom ones. What a pack *can* do is remodel one of these blocks with its own geometry and tag the moving elements, and they keep animating. How the animations run and pose live is covered in [Dynamic models](scenes.md#dynamic-models).
+
+| Kind | Parts | Animation |
+|---|---|---|
+| `"banner"` | `flag` | Waves on the game's 100-tick cycle, phase-offset per block position |
+| `"bell"` | `bell_body` | Swings with the game's decaying oscillation when rung via `.ring(direction?)` |
+| `"chest"` | `lid` | Rotates 90° around its hinge via `.open()`/`.close()`, eased like the game |
+| `"decorated_pot"` | `pot` | Wobbles via `.wobble(style?)`: the positive tilt or the negative shake |
+| `"enchanting_book"` | `cover_left`, `cover_right`, `book_spine`, `pages_left`, `pages_right`, `flipping_page_left`, `flipping_page_right` | Plays the full enchanting table animation against the render camera |
+| `"shulker_box"` | `lid` | Lifts 8 voxels and twists 270° via `.open()`/`.close()`, linear like the game |
 
 ### Blockstate JSON
 
