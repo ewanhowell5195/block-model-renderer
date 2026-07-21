@@ -515,10 +515,22 @@ Helpers behind the [`mapArt`](#createsceneassets-blocks-args) callback, exported
 
 | Export | Description |
 |---|---|
-| `renderMapColors(assets, colors)` | Renders 16384 map color bytes through the vanilla map palette over `map_background.png`, returning a 128×128 canvas. `colors` is the `colors` array from a save's `map_<id>.dat`, or one you build yourself: one byte per pixel in row order (`colors[x + z * 128]`, top-left first), each byte `baseIndex * 4 + shade` with `baseIndex` into `MAP_COLORS.base` (1–61; 0 leaves the pixel unset so the parchment shows) and `shade` 0–3 picking a `MAP_COLORS.shade` brightness (2 is full) |
+| `renderMapColors(assets, colors)` | Renders 16384 map color bytes through the vanilla map palette over `map_background.png`, returning a 128×128 canvas. `colors` is the `colors` array from a save's `map_<id>.dat`, or one you build yourself (below) |
 | `MAP_COLORS` | The vanilla palette: `{ base, shade }`, where a color byte resolves as `base[byte >> 2]` (an `[r, g, b]`, index 0 unset) scaled by `shade[byte & 3] / 255` |
 | `mapIdOf(item)` | The map id from an item's `minecraft:map_id` component (or legacy `tag.map`), `null` when absent |
 | `disposeMapArt(assets)` | Clears the cached map art canvases. Call when the world the maps came from is no longer the source of truth |
+
+One byte per pixel in row order, top-left first; each byte packs a palette index and one of four brightness steps:
+
+```js
+const colors = new Uint8Array(16384)
+for (let z = 0; z < 128; z++) for (let x = 0; x < 128; x++) {
+  const base = x < 64 ? 34 : 1        // MAP_COLORS.base index: 34 dirt brown, 1 grass green
+  const shade = z < 64 ? 2 : 0        // MAP_COLORS.shade step: 2 full strength, 0 darkest
+  colors[x + z * 128] = base * 4 + shade
+}
+const art = await renderMapColors(assets, colors) // byte 0 leaves a pixel unset, showing the parchment
+```
 
 ## Helpers
 
