@@ -29,6 +29,7 @@
     "face": "wall",
     "orientation": "north_up",
     "powered": false,
+    "has_book": false,
     "segment_amount": 4,
     "flower_amount": 4,
     "rotation": 8,
