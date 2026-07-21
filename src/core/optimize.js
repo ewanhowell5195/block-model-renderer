@@ -30,6 +30,40 @@ function geoHash(geo) {
 }
 const matAnimated = m => !!(m.uniforms?.GameTime || matMap(m)?.userData?.frames)
 
+function mergeInstanceSource(geometry, material) {
+  const mats = [].concat(material)
+  if (!geometry.index || !geometry.groups?.length || mats.length < 2) return { geometry, material }
+  const keep = new Map()
+  for (const g of geometry.groups) {
+    const m = mats[g.materialIndex] ?? mats[0]
+    if (!m || m.visible === false) continue
+    let list = keep.get(m)
+    if (!list) keep.set(m, list = [])
+    list.push(g)
+  }
+  if (!keep.size) return null
+  const src = geometry.index.array
+  let total = 0
+  for (const list of keep.values()) for (const g of list) total += Math.min(g.count, src.length - g.start)
+  const index = new src.constructor(total)
+  const geo = new THREE.BufferGeometry()
+  for (const name in geometry.attributes) geo.setAttribute(name, geometry.attributes[name])
+  let offset = 0
+  const materials = []
+  for (const [m, list] of keep) {
+    const start = offset
+    for (const g of list) {
+      const count = Math.min(g.count, src.length - g.start)
+      index.set(src.subarray(g.start, g.start + count), offset)
+      offset += count
+    }
+    if (keep.size > 1) geo.addGroup(start, offset - start, materials.length)
+    materials.push(m)
+  }
+  geo.setIndex(new THREE.BufferAttribute(index, 1))
+  return { geometry: geo, material: materials.length > 1 ? materials : materials[0] }
+}
+
 function matSignature(m) {
   if (m.uniforms) {
     const u = m.uniforms
@@ -585,7 +619,9 @@ export async function optimizeScene(placements, opts = {}) {
   const _bbPos = new THREE.Vector3(), _bbQuat = new THREE.Quaternion(), _bbFlip = new THREE.Quaternion(0, 1, 0, 0), _bbM = new THREE.Matrix4(), _bbInv = new THREE.Matrix4()
   for (const bucket of bbBuckets.values()) {
     const entries = bucket.entries
-    const im = new THREE.InstancedMesh(bucket.geometry, bucket.material, entries.length)
+    const merged = mergeInstanceSource(bucket.geometry, bucket.material)
+    if (!merged) continue
+    const im = new THREE.InstancedMesh(merged.geometry, merged.material, entries.length)
     im.frustumCulled = false
     im.userData.billboard = true
     im.onBeforeRender = function (renderer, scene, camera) {
@@ -600,13 +636,15 @@ export async function optimizeScene(placements, opts = {}) {
     }
     group.add(im)
     drawCalls++
-    tris += (bucket.geometry.index?.count ?? bucket.geometry.attributes.position?.count ?? 0) / 3 * entries.length
+    tris += (merged.geometry.index?.count ?? merged.geometry.attributes.position?.count ?? 0) / 3 * entries.length
   }
   for (const d of dynamicInstances) group.add(d.holder)
   const _dynM = new THREE.Matrix4(), _dynInv = new THREE.Matrix4()
   for (const bucket of dynBuckets.values()) {
     const entries = bucket.entries
-    const im = new THREE.InstancedMesh(bucket.geometry, bucket.material, entries.length)
+    const merged = mergeInstanceSource(bucket.geometry, bucket.material)
+    if (!merged) continue
+    const im = new THREE.InstancedMesh(merged.geometry, merged.material, entries.length)
     im.frustumCulled = false
     im.onBeforeRender = function (renderer, scene, camera) {
       _dynInv.copy(this.matrixWorld).invert()
@@ -619,7 +657,7 @@ export async function optimizeScene(placements, opts = {}) {
     }
     group.add(im)
     drawCalls++
-    tris += (bucket.geometry.index?.count ?? bucket.geometry.attributes.position?.count ?? 0) / 3 * entries.length
+    tris += (merged.geometry.index?.count ?? merged.geometry.attributes.position?.count ?? 0) / 3 * entries.length
   }
   onProgress?.(10000, 10000)
 
