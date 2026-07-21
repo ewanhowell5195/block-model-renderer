@@ -235,12 +235,12 @@ public class Extract {
       String emissionValue = caseValue(block, BlockState::getLightEmission);
       if (!emissionValue.equals("0")) lightEmission.put(id, emissionValue);
 
-      // Partial light attenuators (leaves, fluids, waterlogged states): dampening
-      // strictly between 0 and 15. Fully opaque and fully clear blocks are
-      // derived from the models at runtime, so only the in-betweens are data.
-      boolean partialDampen = false;
-      for (BlockState s2 : states) { int v = s2.getLightDampening(); if (v > 0 && v < 15) { partialDampen = true; break; } }
-      if (partialDampen) lightDampening.put(id, caseValue(block, s2 -> { int v = s2.getLightDampening(); return v > 0 && v < 15 ? v : 0; }));
+      // Light attenuators the models can't reveal: partial dampening (leaves,
+      // fluids, waterlogged states) plus full dampening on blocks that don't
+      // render solid (tinted glass). Opaque-and-solid stays model-derived.
+      boolean oddDampen = false;
+      for (BlockState s2 : states) { int v = s2.getLightDampening(); if ((v > 0 && v < 15) || (v == 15 && !s2.isSolidRender())) { oddDampen = true; break; } }
+      if (oddDampen) lightDampening.put(id, caseValue(block, s2 -> { int v = s2.getLightDampening(); return (v > 0 && v < 15) || (v == 15 && !s2.isSolidRender()) ? v : 0; }));
 
       // Blocks whose occlusion shape also blocks light face-to-face (stairs,
       // slabs, snow layers): useShapeForLightOcclusion is an explicit opt-in

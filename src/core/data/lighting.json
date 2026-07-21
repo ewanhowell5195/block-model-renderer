@@ -1513,6 +1513,13 @@
         "resin_clump",
         "sculk_vein"
       ]
+    },
+    {
+      "value": 15,
+      "suffix": [],
+      "exact": [
+        "tinted_glass"
+      ]
     }
   ]
 }

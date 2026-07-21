@@ -399,7 +399,7 @@ for (const block of blocks) {
 }
 ```
 
-Light propagates accurately to the game: block light from emitters (via [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault)) and sky light from above, both spreading one level per block and blocked by the block shapes read from the models, so a slab roof shadows the room while light wraps through the open half. Opacity comes from those models alone, so the game's few hardcoded exceptions (leaves, slime, tinted glass) aren't applied.
+Light propagates accurately to the game: block light from emitters (via [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault)) and sky light from above, both spreading one level per block and blocked by the block shapes read from the models, so a slab roof shadows the room while light wraps through the open half. The game's non-model attenuation is applied on top from extracted data (`lightDampening` in [`lighting.json`](extending.md#block-data-and-colors)): leaves, fluids, and waterlogged blocks dim light one level per block, so tree canopies darken toward the trunk and deep water darkens with depth, and tinted glass blocks light outright.
 
 Shading uses the vanilla lightmap: the dimension's ambient floor, sky and block light adding on top, the warm torchlight tint, and the brightness setting (all [configurable](rendering.md#world-lighting)). In the overworld at the default full-bright `noon` most of the scene reads as lit, so emitters mainly show indoors; use a darker `daytime` (or the nether or end) to see them everywhere.
 
