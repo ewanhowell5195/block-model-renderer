@@ -18,6 +18,8 @@ Renders a block by its id using the resource pack's blockstates and models.
 | `id` | required | The block id (e.g. `"oak_log"`, `"stone"`). Namespace optional |
 | `assets` | required | The assets source, see [Assets](assets.md) and [Asset sources](#asset-sources) below. Vanilla assets aren't bundled, so provide a base pack |
 | `blockstates` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
+| `nbt` | | Block entity data rendered into the output: a frame's held item or a shelf's contents, same shape as a [`createScene`](scenes.md#createsceneassets-blocks-args) block entry's `nbt` |
+| `mapArt` | | Map art callback for a framed map, as in [`createScene`](scenes.md#createsceneassets-blocks-args). See [Map art](scenes.md#map-art) |
 | `seed` | | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. Omit to always take the first variant. The picks don't match the game's per-position randomness |
 | `biome` | | Biome tinting for the colormap tints (grass, foliage, dry foliage). Takes one biome, or an array of biomes to blend. A biome is `{ temperature, downfall, tint, combine, weight }`: `temperature`/`downfall` sample the colormap like the game (defaults `0.5`/`1`); `tint` (hex string or number) replaces the sampled color, or folds onto it with `combine: true` using the game's dark-forest formula. Given an array, each biome resolves to its own color first, then the colors are averaged weighted by each biome's `weight` (default `1`, any scale: they are divided by the total), the way the game blends biome borders |
 
