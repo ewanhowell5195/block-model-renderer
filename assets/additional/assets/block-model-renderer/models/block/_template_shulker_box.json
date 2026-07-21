@@ -1,10 +1,11 @@
 {
   "ignore_atlas_restrictions": true,
   "double_sided": true,
+  "dynamic": "shulker_box",
   "texture_size": [64, 64],
   "elements": [
     {
-      "type": "lid",
+      "part": "lid",
       "from": [0, 4, 0],
       "to": [16, 16, 16],
       "rotation": {"angle": 0, "axis": "y", "origin": [8, 4, 8]},

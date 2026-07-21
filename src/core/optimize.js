@@ -1,5 +1,5 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
-import { billboardBeforeRender } from "./models.js"
+import { billboardBeforeRender, initDynamic } from "./models.js"
 import { sortTranslucent } from "./sorting.js"
 
 const nextTask = globalThis.scheduler?.yield
@@ -282,7 +282,16 @@ export async function optimizeScene(placements, opts = {}) {
     if (!p.group || tdata.has(p.group)) continue
     const tmpl = p.group
     tmpl.updateMatrixWorld(true)
-    const flats = [], meshMap = new Map(), billboards = []
+    const flats = [], meshMap = new Map(), billboards = [], dynamics = []
+    tmpl.traverse(o => {
+      if (o.userData?.dynamic) dynamics.push({ node: o, parentMatrix: (o.parent?.matrixWorld ?? o.matrixWorld).clone() })
+    })
+    const inPart = o => {
+      for (let n = o; n && n !== tmpl; n = n.parent) {
+        if (n.name?.startsWith("part:")) return true
+      }
+      return false
+    }
     function atlasFace(o, face) {
       let m = meshMap.get(o)
       if (!m) meshMap.set(o, m = { geo: o.geometry, matrix: o.matrixWorld.clone(), faces: [] })
@@ -297,7 +306,7 @@ export async function optimizeScene(placements, opts = {}) {
       return { ...face, sig }
     }
     tmpl.traverse(o => {
-      if (!o.isMesh) return
+      if (!o.isMesh || inPart(o)) return
       if (o.userData.billboard) {
         billboards.push({ geo: o.geometry, material: o.material, matrix: o.matrixWorld.clone() })
         return
@@ -352,7 +361,7 @@ export async function optimizeScene(placements, opts = {}) {
       if (demote.has(c)) atlasFace(c.o, toAtlas(c.mat, c.tex, { start: c.start, count: c.count, tex: c.tex, cull: c.cull }))
       else merge.push(c.flat)
     }
-    tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards })
+    tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards, dynamics })
     report(ti / placements.length)
     await breathe()
     if (shouldCancel?.()) return null
@@ -447,7 +456,7 @@ export async function optimizeScene(placements, opts = {}) {
 
   stage(3000)
   const blockT = new THREE.Matrix4(), full = new THREE.Matrix4(), nmat = new THREE.Matrix3()
-  const billboardMeshes = []
+  const billboardMeshes = [], dynamicInstances = []
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
     const td = tdata.get(p.group)
@@ -472,6 +481,23 @@ export async function optimizeScene(placements, opts = {}) {
       mesh.userData.billboard = true
       mesh.onBeforeRender = billboardBeforeRender
       billboardMeshes.push(mesh)
+    }
+    for (const d of td.dynamics) {
+      const holder = new THREE.Group()
+      holder.matrixAutoUpdate = false
+      holder.matrix.multiplyMatrices(blockT, d.parentMatrix)
+      holder.matrixWorldNeedsUpdate = true
+      const inst = d.node.clone()
+      const merged = []
+      inst.traverse(o => {
+        if (!o.isMesh) return
+        for (let n = o; n && n !== inst; n = n.parent) if (n.name?.startsWith("part:")) return
+        merged.push(o)
+      })
+      for (const o of merged) o.removeFromParent()
+      initDynamic(inst)
+      holder.add(inst)
+      dynamicInstances.push({ holder, object: inst, pos: p.pos })
     }
     if (i % 2000 === 1999) {
       report((i + 1) / placements.length)
@@ -534,6 +560,14 @@ export async function optimizeScene(placements, opts = {}) {
     group.add(mesh)
     drawCalls++
     tris += (mesh.geometry.index?.count ?? mesh.geometry.attributes.position?.count ?? 0) / 3
+  }
+  for (const d of dynamicInstances) {
+    group.add(d.holder)
+    d.holder.traverse(o => {
+      if (!o.isMesh) return
+      drawCalls++
+      tris += (o.geometry.index?.count ?? o.geometry.attributes.position?.count ?? 0) / 3
+    })
   }
   onProgress?.(10000, 10000)
 

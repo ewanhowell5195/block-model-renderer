@@ -251,6 +251,36 @@ function frame(nowMs) {
 requestAnimationFrame(frame)
 ```
 
+## Dynamic models
+
+Some blocks the game animates at runtime load as **dynamic models**: chests and shulker boxes (their lids) and the enchanting table book. Their moving pieces are tagged as [`part`](extending.md#element-json) elements in the bundled models, so the loaded group keeps a named sub-group per part instead of merging it away, and all posing is transforms on those groups: no rebuilds, no new geometry. To find the dynamic models in a built scene, traverse for `userData.dynamic`.
+
+The animation runs itself, off the same draw-driven hooks as [animated textures](#animation-browser):
+
+* **Enchanting books** play the full game animation automatically, with the rendering camera as the player: the book opens and tracks the camera within range, and drifts closed when it leaves. The activation range is `userData.range` on the book's group, in blocks (default `3`, the game's), read live so you can change it any time. Each book seeds its idle facing and bob phase from its position, so a room of them doesn't move in lockstep.
+* **Chests and shulker boxes** get `.open()` and `.close()` methods on their group. Each animates the lid over the game's 10 ticks (500ms) from wherever it currently is, so a `.close()` mid-open reverses smoothly, and the easing matches the game (chests `1 - (1 - t)³`, shulker boxes linear).
+
+Nothing is yours to run per-frame: like texture animation, it advances whenever the scene draws. A single one-off render shows the load pose.
+
+### `poseSpecial(root, pose)`
+
+The manual setter, for driving a pose yourself. Calling it cancels the automatic movement: an in-flight `.open()`/`.close()` stops, and a book's auto animation turns off for good (that book is yours from then on).
+
+| Argument | Description |
+|---|---|
+| `root` | A group whose `userData.dynamic` is set: [`loadModel`](#loadmodelscene-assets-model-args) output for a dynamic model, or any clone of one |
+| `pose` | The pose values for that model kind (below). Omitted fields fall back to the rest pose |
+
+The pose fields per kind (`root.userData.dynamic`):
+
+| Kind | Pose | Description |
+|---|---|---|
+| `"chest"` | `{ openness }` | Opening progress 0-1, as the game's block entity tracks it. The lid renders through the game's `1 - (1 - t)³` easing internally |
+| `"shulker_box"` | `{ openness }` | Opening progress 0-1: lifts the lid 8 voxels while twisting it 270°, linear like the game |
+| `"enchanting_book"` | `{ time, rot, open, flip }` | The game's `EnchantingTableBlockEntity` fields: `time` in ticks drives the hover bob and page ripple, `rot` is the facing angle in radians, `open` is 0-1, `flip` is the page-flip counter (fractional values mid-flip) |
+
+Models opt in with the `dynamic` and `part` [extension fields](extending.md#model-json), and [`loadModel`](#loadmodelscene-assets-model-args) applies the model's initial `pose` on build (a chest special's `openness` ends up there).
+
 ## `renderModelScene(scene, camera, args?)`
 
 Renders a scene to an image buffer. Takes all the same output options as [`renderBlock`](standard-api.md#renderblockargs) / [`renderItem`](standard-api.md#renderitemargs) / [`renderModel`](standard-api.md#rendermodelargs).
@@ -447,7 +477,7 @@ The result:
 | [`sortTranslucent(camera)`](#translucent-sorting) | Force a translucent sort now, before a single-frame capture |
 | `dispose()` | Frees everything the call created (merged geometry, atlas textures, cloned materials). Must be called when you discard or replace the scene; GPU resources don't garbage collect. Textures from the assets are untouched; those belong to [`disposeCache`](assets.md#caching) |
 
-Animated textures (water, lava, fire) stay live in the merged output and keep playing through [`createAnimator`](#animation-browser) or the automatic animator.
+Animated textures (water, lava, fire) stay live in the merged output and keep playing through [`createAnimator`](#animation-browser) or the automatic animator. [Dynamic models](#dynamic-models) (chests, shulker boxes, the enchanting book) keep their moving pieces live: static cubes (a chest's base) merge like any other geometry, while `part` elements stay as a per-placement clone in the output group, so books keep animating and each placement's `.open()`/`.close()` and [`poseSpecial`](#posespecialroot-pose) keep working.
 
 Every material the library creates (merged or per-model) compiles with clipping support, so three.js clipping planes work as with any standard material: assign `renderer.clippingPlanes` globally, or enable `renderer.localClippingEnabled` and set `clippingPlanes` per material.
 

@@ -27,6 +27,197 @@ const SHADE_DIR_VECS = {
 
 const NAMED_TIMES = { day: 1000, noon: 6000, sunset: 12000, night: 13000, midnight: 18000, sunrise: 23000 }
 
+const dynamicStates = new WeakMap()
+
+function dynState(root) {
+  let s = dynamicStates.get(root)
+  if (!s) dynamicStates.set(root, s = { openness: 0, target: null, last: null, auto: true, frame: -1, book: null })
+  return s
+}
+
+export function poseSpecial(root, data = {}) {
+  const kind = root?.userData?.dynamic
+  if (!kind) return
+  const s = dynState(root)
+  if (kind === "enchanting_book") {
+    s.auto = false
+  } else {
+    s.openness = data.openness ?? 0
+    s.target = null
+    s.last = null
+  }
+  applyDynamicPose(root, data)
+}
+
+export function initDynamic(root) {
+  const kind = root.userData?.dynamic
+  if (!kind) return
+  if (kind !== "enchanting_book") {
+    root.open = () => { dynState(root).target = 1 }
+    root.close = () => { dynState(root).target = 0 }
+  }
+  root.traverse(o => { if (o.isMesh) o.onBeforeRender = dynamicBeforeRender })
+}
+
+const dynNow = () => typeof performance !== "undefined" ? performance.now() : Date.now()
+
+function dynamicBeforeRender(renderer, scene, camera) {
+  let root = this
+  while (root && !root.userData?.dynamic) root = root.parent
+  if (!root) return
+  const s = dynState(root)
+  const frame = renderer.info.render.frame
+  if (s.frame === frame) return
+  s.frame = frame
+  const now = dynNow()
+  if (root.userData.dynamic === "enchanting_book") return bookFrame(root, s, camera, now)
+  if (s.target === null) return
+  if (s.last === null) s.last = now
+  const dt = Math.min(now - s.last, 250)
+  s.last = now
+  const d = s.target - s.openness
+  const step = dt / 500
+  if (Math.abs(d) <= step) {
+    s.openness = s.target
+    s.target = null
+    s.last = null
+  } else {
+    s.openness += Math.sign(d) * step
+  }
+  applyDynamicPose(root, { openness: s.openness })
+}
+
+const wrapRad = v => {
+  while (v >= Math.PI) v -= Math.PI * 2
+  while (v < -Math.PI) v += Math.PI * 2
+  return v
+}
+
+let _dcam
+function bookFrame(root, s, camera, now) {
+  if (!s.auto) return
+  let b = s.book
+  if (!b) {
+    _dcam ??= new THREE.Vector3()
+    const p = _dcam.setFromMatrixPosition(root.matrixWorld)
+    const h = Math.abs(Math.sin(p.x * 12.9898 + p.y * 78.233 + p.z * 37.719) * 43758.5453)
+    const rot = (h % 1) * Math.PI * 2 - Math.PI
+    b = s.book = { time: Math.floor(h * 7919) % 20000, rot, oRot: rot, tRot: rot, open: 0, oOpen: 0, flip: 0, oFlip: 0, flipT: 0, flipA: 0, acc: 0, last: null }
+  }
+  if (b.last === null) b.last = now
+  b.acc = Math.min(b.acc + (now - b.last), 250)
+  b.last = now
+  _dcam ??= new THREE.Vector3()
+  const cam = _dcam.setFromMatrixPosition(camera.matrixWorld)
+  root.parent?.worldToLocal(cam)
+  const range = (root.userData.range ?? 3) * 16
+  while (b.acc >= 50) {
+    b.acc -= 50
+    bookTick(b, cam, range, root.position)
+  }
+  const partial = b.acc / 50
+  applyDynamicPose(root, {
+    time: b.time + partial,
+    rot: b.oRot + wrapRad(b.rot - b.oRot) * partial,
+    open: b.oOpen + (b.open - b.oOpen) * partial,
+    flip: b.oFlip + (b.flip - b.oFlip) * partial
+  })
+}
+
+function bookTick(b, cam, range, pos) {
+  b.oOpen = b.open
+  b.oRot = b.rot
+  const dx = cam.x - pos.x, dy = cam.y - pos.y, dz = cam.z - pos.z
+  if (dx * dx + dy * dy + dz * dz < range * range) {
+    b.tRot = Math.atan2(dz, dx)
+    b.open += 0.1
+    if (b.open < 0.5 || Math.floor(Math.random() * 40) === 0) {
+      const prev = b.flipT
+      do {
+        b.flipT += Math.floor(Math.random() * 4) - Math.floor(Math.random() * 4)
+      } while (prev === b.flipT)
+    }
+  } else {
+    b.tRot += 0.02
+    b.open -= 0.1
+  }
+  b.rot = wrapRad(b.rot)
+  b.tRot = wrapRad(b.tRot)
+  b.rot += wrapRad(b.tRot - b.rot) * 0.4
+  b.open = Math.max(0, Math.min(1, b.open))
+  b.time++
+  b.oFlip = b.flip
+  let f = (b.flipT - b.flip) * 0.4
+  f = Math.max(-0.2, Math.min(0.2, f))
+  b.flipA += (f - b.flipA) * 0.9
+  b.flip += b.flipA
+}
+
+const _pm = [], _pt = []
+function applyDynamicPose(root, data = {}) {
+  const kind = root?.userData?.dynamic
+  if (!kind) return
+  const parts = []
+  root.traverse(o => { if (o.name?.startsWith("part:")) parts.push(o) })
+  if (kind === "chest") {
+    const eased = 1 - (1 - (data.openness ?? 0)) ** 3
+    for (const g of parts) {
+      if (g.name !== "part:lid") continue
+      g.rotation.set(0, 0, 0)
+      g.rotateOnAxis(AXIS_VECTORS[g.userData.partAxis ?? "x"], THREE.MathUtils.degToRad(eased * 90))
+    }
+    return
+  }
+  if (kind === "shulker_box") {
+    for (const g of parts) {
+      if (g.name !== "part:lid") continue
+      const p = g.userData.partPivot ?? [0, 0, 0]
+      g.position.set(p[0], p[1] + (data.openness ?? 0) * 8, p[2])
+      g.rotation.set(0, 0, 0)
+      g.rotateOnAxis(AXIS_VECTORS[g.userData.partAxis ?? "y"], THREE.MathUtils.degToRad((data.openness ?? 0) * 270))
+    }
+    return
+  }
+  if (kind !== "enchanting_book") return
+  const time = data.time ?? 0
+  const open = data.open ?? 0
+  const rot = data.rot ?? 0
+  const flip = data.flip ?? 0
+  const f = (Math.sin(time * 0.02) * 0.1 + 1.25) * open
+  const frac = v => v - Math.floor(v)
+  const clamp01 = v => Math.max(0, Math.min(1, v))
+  const flipR = clamp01(frac(flip + 0.25) * 1.6 - 0.3)
+  const flipL = clamp01(frac(flip + 0.75) * 1.6 - 0.3)
+  const hover = (0.1 + Math.sin(time * 0.1) * 0.01) * 16
+  _pm[0] ??= new THREE.Matrix4()
+  _pm[1] ??= new THREE.Matrix4()
+  _pm[2] ??= new THREE.Matrix4()
+  const R = _pm[0].makeTranslation(0, 4 + hover, 0)
+    .multiply(_pm[1].makeRotationY(-rot))
+    .multiply(_pm[2].makeRotationZ(THREE.MathUtils.degToRad(80)))
+  const sx = Math.sin(f)
+  const POSE = {
+    cover_left: [Math.PI + f, 0],
+    cover_right: [-f, 0],
+    book_spine: [Math.PI / 2, 0],
+    pages_left: [f, sx],
+    pages_right: [-f, sx],
+    flipping_page_right: [f - f * 2 * flipR, sx],
+    flipping_page_left: [f - f * 2 * flipL, sx]
+  }
+  _pt[0] ??= new THREE.Matrix4()
+  _pt[1] ??= new THREE.Matrix4()
+  for (const g of parts) {
+    const pose = POSE[g.name.slice(5)]
+    if (!pose) continue
+    const p = g.userData.partPivot ?? [0, 0, 0]
+    _pt[0].copy(R)
+      .multiply(_pt[1].makeTranslation(p[0] + pose[1], p[1], p[2]))
+      .multiply(new THREE.Matrix4().makeRotationY(pose[0]))
+    _pt[0].decompose(g.position, g.quaternion, g.scale)
+  }
+}
+
 let _bbPos, _bbQuat, _bbFlip, _bbScale
 export function billboardBeforeRender(renderer, scene, camera) {
   _bbPos ??= new THREE.Vector3()
@@ -1011,28 +1202,14 @@ async function resolveSpecialModel(assets, data, base) {
       const chestType = data.chest_type ?? "single"
       const suffix = chestType !== "single" ? `_${chestType}` : ""
       model.textures = { chest: `entity/chest/${normalize(data.texture)}${suffix}` }
-      if (data.openness) {
-        const lidAngle = data.openness * 90
-        for (const el of model.elements ?? []) {
-          if (el.type === "lid") el.rotation.angle = lidAngle
-        }
-      }
+      model.pose = { openness: Number(data.openness) || 0 }
       break
     }
     case "shulker_box":
       translation = [-8, 8, -8]
       rotation = [0, 0, 180]
       model.textures = { shulker_box: `entity/shulker/${normalize(data.texture)}` }
-      if (data.openness) {
-        const lift = data.openness * 8
-        for (const el of model.elements ?? []) {
-          if (el.type === "lid") {
-            el.from = [el.from[0], el.from[1] + lift, el.from[2]]
-            el.to = [el.to[0], el.to[1] + lift, el.to[2]]
-            el.rotation.angle = data.openness * 270
-          }
-        }
-      }
+      model.pose = { openness: Number(data.openness) || 0 }
       break
     case "end_cube":
       model.shader = { type: "end_portal", layers: data.effect === "gateway" ? 16 : 15 }
@@ -1610,6 +1787,22 @@ export async function loadModel(scene, assets, model, args) {
     const fh = args?.fluidHeights ?? (model.fluid && args?.neighbors ? await fluidHeights(assets, model.fluid, args.neighbors) : null)
     if (model.fluid && fh) await applyFluidHeights(mesh, fh)
 
+    if (element.part && !element.rotation) {
+      const pivot = new THREE.Vector3(
+        (element.pivot?.[0] ?? 8) - 8,
+        (element.pivot?.[1] ?? 8) - 8,
+        (element.pivot?.[2] ?? 8) - 8
+      )
+      const partGroup = new THREE.Group()
+      partGroup.name = "part:" + element.part
+      partGroup.userData.partPivot = [pivot.x, pivot.y, pivot.z]
+      partGroup.position.copy(pivot)
+      mesh.position.sub(pivot)
+      partGroup.add(mesh)
+      target.add(partGroup)
+      return true
+    }
+
     if (element.rotation) {
       let { origin, axis, angle, x, y, z } = element.rotation
       if (!isNaN(angle) || axis) {
@@ -1635,6 +1828,11 @@ export async function loadModel(scene, assets, model, args) {
 
       const rotGroup = new THREE.Group()
       rotGroup.position.copy(pivot)
+      if (element.part) {
+        rotGroup.name = "part:" + element.part
+        rotGroup.userData.partPivot = [pivot.x, pivot.y, pivot.z]
+        rotGroup.userData.partAxis = axis ?? null
+      }
 
       mesh.position.sub(pivot)
       rotGroup.add(mesh)
@@ -1729,7 +1927,7 @@ export async function loadModel(scene, assets, model, args) {
     }
   }
 
-  if (args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1) mergeElementMeshes(containerGroup)
+  if (args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1 && !model.elements?.some(e => e?.part)) mergeElementMeshes(containerGroup)
 
   for (const loader of activeLoaders()) {
     if (loader.build && loader.match?.(model)) {
@@ -1821,6 +2019,12 @@ export async function loadModel(scene, assets, model, args) {
       o.userData.billboard = true
       o.onBeforeRender = billboardBeforeRender
     })
+  }
+
+  if (model.dynamic) {
+    rootGroup.userData.dynamic = model.dynamic
+    initDynamic(rootGroup)
+    applyDynamicPose(rootGroup, model.pose ?? {})
   }
 
   rootGroup.userData.model = model

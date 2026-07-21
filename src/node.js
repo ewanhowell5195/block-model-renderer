@@ -207,7 +207,7 @@ export {
   makeModelScene, renderModelScene,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, isCrossModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
-  optimizeScene, sortTranslucent,
+  optimizeScene, sortTranslucent, poseSpecial,
   zipAssets, zipAssetsFromSlices, readTexture
 } from "./core.js"
 export { parseZip } from "./zip.js"
