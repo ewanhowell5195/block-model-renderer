@@ -128,6 +128,7 @@ The following categories are covered:
 * Cushions
 * Decorated Pots
 * Enchanting Table Books (the floating book; the table is a real vanilla model)
+* Lectern Books (the open book on a lectern with `has_book`; the lectern is a real vanilla model)
 * Mob Heads and Skulls
 * Shields
 * Shulker Boxes
