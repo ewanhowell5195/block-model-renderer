@@ -1,68 +1,147 @@
 {
   "allow_invalid_rotations": true,
   "variants": {
-    "rotation=0": {
+    "powered=false,rotation=0": {
       "model": "block-model-renderer:block/dragon_head"
     },
-    "rotation=1": {
+    "powered=true,rotation=0": {
+      "model": "block-model-renderer:block/dragon_head",
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=1": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 23
     },
-    "rotation=2": {
+    "powered=true,rotation=1": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 23,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=2": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 45
     },
-    "rotation=3": {
+    "powered=true,rotation=2": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 45,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=3": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 68
     },
-    "rotation=4": {
+    "powered=true,rotation=3": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 68,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=4": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 90
     },
-    "rotation=5": {
+    "powered=true,rotation=4": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 90,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=5": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 113
     },
-    "rotation=6": {
+    "powered=true,rotation=5": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 113,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=6": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 135
     },
-    "rotation=7": {
+    "powered=true,rotation=6": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 135,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=7": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 158
     },
-    "rotation=8": {
+    "powered=true,rotation=7": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 158,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=8": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 180
     },
-    "rotation=9": {
+    "powered=true,rotation=8": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 180,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=9": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 203
     },
-    "rotation=10": {
+    "powered=true,rotation=9": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 203,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=10": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 225
     },
-    "rotation=11": {
+    "powered=true,rotation=10": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 225,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=11": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 248
     },
-    "rotation=12": {
+    "powered=true,rotation=11": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 248,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=12": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 270
     },
-    "rotation=13": {
+    "powered=true,rotation=12": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 270,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=13": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 293
     },
-    "rotation=14": {
+    "powered=true,rotation=13": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 293,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=14": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 315
     },
-    "rotation=15": {
+    "powered=true,rotation=14": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 315,
+      "dynamic": "dragon_head"
+    },
+    "powered=false,rotation=15": {
       "model": "block-model-renderer:block/dragon_head",
       "y": 338
+    },
+    "powered=true,rotation=15": {
+      "model": "block-model-renderer:block/dragon_head",
+      "y": 338,
+      "dynamic": "dragon_head"
     }
   }
 }

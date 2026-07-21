@@ -287,8 +287,10 @@ export async function optimizeScene(placements, opts = {}) {
       if (o.userData?.dynamic) dynamics.push({ node: o, parentMatrix: (o.parent?.matrixWorld ?? o.matrixWorld).clone() })
     })
     const inPart = o => {
+      let part = false
       for (let n = o; n && n !== tmpl; n = n.parent) {
-        if (n.name?.startsWith("part:")) return true
+        if (n.name?.startsWith("part:")) part = true
+        if (n.userData?.dynamic) return part
       }
       return false
     }

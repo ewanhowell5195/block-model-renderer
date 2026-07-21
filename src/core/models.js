@@ -39,7 +39,7 @@ export function poseSpecial(root, data = {}) {
   const kind = root?.userData?.dynamic
   if (!kind) return
   const s = dynState(root)
-  if (kind === "banner" || kind === "enchanting_book") {
+  if (kind === "banner" || kind === "dragon_head" || kind === "enchanting_book" || kind === "piglin_head") {
     s.auto = false
   } else if (kind === "bell") {
     s.ring = null
@@ -83,6 +83,7 @@ function dynamicBeforeRender(renderer, scene, camera) {
   if (root.userData.dynamic === "banner") return bannerFrame(root, s, now)
   if (root.userData.dynamic === "bell") return bellFrame(root, s, now)
   if (root.userData.dynamic === "decorated_pot") return potFrame(root, s, now)
+  if (root.userData.dynamic === "dragon_head" || root.userData.dynamic === "piglin_head") return headFrame(root, s, now)
   if (root.userData.dynamic === "enchanting_book") return bookFrame(root, s, camera, now)
   if (s.target === null) return
   if (s.last === null) s.last = now
@@ -120,6 +121,17 @@ function bellFrame(root, s, now) {
     return
   }
   applyDynamicPose(root, { ticks, direction: s.ring.dir })
+}
+
+function headFrame(root, s, now) {
+  if (!s.auto) return
+  if (s.seed === undefined) {
+    _dcam ??= new THREE.Vector3()
+    const p = _dcam.setFromMatrixPosition(root.matrixWorld)
+    const hash = Math.floor(p.x / 16) * 7 + Math.floor(p.y / 16) * 9 + Math.floor(p.z / 16) * 13
+    s.seed = (hash % 100 + 100) % 100
+  }
+  applyDynamicPose(root, { ticks: s.seed + now / 50 })
 }
 
 function potFrame(root, s, now) {
@@ -257,6 +269,15 @@ function applyDynamicPose(root, data = {}) {
     }
     return
   }
+  if (kind === "dragon_head") {
+    const a = -(Math.sin((data.ticks ?? 0) * Math.PI * 0.2) + 1) * 0.2
+    for (const g of parts) {
+      if (g.name !== "part:jaw") continue
+      g.rotation.set(0, 0, 0)
+      g.rotateOnAxis(AXIS_VECTORS[g.userData.partAxis ?? "x"], a)
+    }
+    return
+  }
   if (kind === "enchanting_book") {
     const time = data.time ?? 0
     const open = data.open ?? 0
@@ -294,6 +315,20 @@ function applyDynamicPose(root, data = {}) {
         .multiply(_pt[1].makeTranslation(p[0] + pose[1], p[1], p[2]))
         .multiply(new THREE.Matrix4().makeRotationY(pose[0]))
       _pt[0].decompose(g.position, g.quaternion, g.scale)
+    }
+    return
+  }
+  if (kind === "piglin_head") {
+    const p = (data.ticks ?? 0) * Math.PI * 0.2
+    const POSE = {
+      left_ear: -(Math.cos(p * 1.2) + 2.5) * 0.2,
+      right_ear: (Math.cos(p) + 2.5) * 0.2
+    }
+    for (const g of parts) {
+      const a = POSE[g.name.slice(5)]
+      if (a === undefined) continue
+      g.rotation.set(0, 0, 0)
+      g.rotateOnAxis(AXIS_VECTORS[g.userData.partAxis ?? "z"], a)
     }
     return
   }
@@ -2017,7 +2052,7 @@ export async function loadModel(scene, assets, model, args) {
     }
   }
 
-  if (args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1 && !model.elements?.some(e => e?.part)) mergeElementMeshes(containerGroup)
+  if (args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1 && !(model.dynamic && model.elements?.some(e => e?.part))) mergeElementMeshes(containerGroup)
 
   for (const loader of activeLoaders()) {
     if (loader.build && loader.match?.(model)) {

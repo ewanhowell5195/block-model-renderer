@@ -40,7 +40,9 @@ The kinds a model can declare with `dynamic`, and the `part` names each animates
 | `"bell"` | `bell_body` | Swings with the game's decaying oscillation when rung via `.ring(direction?)` |
 | `"chest"` | `lid` | Rotates 90° around its hinge via `.open()`/`.close()`, eased like the game |
 | `"decorated_pot"` | `pot` | Wobbles via `.wobble(style?)`: the positive tilt or the negative shake |
+| `"dragon_head"` | `jaw` | The jaw chatters continuously, as a powered dragon head does |
 | `"enchanting_book"` | `cover_left`, `cover_right`, `book_spine`, `pages_left`, `pages_right`, `flipping_page_left`, `flipping_page_right` | Plays the full enchanting table animation against the render camera |
+| `"piglin_head"` | `left_ear`, `right_ear` | The ears flap continuously, as a powered piglin head does |
 | `"shulker_box"` | `lid` | Lifts 8 voxels and twists 270° via `.open()`/`.close()`, linear like the game |
 
 ### Blockstate JSON
