@@ -382,7 +382,7 @@ export async function optimizeScene(placements, opts = {}) {
           if (!animTexId.has(id)) animTexId.set(id, animTexId.size)
           const key = matSignature(mat) + "|a" + animTexId.get(id)
           if (!anims.has(key)) {
-            const tr = tex ? isTranslucent(tex, cutoff) : false
+            const tr = mat.userData?.glint ? true : tex ? isTranslucent(tex, cutoff) : false
             mat.transparent = tr
             mat.depthWrite = !tr
             fixedAnimMats.add(mat)

@@ -676,6 +676,22 @@ export async function parseBlockstate(assets, blockstate, args) {
 const FRAME_ITEM_ROT = { south: [0, Math.PI], west: [0, Math.PI / 2], east: [0, -Math.PI / 2], up: [-Math.PI / 2, Math.PI], down: [Math.PI / 2, Math.PI] }
 const SHELF_ITEM_YAW = { south: 0, west: -Math.PI / 2, north: Math.PI, east: Math.PI / 2 }
 const LIVE_FRAME_ITEM = /(^|:)(compass|clock)$/
+const GLINT_ITEMS = /(^|:)(enchanted_golden_apple|experience_bottle|written_book|nether_star|end_crystal|enchanted_book|debug_stick)$/
+
+const itemComponent = (item, key) => item?.components?.[key] ?? item?.components?.["minecraft:" + key]
+
+function itemHasFoil(item) {
+  if (typeof item?.id !== "string") return false
+  const override = itemComponent(item, "enchantment_glint_override")
+  if (override != null) return !(override === false || override === 0 || override === "false")
+  const id = normalize(item.id)
+  if (GLINT_ITEMS.test(id)) return true
+  if (/(^|:)compass$/.test(id) && (itemComponent(item, "lodestone_tracker") != null || item.tag?.LodestonePos != null || item.tag?.LodestoneTracked)) return true
+  const enchantments = itemComponent(item, "enchantments")
+  const levels = enchantments?.levels ?? enchantments
+  if (levels && typeof levels === "object" && Object.keys(levels).length) return true
+  return Array.isArray(item.tag?.Enchantments) && item.tag.Enchantments.length > 0
+}
 
 async function blockEntityItemModels(assets, block, data, args) {
   const nbt = args.nbt
@@ -685,6 +701,7 @@ async function blockEntityItemModels(assets, block, data, args) {
     version: args.version,
     ignoreAtlases: args.ignoreAtlases,
     data: id.components ?? {},
+    glint: itemHasFoil(id) || undefined,
     display: { type: "fallback", display: context }
   })
   const compose = async (entry, mat) => {
@@ -847,6 +864,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
 
   const { namespace, item } = resolveNamespace(itemId)
+  const glint = !!(args?.glint || itemHasFoil({ id: itemId, components: data }))
 
   const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
 
@@ -855,6 +873,7 @@ export async function parseItemDefinition(assets, itemId, args) {
     const m = { type: "item", model: legacy ? `${namespace}:item/${item}` : "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (args?.version) m.version = args.version
+    if (glint) m.glint = true
     return [m]
   }
 
@@ -920,6 +939,12 @@ export async function parseItemDefinition(assets, itemId, args) {
       model.tints = tints
     } else if (Object.keys(model).length === 1) {
       models[i] = model.model
+    }
+  }
+  if (glint) {
+    for (let i = 0; i < models.length; i++) {
+      if (typeof models[i] === "string") models[i] = { model: models[i] }
+      models[i].glint = true
     }
   }
   return models
@@ -2289,6 +2314,37 @@ export async function loadModel(scene, assets, model, args) {
     })
   }
 
+  if (model.glint && !model.billboard && !model.dynamic) {
+    const glintTexture = await loadGlintTexture(assets)
+    if (glintTexture) {
+      const meshes = []
+      rootGroup.traverse(o => { if (o.isMesh && !o.userData.glint) meshes.push(o) })
+      for (const mesh of meshes) {
+        const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        const overlayMats = source.map(m => {
+          const baseTexture = m && m.visible !== false ? (m.uniforms?.map?.value ?? m.map) : null
+          if (!baseTexture) {
+            let hidden = materialCache.get("glint\0hidden")
+            if (!hidden) materialCache.set("glint\0hidden", hidden = new THREE.MeshBasicMaterial({ visible: false }))
+            return hidden
+          }
+          const key = `glint\0${baseTexture.uuid}\0${m.side}`
+          let material = materialCache.get(key)
+          if (!material) {
+            material = makeGlintMaterial(glintTexture, baseTexture, m.side)
+            materialCache.set(key, material)
+          }
+          return material
+        })
+        if (overlayMats.every(m => m.visible === false)) continue
+        const overlay = new THREE.Mesh(mesh.geometry, Array.isArray(mesh.material) ? overlayMats : overlayMats[0])
+        overlay.userData.glint = true
+        if (mesh.userData.cullface) overlay.userData.cullface = mesh.userData.cullface
+        mesh.add(overlay)
+      }
+    }
+  }
+
   if (model.dynamic) {
     rootGroup.userData.dynamic = model.dynamic
     initDynamic(rootGroup)
@@ -2332,6 +2388,69 @@ function tintVec(input, fallback) {
   if (input?.isColor) return new THREE.Vector3(input.r, input.g, input.b)
   if (typeof input === "string") input = parseInt(input.replace(/^#/, ""), 16)
   return new THREE.Vector3(((input >> 16) & 255) / 255, ((input >> 8) & 255) / 255, (input & 255) / 255)
+}
+
+async function loadGlintTexture(assets) {
+  const cache = assets.cache?.textures
+  const cached = cache?.get("\0glint")
+  if (cached !== undefined) return cached
+  let texture = null
+  const buf = await readFile("assets/minecraft/textures/misc/enchanted_glint_item.png", assets)
+  if (buf) {
+    texture = await makeThreeTexture(await loadImage(buf))
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.magFilter = texture.minFilter = THREE.LinearFilter
+    texture.needsUpdate = true
+    if (assets.cache && !assets.cache.ephemeral) texture.userData.cached = true
+  }
+  cache?.set("\0glint", texture)
+  return texture
+}
+
+function makeGlintMaterial(glintTexture, baseTexture, side) {
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: baseTexture },
+      glintMap: { value: glintTexture },
+      GameTime: { value: 0.727 }
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      #include <clipping_planes_pars_vertex>
+      void main() {
+        vUv = uv;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        #include <clipping_planes_vertex>
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D map;
+      uniform sampler2D glintMap;
+      uniform float GameTime;
+      varying vec2 vUv;
+      #include <clipping_planes_pars_fragment>
+      void main() {
+        #include <clipping_planes_fragment>
+        if (vUv.x < 0.0 || vUv.x > 1.0 || vUv.y < 0.0 || vUv.y > 1.0) discard;
+        if (texture2D(map, vUv).a < 0.5) discard;
+        float ticks = GameTime * 24000.0;
+        vec2 offset = vec2(-fract(ticks / 550.0), fract(ticks / 150.0));
+        vec2 uvGlint = mat2(0.9848078, 0.1736482, -0.1736482, 0.9848078) * (vUv * 0.25) + offset;
+        gl_FragColor = vec4(texture2D(glintMap, uvGlint).rgb * 0.75, 1.0);
+      }
+    `,
+    clipping: true,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.CustomBlending,
+    blendEquation: THREE.AddEquation,
+    blendSrc: THREE.SrcColorFactor,
+    blendDst: THREE.OneFactor,
+    side: side ?? THREE.FrontSide
+  })
+  material.userData.glint = true
+  return material
 }
 
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true) {
