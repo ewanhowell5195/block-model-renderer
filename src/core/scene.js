@@ -105,7 +105,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (pi === undefined) {
       pi = palette.length
       paletteIndex.set(stateKey, pi)
-      palette.push({ id, properties: b.properties ?? null, biome, nbt: b.nbt ?? null, models: null })
+      palette.push({ id, properties: b.properties ?? null, biome, nbt: b.nbt ?? null, pos: b.nbt ? b.pos : null, models: null })
     }
     blockPalette[i] = pi
     cells.set(posKey, { pos: b.pos, palette: pi })
@@ -115,7 +115,7 @@ export async function createScene(assets, blocks, args = {}) {
   for (const entry of palette) {
     entry.models = await parseBlockstate(assets, entry.id, {
       data: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
-      ignoreAtlases: args.ignoreAtlases, version
+      mapArt: args.mapArt, pos: entry.pos ?? undefined, ignoreAtlases: args.ignoreAtlases, version
     })
     await breathe()
     if (shouldCancel?.()) return null
@@ -204,7 +204,7 @@ export async function createScene(assets, blocks, args = {}) {
     const models = spec.seed != null
       ? await parseBlockstate(assets, spec.entry.id, {
         data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
-        seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version
+        mapArt: args.mapArt, pos: spec.entry.pos ?? undefined, seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version
       })
       : spec.entry.models
     for (const model of models) {

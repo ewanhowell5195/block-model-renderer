@@ -5,6 +5,7 @@ import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
 import { modelLoaders, activeLoaders } from "./loaders.js"
+import { mapArtFor, mapIdOf } from "./maps.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
@@ -668,7 +669,7 @@ export async function parseBlockstate(assets, blockstate, args) {
 
 const FRAME_ITEM_ROT = { south: [0, Math.PI], west: [0, Math.PI / 2], east: [0, -Math.PI / 2], up: [-Math.PI / 2, Math.PI], down: [Math.PI / 2, Math.PI] }
 const SHELF_ITEM_YAW = { south: 0, west: -Math.PI / 2, north: Math.PI, east: Math.PI / 2 }
-const LIVE_FRAME_ITEM = /(^|:)(compass|clock|filled_map)$/
+const LIVE_FRAME_ITEM = /(^|:)(compass|clock)$/
 
 async function blockEntityItemModels(assets, block, data, args) {
   const nbt = args.nbt
@@ -701,7 +702,35 @@ async function blockEntityItemModels(assets, block, data, args) {
   }
   const _e = new THREE.Euler()
 
-  if (/^(glow_)?item_frame$/.test(block) && typeof nbt.Item?.id === "string" && !LIVE_FRAME_ITEM.test(nbt.Item.id)) {
+  let mapHandled = false
+  if (/^(glow_)?item_frame$/.test(block) && /(^|:)filled_map$/.test(nbt.Item?.id ?? "")) {
+    const facing = data.facing ?? "north"
+    const art = await mapArtFor(assets, mapIdOf(nbt.Item), args.mapArt, { pos: args.pos, facing, nbt })
+    mapHandled = !!art
+    if (art) {
+      const invisible = nbt.Invisible === 1 || nbt.Invisible === true
+      if (invisible) args.dropModels?.()
+      const spin = ((Number(nbt.ItemRotation ?? 0) % 4) + 4) % 4
+      const f = FRAME_ITEM_ROT[facing]
+      const mat = new THREE.Matrix4()
+      if (f) mat.makeRotationFromEuler(_e.set(f[0], f[1], 0))
+      if (spin) mat.multiply(new THREE.Matrix4().makeRotationZ(spin * Math.PI / 2))
+      mat.premultiply(new THREE.Matrix4().makeTranslation(8, 8, 8)).multiply(new THREE.Matrix4().makeTranslation(-8, -8, -8))
+      const z = invisible ? 15.85 : 14.85
+      const entry = {
+        model: {
+          textures: { map: "block-model-renderer:map_art" },
+          elements: [{ from: [0, 0, z], to: [16, 16, z], shade: false, faces: { south: { texture: "#map" } } }]
+        },
+        texture_images: { "block-model-renderer:map_art": art },
+        transformation: mat.elements
+      }
+      if (block === "glow_item_frame") entry.emission = 15
+      out.push(entry)
+    }
+  }
+
+  if (/^(glow_)?item_frame$/.test(block) && typeof nbt.Item?.id === "string" && !LIVE_FRAME_ITEM.test(nbt.Item.id) && !mapHandled) {
     const facing = data.facing ?? "north"
     const rot = Number(nbt.ItemRotation ?? 0)
     const invisible = nbt.Invisible === 1 || nbt.Invisible === true
@@ -1087,7 +1116,13 @@ export async function resolveModelData(assets, model) {
   if (assets == null || assets.length === 0) throw new Error("resolveModelData requires assets")
   assets = await prepareAssets(assets)
 
-  const modelCache = assets.cache?.models
+  let texImages = null
+  if (typeof model === "object" && model.texture_images) {
+    texImages = model.texture_images
+    model = { ...model }
+    delete model.texture_images
+  }
+  const modelCache = !texImages && assets.cache?.models
   const cacheKey = modelCache ? (typeof model === "string" ? model : JSON.stringify(model)) : null
   if (cacheKey && modelCache.has(cacheKey)) return structuredClone(modelCache.get(cacheKey))
 
@@ -1336,6 +1371,7 @@ export async function resolveModelData(assets, model) {
   if (merged.type === "block") delete merged.display
 
   if (cacheKey) modelCache.set(cacheKey, structuredClone(merged))
+  if (texImages) merged.texture_images = texImages
   return merged
 }
 
@@ -1644,13 +1680,16 @@ export async function loadModel(scene, assets, model, args) {
   }
 
   async function loadModelTexture(id, tint) {
+    const direct = id != null ? model.texture_images?.[id] : undefined
     const atlas = shouldIgnoreAtlases(model) ? "" : (model.type ?? "")
     const srgb = lighting === "scene" || lighting === "off" ? "\0srgb" : ""
     const cacheKey = `${id ?? ""}\0${tint ?? ""}\0${atlas}${srgb}`
-    if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)
+    if (!direct && textureCache.has(cacheKey)) return textureCache.get(cacheKey)
 
     let loaded
-    if (id) {
+    if (direct) {
+      loaded = { image: direct }
+    } else if (id) {
       const path = resolveTexturePath(id)
       loaded = await loadMinecraftTexture(path, assets, shouldIgnoreAtlases(model) ? undefined : model.type)
     } else {
@@ -1672,6 +1711,7 @@ export async function loadModel(scene, assets, model, args) {
       texture.userData.interpolate = loaded.interpolate
     }
 
+    if (direct) return texture
     if (assets.cache && !assets.cache.ephemeral) texture.userData.cached = true
     textureCache.set(cacheKey, texture)
     return texture
@@ -1864,7 +1904,7 @@ export async function loadModel(scene, assets, model, args) {
     for (let i = 0; i < faceOrder.length; i++) {
       const faceName = faceOrder[i]
       const face = element.faces?.[faceName]
-      if (face?.cullface != null && face.cullface !== "") cullDirs[i] = worldCullface(face.cullface)
+      if (face?.cullface != null && face.cullface !== "" && !model.transformation) cullDirs[i] = worldCullface(face.cullface)
       if (!face) continue
       let [u1, v1, u2, v2] = face.uv || []
       if (!face.uv) {
@@ -2214,7 +2254,7 @@ export async function loadModel(scene, assets, model, args) {
   if (model.shelf_align) {
     const box = new THREE.Box3().setFromObject(containerGroup)
     if (!box.isEmpty()) {
-      containerGroup.position.y = model.shelf_align === "bottom" ? 8 - box.min.y : 8 - (box.min.y + box.max.y) / 2
+      containerGroup.position.y = model.shelf_align === "bottom" ? -box.min.y : -(box.min.y + box.max.y) / 2
     }
   }
 

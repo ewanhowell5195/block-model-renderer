@@ -208,6 +208,7 @@ export {
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, isCrossModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
   optimizeScene, sortTranslucent, poseSpecial,
-  zipAssets, zipAssetsFromSlices, readTexture
+  zipAssets, zipAssetsFromSlices, readTexture,
+  renderMapColors, disposeMapArt, mapIdOf
 } from "./core.js"
 export { parseZip } from "./zip.js"
