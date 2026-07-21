@@ -163,7 +163,7 @@ export async function createScene(assets, blocks, args = {}) {
         const n = neighborAt(cell.pos, dx, dy, dz)
         if (n) hood[cellKey3(dx, dy, dz)] = n.flat
       }
-      hood[""] = { id: entry.id, ...(entry.properties ?? {}) }
+      hood.self = { id: entry.id, ...(entry.properties ?? {}) }
       fh = await fluidHeights(assets, fluidTypeOf(entry.id, entry.properties, rules), hood)
     }
 
