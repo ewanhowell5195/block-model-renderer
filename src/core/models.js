@@ -78,6 +78,13 @@ function dynamicBeforeRender(renderer, scene, camera) {
   if (root) dynamicFrame(root, renderer, camera)
 }
 
+const PRIME_RENDERER = { info: { render: { frame: -1 } } }
+let _primeCamera = null
+export function primeDynamic(root) {
+  _primeCamera ??= new THREE.Object3D()
+  dynamicFrame(root, PRIME_RENDERER, _primeCamera)
+}
+
 export function dynamicFrame(root, renderer, camera) {
   const s = dynState(root)
   const frame = renderer.info.render.frame

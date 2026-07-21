@@ -1,5 +1,5 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
-import { initDynamic, dynamicFrame } from "./models.js"
+import { initDynamic, dynamicFrame, primeDynamic } from "./models.js"
 import { sortTranslucent } from "./sorting.js"
 
 const nextTask = globalThis.scheduler?.yield
@@ -446,6 +446,7 @@ export async function optimizeScene(placements, opts = {}) {
     if (shouldCancel?.()) return null
   }
 
+  const _primeCam = new THREE.Object3D()
   const grids = new Map()
   stage(800)
   let scanned = 0
@@ -646,6 +647,7 @@ export async function optimizeScene(placements, opts = {}) {
     report(++mi / meshCount)
     await breathe()
   }
+  const primers = []
   const _bbPos = new THREE.Vector3(), _bbQuat = new THREE.Quaternion(), _bbFlip = new THREE.Quaternion(0, 1, 0, 0), _bbM = new THREE.Matrix4(), _bbInv = new THREE.Matrix4()
   for (const bucket of bbBuckets.values()) {
     const entries = bucket.entries
@@ -664,6 +666,7 @@ export async function optimizeScene(placements, opts = {}) {
       }
       this.instanceMatrix.needsUpdate = true
     }
+    primers.push(() => im.onBeforeRender(null, null, _primeCam))
     group.add(im)
     drawCalls++
     tris += (merged.geometry.index?.count ?? merged.geometry.attributes.position?.count ?? 0) / 3 * entries.length
@@ -698,6 +701,15 @@ export async function optimizeScene(placements, opts = {}) {
       if (any) this.instanceMatrix.needsUpdate = true
       inited = true
     }
+    primers.push(() => {
+      _dynInv.copy(im.matrixWorld).invert()
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i]
+        primeDynamic(e.root)
+        im.setMatrixAt(i, _dynM.multiplyMatrices(e.parent.matrixWorld, e.local).premultiply(_dynInv))
+      }
+      im.instanceMatrix.needsUpdate = true
+    })
     group.add(im)
     drawCalls++
     tris += (merged.geometry.index?.count ?? merged.geometry.attributes.position?.count ?? 0) / 3 * entries.length
@@ -731,9 +743,20 @@ export async function optimizeScene(placements, opts = {}) {
       inited = true
       baseBeforeRender.call(this, renderer, scene, camera, geometry, material, grp)
     }
+    primers.push(() => {
+      _dynInv.copy(bm.matrixWorld).invert()
+      for (const s of slots) {
+        primeDynamic(s.e.root)
+        bm.setMatrixAt(s.id, _dynM.multiplyMatrices(s.e.parent.matrixWorld, s.e.local).premultiply(_dynInv))
+      }
+    })
     group.add(bm)
     drawCalls++
     tris += indices / 3
+  }
+  if (primers.length) {
+    group.updateMatrixWorld(true)
+    for (const prime of primers) prime()
   }
   onProgress?.(10000, 10000)
 
