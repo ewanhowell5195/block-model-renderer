@@ -1,6 +1,5 @@
 {
   "ignore_atlas_restrictions": true,
-  "double_sided": true,
   "dynamic": "banner",
   "texture_size": [64, 64],
   "textures": {

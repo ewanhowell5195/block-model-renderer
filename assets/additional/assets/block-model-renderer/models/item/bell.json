@@ -1,5 +1,4 @@
 {
-  "double_sided": true,
   "texture_size": [32, 32],
   "textures": {
     "bell": "entity/bell/bell_body"

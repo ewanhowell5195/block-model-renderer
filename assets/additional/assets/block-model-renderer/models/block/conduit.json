@@ -1,5 +1,4 @@
 {
-  "double_sided": true,
   "texture_size": [32, 16],
   "textures": {
     "conduit": "entity/conduit/base",
