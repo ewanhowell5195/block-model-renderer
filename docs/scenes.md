@@ -520,7 +520,20 @@ Helpers behind the [`mapArt`](#createsceneassets-blocks-args) callback, exported
 | `mapIdOf(item)` | The map id from an item's `minecraft:map_id` component (or legacy `tag.map`), `null` when absent |
 | `disposeMapArt(assets)` | Clears the cached map art canvases. Call when the world the maps came from is no longer the source of truth |
 
-One byte per pixel; a pixel at `(x, y)` (from the top-left) is `colors[x + y * 128] = color * 4 + shade`, where `color` is a `MAP_COLORS.base` index and `shade` a brightness step 0-3:
+Real maps live in the world save as `data/map_<id>.dat` (gzipped NBT), with the pixel bytes in the `data.colors` field. The library doesn't read world saves, so the callback bridges the two: look the id up however you read the world, and hand the bytes to `renderMapColors`:
+
+```js
+const handle = await createScene(assets, blocks, {
+  mapArt: async id => {
+    const nbt = await readWorldNbt(`data/map_${id}.dat`) // however you read the save
+    return nbt ? renderMapColors(assets, nbt.data.colors) : null
+  }
+})
+```
+
+Returning nothing (an unknown id, no world open) renders the frame holding the `filled_map` item instead.
+
+The bytes can also be built by hand: one per pixel, where the pixel at `(x, y)` (from the top-left) is `colors[x + y * 128] = color * 4 + shade`, with `color` a `MAP_COLORS.base` index and `shade` a brightness step 0-3:
 
 ```js
 const colors = new Uint8Array(16384) // every pixel starts unset, showing the parchment
