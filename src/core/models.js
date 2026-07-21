@@ -656,7 +656,82 @@ export async function parseBlockstate(assets, blockstate, args) {
     models.push(waterPart(colors))
   }
 
+  if (args?.nbt) {
+    models.push(...await blockEntityItemModels(assets, block, data, args))
+  }
+
   return models
+}
+
+const FRAME_ITEM_ROT = { south: [0, Math.PI], west: [0, Math.PI / 2], east: [0, -Math.PI / 2], up: [-Math.PI / 2, Math.PI], down: [Math.PI / 2, Math.PI] }
+const SHELF_ITEM_YAW = { south: 0, west: -Math.PI / 2, north: Math.PI, east: Math.PI / 2 }
+const LIVE_FRAME_ITEM = /(^|:)(compass|clock|filled_map)$/
+
+async function blockEntityItemModels(assets, block, data, args) {
+  const nbt = args.nbt
+  const out = []
+  const context = block.endsWith("shelf") ? "on_shelf" : "fixed"
+  const itemArgs = id => ({
+    version: args.version,
+    ignoreAtlases: args.ignoreAtlases,
+    data: id.components ?? {},
+    display: { type: "fallback", display: context }
+  })
+  const compose = async (entry, mat) => {
+    const full = new THREE.Matrix4().copy(mat)
+    const s = (await resolveModelData(assets, entry)).display?.[context]
+    if (s) {
+      const r = (s.rotation ?? [0, 0, 0]).map(v => THREE.MathUtils.degToRad(v))
+      full.multiply(new THREE.Matrix4().compose(
+        new THREE.Vector3(...(s.translation ?? [0, 0, 0]).map(v => Math.max(-80, Math.min(80, v)))),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(r[0], r[1], r[2], "XYZ")),
+        new THREE.Vector3(...(s.scale ?? [1, 1, 1]).map(v => Math.max(-4, Math.min(4, v === 0 ? 0.001 : v))))
+      ))
+    }
+    const own = entry.transformation
+      ? (entry.transformation instanceof THREE.Matrix4 ? entry.transformation : parseTransformation(entry.transformation))
+      : null
+    if (own) full.multiply(own)
+    entry.transformation = full.elements
+    return entry
+  }
+  const _e = new THREE.Euler()
+
+  if (/^(glow_)?item_frame$/.test(block) && typeof nbt.Item?.id === "string" && !LIVE_FRAME_ITEM.test(nbt.Item.id)) {
+    const facing = data.facing ?? "north"
+    const rot = Number(nbt.ItemRotation ?? 0)
+    const invisible = nbt.Invisible === 1 || nbt.Invisible === true
+    const f = FRAME_ITEM_ROT[facing]
+    const mat = new THREE.Matrix4()
+    if (f) mat.makeRotationFromEuler(_e.set(f[0], f[1], 0))
+    mat.multiply(new THREE.Matrix4().makeTranslation(0, 0, invisible ? 8 : 7))
+    if (rot) mat.multiply(new THREE.Matrix4().makeRotationZ(rot * Math.PI / 4))
+    mat.multiply(new THREE.Matrix4().makeScale(0.5, 0.5, 0.5))
+    for (const entry of await parseItemDefinition(assets, nbt.Item.id, itemArgs(nbt.Item))) {
+      await compose(entry, mat)
+      if (block === "glow_item_frame") entry.emission = 15
+      out.push(entry)
+    }
+  }
+
+  if (block.endsWith("shelf") && Array.isArray(nbt.Items)) {
+    const yaw = SHELF_ITEM_YAW[data.facing] ?? Math.PI
+    const alignBottom = Number(nbt.align_items_to_bottom ?? 0) === 1
+    for (const item of nbt.Items) {
+      if (typeof item?.id !== "string" || LIVE_FRAME_ITEM.test(item.id)) continue
+      const slot = Math.min(2, Math.max(0, Number(item.Slot ?? 0)))
+      const mat = new THREE.Matrix4().makeRotationY(yaw)
+      mat.multiply(new THREE.Matrix4().makeTranslation((slot - 1) * 5, alignBottom ? -4 : 0, -4))
+      mat.multiply(new THREE.Matrix4().makeScale(0.25, 0.25, 0.25))
+      for (const entry of await parseItemDefinition(assets, item.id, itemArgs(item))) {
+        await compose(entry, mat)
+        entry.shelf_align = alignBottom ? "bottom" : "center"
+        out.push(entry)
+      }
+    }
+  }
+
+  return out
 }
 
 function waterPart(colors) {
@@ -1538,6 +1613,8 @@ export async function loadModel(scene, assets, model, args) {
   let blockEmission = 0
   if (args?.emission != null) {
     blockEmission = Math.max(0, Math.min(15, args.emission))
+  } else if (model.emission != null) {
+    blockEmission = Math.max(0, Math.min(15, model.emission))
   } else if (block?.id) {
     const blockId = normalize(block.id)
     const defaults = await defaultBlockstates(assets)
@@ -2126,6 +2203,13 @@ export async function loadModel(scene, assets, model, args) {
         Math.max(-4, Math.min(4, settings.scale[1])),
         Math.max(-4, Math.min(4, settings.scale[2]))
       )
+    }
+  }
+
+  if (model.shelf_align) {
+    const box = new THREE.Box3().setFromObject(containerGroup)
+    if (!box.isEmpty()) {
+      containerGroup.position.y = model.shelf_align === "bottom" ? 8 - box.min.y : 8 - (box.min.y + box.max.y) / 2
     }
   }
 
