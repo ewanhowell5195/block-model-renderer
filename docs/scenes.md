@@ -520,16 +520,16 @@ Helpers behind the [`mapArt`](#createsceneassets-blocks-args) callback, exported
 | `mapIdOf(item)` | The map id from an item's `minecraft:map_id` component (or legacy `tag.map`), `null` when absent |
 | `disposeMapArt(assets)` | Clears the cached map art canvases. Call when the world the maps came from is no longer the source of truth |
 
-One byte per pixel in row order, top-left first; each byte packs a palette index and one of four brightness steps:
+One byte per pixel; setting the pixel at `(x, y)` (from the top-left) to a palette color:
 
 ```js
-const colors = new Uint8Array(16384)
-for (let z = 0; z < 128; z++) for (let x = 0; x < 128; x++) {
-  const base = x < 64 ? 34 : 1        // MAP_COLORS.base index: 34 dirt brown, 1 grass green
-  const shade = z < 64 ? 2 : 0        // MAP_COLORS.shade step: 2 full strength, 0 darkest
-  colors[x + z * 128] = base * 4 + shade
-}
-const art = await renderMapColors(assets, colors) // byte 0 leaves a pixel unset, showing the parchment
+const colors = new Uint8Array(16384) // every pixel starts unset, showing the parchment
+
+const color = 34 // a MAP_COLORS.base index, 34 is dirt brown
+const shade = 2  // a MAP_COLORS.shade step 0-3, 2 is full strength
+colors[x + y * 128] = color * 4 + shade
+
+const art = await renderMapColors(assets, colors)
 ```
 
 ## Helpers
