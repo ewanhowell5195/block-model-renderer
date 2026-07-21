@@ -2494,7 +2494,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
               else if (an.x >= an.z) { axis = vec3(sign(sn.x), 0.0, 0.0); t1 = vec3(0.0, 1.0, 0.0); t2 = vec3(0.0, 0.0, 1.0); }
               else { axis = vec3(0.0, 0.0, sign(sn.z)); t1 = vec3(1.0, 0.0, 0.0); t2 = vec3(0.0, 1.0, 0.0); }
               vec3 P = vWorldPos / 16.0 + 0.5 - lightVolOrigin;
-              vec3 base = floor(P + axis * 0.5);
+              vec3 base = floor(P - axis * 0.0117);
+              float edge = fract(dot(P, abs(axis)));
+              if (edge < 0.0117 || edge > 0.9883) base += axis;
               float sc = aoShade(base);
               float sA0 = aoShade(base - t1);
               float sA1 = aoShade(base + t1);
