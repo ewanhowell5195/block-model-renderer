@@ -515,7 +515,7 @@ Helpers behind the [`mapArt`](#createsceneassets-blocks-args) callback, exported
 
 | Export | Description |
 |---|---|
-| `renderMapColors(assets, colors)` | Renders a save's 16384 map color bytes (the `colors` array from `map_<id>.dat`) through the vanilla map palette over `map_background.png`, returning a 128×128 canvas |
+| `renderMapColors(assets, colors)` | Renders 16384 map color bytes through the vanilla map palette over `map_background.png`, returning a 128×128 canvas. `colors` is the `colors` array from a save's `map_<id>.dat`, or one you build yourself: one byte per pixel in row order (`colors[x + z * 128]`, top-left first), each byte `baseIndex * 4 + shade` with `baseIndex` into `MAP_COLORS.base` (1–61; 0 leaves the pixel unset so the parchment shows) and `shade` 0–3 picking a `MAP_COLORS.shade` brightness (2 is full) |
 | `MAP_COLORS` | The vanilla palette: `{ base, shade }`, where a color byte resolves as `base[byte >> 2]` (an `[r, g, b]`, index 0 unset) scaled by `shade[byte & 3] / 255` |
 | `mapIdOf(item)` | The map id from an item's `minecraft:map_id` component (or legacy `tag.map`), `null` when absent |
 | `disposeMapArt(assets)` | Clears the cached map art canvases. Call when the world the maps came from is no longer the source of truth |
