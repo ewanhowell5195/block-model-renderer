@@ -640,24 +640,69 @@ export async function optimizeScene(placements, opts = {}) {
   }
   for (const d of dynamicInstances) group.add(d.holder)
   const _dynM = new THREE.Matrix4(), _dynInv = new THREE.Matrix4()
+  const canBatch = parseInt(THREE.REVISION) >= 159 && typeof THREE.BatchedMesh === "function" && platform.batchedMesh !== false
+  const batchGroups = new Map()
   for (const bucket of dynBuckets.values()) {
     const entries = bucket.entries
     const merged = mergeInstanceSource(bucket.geometry, bucket.material)
     if (!merged) continue
+    if (canBatch && !Array.isArray(merged.material)) {
+      const key = matSignature(merged.material) + "|" + (matMap(merged.material)?.uuid ?? "")
+      let g = batchGroups.get(key)
+      if (!g) batchGroups.set(key, g = { material: merged.material, parts: [] })
+      g.parts.push({ geometry: merged.geometry, entries })
+      continue
+    }
     const im = new THREE.InstancedMesh(merged.geometry, merged.material, entries.length)
     im.frustumCulled = false
+    let inited = false
     im.onBeforeRender = function (renderer, scene, camera) {
       _dynInv.copy(this.matrixWorld).invert()
+      let any = !inited
       for (let i = 0; i < entries.length; i++) {
         const e = entries[i]
-        dynamicFrame(e.root, renderer, camera)
+        if (!dynamicFrame(e.root, renderer, camera) && inited) continue
         this.setMatrixAt(i, _dynM.multiplyMatrices(e.parent.matrixWorld, e.local).premultiply(_dynInv))
+        any = true
       }
-      this.instanceMatrix.needsUpdate = true
+      if (any) this.instanceMatrix.needsUpdate = true
+      inited = true
     }
     group.add(im)
     drawCalls++
     tris += (merged.geometry.index?.count ?? merged.geometry.attributes.position?.count ?? 0) / 3 * entries.length
+  }
+  for (const g of batchGroups.values()) {
+    let instances = 0, verts = 0, indices = 0
+    for (const p of g.parts) {
+      const v = p.geometry.attributes.position.count
+      instances += p.entries.length
+      verts += v * p.entries.length
+      indices += (p.geometry.index?.count ?? v) * p.entries.length
+    }
+    const bm = new THREE.BatchedMesh(instances, verts, indices, g.material)
+    bm.frustumCulled = false
+    if ("perObjectFrustumCulled" in bm) bm.perObjectFrustumCulled = false
+    if ("sortObjects" in bm) bm.sortObjects = false
+    const slots = []
+    for (const p of g.parts) {
+      const gid = bm.addInstance ? bm.addGeometry(p.geometry) : null
+      for (const e of p.entries) slots.push({ id: bm.addInstance ? bm.addInstance(gid) : bm.addGeometry(p.geometry), e })
+    }
+    let inited = false
+    const baseBeforeRender = bm.onBeforeRender
+    bm.onBeforeRender = function (renderer, scene, camera, geometry, material, grp) {
+      _dynInv.copy(this.matrixWorld).invert()
+      for (const s of slots) {
+        if (!dynamicFrame(s.e.root, renderer, camera) && inited) continue
+        this.setMatrixAt(s.id, _dynM.multiplyMatrices(s.e.parent.matrixWorld, s.e.local).premultiply(_dynInv))
+      }
+      inited = true
+      baseBeforeRender.call(this, renderer, scene, camera, geometry, material, grp)
+    }
+    group.add(bm)
+    drawCalls++
+    tris += indices / 3
   }
   onProgress?.(10000, 10000)
 
@@ -671,7 +716,7 @@ export async function optimizeScene(placements, opts = {}) {
     sortTranslucent: camera => sorter.sort(camera),
     dispose() {
       sorter.detach()
-      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh) { try { o.dispose() } catch {} } } })
+      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh || o.isBatchedMesh) { try { o.dispose() } catch {} } } })
       for (const m of created.materials) { try { m.dispose() } catch {} }
       for (const t of created.textures) { try { t.dispose() } catch {} }
       group.removeFromParent()

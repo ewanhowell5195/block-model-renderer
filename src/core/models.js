@@ -81,17 +81,20 @@ function dynamicBeforeRender(renderer, scene, camera) {
 export function dynamicFrame(root, renderer, camera) {
   const s = dynState(root)
   const frame = renderer.info.render.frame
-  if (s.frame === frame) return
+  if (s.frame === frame) return s.moved
   s.frame = frame
   const now = dynNow()
   const kind = root.userData.dynamic
-  if (kind === "banner") bannerFrame(root, s, now)
-  else if (kind === "bell") bellFrame(root, s, now)
-  else if (kind === "decorated_pot") potFrame(root, s, now)
-  else if (kind === "dragon_head" || kind === "piglin_head") headFrame(root, s, now)
-  else if (kind === "enchanting_book") bookFrame(root, s, camera, now)
-  else lidFrame(root, s, now)
-  root.updateWorldMatrix(false, true)
+  let moved
+  if (kind === "banner") moved = bannerFrame(root, s, now)
+  else if (kind === "bell") moved = bellFrame(root, s, now)
+  else if (kind === "decorated_pot") moved = potFrame(root, s, now)
+  else if (kind === "dragon_head" || kind === "piglin_head") moved = headFrame(root, s, now)
+  else if (kind === "enchanting_book") moved = bookFrame(root, s, camera, now)
+  else moved = lidFrame(root, s, now)
+  s.moved = !!moved
+  if (s.moved) root.updateWorldMatrix(false, true)
+  return s.moved
 }
 
 function lidFrame(root, s, now) {
@@ -109,6 +112,7 @@ function lidFrame(root, s, now) {
     s.openness += Math.sign(d) * step
   }
   applyDynamicPose(root, { openness: s.openness })
+  return true
 }
 
 function bannerFrame(root, s, now) {
@@ -121,6 +125,7 @@ function bannerFrame(root, s, now) {
     s.t0 = now
   }
   applyDynamicPose(root, { phase: ((s.seed + (now - s.t0) / 50) % 100) / 100 })
+  return true
 }
 
 function bellFrame(root, s, now) {
@@ -129,9 +134,10 @@ function bellFrame(root, s, now) {
   if (ticks >= 50) {
     applyDynamicPose(root, {})
     s.ring = null
-    return
+    return true
   }
   applyDynamicPose(root, { ticks, direction: s.ring.dir })
+  return true
 }
 
 function headFrame(root, s, now) {
@@ -143,6 +149,7 @@ function headFrame(root, s, now) {
   } else {
     applyDynamicPose(root, { left: (1 - Math.cos(p * 1.2)) / 2, right: (1 - Math.cos(p)) / 2 })
   }
+  return true
 }
 
 function potFrame(root, s, now) {
@@ -152,9 +159,10 @@ function potFrame(root, s, now) {
   if (progress >= 1) {
     applyDynamicPose(root, {})
     s.wobble = null
-    return
+    return true
   }
   applyDynamicPose(root, { style: s.wobble.style, progress })
+  return true
 }
 
 const wrapRad = v => {
@@ -189,6 +197,7 @@ function bookFrame(root, s, camera, now) {
     open: b.oOpen + (b.open - b.oOpen) * partial,
     flip: b.oFlip + (b.flip - b.oFlip) * partial
   })
+  return true
 }
 
 function bookTick(b, cam, range, pos) {
@@ -2608,6 +2617,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       ...(volume ? volume.uniforms : {}),
     },
     vertexShader: `
+      ${parseInt(THREE.REVISION) >= 159 ? "#include <batching_pars_vertex>" : ""}
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
@@ -2617,8 +2627,13 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       #include <clipping_planes_pars_vertex>
       void main() {
         vUv = uv;
+        ${parseInt(THREE.REVISION) >= 159 ? "#include <batching_vertex>" : ""}
         vec4 pos = vec4(position, 1.0);
         vec3 nrm = normal;
+        #ifdef USE_BATCHING
+          pos = batchingMatrix * pos;
+          nrm = mat3(batchingMatrix) * nrm;
+        #endif
         #ifdef USE_INSTANCING
           pos = instanceMatrix * pos;
           nrm = mat3(instanceMatrix) * nrm;

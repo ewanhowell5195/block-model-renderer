@@ -75,6 +75,7 @@ setPlatform({
   Canvas,
   loadImage,
   maxAnimationPixels: 268402689,
+  batchedMesh: false,
 
   maxTextureSize() {
     if (maxTexSize) return maxTexSize
