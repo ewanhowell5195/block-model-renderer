@@ -227,6 +227,10 @@ async function main() {
     lightEmission: compressEmission(d.lightEmission, d.allBlocks),
     shapeLightOcclusion: compressEmission(d.shapeLightOcclusion, d.allBlocks)
   }
+  const items = {
+    _generated: stamp,
+    alwaysGlint: compress(d.glintItems, d.allItems)
+  }
   const colors = {
     _generated: stamp,
     colormap: d.colormap,
@@ -256,8 +260,9 @@ async function main() {
   write("culling.json", culling)
   write("lighting.json", lighting)
   write("colors.json", colors)
+  write("items.json", items)
 
-  log(`${check ? "checked" : "done"}: ${d.waterloggable.length} waterloggable, ${d.nonOccluding.length} non-occluding, ${d.selfCullAll.length} self-cull, ${Object.keys(d.dye).length} dye, ${Object.keys(d.effects).length} effects, ${Object.keys(d.team).length} team`)
+  log(`${check ? "checked" : "done"}: ${d.waterloggable.length} waterloggable, ${d.nonOccluding.length} non-occluding, ${d.selfCullAll.length} self-cull, ${Object.keys(d.dye).length} dye, ${Object.keys(d.effects).length} effects, ${Object.keys(d.team).length} team, ${d.glintItems.length} glint`)
 }
 
 main().catch(e => { console.error(e); process.exit(1) })

@@ -31,7 +31,10 @@ import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.lighting.LevelLightEngine;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.core.component.DataComponentInitializers;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -263,6 +266,20 @@ public class Extract {
     }
     for (String w : new String[]{ "water", "bubble_column", "water_cauldron" }) fixed.put(w, hex(waterColor));
 
+    // Items that always render the enchantment glint: registered with a default
+    // ENCHANTMENT_GLINT_OVERRIDE=true component (enchanted golden apple, nether
+    // star, debug stick...). Component-driven glint (enchantments, an explicit
+    // override, lodestone compasses) is logic in the renderer, not a list.
+    // Default components bind lazily (they can reference datapack registries),
+    // so run the initializers against the vanilla lookup first.
+    for (DataComponentInitializers.PendingComponents<?> pending : BuiltInRegistries.DATA_COMPONENT_INITIALIZERS.build(registries)) pending.apply();
+    List<String> allItems = new ArrayList<>(), glintItems = new ArrayList<>();
+    for (Item item : BuiltInRegistries.ITEM) {
+      String iid = BuiltInRegistries.ITEM.getKey(item).getPath();
+      allItems.add(iid);
+      if (Boolean.TRUE.equals(item.components().get(DataComponents.ENCHANTMENT_GLINT_OVERRIDE))) glintItems.add(iid);
+    }
+
     // Potion tint = the blend of its effects' colours. Skip potions whose name
     // is itself an effect id (getPotionColor resolves those directly), and drop
     // the amplifier for single-effect potions (it can't affect a one-colour blend).
@@ -288,6 +305,8 @@ public class Extract {
 
     StringBuilder sb = new StringBuilder("{\n");
     sb.append("\"allBlocks\":").append(arr(all)).append(",\n");
+    sb.append("\"allItems\":").append(arr(allItems)).append(",\n");
+    sb.append("\"glintItems\":").append(arr(glintItems)).append(",\n");
     sb.append("\"waterloggable\":").append(arr(waterlog)).append(",\n");
     sb.append("\"waterlogged\":").append(arr(alwaysWater)).append(",\n");
     sb.append("\"nonOccluding\":").append(arr(noOcc)).append(",\n");

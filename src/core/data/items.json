@@ -1,0 +1,16 @@
+{
+  "_generated": "from minecraft 26.3-snapshot-3 by tools/generate/generate.js",
+  "alwaysGlint": {
+    "suffix": [
+      "_golden_apple",
+      "crystal"
+    ],
+    "exact": [
+      "debug_stick",
+      "enchanted_book",
+      "experience_bottle",
+      "nether_star",
+      "written_book"
+    ]
+  }
+}

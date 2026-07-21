@@ -1,6 +1,6 @@
 import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace, isBefore } from "./platform.js"
 import { COLORS, parseColor, getPotionColor } from "./colors.js"
-import { blockRules, colorTables } from "./data.js"
+import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
@@ -676,16 +676,14 @@ export async function parseBlockstate(assets, blockstate, args) {
 const FRAME_ITEM_ROT = { south: [0, Math.PI], west: [0, Math.PI / 2], east: [0, -Math.PI / 2], up: [-Math.PI / 2, Math.PI], down: [Math.PI / 2, Math.PI] }
 const SHELF_ITEM_YAW = { south: 0, west: -Math.PI / 2, north: Math.PI, east: Math.PI / 2 }
 const LIVE_FRAME_ITEM = /(^|:)(compass|clock)$/
-const GLINT_ITEMS = /(^|:)(enchanted_golden_apple|experience_bottle|written_book|nether_star|end_crystal|enchanted_book|debug_stick)$/
-
 const itemComponent = (item, key) => item?.components?.[key] ?? item?.components?.["minecraft:" + key]
 
-function itemHasFoil(item) {
+function itemHasFoil(item, rules) {
   if (typeof item?.id !== "string") return false
   const override = itemComponent(item, "enchantment_glint_override")
   if (override != null) return !(override === false || override === 0 || override === "false")
   const id = normalize(item.id)
-  if (GLINT_ITEMS.test(id)) return true
+  if (rules.alwaysGlint(id)) return true
   if (/(^|:)compass$/.test(id) && (itemComponent(item, "lodestone_tracker") != null || item.tag?.LodestonePos != null || item.tag?.LodestoneTracked)) return true
   const enchantments = itemComponent(item, "enchantments")
   const levels = enchantments?.levels ?? enchantments
@@ -697,11 +695,12 @@ async function blockEntityItemModels(assets, block, data, args) {
   const nbt = args.nbt
   const out = []
   const context = block.endsWith("shelf") ? "on_shelf" : "fixed"
+  const glintRules = await itemRules(assets)
   const itemArgs = id => ({
     version: args.version,
     ignoreAtlases: args.ignoreAtlases,
     data: id.components ?? {},
-    glint: itemHasFoil(id) || undefined,
+    glint: itemHasFoil(id, glintRules) || undefined,
     display: { type: "fallback", display: context }
   })
   const compose = async (entry, mat) => {
@@ -864,7 +863,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
 
   const { namespace, item } = resolveNamespace(itemId)
-  const glint = !!(args?.glint || itemHasFoil({ id: itemId, components: data }))
+  const glint = !!(args?.glint || itemHasFoil({ id: itemId, components: data }, await itemRules(assets)))
 
   const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
 

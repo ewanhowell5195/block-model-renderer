@@ -4,6 +4,7 @@ import baseWaterlogging from "./data/waterlogging.json" with { type: "json" }
 import baseCulling from "./data/culling.json" with { type: "json" }
 import baseLighting from "./data/lighting.json" with { type: "json" }
 import baseColors from "./data/colors.json" with { type: "json" }
+import baseItems from "./data/items.json" with { type: "json" }
 
 const ruleSet = r => ({ suffix: r.suffix ?? [], exact: new Set(r.exact), except: r.except && new Set(r.except) })
 
@@ -68,6 +69,16 @@ export function buildBlockRules({ waterlogging = [], culling = [], lighting = []
     },
     shapeOcclusion(block, properties, resolveDefault) {
       return ruleValue(valued.shapeLightOcclusion, block, properties, resolveDefault) === 1
+    }
+  }
+}
+
+export function buildItemRules(layers) {
+  const rules = layers.filter(l => l?.alwaysGlint).map(l => ruleSet(l.alwaysGlint))
+  return {
+    alwaysGlint(item) {
+      if (!item) return false
+      return rules.some(r => matchId(normalize(item), r))
     }
   }
 }
@@ -140,6 +151,7 @@ async function readLayers(file, assets, base) {
 
 export const builtinRules = buildBlockRules({ waterlogging: [baseWaterlogging], culling: [baseCulling], lighting: [baseLighting] })
 export const builtinColors = buildColorTables([baseColors])
+export const builtinItemRules = buildItemRules([baseItems])
 
 export async function blockRules(assets) {
   return assets.blockRules ??= (async () => {
@@ -157,5 +169,12 @@ export async function colorTables(assets) {
   return assets.colorTables ??= (async () => {
     const layers = await readLayers("assets/block-model-renderer/colors.json", assets, baseColors)
     return layers.length === 1 ? builtinColors : buildColorTables(layers)
+  })()
+}
+
+export async function itemRules(assets) {
+  return assets.itemRules ??= (async () => {
+    const layers = await readLayers("assets/block-model-renderer/items.json", assets, baseItems)
+    return layers.length === 1 ? builtinItemRules : buildItemRules(layers)
   })()
 }

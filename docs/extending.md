@@ -100,17 +100,19 @@ assets/block-model-renderer/waterlogging.json
 assets/block-model-renderer/culling.json
 assets/block-model-renderer/lighting.json
 assets/block-model-renderer/colors.json
+assets/block-model-renderer/items.json
 ```
 
-### `waterlogging.json`, `culling.json`, `lighting.json`
+### `waterlogging.json`, `culling.json`, `lighting.json`, `items.json`
 
-Id-matching rules for block behaviors, split by concern:
+Id-matching rules for block and item behaviors, split by concern:
 
 | File | Sections |
 |---|---|
 | `waterlogging.json` | `waterloggable` (the `waterlogged` property works), `waterlogged` (inherently water-filled, like kelp) |
 | `culling.json` | `nonOccluding` (never hides neighbor faces), `selfCullAll` (culls against its own kind on all sides), `selfCullY` (vertically, plus connected sides: panes, bars) |
 | `lighting.json` | `lightEmission` (in-game light levels), `shapeLightOcclusion` (light blocked by model shape rather than as a full cube: slabs, stairs) |
+| `items.json` | `alwaysGlint` (items that render the enchantment glint without being enchanted: enchanted golden apple, nether star, debug stick...) |
 
 The boolean sections each hold one rule of the form `{ "suffix": [...], "exact": [...], "except": [...] }`: an id matches by exact name or by suffix, unless listed in `except`. The `lightEmission` and `shapeLightOcclusion` sections are ordered rule lists where each rule adds a `value`: a flat level, or `{ "default": n, "cases": [[{ "prop": "value" }, level], ...] }` resolved against the blockstate properties.
 
