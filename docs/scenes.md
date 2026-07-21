@@ -516,7 +516,7 @@ Helpers behind the [`mapArt`](#createsceneassets-blocks-args) callback, exported
 | Export | Description |
 |---|---|
 | `renderMapColors(assets, colors)` | Renders 16384 map color bytes through the vanilla map palette over `map_background.png`, returning a 128×128 canvas. `colors` is the `colors` array from a save's `map_<id>.dat`, or one you build yourself (below) |
-| `MAP_COLORS` | The vanilla palette: `{ base, shade }`, where a color byte resolves as `base[byte >> 2]` (an `[r, g, b]`, index 0 unset) scaled by `shade[byte & 3] / 255` |
+| `MAP_COLORS` | The vanilla palette: `{ base, shade, names }`, where a color byte resolves as `base[byte >> 2]` (an `[r, g, b]`, index 0 unset) scaled by `shade[byte & 3] / 255`. `names` labels each base index with the game's map color name (`names[34]` is `"podzol"`, `names[12]` is `"water"`) |
 | `mapIdOf(item)` | The map id from an item's `minecraft:map_id` component (or legacy `tag.map`), `null` when absent |
 | `disposeMapArt(assets)` | Clears the cached map art canvases. Call when the world the maps came from is no longer the source of truth |
 
@@ -525,7 +525,7 @@ One byte per pixel; a pixel at `(x, y)` (from the top-left) is `colors[x + y * 1
 ```js
 const colors = new Uint8Array(16384) // every pixel starts unset, showing the parchment
 
-colors[64 + 64 * 128] = 34 * 4 + 2 // (64, 64): dirt brown, full strength
+colors[64 + 64 * 128] = 34 * 4 + 2 // (64, 64): podzol brown, full strength
 colors[65 + 64 * 128] = 1 * 4 + 2  // (65, 64): grass green, full strength
 colors[64 + 65 * 128] = 1 * 4 + 0  // (64, 65): grass green, darkest step
 

@@ -16,7 +16,21 @@ const MAP_BASE = [null,
 ]
 const MAP_SHADE = [180, 220, 255, 135]
 
-export const MAP_COLORS = { base: MAP_BASE, shade: MAP_SHADE }
+const MAP_NAMES = [null,
+  "grass", "sand", "wool", "fire", "ice", "metal",
+  "plant", "snow", "clay", "dirt", "stone", "water",
+  "wood", "quartz", "color_orange", "color_magenta", "color_light_blue", "color_yellow",
+  "color_light_green", "color_pink", "color_gray", "color_light_gray", "color_cyan", "color_purple",
+  "color_blue", "color_brown", "color_green", "color_red", "color_black", "gold",
+  "diamond", "lapis", "emerald", "podzol", "nether", "terracotta_white",
+  "terracotta_orange", "terracotta_magenta", "terracotta_light_blue", "terracotta_yellow", "terracotta_light_green", "terracotta_pink",
+  "terracotta_gray", "terracotta_light_gray", "terracotta_cyan", "terracotta_purple", "terracotta_blue", "terracotta_brown",
+  "terracotta_green", "terracotta_red", "terracotta_black", "crimson_nylium", "crimson_stem", "crimson_hyphae",
+  "warped_nylium", "warped_stem", "warped_hyphae", "warped_wart_block", "deepslate", "raw_iron",
+  "glow_lichen"
+]
+
+export const MAP_COLORS = { base: MAP_BASE, shade: MAP_SHADE, names: MAP_NAMES }
 
 export function mapIdOf(item) {
   const n = Number(item?.components?.["minecraft:map_id"] ?? item?.tag?.map)
