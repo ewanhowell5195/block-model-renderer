@@ -76,6 +76,7 @@ The optimize pass:
 |---|---|---|
 | `optimize` | `true` | Merge the built scene with [`optimizeScene`](#scene-optimization). `false` keeps one group clone per block, which renders far slower on big scenes but leaves every block individually addressable |
 | `resortDistance`, `maxAtlas`, `translucency` | | Passed through to the optimize pass |
+| `sharedAtlas` | | A [`createSharedAtlas`](#packed-scenes-and-shared-atlases) handle. Textures pack into its pages (shared across every scene using the handle) instead of per-scene atlases; the handle owns the pages and outlives each scene |
 
 The build itself:
 
@@ -85,6 +86,7 @@ The build itself:
 | `shouldCancel` | | Checked between work slices; return `true` to abort. A cancelled `createScene` resolves `null` |
 | `animate` | `true` | Browser: auto-play texture animations, like [`loadModel`](#loadmodelscene-assets-model-args). On Node, animated output goes through [`renderModelScene`](#rendermodelscenescene-camera-args) as usual |
 | `keepTemplates` | `false` | Retain the internal per-state template groups and return them on the handle, for tooling that needs per-block geometry (collision, hit-testing). Holds their memory for the scene's lifetime |
+| `externalOcclusion` | | `(x, y, z) => boolean` over cell coordinates outside `blocks`. Return `true` to treat that absent cell as a full occluder, so faces pressed against it cull. For building a chunk of a larger world where the surroundings exist but aren't in this scene (the culled faces stay culled; nothing re-lights) |
 
 Weighted blockstate variants pick deterministically per position (the position seeds the pick), so a field of grass blocks gets a natural rotation spread like in game, though not the game's exact per-position picks. Block entity contents and sign text are out of scope.
 
@@ -370,6 +372,23 @@ A neighbor entry can also carry an explicit `occludes` boolean (`{ id: "stone", 
 
 Because occlusion comes from the models, modded blocks and custom packs just work. The models a call builds are cached for that call; with [`prepareAssets(assets, { cache: true })`](assets.md#caching) they're cached across calls too.
 
+### `fullyOccludes({ id, properties, assets, version? })`
+
+Whether a block state is a full occluding cube: every one of its six faces completely hides whatever is pressed against it (stone yes, stairs, glass, and leaves no). Async, resolves a boolean. Air ids resolve `false` without touching the assets.
+
+Useful for world-scale preprocessing: a cell whose six neighbors all fully occlude can be dropped before building a scene at all, which is how a caller thins buried terrain. The per-face masks it computes are the same ones culling uses, and land in the same cache.
+
+### Persisting the occlusion cache
+
+Computing occlusion masks means building models, which dominates the first cold pass over a large palette. With [`prepareAssets(assets, { cache: true })`](assets.md#caching) the masks live on the prepared assets; these two round-trip that cache so an app can persist it (IndexedDB, a file) and skip the cold pass next session:
+
+| Export | Description |
+|---|---|
+| `exportOcclusionCache(assets)` | The current mask cache as a serializable array of `[stateKey, masks]` entries (`masks` is per-direction `Uint16Array`s, or `null` for blocks with no occlusion model) |
+| `importOcclusionCache(assets, entries)` | Seed a prepared assets instance with previously exported entries. Existing keys are kept; returns how many entries were added |
+
+The entries are only valid for the same effective pack stack: key your persisted copy by the pack list (and content) it was exported under, and throw it away when that changes.
+
 ## Scene lighting
 
 `"world"` lighting on its own shades every face as if it stood under open sky, with `daytime` scaling the whole scene evenly. [`computeSceneLight`](#scene-lighting) adds real per-block light: torches and other emitters glow, light falls off with distance and wraps around corners, and interiors and overhangs darken because the sky can't reach them. It runs Minecraft's flood fill over the scene's block grid and packs the result into a light volume texture the `"world"` shader samples per fragment, so the gradients are smooth and merged geometry from [`optimizeScene`](#scene-optimization) is lit correctly with no extra draw calls.
@@ -510,6 +529,51 @@ handle.detach()     // stop sorting (when discarding the scene)
 ```
 
 It traverses the object, hooks every mesh with translucent materials, and needs nothing per-frame from you: the renderer hands it the camera on draw.
+
+## Packed scenes and shared atlases
+
+For streaming-scale apps, scenes can build in web workers and ship to the main thread as transferable data: the worker runs [`createScene`](#createsceneassets-blocks-args) (workers have no WebGL, so the output group is plain geometry and materials), packs the result, and the main thread revives it into live meshes without rebuilding anything. Atlas pages are deduplicated across every scene a worker builds through a shared atlas, and the main thread mirrors those pages once rather than receiving them again per scene.
+
+| Export | Description |
+|---|---|
+| `createSharedAtlas({ size?, renderer? })` | An atlas pool handle (default page size 2048). Pass it as `sharedAtlas` to [`createScene`](#createsceneassets-blocks-args) / [`optimizeScene`](#scene-optimization) and every scene using it packs textures into the same growing pages. `dispose()` frees the pages |
+| `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references into the mirror |
+| `packAtlasDelta(shared, since?)` | The shared atlas regions added after serial `since`, as `{ deltas, serial, size, transfers }`. Send alongside each packed scene and feed the returned `serial` into the next call so each region crosses the thread boundary once. Animated regions carry their frame bitmaps and timing |
+| `createAtlasMirror({ renderer? })` | The main-thread counterpart of a worker's shared atlas. `apply(pack)` draws delta regions into locally owned pages (with the renderer, established pages update by GPU sub-uploads instead of full re-uploads); `texture(sig, page)` resolves the page textures that revived scenes reference; `dispose()` frees them |
+| `reviveScene(payload, { atlas?, releaseArrays? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the mirror that page-referencing textures resolve against. `releaseArrays` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
+
+The shape of the flow, worker side then main side:
+
+```js
+// worker: build against its own shared atlas, pack, post
+const shared = createSharedAtlas()
+const handle = await createScene(assets, blocks, { sharedAtlas: shared, animate: false })
+const scene = await packScene(handle, { sharedAtlas: shared })
+const atlas = await packAtlasDelta(shared, lastSerial)
+lastSerial = atlas.serial
+postMessage({ scene: scene.payload, atlas }, [...scene.transfers, ...atlas.transfers])
+handle.dispose()
+
+// main: mirror the new atlas regions, revive, add
+mirror ??= createAtlasMirror({ renderer })
+mirror.apply(msg.atlas)
+const tile = reviveScene(msg.scene, { atlas: mirror, releaseArrays: true })
+world.add(tile.group)
+```
+
+Revived groups are inert data, not `createScene` handles: no palette, no light handle, no [dynamic model](#dynamic-models) rigs (dynamic parts can't cross the thread boundary as live objects; build those separately on the main thread). Billboards re-attach their camera-facing behavior on revive.
+
+### Animating mirror pages
+
+Packed scenes reference mirror pages, and animated texture regions ride along in the atlas deltas, but nothing plays them automatically: the mirror's pages aren't wired into the page-global animator. Drive them with the schedule helpers:
+
+| Export | Description |
+|---|---|
+| `setAnimationRenderer(renderer)` | Register the renderer once so frame updates upload as GPU subimages instead of full-page texture re-uploads. Also used by the automatic animator; call it in any app that animates atlas textures on large pages |
+| `buildSchedules(textures)` | Precompute per-region frame schedules for a list of textures with animated frames or regions (a mirror's pages via `eachPage`) |
+| `evaluateAnimation(schedules, shaders, tickTime)` | Advance every schedule to `tickTime` (in game ticks, 20 per second) and update the textures; `shaders` is materials whose `GameTime` uniform should follow (the end portal). Returns whether anything changed |
+
+Rebuild the schedules when the mirror's `regionsVersion` changes (new animated regions arrived) and call `evaluateAnimation` from your render loop at whatever rate you like; the game runs at 20Hz and interpolated textures look right up to 60Hz.
 
 ## Map art
 

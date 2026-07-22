@@ -5,14 +5,15 @@ Every export the package provides, grouped by area, with a link to where each is
 ```js
 import {
   // rendering
-  renderBlock, renderItem, renderModel, renderTexture, getCullFaces,
+  renderBlock, renderItem, renderModel, renderTexture, getCullFaces, fullyOccludes,
+  exportOcclusionCache, importOcclusionCache,
   // assets and files
   prepareAssets, readFile, listDirectory, readTexture, zipAssets, parseZip, disposeCache,
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
   makeModelScene, createScene, loadModel, renderModelScene, optimizeScene, sortTranslucent, computeSceneLight,
-  renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
+  createSharedAtlas, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
@@ -20,7 +21,9 @@ import {
   // extending
   ModelLoader,
   // browser only
-  configure, getThree, THREE, pauseAnimations, resumeAnimations, createAnimator
+  configure, getThree, THREE, pauseAnimations, resumeAnimations, createAnimator,
+  packScene, packAtlasDelta, createAtlasMirror, reviveScene,
+  setAnimationRenderer, buildSchedules, evaluateAnimation
 } from "block-model-renderer"
 ```
 
@@ -33,6 +36,9 @@ import {
 | `renderModel(args)` | Render a raw model JSON. [Details](standard-api.md#rendermodelargs) |
 | `renderTexture(args)` | Render a texture by path, animated per its mcmeta. [Details](standard-api.md#rendertextureargs) |
 | `getCullFaces(args)` | Which faces a block's neighbors hide, for [culling](scenes.md#culling-hidden-faces). [Details](scenes.md#getcullfacesargs) |
+| `fullyOccludes(args)` | Whether a block state is a full occluding cube, for world-scale preprocessing. [Details](scenes.md#fullyoccludes-id-properties-assets-version-) |
+| `exportOcclusionCache(assets)` | Serialize the computed occlusion masks for persistence. [Details](scenes.md#persisting-the-occlusion-cache) |
+| `importOcclusionCache(assets, entries)` | Seed a prepared assets instance with persisted masks. [Details](scenes.md#persisting-the-occlusion-cache) |
 
 ## Assets and files
 
@@ -70,6 +76,7 @@ import {
 | `mapIdOf(item)` | The map id from an item's components, `null` when absent. [Details](scenes.md#map-art) |
 | `disposeMapArt(assets)` | Clear the cached framed-map art. [Details](scenes.md#map-art) |
 | `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](scenes.md#scene-lighting) |
+| `createSharedAtlas(opts?)` | An atlas pool shared across scenes, for worker builds and streaming. [Details](scenes.md#packed-scenes-and-shared-atlases) |
 
 ## Fluids
 
@@ -109,3 +116,10 @@ Not exported on Node.
 | `THREE` | Live binding to that instance, populated after first use. [Details](standard-api.md#providing-threejs-browser) |
 | `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. [Details](standard-api.md#animated-renders-browser) |
 | `createAnimator(root)` | Manual animation control for `loadModel` scenes. [Details](scenes.md#animation-browser) |
+| `packScene(handle, opts?)` | Pack a built scene into transferable data for `postMessage`. [Details](scenes.md#packed-scenes-and-shared-atlases) |
+| `packAtlasDelta(shared, since?)` | The shared atlas regions added since a serial, for mirroring. [Details](scenes.md#packed-scenes-and-shared-atlases) |
+| `createAtlasMirror(opts?)` | Main-thread mirror of a worker's shared atlas pages. [Details](scenes.md#packed-scenes-and-shared-atlases) |
+| `reviveScene(payload, opts?)` | Rebuild a packed scene into live meshes. [Details](scenes.md#packed-scenes-and-shared-atlases) |
+| `setAnimationRenderer(renderer)` | Register the renderer for GPU subimage animation updates. [Details](scenes.md#animating-mirror-pages) |
+| `buildSchedules(textures)` | Precompute animation schedules for atlas textures. [Details](scenes.md#animating-mirror-pages) |
+| `evaluateAnimation(schedules, shaders, tickTime)` | Advance schedules to a game-tick time. [Details](scenes.md#animating-mirror-pages) |
