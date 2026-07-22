@@ -513,17 +513,76 @@ export async function optimizeScene(placements, opts = {}) {
   const anims = new Map(), animTexId = new Map()
   const fixedAnimMats = new Set()
   const tdata = new Map()
+  const scanKey = (shared ? "s" : "n") + "\0" + JSON.stringify(cutoff ?? null)
+
+  function registerAnim(mat, tex) {
+    const id = tex ?? mat
+    if (!animTexId.has(id)) animTexId.set(id, animTexId.size)
+    const key = matSignature(mat) + "|a" + animTexId.get(id)
+    if (!anims.has(key)) {
+      const tr = mat.userData?.glint ? true : tex ? isTranslucent(tex, cutoff) : false
+      mat.transparent = tr
+      mat.depthWrite = !tr
+      fixedAnimMats.add(mat)
+      anims.set(key, { material: mat, acc: makeAcc() })
+    }
+    return key
+  }
+  function registerAtlas(mat, tex, sig, translucent) {
+    let grp = atlasGroups.get(sig)
+    if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: mat, translucent })
+    grp.textures.add(tex)
+  }
+
   stage(500)
   let ti = 0
   for (const p of placements) {
     ti++
     if (!p.group || tdata.has(p.group)) continue
     const tmpl = p.group
+    const source = tmpl.__templateSource
+    const cachedScan = source?.__scanCache?.get(scanKey)
+    if (cachedScan) {
+      const nodes = []
+      tmpl.traverse(o => nodes.push(o))
+      const nodeMats = ni => [].concat(nodes[ni].material)
+      const animKeys = cachedScan.regs.map(r => {
+        const mat = nodeMats(r.ni)[r.mi]
+        if (r.kind === 1) return registerAnim(mat, matMap(mat))
+        registerAtlas(mat, r.tex, r.sig, r.translucent)
+        return null
+      })
+      const meshes = cachedScan.meshes.map(m => ({
+        geo: nodes[m.ni].geometry,
+        matrix: m.matrix,
+        faces: m.faces.map(fc => {
+          if (fc.kind === 1) return { start: fc.start, count: fc.count, animKey: animKeys[fc.ri], cull: fc.cull }
+          return { start: fc.start, count: fc.count, tex: fc.tex, cull: fc.cull, sig: fc.sig, fd: fc.fd }
+        })
+      }))
+      const merge = cachedScan.merge.map(m => ({ ...m.f, mat: nodeMats(m.ni)[m.mi], cid: undefined }))
+      const billboards = cachedScan.billboards.map(b => ({ geo: nodes[b.ni].geometry, material: nodes[b.ni].material, matrix: b.matrix }))
+      const dynamics = cachedScan.dynamics.map(d => ({ node: nodes[d.ni], parentMatrix: d.parentMatrix }))
+      tdata.set(tmpl, { merge, meshes, billboards, dynamics })
+      report(ti / placements.length)
+      await breathe()
+      if (shouldCancel?.()) return null
+      continue
+    }
     tmpl.updateMatrixWorld(true)
+    const nodes = []
+    tmpl.traverse(o => nodes.push(o))
+    const nodeIdx = new Map(nodes.map((n, i) => [n, i]))
+    const rec = { meshes: [], merge: [], billboards: [], dynamics: [], regs: [] }
+    const recMesh = new Map()
     const flats = [], meshMap = new Map(), billboards = [], dynamics = []
-    tmpl.traverse(o => {
-      if (o.userData?.dynamic) dynamics.push({ node: o, parentMatrix: (o.parent?.matrixWorld ?? o.matrixWorld).clone() })
-    })
+    for (const o of nodes) {
+      if (o.userData?.dynamic) {
+        const parentMatrix = (o.parent?.matrixWorld ?? o.matrixWorld).clone()
+        dynamics.push({ node: o, parentMatrix })
+        rec.dynamics.push({ ni: nodeIdx.get(o), parentMatrix })
+      }
+    }
     const inPart = o => {
       let part = false
       for (let n = o; n && n !== tmpl; n = n.parent) {
@@ -532,24 +591,29 @@ export async function optimizeScene(placements, opts = {}) {
       }
       return false
     }
-    function atlasFace(o, face) {
+    function atlasFace(o, face, fc) {
       let m = meshMap.get(o)
-      if (!m) meshMap.set(o, m = { geo: o.geometry, matrix: o.matrixWorld.clone(), faces: [] })
+      if (!m) {
+        const matrix = o.matrixWorld.clone()
+        meshMap.set(o, m = { geo: o.geometry, matrix, faces: [] })
+        recMesh.set(o, m.rec = { ni: nodeIdx.get(o), matrix, faces: [] })
+      }
       m.faces.push(face)
+      recMesh.get(o).faces.push(fc)
     }
     function toAtlas(mat, tex, face) {
       const translucent = isTranslucent(tex, cutoff)
       const sig = atlasSignature(mat) + (translucent ? "|T" : "|O")
-      let grp = atlasGroups.get(sig)
-      if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: mat, translucent })
-      grp.textures.add(tex)
-      return { ...face, sig, fd: faceDataOf(mat) }
+      registerAtlas(mat, tex, sig, translucent)
+      return { ...face, sig, fd: faceDataOf(mat), translucent }
     }
-    tmpl.traverse(o => {
-      if (!o.isMesh || inPart(o)) return
+    for (const o of nodes) {
+      if (!o.isMesh || inPart(o)) continue
       if (o.userData.billboard) {
-        billboards.push({ geo: o.geometry, material: o.material, matrix: o.matrixWorld.clone() })
-        return
+        const matrix = o.matrixWorld.clone()
+        billboards.push({ geo: o.geometry, material: o.material, matrix })
+        rec.billboards.push({ ni: nodeIdx.get(o), matrix })
+        continue
       }
       const geo = o.geometry, mats = [].concat(o.material)
       const nm = new THREE.Matrix3().getNormalMatrix(o.matrixWorld)
@@ -562,27 +626,26 @@ export async function optimizeScene(placements, opts = {}) {
         const cull = o.userData.cullface?.[g.materialIndex] ?? null
         if (matAnimated(mat)) {
           if (tex?.userData?.frames && !mat.userData?.glint) {
-            atlasFace(o, toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull }))
+            const face = toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull })
+            rec.regs.push({ kind: 0, ni: nodeIdx.get(o), mi: g.materialIndex, tex, sig: face.sig, translucent: face.translucent })
+            atlasFace(o, face, { kind: 0, start: g.start, count: g.count, tex, cull, sig: face.sig, fd: face.fd })
             continue
           }
-          const id = tex ?? mat
-          if (!animTexId.has(id)) animTexId.set(id, animTexId.size)
-          const key = matSignature(mat) + "|a" + animTexId.get(id)
-          if (!anims.has(key)) {
-            const tr = mat.userData?.glint ? true : tex ? isTranslucent(tex, cutoff) : false
-            mat.transparent = tr
-            mat.depthWrite = !tr
-            fixedAnimMats.add(mat)
-            anims.set(key, { material: mat, acc: makeAcc() })
-          }
-          atlasFace(o, { start: g.start, count: g.count, animKey: key, cull })
+          const ri = rec.regs.length
+          rec.regs.push({ kind: 1, ni: nodeIdx.get(o), mi: g.materialIndex })
+          const key = registerAnim(mat, tex)
+          atlasFace(o, { start: g.start, count: g.count, animKey: key, cull }, { kind: 1, ri, start: g.start, count: g.count, cull })
           continue
         }
         const fls = shared ? null : extractFlats(geo, g, o.matrixWorld, nm, tex, mat, cull)
-        if (fls) for (const fl of fls) flats.push({ flat: fl.flat, o, mat, tex, start: fl.start, count: fl.count, cull })
-        else atlasFace(o, toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull }))
+        if (fls) for (const fl of fls) flats.push({ flat: fl.flat, o, mi: g.materialIndex, mat, tex, start: fl.start, count: fl.count, cull })
+        else {
+          const face = toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull })
+          rec.regs.push({ kind: 0, ni: nodeIdx.get(o), mi: g.materialIndex, tex, sig: face.sig, translucent: face.translucent })
+          atlasFace(o, face, { kind: 0, start: g.start, count: g.count, tex, cull, sig: face.sig, fd: face.fd })
+        }
       }
-    })
+    }
     const byPlane = new Map()
     for (const c of flats) {
       const f = c.flat, k = f.na + "|" + f.ns + "|" + Math.round(f.pc * 100)
@@ -598,9 +661,18 @@ export async function optimizeScene(placements, opts = {}) {
     }
     const merge = []
     for (const c of flats) {
-      if (demote.has(c)) atlasFace(c.o, toAtlas(c.mat, c.tex, { start: c.start, count: c.count, tex: c.tex, cull: c.cull }))
-      else merge.push(c.flat)
+      if (demote.has(c)) {
+        const face = toAtlas(c.mat, c.tex, { start: c.start, count: c.count, tex: c.tex, cull: c.cull })
+        rec.regs.push({ kind: 0, ni: nodeIdx.get(c.o), mi: c.mi, tex: c.tex, sig: face.sig, translucent: face.translucent })
+        atlasFace(c.o, face, { kind: 0, start: c.start, count: c.count, tex: c.tex, cull: c.cull, sig: face.sig, fd: face.fd })
+      } else {
+        merge.push(c.flat)
+        const { mat, ...rest } = c.flat
+        rec.merge.push({ ni: nodeIdx.get(c.o), mi: c.mi, f: rest })
+      }
     }
+    for (const m of meshMap.values()) rec.meshes.push(m.rec)
+    ;(tmpl.__scanCache ??= new Map()).set(scanKey, rec)
     tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards, dynamics })
     report(ti / placements.length)
     await breathe()

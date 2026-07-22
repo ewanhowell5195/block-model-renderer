@@ -72,6 +72,7 @@ function cloneTemplate(src, rebind) {
   }
   const walk = (s, root) => {
     const d = s.isMesh ? new THREE.Mesh(s.geometry, cloneMat(s.material)) : new THREE.Group()
+    if (root) d.__templateSource = src
     d.name = s.name
     d.userData = root ? { ...s.userData } : s.userData
     d.visible = s.visible
