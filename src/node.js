@@ -208,7 +208,7 @@ export {
   makeModelScene, renderModelScene,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, isCrossModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
-  optimizeScene, sortTranslucent, poseSpecial,
+  optimizeScene, createSharedAtlas, sortTranslucent, poseSpecial,
   zipAssets, zipAssetsFromSlices, readTexture,
   renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS
 } from "./core.js"

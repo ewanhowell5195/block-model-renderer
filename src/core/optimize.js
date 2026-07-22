@@ -319,6 +319,7 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
 export function createSharedAtlas(opts = {}) {
   return {
     size: opts.size ?? 2048,
+    renderer: opts.renderer ?? null,
     sheets: new Map(),
     dispose() {
       for (const sheet of this.sheets.values()) {
@@ -357,7 +358,23 @@ async function sharedLocate(shared, sheet, tex) {
   if (tex.userData?.frames) {
     ;(page.texture.userData.regions ??= []).push({ x: dx, y: dy, w: iw, h: ih, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate })
   }
-  page.texture.needsUpdate = true
+  let subbed = false
+  if (shared.renderer) {
+    try {
+      const sub = new Canvas(cw, ch)
+      const sctx = sub.getContext("2d")
+      sctx.drawImage(img, 1, 1)
+      sctx.drawImage(img, 0, 0, iw, 1, 1, 0, iw, 1)
+      sctx.drawImage(img, 0, ih - 1, iw, 1, 1, ih + 1, iw, 1)
+      sctx.drawImage(img, 0, 0, 1, ih, 0, 1, 1, ih)
+      sctx.drawImage(img, iw - 1, 0, 1, ih, iw + 1, 1, 1, ih)
+      const st = new THREE.CanvasTexture(sub)
+      shared.renderer.copyTextureToTexture(new THREE.Vector2(dx - 1, shared.size - (dy - 1) - ch), st, page.texture)
+      st.dispose()
+      subbed = true
+    } catch {}
+  }
+  if (!subbed) page.texture.needsUpdate = true
   page.x += cw
   page.rowH = Math.max(page.rowH, ch)
   r = { ai: page.index, x: dx, y: dy, w: iw, h: ih }
