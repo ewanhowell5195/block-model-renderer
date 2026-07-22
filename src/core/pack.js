@@ -194,6 +194,7 @@ export function createAtlasMirror(opts = {}) {
 
 export function reviveScene(payload, opts = {}) {
   const mirror = opts.atlas ?? null
+  const release = opts.releaseArrays ? function () { this.array = null } : null
   const owned = { textures: [], materials: [], geometries: [] }
 
   const textures = payload.textures.map(spec => {
@@ -261,10 +262,17 @@ export function reviveScene(payload, opts = {}) {
   const group = new THREE.Group()
   for (const spec of payload.meshes) {
     const geo = new THREE.BufferGeometry()
+    const shed = release && spec.instanced == null
     for (const [name, a] of Object.entries(spec.attrs)) {
-      geo.setAttribute(name, new THREE.BufferAttribute(a.array, a.itemSize, a.normalized))
+      const attr = new THREE.BufferAttribute(a.array, a.itemSize, a.normalized)
+      if (shed) attr.onUpload(release)
+      geo.setAttribute(name, attr)
     }
-    if (spec.index) geo.setIndex(new THREE.BufferAttribute(spec.index.array, 1))
+    if (spec.index) {
+      const idx = new THREE.BufferAttribute(spec.index.array, 1)
+      if (shed) idx.onUpload(release)
+      geo.setIndex(idx)
+    }
     if (spec.groups) for (const g of spec.groups) geo.addGroup(g.start, g.count, g.materialIndex)
     owned.geometries.push(geo)
     const material = Array.isArray(spec.material) ? spec.material.map(i => materials[i]) : materials[spec.material]
