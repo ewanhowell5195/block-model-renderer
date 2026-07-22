@@ -123,6 +123,9 @@ export async function packScene(handle, opts = {}) {
       const im = o.instanceMatrix.array.slice()
       transfers.push(im.buffer)
       spec.instanceMatrix = im
+      if (o.userData?.billboard && o.userData.billboardEntries) {
+        spec.billboard = o.userData.billboardEntries.map(e => ({ p: [e.pos.x, e.pos.y, e.pos.z], s: [e.scale.x, e.scale.y, e.scale.z] }))
+      }
     }
     meshes.push(spec)
   }
@@ -270,6 +273,21 @@ export function reviveScene(payload, opts = {}) {
       mesh = new THREE.InstancedMesh(geo, material, spec.instanced)
       mesh.instanceMatrix.array.set(spec.instanceMatrix)
       mesh.instanceMatrix.needsUpdate = true
+      if (spec.billboard) {
+        const entries = spec.billboard.map(b => ({ pos: new THREE.Vector3(...b.p), scale: new THREE.Vector3(...b.s) }))
+        const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _flip = new THREE.Quaternion(0, 1, 0, 0), _m = new THREE.Matrix4(), _inv = new THREE.Matrix4()
+        mesh.frustumCulled = false
+        mesh.onBeforeRender = function (renderer, scene, camera) {
+          _inv.copy(this.matrixWorld).invert()
+          camera.getWorldQuaternion(_q).multiply(_flip)
+          for (let i = 0; i < entries.length; i++) {
+            const e = entries[i]
+            _p.copy(e.pos).applyMatrix4(this.matrixWorld)
+            this.setMatrixAt(i, _m.compose(_p, _q, e.scale).premultiply(_inv))
+          }
+          this.instanceMatrix.needsUpdate = true
+        }
+      }
     } else {
       mesh = new THREE.Mesh(geo, material)
     }

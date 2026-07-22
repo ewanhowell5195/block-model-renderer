@@ -765,6 +765,7 @@ export async function optimizeScene(placements, opts = {}) {
     const im = new THREE.InstancedMesh(merged.geometry, merged.material, entries.length)
     im.frustumCulled = false
     im.userData.billboard = true
+    im.userData.billboardEntries = entries
     im.onBeforeRender = function (renderer, scene, camera) {
       _bbInv.copy(this.matrixWorld).invert()
       camera.getWorldQuaternion(_bbQuat).multiply(_bbFlip)
