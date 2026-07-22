@@ -54,14 +54,17 @@ function cloneTemplate(src, rebind) {
     if (Array.isArray(m)) return m.map(cloneMat)
     let c = matClones.get(m)
     if (!c) {
-      c = m.clone()
-      if (c.uniforms) {
-        for (const k in c.uniforms) {
-          if (m.uniforms[k]?.value?.isTexture) c.uniforms[k].value = m.uniforms[k].value
-        }
+      if (m.isShaderMaterial) {
+        const u = m.uniforms
+        m.uniforms = {}
+        c = m.clone()
+        m.uniforms = u
+        c.uniforms = { ...u }
         for (const k of REBIND_UNIFORMS) {
           if (rebind[k] && c.uniforms[k]) c.uniforms[k] = rebind[k]
         }
+      } else {
+        c = m.clone()
       }
       matClones.set(m, c)
     }
