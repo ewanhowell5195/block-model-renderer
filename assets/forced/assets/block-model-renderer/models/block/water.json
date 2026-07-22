@@ -1,5 +1,6 @@
 {
   "parent": "block/block",
+  "ambientocclusion": false,
   "double_sided": true,
   "textures": {
     "still": "block/water_still",
