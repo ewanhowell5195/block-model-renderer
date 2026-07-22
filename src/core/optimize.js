@@ -243,10 +243,39 @@ function extractFlats(geo, grp, mw, nm, tex, mat, cull) {
 
 const rectsOverlap = (f, g) => f.a0 < g.a0 + g.wa - 0.01 && g.a0 < f.a0 + f.wa - 0.01 && f.b0 < g.b0 + g.wb - 0.01 && g.b0 < f.b0 + f.wb - 0.01
 
+const atlasCache = new Map()
+const ATLAS_CACHE_BYTES = 256 * 1024 * 1024
+function sweepAtlasCache() {
+  let bytes = 0
+  for (const e of atlasCache.values()) bytes += e.bytes
+  for (const [key, e] of atlasCache) {
+    if (bytes <= ATLAS_CACHE_BYTES) break
+    if (e.users > 0) continue
+    atlasCache.delete(key)
+    bytes -= e.bytes
+    for (const a of e.atlases) { try { a.dispose() } catch {} }
+  }
+}
+function releaseAtlas(entry) {
+  entry.users--
+  sweepAtlasCache()
+}
+
 async function buildAtlas(textures, maxAtlas, breathe) {
   const pad = 1
   const rep = new Map()
   for (const t of textures) { const h = hashTexture(t); if (!rep.has(h)) rep.set(h, t) }
+  const colorSpace = textures[0].colorSpace ?? THREE.NoColorSpace
+  const cacheKey = Array.from(rep.keys()).sort().join("|") + "\0" + maxAtlas + "\0" + colorSpace
+  let entry = atlasCache.get(cacheKey)
+  if (entry) {
+    atlasCache.delete(cacheKey)
+    atlasCache.set(cacheKey, entry)
+    entry.users++
+    const rects = new Map()
+    for (const t of textures) rects.set(t, entry.byHash.get(hashTexture(t)))
+    return { atlases: entry.atlases, rects, sizes: entry.sizes, entry }
+  }
   const items = Array.from(rep.values()).map(t => ({ t, img: t.image, w: t.image.width, h: t.image.height }))
   items.sort((a, b) => b.h - a.h)
   let ai = 0, x = 0, y = 0, rowH = 0
@@ -278,13 +307,16 @@ async function buildAtlas(textures, maxAtlas, breathe) {
     const a = await loadTexture(ctx.canvas)
     a.magFilter = a.minFilter = THREE.NearestFilter
     a.generateMipmaps = false
-    a.colorSpace = textures[0].colorSpace ?? THREE.NoColorSpace
+    a.colorSpace = colorSpace
     a.needsUpdate = true
     atlases.push(a)
   }
   const rects = new Map()
   for (const t of textures) rects.set(t, byHash.get(hashTexture(t)))
-  return { atlases, rects, sizes }
+  entry = { atlases, sizes, byHash, users: 1, bytes: sizes.reduce((n, s) => n + s.w * s.h * 4, 0) }
+  atlasCache.set(cacheKey, entry)
+  sweepAtlasCache()
+  return { atlases, rects, sizes, entry }
 }
 
 function greedyRects(cellSet) {
@@ -622,7 +654,7 @@ export async function optimizeScene(placements, opts = {}) {
   }
 
   const atlases = new Map()
-  const created = { textures: [], materials: [] }
+  const created = { textures: [], materials: [], atlasEntries: [] }
   stage(800)
   let ai = 0
   for (const [sig, grp] of atlasGroups) {
@@ -654,7 +686,7 @@ export async function optimizeScene(placements, opts = {}) {
       atlases.set(sig, { rects, sizes, materials, accs: sheet.pages.map(makeAcc) })
       continue
     }
-    const { atlases: ats, rects, sizes } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe)
+    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe)
     const regionLists = ats.map(() => [])
     const claimed = new Set()
     for (const t of grp.textures) {
@@ -665,8 +697,12 @@ export async function optimizeScene(placements, opts = {}) {
       claimed.add(key)
       regionLists[r.ai].push({ x: r.x, y: r.y, w: r.w, h: r.h, frames: t.userData.frames, times: t.userData.times, interpolate: !!t.userData.interpolate })
     }
-    regionLists.forEach((regions, i) => { if (regions.length) ats[i].userData.regions = regions })
+    regionLists.forEach((regions, i) => {
+      if (regions.length) ats[i].userData.regions = regions
+      else delete ats[i].userData.regions
+    })
     created.textures.push(...ats)
+    created.atlasEntries.push(entry)
     const materials = ats.map(a => {
       const m = grp.repMat.clone()
       if (m.uniforms) {
@@ -936,10 +972,12 @@ export async function optimizeScene(placements, opts = {}) {
     atlasTextures: created.textures,
     sortTranslucent: camera => sorter.sort(camera),
     dispose() {
+      if (this.__disposed) return
+      this.__disposed = true
       sorter.detach()
       group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh || o.isBatchedMesh) { try { o.dispose() } catch {} } } })
       for (const m of created.materials) { try { m.dispose() } catch {} }
-      for (const t of created.textures) { try { t.dispose() } catch {} }
+      for (const e of created.atlasEntries) { try { releaseAtlas(e) } catch {} }
       group.removeFromParent()
     }
   }
