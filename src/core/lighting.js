@@ -76,14 +76,24 @@ export async function computeSceneLight(blocks, opts = {}) {
     return m
   }
 
-  const cells = []
+  const idNorm = new Map()
+  const normId = raw => {
+    let id = idNorm.get(raw)
+    if (id === undefined) {
+      id = normalize(raw)
+      if (AIR_BLOCKS.test(id)) id = null
+      idNorm.set(raw, id)
+    }
+    return id
+  }
+
   let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+  let any = false
   for (const b of blocks) {
-    if (!b?.id) continue
-    const id = normalize(b.id)
-    if (AIR_BLOCKS.test(id)) continue
-    const [x, y, z] = b.pos ?? [b.x, b.y, b.z]
-    cells.push({ x, y, z, id, properties: b.properties })
+    if (!b?.id || normId(b.id) === null) continue
+    const p = b.pos
+    const x = p ? p[0] : b.x, y = p ? p[1] : b.y, z = p ? p[2] : b.z
+    any = true
     if (x < minX) minX = x
     if (y < minY) minY = y
     if (z < minZ) minZ = z
@@ -91,7 +101,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     if (y > maxY) maxY = y
     if (z > maxZ) maxZ = z
   }
-  if (!cells.length) throw new Error("computeSceneLight requires at least one non-air block")
+  if (!any) throw new Error("computeSceneLight requires at least one non-air block")
 
   const origin = [minX - 1, minY - 1, minZ - 1]
   const w = maxX - minX + 3, h = maxY - minY + 3, d = maxZ - minZ + 3
@@ -104,44 +114,53 @@ export async function computeSceneLight(blocks, opts = {}) {
   const cellState = new Uint16Array(n)
   const NO_PROPS = {}
   const siMemo = new WeakMap()
+  const ox = origin[0], oy = origin[1], oz = origin[2]
   let processed = 0
-  for (const c of cells) {
-    const po = c.properties ?? NO_PROPS
+  let yieldT = performance.now()
+  for (const b of blocks) {
+    processed++
+    if (!b?.id) continue
+    const id = normId(b.id)
+    if (id === null) continue
+    const po = b.properties ?? NO_PROPS
     let byId = siMemo.get(po)
     if (!byId) siMemo.set(po, byId = new Map())
-    let si = byId.get(c.id)
+    let si = byId.get(id)
     if (si === undefined) {
-      const key = stateKey(c.id, c.properties)
+      const key = stateKey(id, b.properties)
       si = stateIds.get(key)
       if (si === undefined) {
         const resolveDefault = k => {
-          const raw = defaults.unique(c.id)[k] ?? defaults.properties[k]
+          const raw = defaults.unique(id)[k] ?? defaults.properties[k]
           return Array.isArray(raw) ? raw[0] : raw
         }
-        const masks = await masksFor(c.id, c.properties)
-        const useShape = rules.shapeOcclusion(c.id, c.properties, resolveDefault) && !maskEmpty(masks)
-        const partial = rules.dampening(c.id, c.properties, resolveDefault)
+        const masks = await masksFor(id, b.properties)
+        const useShape = rules.shapeOcclusion(id, b.properties, resolveDefault) && !maskEmpty(masks)
+        const partial = rules.dampening(id, b.properties, resolveDefault)
         states.push({
-          emit: rules.emission(c.id, c.properties, resolveDefault),
-          damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(c.id, c.properties, rules) ? 1 : 0),
-          ao: rules.aoBlocking(c.id, c.properties, resolveDefault),
+          emit: rules.emission(id, b.properties, resolveDefault),
+          damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(id, b.properties, rules) ? 1 : 0),
+          ao: rules.aoBlocking(id, b.properties, resolveDefault),
           masks: useShape ? masks : null
         })
         si = states.length - 1
         stateIds.set(key, si)
       }
-      byId.set(c.id, si)
+      byId.set(id, si)
     }
-    const i = ((c.z - origin[2]) * h + (c.y - origin[1])) * w + (c.x - origin[0])
+    const p = b.pos
+    const x = p ? p[0] : b.x, y = p ? p[1] : b.y, z = p ? p[2] : b.z
+    const i = ((z - oz) * h + (y - oy)) * w + (x - ox)
     const prev = states[cellState[i]]
     const next = states[si]
     if (!prev || next.damp > prev.damp || (next.damp === prev.damp && next.emit > prev.emit)) cellState[i] = si
-    if (++processed % 8192 === 0) {
-      opts.onProgress?.(processed, cells.length)
+    if ((processed & 8191) === 0 && performance.now() - yieldT > 15) {
+      opts.onProgress?.(processed, blocks.length)
       await new Promise(resolve => setTimeout(resolve))
+      yieldT = performance.now()
     }
   }
-  opts.onProgress?.(cells.length, cells.length)
+  opts.onProgress?.(blocks.length, blocks.length)
 
   const strideY = w, strideZ = w * h
 
