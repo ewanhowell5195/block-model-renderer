@@ -316,8 +316,58 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
   }
 }
 
+export function createSharedAtlas(opts = {}) {
+  return {
+    size: opts.size ?? 2048,
+    sheets: new Map(),
+    dispose() {
+      for (const sheet of this.sheets.values()) {
+        for (const page of sheet.pages) { try { page.texture.dispose() } catch {} }
+      }
+      this.sheets.clear()
+    }
+  }
+}
+
+async function sharedLocate(shared, sheet, tex) {
+  const key = hashTexture(tex)
+  let r = sheet.rects.get(key)
+  if (r) return r
+  const iw = tex.image.width, ih = tex.image.height
+  const cw = iw + 2, ch = ih + 2
+  let page = sheet.pages[sheet.pages.length - 1]
+  if (page && page.x + cw > shared.size) { page.y += page.rowH; page.x = 0; page.rowH = 0 }
+  if (!page || page.y + ch > shared.size) {
+    const canvas = new Canvas(shared.size, shared.size)
+    const texture = await loadTexture(canvas)
+    texture.magFilter = texture.minFilter = THREE.NearestFilter
+    texture.generateMipmaps = false
+    texture.colorSpace = tex.colorSpace ?? THREE.NoColorSpace
+    texture.needsUpdate = true
+    page = { canvas, ctx: canvas.getContext("2d"), texture, x: 0, y: 0, rowH: 0, index: sheet.pages.length }
+    sheet.pages.push(page)
+  }
+  const dx = page.x + 1, dy = page.y + 1
+  const img = tex.image
+  page.ctx.drawImage(img, dx, dy)
+  page.ctx.drawImage(img, 0, 0, iw, 1, dx, dy - 1, iw, 1)
+  page.ctx.drawImage(img, 0, ih - 1, iw, 1, dx, dy + ih, iw, 1)
+  page.ctx.drawImage(img, 0, 0, 1, ih, dx - 1, dy, 1, ih)
+  page.ctx.drawImage(img, iw - 1, 0, 1, ih, dx + iw, dy, 1, ih)
+  if (tex.userData?.frames) {
+    ;(page.texture.userData.regions ??= []).push({ x: dx, y: dy, w: iw, h: ih, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate })
+  }
+  page.texture.needsUpdate = true
+  page.x += cw
+  page.rowH = Math.max(page.rowH, ch)
+  r = { ai: page.index, x: dx, y: dy, w: iw, h: ih }
+  sheet.rects.set(key, r)
+  return r
+}
+
 export async function optimizeScene(placements, opts = {}) {
   if (!Array.isArray(placements)) throw new Error("optimizeScene requires an array of placements")
+  const shared = opts.sharedAtlas ?? null
   const maxAtlas = opts.maxAtlas ?? detectMaxAtlas()
   const maxTile = Math.max(64, maxAtlas >> 5)
   const cutoff = opts.translucency
@@ -418,7 +468,7 @@ export async function optimizeScene(placements, opts = {}) {
           atlasFace(o, { start: g.start, count: g.count, animKey: key, cull })
           continue
         }
-        const fls = extractFlats(geo, g, o.matrixWorld, nm, tex, mat, cull)
+        const fls = shared ? null : extractFlats(geo, g, o.matrixWorld, nm, tex, mat, cull)
         if (fls) for (const fl of fls) flats.push({ flat: fl.flat, o, mat, tex, start: fl.start, count: fl.count, cull })
         else atlasFace(o, toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull }))
       }
@@ -505,6 +555,30 @@ export async function optimizeScene(placements, opts = {}) {
     report(++ai / atlasGroups.size)
     await breathe()
     if (shouldCancel?.()) return null
+    if (shared) {
+      let sheet = shared.sheets.get(sig)
+      if (!sheet) shared.sheets.set(sig, sheet = { pages: [], rects: new Map() })
+      const rects = new Map()
+      for (const t of grp.textures) rects.set(t, await sharedLocate(shared, sheet, t))
+      const sizes = sheet.pages.map(() => ({ w: shared.size, h: shared.size }))
+      const materials = sheet.pages.map(pg => {
+        const m = grp.repMat.clone()
+        if (m.uniforms) {
+          m.uniforms.map.value = pg.texture
+          for (const k of ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]) {
+            if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
+          }
+          m.defines = { ...m.defines, FACE_ATTRS: "" }
+        }
+        else m.map = pg.texture
+        m.transparent = grp.translucent
+        m.depthWrite = !grp.translucent
+        created.materials.push(m)
+        return m
+      })
+      atlases.set(sig, { rects, sizes, materials, accs: sheet.pages.map(() => ({ P: [], N: [], U: [], F: [] })) })
+      continue
+    }
     const { atlases: ats, rects, sizes } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe)
     const regionLists = ats.map(() => [])
     const claimed = new Set()

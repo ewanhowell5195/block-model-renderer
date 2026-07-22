@@ -11,6 +11,6 @@ export { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCr
 export { renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS } from "./core/maps.js"
 export { fluidHeights, fluidTypeOf } from "./core/fluids.js"
 export { renderBlock, renderItem, renderModel, renderTexture, makeModelScene, renderModelScene, getCullFaces } from "./core/render.js"
-export { optimizeScene } from "./core/optimize.js"
+export { optimizeScene, createSharedAtlas } from "./core/optimize.js"
 export { sortTranslucent } from "./core/sorting.js"
 export { createScene } from "./core/scene.js"
