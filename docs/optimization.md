@@ -93,52 +93,6 @@ handle.detach()     // stop sorting (when discarding the scene)
 
 It traverses the object, hooks every mesh with translucent materials, and needs nothing per-frame from you: the renderer hands it the camera on draw.
 
-## Scene lighting
-
-`"world"` lighting on its own shades every face as if it stood under open sky, with `daytime` scaling the whole scene evenly. [`computeSceneLight`](#scene-lighting) adds real per-block light: torches and other emitters glow, light falls off with distance and wraps around corners, and interiors and overhangs darken because the sky can't reach them. It runs Minecraft's flood fill over the scene's block grid and packs the result into a light volume texture the `"world"` shader samples per fragment, so the gradients are smooth and merged geometry from [`optimizeScene`](#scene-optimization) is lit correctly with no extra draw calls.
-
-### `computeSceneLight(blocks, options)`
-
-| Option | Default | Description |
-|---|---|---|
-| `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too). Cell coordinates, as in [`optimizeScene`](#scene-optimization) placements |
-| `options.assets` | required | The assets source |
-| `options.version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
-| `options.dimension` | `"overworld"` | The dimension, as in [world lighting](rendering.md#world-lighting): dimensions without sky light (the nether) skip the sky seeding, so their volumes carry block light only |
-| `options.onProgress` | | `(done, total)` while the scene's blocks are processed, for progress bars. The flood fill after the last call is quick |
-
-Pass the result to every [`loadModel`](scenes.md#loadmodelscene-assets-model-args) call in the scene through the world lighting config:
-
-```js
-import { computeSceneLight, loadModel } from "block-model-renderer"
-
-const blocks = [
-  { id: "stone", pos: [0, 0, 0] },
-  { id: "torch", pos: [0, 1, 0] }
-]
-const light = await computeSceneLight(blocks, { assets })
-for (const block of blocks) {
-  // build as usual, passing the same light to each block
-  await loadModel(scene, assets, resolved, { lighting: { light } })
-}
-```
-
-Light propagates accurately to the game: block light from emitters (via [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault)) and sky light from above, both spreading one level per block and blocked by the block shapes read from the models, so a slab roof shadows the room while light wraps through the open half. The game's non-model attenuation is applied on top from extracted data (`lightDampening` in [`lighting.json`](extending.md#block-data-and-colors)): leaves, fluids, and waterlogged blocks dim light one level per block, so tree canopies darken toward the trunk and deep water darkens with depth, and tinted glass blocks light outright.
-
-Shading uses the vanilla lightmap: the dimension's ambient floor, sky and block light adding on top, the warm torchlight tint, and the brightness setting (all [configurable](rendering.md#world-lighting)). In the overworld at the default full-bright `noon` most of the scene reads as lit, so emitters mainly show indoors; use a darker `daytime` (or the nether or end) to see them everywhere.
-
-The result:
-
-| Field | Description |
-|---|---|
-| `origin`, `size` | The volume's min cell corner and dimensions in cells (the scene bounds plus a one-cell border) |
-| `blockLight`, `skyLight` | The raw levels (0-15), one `Uint8Array` cell each, x fastest then y then z |
-| `lightAt(x, y, z)` | `{ block, sky }` levels at a cell, for your own use |
-| `setOffset(position)` | Call with the world offset you move the built scene by (a `Vector3`, array, or `x, y, z` numbers), e.g. the centering translation on [`optimizeScene`](#scene-optimization)'s group, so the shader keeps sampling the right cells. Rotation and scaling aren't supported |
-| `dispose()` | Frees the light texture. Call it when you discard the scene |
-
-The volume uploads as a single 2D texture of stacked slices with trilinear filtering done in the shader, so it behaves identically on the web and on Node's WebGL1 context. Lighting is static: it's computed once from the block list, so moving or removing emitters means computing a fresh volume and rebuilding the scene.
-
 ## Packed scenes and shared atlases
 
 For streaming-scale apps, scenes can build in web workers and ship to the main thread as transferable data: the worker runs [`createScene`](scenes.md#createsceneassets-blocks-args) (workers have no WebGL, so the output group is plain geometry and materials), packs the result, and the main thread revives it into live meshes without rebuilding anything. Atlas pages are deduplicated across every scene a worker builds through a shared atlas, and the main thread mirrors those pages once rather than receiving them again per scene.

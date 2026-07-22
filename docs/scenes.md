@@ -1,6 +1,6 @@
 # Building scenes
 
-For custom rendering pipelines, lower-level functions are available. The typical flow: parse a blockstate or item definition into model references, resolve each reference into a flat model, load it into a scene, render the scene. For whole block scenes there's [`createScene`](#createsceneassets-blocks-args), which runs the entire pipeline in one call. Two parts of that pipeline have their own docs: [culling](culling.md) (hidden faces, occlusion) and [scene optimization](optimization.md) (merging, lighting volumes, translucent sorting, worker builds).
+For custom rendering pipelines, lower-level functions are available. The typical flow: parse a blockstate or item definition into model references, resolve each reference into a flat model, load it into a scene, render the scene. For whole block scenes there's [`createScene`](#createsceneassets-blocks-args), which runs the entire pipeline in one call. Two parts of that pipeline have their own docs: [culling](culling.md) (hidden faces, occlusion) and [scene optimization](optimization.md) (merging, translucent sorting, worker builds); per-block light volumes live with the lighting modes in [Rendering](rendering.md#scene-lighting).
 
 ```js
 import {
@@ -58,7 +58,7 @@ Options, grouped by what they affect. How the scene looks:
 | Option | Default | Description |
 |---|---|---|
 | `biome` | | Scene-wide biome tinting; a block's own `biome` overrides it |
-| `lighting` | `"world"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting): dimension, daytime, brightness, and `light`. World mode computes the light volume from the blocks automatically (respecting the dimension's `hasSkyLight`); set `lighting: { light }` to reuse an existing [`computeSceneLight`](optimization.md#scene-lighting) handle (it stays yours to dispose), or `{ light: false }` to skip the volume entirely |
+| `lighting` | `"world"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting): dimension, daytime, brightness, and `light`. World mode computes the light volume from the blocks automatically (respecting the dimension's `hasSkyLight`); set `lighting: { light }` to reuse an existing [`computeSceneLight`](rendering.md#scene-lighting) handle (it stays yours to dispose), or `{ light: false }` to skip the volume entirely |
 | `shaderScale` | `1` | Screen-space shader density (the end portal), as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `technical` | `false` | Build the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void) with their placeholder icons. Off, they're invisible like in game, but still feed the light volume, so a light block lights its area either way |
 | `mapArt` | | Map art callback for framed maps, as on [`renderBlock`](standard-api.md#renderblockargs). See [Map art](#map-art) |
@@ -113,7 +113,7 @@ Resolves to a handle, or `null` when cancelled:
 | `templates` | With `keepTemplates`: the built template list, `{ palette, group }` per entry. `group` is the block-local geometry stamped at every position using it (a state can own several: one per variant pick, one per fluid shape); merged element meshes carry `userData.collision` boxes. `null` otherwise |
 | `blockTemplate` | With `keepTemplates`: `Uint32Array` mapping each input block index to its `templates` index (`0xFFFFFFFF` where nothing was placed). `null` otherwise |
 | `bounds` | `THREE.Box3` of the built geometry, for camera fitting |
-| `light` | The [`computeSceneLight`](optimization.md#scene-lighting) handle when world lighting ran, else `null`. If you reposition the group, call `light.setOffset(group.position)` so torchlight stays aligned |
+| `light` | The [`computeSceneLight`](rendering.md#scene-lighting) handle when world lighting ran, else `null`. If you reposition the group, call `light.setOffset(group.position)` so torchlight stays aligned |
 | `drawCalls`, `tris` | Draw call and triangle counts from the optimize pass |
 | `sortTranslucent(camera)` | Force a translucent sort now, before a single-frame capture |
 | `dispose()` | Frees the geometry, materials, and atlas textures, and removes the group from its parent |

@@ -75,7 +75,7 @@ import {
 | `MAP_COLORS` | The vanilla map palette, `{ base, shade }`. [Details](scenes.md#map-art) |
 | `mapIdOf(item)` | The map id from an item's components, `null` when absent. [Details](scenes.md#map-art) |
 | `disposeMapArt(assets)` | Clear the cached framed-map art. [Details](scenes.md#map-art) |
-| `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](optimization.md#scene-lighting) |
+| `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](rendering.md#scene-lighting) |
 | `createSharedAtlas(opts?)` | An atlas pool shared across scenes, for worker builds and streaming. [Details](optimization.md#packed-scenes-and-shared-atlases) |
 
 ## Fluids
