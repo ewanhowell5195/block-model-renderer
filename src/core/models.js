@@ -1197,6 +1197,19 @@ export function isCrossModel(models) {
   })
 }
 
+export function cloneData(v) {
+  if (v === null || typeof v !== "object") return v
+  if (Array.isArray(v)) {
+    const n = v.length, a = new Array(n)
+    for (let i = 0; i < n; i++) a[i] = cloneData(v[i])
+    return a
+  }
+  if (ArrayBuffer.isView(v)) return v.slice()
+  const o = {}
+  for (const k in v) o[k] = cloneData(v[k])
+  return o
+}
+
 export async function resolveModelData(assets, model) {
   if (model == null) throw new Error("resolveModelData requires a model")
   if (assets == null || assets.length === 0) throw new Error("resolveModelData requires assets")
@@ -1210,13 +1223,13 @@ export async function resolveModelData(assets, model) {
   }
   const modelCache = !texImages && assets.cache?.models
   const cacheKey = modelCache ? (typeof model === "string" ? model : JSON.stringify(model)) : null
-  if (cacheKey && modelCache.has(cacheKey)) return structuredClone(modelCache.get(cacheKey))
+  if (cacheKey && modelCache.has(cacheKey)) return cloneData(modelCache.get(cacheKey))
 
   let merged = {}
 
   let type
   if (typeof model === "object") {
-    merged = structuredClone(model)
+    merged = cloneData(model)
     model = model.model
   }
 
@@ -1464,7 +1477,7 @@ export async function resolveModelData(assets, model) {
   if (!loaderOwned.has("model")) delete merged.model
   if (merged.type === "block") delete merged.display
 
-  if (cacheKey) modelCache.set(cacheKey, structuredClone(merged))
+  if (cacheKey) modelCache.set(cacheKey, cloneData(merged))
   if (texImages) merged.texture_images = texImages
   return merged
 }
@@ -1482,7 +1495,7 @@ function applyPatternLayers(model, data, dye, folder, isBase) {
     const tintIndex = model.tints.length
     model.tints.push(dye[normalize(entry.color ?? "white")])
     for (const el of layers) {
-      const clone = structuredClone(el)
+      const clone = cloneData(el)
       delete clone.type
       clone.from = clone.from.map(v => v - grow)
       clone.to = clone.to.map(v => v + grow)
