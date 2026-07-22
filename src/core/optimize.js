@@ -323,9 +323,44 @@ const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F
 
 let _v = null, _n = null
 function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
+  const idx = geo.index, pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv
+  if (idx.array && !pos.isInterleavedBufferAttribute && !nrm.isInterleavedBufferAttribute && !uv.isInterleavedBufferAttribute) {
+    const ia = idx.array, pa = pos.array, na = nrm.array, ua = uv.array
+    const m = mat.elements, e = nmat.elements
+    const m0 = m[0], m1 = m[1], m2 = m[2], m4 = m[4], m5 = m[5], m6 = m[6], m8 = m[8], m9 = m[9], m10 = m[10], m12 = m[12], m13 = m[13], m14 = m[14]
+    const e0 = e[0], e1 = e[1], e2 = e[2], e3 = e[3], e4 = e[4], e5 = e[5], e6 = e[6], e7 = e[7], e8 = e[8]
+    const P = acc.P, N = acc.N, U = acc.U, F = acc.F
+    P.ensure(count * 3); N.ensure(count * 3); U.ensure(count * 2)
+    if (fd) F.ensure(count * 2)
+    const Pa = P.a, Na = N.a, Ua = U.a, Fa = F.a
+    let pl = P.length, nl = N.length, ul = U.length, fl = F.length
+    for (let i = start; i < start + count; i++) {
+      const a = ia[i], a3 = a * 3, a2 = a * 2
+      const x = pa[a3], y = pa[a3 + 1], z = pa[a3 + 2]
+      Pa[pl] = m0 * x + m4 * y + m8 * z + m12
+      Pa[pl + 1] = m1 * x + m5 * y + m9 * z + m13
+      Pa[pl + 2] = m2 * x + m6 * y + m10 * z + m14
+      pl += 3
+      const nx0 = na[a3], ny0 = na[a3 + 1], nz0 = na[a3 + 2]
+      let nx = e0 * nx0 + e3 * ny0 + e6 * nz0
+      let ny = e1 * nx0 + e4 * ny0 + e7 * nz0
+      let nz = e2 * nx0 + e5 * ny0 + e8 * nz0
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz)
+      if (len > 0) { const inv = 1 / len; nx *= inv; ny *= inv; nz *= inv }
+      Na[nl] = nx; Na[nl + 1] = ny; Na[nl + 2] = nz
+      nl += 3
+      const u = ua[a2], v = ua[a2 + 1]
+      if (rect) { Ua[ul] = (rect.x + u * rect.w) / W; Ua[ul + 1] = 1 - (rect.y + (1 - v) * rect.h) / H }
+      else { Ua[ul] = u; Ua[ul + 1] = v }
+      ul += 2
+      if (fd) { Fa[fl] = fd[0]; Fa[fl + 1] = fd[1]; fl += 2 }
+    }
+    P.length = pl; N.length = nl; U.length = ul
+    if (fd) F.length = fl
+    return
+  }
   _v ??= new THREE.Vector3()
   _n ??= new THREE.Vector3()
-  const idx = geo.index, pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv
   for (let i = start; i < start + count; i++) {
     const a = idx.getX(i)
     _v.fromBufferAttribute(pos, a).applyMatrix4(mat)
@@ -737,10 +772,26 @@ export async function optimizeScene(placements, opts = {}) {
   function addMesh(acc, material) {
     if (!acc.P.length) return
     const geo = new THREE.BufferGeometry()
-    geo.setAttribute("position", new THREE.BufferAttribute(acc.P.data(), 3))
+    const pd = acc.P.data()
+    geo.setAttribute("position", new THREE.BufferAttribute(pd, 3))
     geo.setAttribute("normal", new THREE.BufferAttribute(acc.N.data(), 3))
     geo.setAttribute("uv", new THREE.BufferAttribute(acc.U.data(), 2))
     if (acc.F?.length) geo.setAttribute("faceData", new THREE.BufferAttribute(acc.F.data(), 2))
+    let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
+    for (let i = 0; i < pd.length; i += 3) {
+      const x = pd[i], y = pd[i + 1], z = pd[i + 2]
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (y < minY) minY = y
+      if (y > maxY) maxY = y
+      if (z < minZ) minZ = z
+      if (z > maxZ) maxZ = z
+    }
+    geo.boundingBox = new THREE.Box3(new THREE.Vector3(minX, minY, minZ), new THREE.Vector3(maxX, maxY, maxZ))
+    geo.boundingSphere = new THREE.Sphere(
+      new THREE.Vector3((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2),
+      Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2 + (maxZ - minZ) ** 2) / 2
+    )
     const mesh = new THREE.Mesh(geo, material)
     if (material.transparent) mesh.renderOrder = material.side === THREE.BackSide ? 0 : 1
     group.add(mesh)
