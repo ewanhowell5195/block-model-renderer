@@ -112,7 +112,7 @@ Minecraft renders some blocks dynamically at runtime with hardcoded geometry, wi
 
 ### Forced (highest priority)
 
-Blocks that vanilla never renders from resource pack models at all: the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void), the end portal and end gateway, and the fluids (water, lava). A resource pack can't remodel these in game, so the renderer matches that: the bundled blockstates for these blocks always win, shadowing anything your packs provide for them.
+Blocks that vanilla never renders from resource pack models at all: the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void), the end portal and end gateway, the fluids (water, lava), and the item frames (their frame; held items render from nbt). A resource pack can't remodel these in game, so the renderer matches that: the bundled blockstates for these blocks always win, shadowing anything your packs provide for them.
 
 ### Additional (rendered alongside)
 
@@ -142,7 +142,7 @@ Blocks that vanilla has since moved from entity models to block models live in v
 
 ### Fallback pack (lowest priority)
 
-A second bundled pack sits at the very bottom of the stack, beneath vanilla. It provides the vanilla atlas definitions, the [default blockstate rules](extending.md#default-blockstates), the missing-model and missing-texture placeholders, and a handful of blockstates and models some override models build on. Anything a real pack provides beats it.
+A second bundled pack sits at the very bottom of the stack, beneath vanilla. It provides the vanilla atlas definitions, the [default blockstate rules](extending.md#default-blockstates), the missing-texture placeholder, and last-resort textures some renders need (the colormaps, the end sky, the enchantment glint). Anything a real pack provides beats it. The missing-model placeholder and the template models the overrides build on ship in the additional pack's `block-model-renderer` namespace instead.
 
 ## File access
 

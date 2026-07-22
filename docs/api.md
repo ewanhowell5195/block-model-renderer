@@ -8,12 +8,12 @@ import {
   renderBlock, renderItem, renderModel, renderTexture, getCullFaces, fullyOccludes,
   exportOcclusionCache, importOcclusionCache,
   // assets and files
-  prepareAssets, readFile, listDirectory, readTexture, zipAssets, parseZip, disposeCache,
+  prepareAssets, readFile, listDirectory, readTexture, zipAssets, zipAssetsFromSlices, parseZip, disposeCache,
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
-  makeModelScene, createScene, loadModel, renderModelScene, optimizeScene, sortTranslucent, computeSceneLight,
-  createSharedAtlas, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
+  makeModelScene, createScene, loadModel, poseSpecial, renderModelScene, optimizeScene, sortTranslucent,
+  computeSceneLight, createSharedAtlas, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
@@ -49,6 +49,7 @@ import {
 | `listDirectory(dir, assets)` | List a directory across layered sources. [Details](assets.md#listdirectorydir-assets) |
 | `readTexture(path, assets, opts?)` | Read a texture as ready-to-draw frames. [Details](assets.md#readtexturepath-assets-opts) |
 | `zipAssets(input)` | Wrap a zip (bytes, `Blob`, or `File`) as an asset source. [Details](assets.md#zipassetsinput) |
+| `zipAssetsFromSlices(slice, size)` | Wrap a zip read on demand through a slice callback, for huge files. [Details](assets.md#zipassetsfromslicesslice-size) |
 | `parseZip(bytes)` | Parse a zip into its entries. [Details](assets.md#parsezipbytes) |
 | `disposeCache(assets)` | Free textures and GPU data cached on prepared assets. [Details](assets.md#caching) |
 

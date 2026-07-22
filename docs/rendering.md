@@ -45,7 +45,7 @@ The `lighting` option picks how faces are shaded:
 
 Tints are baked into the textures in every mode, and the end portal keeps its own emissive shader.
 
-The model element fields `shade: false` (legacy) and `shade_direction_override` only apply in `"world"` mode, mirroring vanilla, where they only exist in the in-world block pipeline: an unshaded element uses the up-face constant, an override uses its direction's constant. Item mode ignores both and lights every element from its real face normals, like holding the block in hand.
+The model element fields `shade: false` (legacy, versions before 26.3) and `shade_direction_override` (26.3 onward) redirect an element's shading: it lights as if it faced that direction (`shade: false` forces up). In `"world"` mode that means the direction's cardinal shade constant; in `"item"` mode the directional lights evaluate against the override instead of the element's real face normals. They apply to block-type models only; item-type models ignore both, like the game.
 
 ### World lighting
 

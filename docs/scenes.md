@@ -260,7 +260,7 @@ requestAnimationFrame(frame)
 
 ## Dynamic models
 
-Some blocks the game animates at runtime load as **dynamic models**: banners, bells, chests, decorated pots, the enchanting table book, and shulker boxes (the kinds and their part names are tabled in [Extending](extending.md#dynamic-models)). Their moving pieces are tagged as [`part`](extending.md#element-json) elements in the bundled models, so the loaded group keeps a named sub-group per part instead of merging it away, and all posing is transforms on those groups: no rebuilds, no new geometry. To find the dynamic models in a built scene, traverse for `userData.dynamic`.
+Some blocks the game animates at runtime load as **dynamic models**: banners, bells, chests, decorated pots, dragon and piglin heads, the enchanting table book, and shulker boxes (the kinds and their part names are tabled in [Extending](extending.md#dynamic-models)). Their moving pieces are tagged as [`part`](extending.md#element-json) elements in the bundled models, so the loaded group keeps a named sub-group per part instead of merging it away, and all posing is transforms on those groups: no rebuilds, no new geometry. To find the dynamic models in a built scene, traverse for `userData.dynamic`.
 
 The animation runs itself, off the same draw-driven hooks as [animated textures](#animation-browser):
 
@@ -268,8 +268,8 @@ The animation runs itself, off the same draw-driven hooks as [animated textures]
 * **Bells** get a `.ring(direction?)` method on their group (`direction` is the side the bell was hit from, default `"north"`). The body swings with the game's decaying oscillation and settles after the game's 50 ticks.
 * **Chests and shulker boxes** get `.open()` and `.close()` methods on their group. Each animates the lid over the game's 10 ticks (500ms) from wherever it currently is, so a `.close()` mid-open reverses smoothly, and the easing matches the game (chests `1 - (1 - t)³`, shulker boxes linear).
 * **Decorated pots** get a `.wobble(style?)` method on their group: `"positive"` plays the game's happy tilt (7 ticks), `"negative"` the refusal shake (10 ticks). Default `"positive"`.
-* **Dragon and piglin heads** rendered with `powered: true` animate continuously (the dragon's jaw chatters, the piglin's ears flap), phase-offset per block position. Unpowered heads stay still.
-* **Enchanting books** play the full game animation automatically, with the rendering camera as the player: the book opens and tracks the camera within range, and drifts closed when it leaves. The activation range is `userData.range` on the book's group, in blocks (default `3`, the game's), read live so you can change it any time. Each book seeds its idle facing and bob phase from its position, so a room of them doesn't move in lockstep.
+* **Dragon and piglin heads** rendered with `powered: true` animate continuously (the dragon's jaw chatters, the piglin's ears flap). Unpowered heads stay still.
+* **Enchanting books** play the full game animation automatically, with the rendering camera as the player: the book opens and tracks the camera within range, and drifts closed when it leaves. The activation range is `userData.range` on the book's group, in blocks (default `3`, the game's), read live so you can change it any time.
 
 Nothing is yours to run per-frame: like texture animation, it advances whenever the scene draws. A single one-off render shows the load pose.
 
@@ -335,7 +335,7 @@ const handle = await createScene(assets, blocks, {
 
 Returning nothing (an unknown id, no world open) renders the frame holding the `filled_map` item instead.
 
-The bytes can also be built by hand: one per pixel, where the pixel at `(x, y)` (from the top-left) is `colors[x + y * 128] = color * 4 + shade`, with `color` a `MAP_COLORS.base` index and `shade` a brightness step 0-3:
+The bytes can also be built by hand: one per pixel, where the pixel at `(x, y)` (from the top-left) is `colors[x + y * 128] = color * 4 + shade`, with `color` a `MAP_COLORS.base` index and `shade` one of the game's four brightness steps (multipliers 180, 220, 255, 135 out of 255, so `2` is full strength and `3` is the darkest):
 
 ```js
 const colors = new Uint8Array(16384) // every pixel starts unset, showing the parchment
@@ -344,7 +344,7 @@ const grass = MAP_COLORS.names.indexOf("grass")
 const water = MAP_COLORS.names.indexOf("water")
 colors[64 + 64 * 128] = grass * 4 + 2 // (64, 64): full strength
 colors[65 + 64 * 128] = water * 4 + 2 // (65, 64): full strength
-colors[64 + 65 * 128] = water * 4 + 0 // (64, 65): darkest step
+colors[64 + 65 * 128] = water * 4 + 3 // (64, 65): darkest step
 
 const art = await renderMapColors(assets, colors)
 ```
