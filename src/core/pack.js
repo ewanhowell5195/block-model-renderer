@@ -174,11 +174,7 @@ export function createAtlasMirror(opts = {}) {
       for (const sheet of sheets.values()) for (const page of sheet) if (page) fn(page)
     },
     apply(pack) {
-      const perPage = new Map()
-      for (const d of pack.deltas) {
-        const k = d.sig + "\0" + d.page
-        perPage.set(k, (perPage.get(k) || 0) + 1)
-      }
+      const fresh = new Set()
       for (const d of pack.deltas) {
         let sheet = sheets.get(d.sig)
         if (!sheet) sheets.set(d.sig, sheet = [])
@@ -190,10 +186,11 @@ export function createAtlasMirror(opts = {}) {
           texture.generateMipmaps = false
           texture.colorSpace = d.colorSpace ?? THREE.NoColorSpace
           sheet[d.page] = page = { canvas, ctx: canvas.getContext("2d"), texture }
+          fresh.add(page)
         }
         page.ctx.drawImage(d.bitmap, d.x, d.y)
         let subbed = false
-        if (renderer && perPage.get(d.sig + "\0" + d.page) <= 12) {
+        if (renderer && !fresh.has(page)) {
           try {
             const sub = new Canvas(d.bitmap.width, d.bitmap.height)
             sub.getContext("2d").drawImage(d.bitmap, 0, 0)
