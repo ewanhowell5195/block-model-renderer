@@ -556,6 +556,7 @@ export const parseItemDefinition = wrap("parseItemDefinition")
 export const resolveModelData = wrap("resolveModelData")
 export const renderModelScene = wrap("renderModelScene")
 export const getCullFaces = wrap("getCullFaces")
+export const fullyOccludes = wrap("fullyOccludes")
 export const computeSceneLight = wrap("computeSceneLight")
 export const getBiomeTint = wrap("getBiomeTint")
 export async function renderTexture(args = {}) {

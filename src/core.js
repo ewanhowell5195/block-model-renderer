@@ -10,7 +10,7 @@ export { computeAnimationTimeline, interpolateFrames, collectAnimated, buildSche
 export { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isCrossModel, getBiomeTint, poseSpecial, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, resolveWorldLighting } from "./core/models.js"
 export { renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS } from "./core/maps.js"
 export { fluidHeights, fluidTypeOf } from "./core/fluids.js"
-export { renderBlock, renderItem, renderModel, renderTexture, makeModelScene, renderModelScene, getCullFaces } from "./core/render.js"
+export { renderBlock, renderItem, renderModel, renderTexture, makeModelScene, renderModelScene, getCullFaces, fullyOccludes } from "./core/render.js"
 export { optimizeScene, createSharedAtlas } from "./core/optimize.js"
 export { packScene, packAtlasDelta, createAtlasMirror, reviveScene } from "./core/pack.js"
 export { sortTranslucent } from "./core/sorting.js"

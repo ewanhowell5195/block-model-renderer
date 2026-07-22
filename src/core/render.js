@@ -88,6 +88,31 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
   return cull
 }
 
+export async function fullyOccludes({ id, properties, assets, version } = {}) {
+  if (!id || AIR_BLOCKS.test(id)) return false
+  if (assets == null || assets.length === 0) throw new Error("fullyOccludes requires the assets option")
+  assets = scopedCache(await prepareAssets(assets))
+  const occCache = assets.cache.occlusion
+  const rules = await blockRules(assets)
+  let key = id
+  if (properties) for (const k of Object.keys(properties).sort()) key += "," + k + "=" + properties[k]
+  let m = occCache.get(key)
+  if (m === undefined) {
+    try {
+      const g = await buildBlockModel(assets, id, properties, version)
+      m = g ? occludingFaces(g, id, false, rules) : null
+    } catch { m = null }
+    occCache.set(key, m)
+  }
+  if (!m) return false
+  for (const dir of ["east", "west", "up", "down", "south", "north"]) {
+    const mask = m[dir]
+    if (!mask) return false
+    for (let v = 0; v < 16; v++) if (mask[v] !== 0xffff) return false
+  }
+  return true
+}
+
 const OUTPUT_DEFAULTS = {
   jpeg: { mozjpeg: true },
   jpg: { mozjpeg: true },
