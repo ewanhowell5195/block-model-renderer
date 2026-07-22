@@ -112,12 +112,16 @@ export async function packScene(handle, opts = {}) {
     }
     const material = Array.isArray(o.material) ? [] : await packMaterial(o.material)
     if (Array.isArray(o.material)) for (const m of o.material) material.push(await packMaterial(m))
+    if (!geo.boundingBox) geo.computeBoundingBox()
+    if (!geo.boundingSphere) geo.computeBoundingSphere()
+    const bb = geo.boundingBox, bs = geo.boundingSphere
     const spec = {
       attrs, index, material,
       groups: geo.groups?.length ? geo.groups.map(g => ({ start: g.start, count: g.count, materialIndex: g.materialIndex })) : null,
       matrix: Array.from(o.matrixWorld.elements),
       renderOrder: o.renderOrder ?? 0,
-      frustumCulled: o.frustumCulled !== false
+      frustumCulled: o.frustumCulled !== false,
+      bounds: [bb.min.x, bb.min.y, bb.min.z, bb.max.x, bb.max.y, bb.max.z, bs.center.x, bs.center.y, bs.center.z, bs.radius]
     }
     if (o.isInstancedMesh) {
       spec.instanced = o.count
@@ -194,19 +198,24 @@ export function createAtlasMirror(opts = {}) {
         if (!subbed) page.texture.needsUpdate = true
         d.bitmap.close?.()
         if (d.anim) {
-          const frames = d.anim.interpolate
-            ? d.anim.frames.map(f => {
-                const c = new Canvas(f.width, f.height)
-                c.getContext("2d").drawImage(f, 0, 0)
-                f.close?.()
-                return c
-              })
-            : d.anim.frames
-          ;(page.texture.userData.regions ??= []).push({
-            x: d.x + 1, y: d.y + 1, w: frames[0].width, h: frames[0].height,
-            frames, times: d.anim.times ?? undefined, interpolate: d.anim.interpolate
-          })
-          this.regionsVersion++
+          const regions = page.texture.userData.regions ??= []
+          if (!regions.some(g => g.x === d.x + 1 && g.y === d.y + 1)) {
+            const frames = d.anim.interpolate
+              ? d.anim.frames.map(f => {
+                  const c = new Canvas(f.width, f.height)
+                  c.getContext("2d").drawImage(f, 0, 0)
+                  f.close?.()
+                  return c
+                })
+              : d.anim.frames
+            regions.push({
+              x: d.x + 1, y: d.y + 1, w: frames[0].width, h: frames[0].height,
+              frames, times: d.anim.times ?? undefined, interpolate: d.anim.interpolate
+            })
+            this.regionsVersion++
+          } else {
+            for (const f of d.anim.frames) f.close?.()
+          }
         }
       }
       subFlush(renderer)
@@ -303,6 +312,11 @@ export function reviveScene(payload, opts = {}) {
       geo.setIndex(idx)
     }
     if (spec.groups) for (const g of spec.groups) geo.addGroup(g.start, g.count, g.materialIndex)
+    if (spec.bounds) {
+      const b = spec.bounds
+      geo.boundingBox = new THREE.Box3(new THREE.Vector3(b[0], b[1], b[2]), new THREE.Vector3(b[3], b[4], b[5]))
+      geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(b[6], b[7], b[8]), b[9])
+    }
     owned.geometries.push(geo)
     const material = Array.isArray(spec.material) ? spec.material.map(i => materials[i]) : materials[spec.material]
     let mesh
