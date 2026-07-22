@@ -4,6 +4,7 @@ import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining } from "./assets.js"
 import { buildAnimation } from "./animation.js"
+import { classifyPngAlpha, hashBytes } from "./png.js"
 import { modelLoaders, activeLoaders } from "./loaders.js"
 import { mapArtFor, mapIdOf } from "./maps.js"
 
@@ -1141,16 +1142,18 @@ async function loadMinecraftTexture(path, assets, type) {
   const buf = await readFile(path, assets)
   if (!buf) return { image: await getMissingImage(assets) }
 
+  const cls = await classifyPngAlpha(buf, assets.translucency).catch(() => null)
+  const srcHash = hashBytes(buf)
   const image = await loadImage(buf)
 
   let meta
   try {
     meta = parseJson(await readFile(path + ".mcmeta", assets, buf.hintIndex)).animation ?? {}
   } catch {
-    return { image }
+    return { image, cls, srcHash }
   }
 
-  return buildAnimation(image, meta)
+  return { ...buildAnimation(image, meta), cls, srcHash }
 }
 
 function applyTint(img, tint) {
@@ -1795,7 +1798,13 @@ export async function loadModel(scene, assets, model, args) {
     }
 
     const texture = await makeThreeTexture(image)
-    texture.userData.translucent = imageIsTranslucent(image, assets.translucency)
+    if (loaded.cls) {
+      texture.userData.translucent = loaded.cls.translucent
+      texture.userData.opaque = loaded.cls.opaque
+    } else {
+      texture.userData.translucent = imageIsTranslucent(image, assets.translucency)
+    }
+    if (loaded.srcHash != null) texture.userData.srcHash = (tint ? loaded.srcHash + "t" + tint : loaded.srcHash) + "_" + image.width + "x" + image.height
     if (loaded.animated && frames) {
       texture.userData.frames = frames
       texture.userData.times = loaded.times

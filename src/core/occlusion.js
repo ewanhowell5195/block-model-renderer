@@ -17,6 +17,10 @@ let _canvas, _ctx
 const opaqueCache = new WeakMap()
 function isOpaque(tex) {
   let o = opaqueCache.get(tex); if (o !== undefined) return o
+  if (tex?.userData?.opaque !== undefined) {
+    opaqueCache.set(tex, tex.userData.opaque)
+    return tex.userData.opaque
+  }
   const img = tex?.image
   if (!img?.width) return false
   const w = img.width, h = img.height

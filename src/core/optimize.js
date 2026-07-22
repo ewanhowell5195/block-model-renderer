@@ -118,6 +118,10 @@ const opaqueCache = new WeakMap()
 function isOpaque(tex) {
   let o = opaqueCache.get(tex)
   if (o !== undefined) return o
+  if (tex.userData?.opaque !== undefined) {
+    opaqueCache.set(tex, tex.userData.opaque)
+    return tex.userData.opaque
+  }
   const d = pixelData(tex.image)
   o = true
   for (let i = 3; i < d.length; i += 4) if (d[i] < 255) { o = false; break }
@@ -148,6 +152,8 @@ function hashTexture(tex) {
     if (ah === undefined) animHash.set(tex, ah = `anim${++animHashId}_${tex.image.width}x${tex.image.height}`)
     return ah
   }
+  const sh = tex.userData?.srcHash
+  if (sh) return sh
   const img = tex.image
   let h = texHash.get(img)
   if (h !== undefined) return h
