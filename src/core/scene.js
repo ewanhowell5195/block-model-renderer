@@ -248,6 +248,7 @@ export async function createScene(assets, blocks, args = {}) {
     optimized = await optimizeScene(placements, {
       maxAtlas: args.maxAtlas, translucency: args.translucency, resortDistance: args.resortDistance, sliceMs,
       sharedAtlas: args.sharedAtlas,
+      batchDynamics: args.batchDynamics,
       onProgress: (done, total) => report(done, total),
       shouldCancel
     })

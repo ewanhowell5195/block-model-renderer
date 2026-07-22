@@ -336,6 +336,7 @@ export function createSharedAtlas(opts = {}) {
   return {
     size: opts.size ?? 2048,
     renderer: opts.renderer ?? null,
+    serial: 0,
     sheets: new Map(),
     dispose() {
       for (const sheet of this.sheets.values()) {
@@ -393,7 +394,7 @@ async function sharedLocate(shared, sheet, tex) {
   if (!subbed) page.texture.needsUpdate = true
   page.x += cw
   page.rowH = Math.max(page.rowH, ch)
-  r = { ai: page.index, x: dx, y: dy, w: iw, h: ih }
+  r = { ai: page.index, x: dx, y: dy, w: iw, h: ih, serial: ++shared.serial }
   sheet.rects.set(key, r)
   return r
 }
@@ -781,7 +782,7 @@ export async function optimizeScene(placements, opts = {}) {
   }
   for (const d of dynamicInstances) group.add(d.holder)
   const _dynM = new THREE.Matrix4(), _dynInv = new THREE.Matrix4()
-  const canBatch = parseInt(THREE.REVISION) >= 159 && typeof THREE.BatchedMesh === "function" && platform.batchedMesh !== false
+  const canBatch = opts.batchDynamics !== false && parseInt(THREE.REVISION) >= 159 && typeof THREE.BatchedMesh === "function" && platform.batchedMesh !== false
   const batchGroups = new Map()
   for (const bucket of dynBuckets.values()) {
     const entries = bucket.entries

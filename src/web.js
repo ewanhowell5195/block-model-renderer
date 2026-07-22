@@ -683,4 +683,4 @@ export function createAnimator(root) {
   }
 }
 
-export { COLORS, isWaterloggable, isWaterlogged, getLightEmission, isCrossModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, optimizeScene, createSharedAtlas, sortTranslucent, poseSpecial, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS } from "./core.js"
+export { COLORS, isWaterloggable, isWaterlogged, getLightEmission, isCrossModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, optimizeScene, createSharedAtlas, packScene, packAtlasDelta, createAtlasMirror, reviveScene, sortTranslucent, poseSpecial, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS } from "./core.js"
