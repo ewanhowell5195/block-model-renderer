@@ -325,9 +325,10 @@ export async function optimizeScene(placements, opts = {}) {
   const shouldCancel = opts.shouldCancel
   const tiledCache = new Map()
 
+  const sliceMs = opts.sliceMs ?? 40
   let sliceT = performance.now()
   async function breathe() {
-    if (performance.now() - sliceT < 40) return
+    if (performance.now() - sliceT < sliceMs) return
     await nextTask()
     sliceT = performance.now()
   }

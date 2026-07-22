@@ -136,13 +136,22 @@ export async function computeSceneLight(blocks, opts = {}) {
 
   const strideY = w, strideZ = w * h
 
-  function spread(light) {
+  const sliceMs = opts.sliceMs ?? 0
+  let sliceT = performance.now()
+  async function breathe() {
+    if (!sliceMs || performance.now() - sliceT < sliceMs) return
+    await new Promise(resolve => setTimeout(resolve))
+    sliceT = performance.now()
+  }
+
+  async function spread(light) {
     const buckets = []
     for (let l = 0; l <= 15; l++) buckets[l] = []
     for (let i = 0; i < n; i++) if (light[i] > 1) buckets[light[i]].push(i)
     for (let lvl = 15; lvl >= 2; lvl--) {
       const bucket = buckets[lvl]
       for (let bi = 0; bi < bucket.length; bi++) {
+        if (sliceMs && (bi & 2047) === 2047) await breathe()
         const i = bucket[bi]
         if (light[i] !== lvl) continue
         const x = i % w, r = (i / w) | 0, y = r % h, z = (r / h) | 0
@@ -194,8 +203,8 @@ export async function computeSceneLight(blocks, opts = {}) {
     if (emit) blockLight[i] = emit
   }
 
-  spread(blockLight)
-  spread(skyLight)
+  await spread(blockLight)
+  await spread(skyLight)
 
   const sampleBlock = new Uint8Array(blockLight)
   const sampleSky = new Uint8Array(skyLight)
@@ -228,6 +237,7 @@ export async function computeSceneLight(blocks, opts = {}) {
   const bytes = new Uint8Array(texW * texH * 4)
   const clampIdx = (x, y, z) => ((z < 0 ? 0 : z >= d ? d - 1 : z) * h + (y < 0 ? 0 : y >= h ? h - 1 : y)) * w + (x < 0 ? 0 : x >= w ? w - 1 : x)
   for (let y = 0; y <= h; y++) {
+    await breathe()
     const tx = (y % cols) * W2, ty = ((y / cols) | 0) * D2
     for (let z = 0; z <= d; z++) {
       let ti = ((ty + z) * texW + tx) * 4

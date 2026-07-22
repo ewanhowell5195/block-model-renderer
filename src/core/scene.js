@@ -79,9 +79,10 @@ export async function createScene(assets, blocks, args = {}) {
   }
   const report = (done, total) => onProgress?.(stage, done, total)
 
+  const sliceMs = args.sliceMs ?? 40
   let sliceT = performance.now()
   async function breathe() {
-    if (performance.now() - sliceT < 40) return
+    if (performance.now() - sliceT < sliceMs) return
     await nextTask()
     sliceT = performance.now()
   }
@@ -110,7 +111,7 @@ export async function createScene(assets, blocks, args = {}) {
     }
     blockPalette[i] = pi
     if (b.overlay) overlays.push({ pos: b.pos, palette: pi })
-    else cells.set(posKey, { pos: b.pos, palette: pi })
+    else cells.set(posKey, { pos: b.pos, palette: pi, context: b.context === true })
   }
 
   enter("parse")
@@ -135,7 +136,7 @@ export async function createScene(assets, blocks, args = {}) {
   for (const cell of cells.values()) {
     const entry = palette[cell.palette]
 
-    if (!args.technical && TECHNICAL_BLOCKS.has(entry.id)) {
+    if (cell.context || (!args.technical && TECHNICAL_BLOCKS.has(entry.id))) {
       cell.template = null
       continue
     }
@@ -193,7 +194,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (cells.size) {
       light = await computeSceneLight(Array.from(cells.values(), c => ({
         id: palette[c.palette].id, properties: palette[c.palette].properties ?? undefined, pos: c.pos
-      })), { assets, version, dimension: worldCfg?.dimension })
+      })), { assets, version, dimension: worldCfg?.dimension, sliceMs: args.sliceMs })
     }
     report(1, 1)
     if (shouldCancel?.()) return null
@@ -225,11 +226,9 @@ export async function createScene(assets, blocks, args = {}) {
     }
     daytimeUniform ??= tmpl.userData.daytime
     templateOf.set(key, tmpl)
-    if (++built % 16 === 0) {
-      report(built, templateSpecs.size)
-      await breathe()
-      if (shouldCancel?.()) return null
-    }
+    report(++built, templateSpecs.size)
+    await breathe()
+    if (shouldCancel?.()) return null
   }
   report(1, 1)
   if (daytimeUniform) group.userData.daytime = daytimeUniform
@@ -247,7 +246,7 @@ export async function createScene(assets, blocks, args = {}) {
       placements.push({ group: templateOf.get(o.template), pos: o.pos, cull: null })
     }
     optimized = await optimizeScene(placements, {
-      maxAtlas: args.maxAtlas, translucency: args.translucency, resortDistance: args.resortDistance,
+      maxAtlas: args.maxAtlas, translucency: args.translucency, resortDistance: args.resortDistance, sliceMs,
       onProgress: (done, total) => report(done, total),
       shouldCancel
     })

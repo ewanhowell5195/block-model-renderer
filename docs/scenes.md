@@ -51,6 +51,7 @@ Each block entry:
 | `biome` | Biome tinting for this block's colormap tints, same value as the `biome` render option. Overrides `args.biome` |
 | `nbt` | Block entity data rendered into the scene: an item frame's held item, a shelf's contents, or a banner's patterns, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Entries with the same id, properties, and nbt share one template |
 | `overlay` | `true` renders the entry without occupying its cell: no face culling in either direction and no light volume contribution, and other blocks (or more overlays) can share the position. Item frames are the intended use, matching their entity nature in game |
+| `context` | `true` makes the entry participate without rendering: it culls neighbor faces, shapes fluid surfaces, and feeds the light volume, but emits no geometry. Use it to border a partial build (a chunk tile) with its surroundings so the edges come out right |
 
 Options, grouped by what they affect. How the scene looks:
 
