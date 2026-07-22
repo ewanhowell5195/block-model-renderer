@@ -23,6 +23,9 @@ const DIRS = {
   west: [-1, 0, 0],
   east: [1, 0, 0]
 }
+const DIR_NAMES = Object.keys(DIRS)
+const DIR_VECS = Object.values(DIRS)
+const _nbr = new Int32Array(6)
 
 async function hasRandomModels(assets, id) {
   const cache = assets.cache.sceneRandom ??= new Map()
@@ -142,14 +145,16 @@ export async function createScene(assets, blocks, args = {}) {
       data: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
       mapArt: args.mapArt, pos: entry.pos ?? undefined, ignoreAtlases: args.ignoreAtlases, version
     })
+    entry.flat = { id: entry.id, ...(entry.properties ?? {}) }
+    entry.fluid = fluidTypeOf(entry.id, entry.properties, rules)
+    entry.random = await hasRandomModels(assets, entry.id)
     await breathe()
     if (shouldCancel?.()) return null
   }
   const neighborAt = (pos, dx, dy, dz) => {
     const c = cells.get(PK(pos[0] + dx, pos[1] + dy, pos[2] + dz))
     if (!c) return null
-    const p = palette[c.palette]
-    return { c, flat: { id: p.id, ...(p.properties ?? {}) } }
+    return { c, flat: palette[c.palette].flat }
   }
   const cullMemo = new Map()
   const templateOf = new Map()
@@ -163,36 +168,41 @@ export async function createScene(assets, blocks, args = {}) {
       continue
     }
 
-    const neighbors = {}
+    const px = cell.pos[0], py = cell.pos[1], pz = cell.pos[2]
     let cullKey = String(cell.palette)
-    for (const dir in DIRS) {
-      const [dx, dy, dz] = DIRS[dir]
-      const n = neighborAt(cell.pos, dx, dy, dz)
-      if (n) neighbors[dir] = n.flat
-      else if (args.externalOcclusion?.(cell.pos[0] + dx, cell.pos[1] + dy, cell.pos[2] + dz)) neighbors[dir] = true
-      cullKey += "|" + (n ? n.c.palette : neighbors[dir] === true ? "X" : "")
+    for (let di = 0; di < 6; di++) {
+      const [dx, dy, dz] = DIR_VECS[di]
+      const c = cells.get(PK(px + dx, py + dy, pz + dz))
+      if (c) { _nbr[di] = c.palette; cullKey += "|" + c.palette }
+      else if (args.externalOcclusion?.(px + dx, py + dy, pz + dz)) { _nbr[di] = -2; cullKey += "|X" }
+      else { _nbr[di] = -1; cullKey += "|" }
     }
     let cull = cullMemo.get(cullKey)
     if (cull === undefined) {
+      const neighbors = {}
+      for (let di = 0; di < 6; di++) {
+        if (_nbr[di] >= 0) neighbors[DIR_NAMES[di]] = palette[_nbr[di]].flat
+        else if (_nbr[di] === -2) neighbors[DIR_NAMES[di]] = true
+      }
       cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version })
       cullMemo.set(cullKey, cull)
     }
     cell.cull = cull.size ? cull : null
 
     let fh = null
-    if (fluidTypeOf(entry.id, entry.properties, rules)) {
+    if (entry.fluid) {
       const hood = {}
       for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy && !dz) continue
         const n = neighborAt(cell.pos, dx, dy, dz)
         if (n) hood[cellKey3(dx, dy, dz)] = n.flat
       }
-      hood.self = { id: entry.id, ...(entry.properties ?? {}) }
-      fh = await fluidHeights(assets, fluidTypeOf(entry.id, entry.properties, rules), hood)
+      hood.self = entry.flat
+      fh = await fluidHeights(assets, entry.fluid, hood)
     }
 
     let seed = null
-    if (await hasRandomModels(assets, entry.id)) {
+    if (entry.random) {
       seed = Math.imul((posHash(cell.pos[0], cell.pos[1], cell.pos[2]) & 15) + 1, 0x9E3779B1) >>> 0
     }
     const templateKey = cell.palette + "|" + (seed ?? "") + "|" + (fh ? JSON.stringify(fh) : "")
