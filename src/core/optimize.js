@@ -319,20 +319,24 @@ async function buildAtlas(textures, maxAtlas, breathe) {
   return { atlases, rects, sizes, entry }
 }
 
+const GR_M = 1 << 25, GR_W = 67108864
+const packCell = (i, j) => (j + GR_M) * GR_W + (i + GR_M)
 function greedyRects(cellSet) {
   const done = new Set(), rects = []
-  const coords = Array.from(cellSet).map(s => s.split(",").map(Number)).sort((p, q) => p[1] - q[1] || p[0] - q[0])
-  for (const [a, b] of coords) {
-    if (done.has(a + "," + b)) continue
-    let a1 = a
-    while (cellSet.has((a1 + 1) + "," + b) && !done.has((a1 + 1) + "," + b)) a1++
-    let b1 = b, grow = true
+  const coords = Float64Array.from(cellSet).sort()
+  for (const v of coords) {
+    if (done.has(v)) continue
+    const im = v % GR_W, i0 = im - GR_M, j0 = (v - im) / GR_W - GR_M
+    let a1 = i0
+    while (cellSet.has(v + (a1 - i0 + 1)) && !done.has(v + (a1 - i0 + 1))) a1++
+    let b1 = j0, grow = true
     while (grow) {
-      for (let x = a; x <= a1; x++) if (!cellSet.has(x + "," + (b1 + 1)) || done.has(x + "," + (b1 + 1))) { grow = false; break }
+      const rowBase = v + (b1 + 1 - j0) * GR_W
+      for (let x = 0; x <= a1 - i0; x++) { const c = rowBase + x; if (!cellSet.has(c) || done.has(c)) { grow = false; break } }
       if (grow) b1++
     }
-    for (let y = b; y <= b1; y++) for (let x = a; x <= a1; x++) done.add(x + "," + y)
-    rects.push([a, a1, b, b1])
+    for (let y = 0; y <= b1 - j0; y++) for (let x = 0; x <= a1 - i0; x++) done.add(v + y * GR_W + x)
+    rects.push([i0, a1, j0, b1])
   }
   return rects
 }
@@ -605,6 +609,7 @@ export async function optimizeScene(placements, opts = {}) {
 
   const _primeCam = new THREE.Object3D()
   const grids = new Map()
+  const cellIds = new Map()
   stage(800)
   let scanned = 0
   for (const p of placements) {
@@ -617,13 +622,19 @@ export async function optimizeScene(placements, opts = {}) {
     if (!td) continue
     for (const f of td.merge) {
       if (f.cull && p.cull?.has(f.cull)) continue
+      let cid = f.cid
+      if (cid === undefined) {
+        cid = cellIds.get(f.cellKey)
+        if (cid === undefined) cellIds.set(f.cellKey, cid = cellIds.size)
+        f.cid = cid
+      }
       const wpc = f.pc + p.pos[f.na] * 16
       const wa0 = f.a0 + p.pos[f.pa] * 16, wb0 = f.b0 + p.pos[f.pb] * 16
       const phaseA = ((wa0 % f.wa) + f.wa) % f.wa, phaseB = ((wb0 % f.wb) + f.wb) % f.wb
-      const key = f.na + "|" + wpc.toFixed(2) + "|" + f.ns + "|" + f.cellKey + "|" + phaseA.toFixed(2) + "|" + phaseB.toFixed(2)
+      const key = cid + "|" + f.na + "|" + Math.round(wpc * 100) + "|" + f.ns + "|" + Math.round(phaseA * 100) + "|" + Math.round(phaseB * 100)
       let grid = grids.get(key)
       if (!grid) grids.set(key, grid = { f, wpc, phaseA, phaseB, cells: new Set() })
-      grid.cells.add(Math.round((wa0 - phaseA) / f.wa) + "," + Math.round((wb0 - phaseB) / f.wb))
+      grid.cells.add(packCell(Math.round((wa0 - phaseA) / f.wa), Math.round((wb0 - phaseB) / f.wb)))
     }
   }
   const greedyQuads = []
