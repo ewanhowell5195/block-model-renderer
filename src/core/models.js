@@ -2539,6 +2539,23 @@ function makeGlintMaterial(glintTexture, baseTexture, side) {
   return material
 }
 
+export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]
+
+export function occlusionStateKey(id, props) {
+  let key = id
+  if (props) for (const k of Object.keys(props).sort()) key += "," + k + "=" + props[k]
+  return key
+}
+
+export async function buildOcclusionModel(assets, id, props, version) {
+  const g = new THREE.Group()
+  for (const model of await parseBlockstate(assets, id, { data: props ?? {}, ignoreAtlases: true, version })) {
+    if (model.model === "block-model-renderer:missing") return null
+    await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false })
+  }
+  return g
+}
+
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true) {
   if ((lighting === "scene" || lighting === "off") && shader?.type !== "end_portal") {
     texture.colorSpace = THREE.SRGBColorSpace

@@ -1,7 +1,7 @@
 import { platform, render, THREE, loadTexture } from "./platform.js"
 import { prepareAssets, scopedCache, getMissingImage } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
-import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt } from "./models.js"
+import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, buildOcclusionModel, occlusionStateKey } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, collectAnimated, applyFrame, readTexture } from "./animation.js"
@@ -19,15 +19,6 @@ function buffersEqual(a, b) {
   return true
 }
 
-async function buildBlockModel(assets, id, props, version) {
-  const g = new THREE.Group()
-  for (const model of await parseBlockstate(assets, id, { data: props ?? {}, ignoreAtlases: true, version })) {
-    if (model.model === "block-model-renderer:missing") return null
-    await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false })
-  }
-  return g
-}
-
 export async function getCullFaces({ id, blockstates, neighbors, assets, version } = {}) {
   if (!id) throw new Error("getCullFaces requires the id option")
   if (AIR_BLOCKS.test(id)) return new Set()
@@ -35,18 +26,13 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
   assets = scopedCache(await prepareAssets(assets))
   const occCache = assets.cache.occlusion
   const rules = await blockRules(assets)
-  function stateKey(bid, props) {
-    let key = bid
-    if (props) for (const k of Object.keys(props).sort()) key += "," + k + "=" + props[k]
-    return key
-  }
   async function masksFor(bid, props) {
     if (AIR_BLOCKS.test(bid)) return null
-    const key = stateKey(bid, props)
+    const key = occlusionStateKey(bid, props)
     let m = occCache.get(key)
     if (m === undefined) {
       try {
-        const g = await buildBlockModel(assets, bid, props, version)
+        const g = await buildOcclusionModel(assets, bid, props, version)
         m = g ? occludingFaces(g, bid, false, rules) : null
       } catch { m = null }
       occCache.set(key, m)
@@ -54,11 +40,11 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     return m
   }
   async function selfMasksFor() {
-    const key = "self\0" + stateKey(id, blockstates)
+    const key = "self\0" + occlusionStateKey(id, blockstates)
     let m = occCache.get(key)
     if (m === undefined) {
       try {
-        const g = await buildBlockModel(assets, id, blockstates, version)
+        const g = await buildOcclusionModel(assets, id, blockstates, version)
         m = g ? occludingFaces(g, null, true) : null
       } catch { m = null }
       occCache.set(key, m)
@@ -88,32 +74,31 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
   return cull
 }
 
+const MASK_DIRS = ["east", "west", "up", "down", "south", "north"]
+
 export async function fullyOccludes({ id, properties, assets, version } = {}) {
   if (!id || AIR_BLOCKS.test(id)) return false
   if (assets == null || assets.length === 0) throw new Error("fullyOccludes requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
   const occCache = assets.cache.occlusion
   const rules = await blockRules(assets)
-  let key = id
-  if (properties) for (const k of Object.keys(properties).sort()) key += "," + k + "=" + properties[k]
+  const key = occlusionStateKey(id, properties)
   let m = occCache.get(key)
   if (m === undefined) {
     try {
-      const g = await buildBlockModel(assets, id, properties, version)
+      const g = await buildOcclusionModel(assets, id, properties, version)
       m = g ? occludingFaces(g, id, false, rules) : null
     } catch { m = null }
     occCache.set(key, m)
   }
   if (!m) return false
-  for (const dir of ["east", "west", "up", "down", "south", "north"]) {
+  for (const dir of MASK_DIRS) {
     const mask = m[dir]
     if (!mask) return false
     for (let v = 0; v < 16; v++) if (mask[v] !== 0xffff) return false
   }
   return true
 }
-
-const MASK_DIRS = ["east", "west", "up", "down", "south", "north"]
 
 export async function exportOcclusionCache(assets) {
   assets = await prepareAssets(assets)

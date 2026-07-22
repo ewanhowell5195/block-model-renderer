@@ -1,7 +1,7 @@
 import { THREE, normalize } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { blockRules } from "./data.js"
-import { parseBlockstate, resolveModelData, loadModel, defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS } from "./models.js"
+import { defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS, buildOcclusionModel, occlusionStateKey } from "./models.js"
 import { occludingFaces } from "./occlusion.js"
 import { fluidTypeOf } from "./fluids.js"
 
@@ -13,15 +13,6 @@ const DIR = [
   { dx: 0, dy: 0, dz: -1, face: "north", opposite: "south" },
   { dx: 0, dy: 0, dz: 1, face: "south", opposite: "north" }
 ]
-
-async function buildBlockModel(assets, id, props, version) {
-  const g = new THREE.Group()
-  for (const model of await parseBlockstate(assets, id, { data: props ?? {}, ignoreAtlases: true, version })) {
-    if (model.model === "block-model-renderer:missing") return null
-    await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false })
-  }
-  return g
-}
 
 function isFullCube(masks) {
   if (!masks) return false
@@ -56,19 +47,13 @@ export async function computeSceneLight(blocks, opts = {}) {
   const defaults = await defaultBlockstates(assets)
   const rules = await blockRules(assets)
 
-  function stateKey(bid, props) {
-    let key = bid
-    if (props) for (const k of Object.keys(props).sort()) key += "," + k + "=" + props[k]
-    return key
-  }
-
   async function masksFor(bid, props) {
     if (AIR_BLOCKS.test(bid)) return null
-    const key = stateKey(bid, props)
+    const key = occlusionStateKey(bid, props)
     let m = occCache.get(key)
     if (m === undefined) {
       try {
-        const g = await buildBlockModel(assets, bid, props, version)
+        const g = await buildOcclusionModel(assets, bid, props, version)
         m = g ? occludingFaces(g, bid, false, rules) : null
       } catch { m = null }
       occCache.set(key, m)
@@ -127,7 +112,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     if (!byId) siMemo.set(po, byId = new Map())
     let si = byId.get(id)
     if (si === undefined) {
-      const key = stateKey(id, b.properties)
+      const key = occlusionStateKey(id, b.properties)
       si = stateIds.get(key)
       if (si === undefined) {
         const resolveDefault = k => {

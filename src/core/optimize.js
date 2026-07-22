@@ -1,6 +1,6 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
 import { subUpload, subFlush } from "./subtex.js"
-import { initDynamic, dynamicFrame, primeDynamic } from "./models.js"
+import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS } from "./models.js"
 import { sortTranslucent } from "./sorting.js"
 
 const nextTask = globalThis.scheduler?.yield
@@ -511,7 +511,6 @@ export async function optimizeScene(placements, opts = {}) {
 
   const atlasGroups = new Map()
   const anims = new Map(), animTexId = new Map()
-  const fixedAnimMats = new Set()
   const tdata = new Map()
   const scanKey = (shared ? "s" : "n") + "\0" + JSON.stringify(cutoff ?? null)
 
@@ -523,7 +522,6 @@ export async function optimizeScene(placements, opts = {}) {
       const tr = mat.userData?.glint ? true : tex ? isTranslucent(tex, cutoff) : false
       mat.transparent = tr
       mat.depthWrite = !tr
-      fixedAnimMats.add(mat)
       anims.set(key, { material: mat, acc: makeAcc() })
     }
     return key
@@ -755,7 +753,7 @@ export async function optimizeScene(placements, opts = {}) {
         const m = grp.repMat.clone()
         if (m.uniforms) {
           m.uniforms.map.value = pg.texture
-          for (const k of ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]) {
+          for (const k of REBIND_UNIFORMS) {
             if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
           }
           m.defines = { ...m.defines, FACE_ATTRS: "" }
@@ -790,7 +788,7 @@ export async function optimizeScene(placements, opts = {}) {
       const m = grp.repMat.clone()
       if (m.uniforms) {
         m.uniforms.map.value = a
-        for (const k of ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]) {
+        for (const k of REBIND_UNIFORMS) {
           if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
         }
         m.defines = { ...m.defines, FACE_ATTRS: "" }

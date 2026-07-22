@@ -1,6 +1,6 @@
 import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { prepareAssets, scopedCache, readFile } from "./assets.js"
-import { parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow } from "./models.js"
+import { parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -29,7 +29,6 @@ const _nbr = new Int32Array(6)
 
 const templateCaches = new WeakMap()
 const TEMPLATE_CACHE_MAX = 4096
-const REBIND_UNIFORMS = ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]
 
 function disposeTemplateGroup(g) {
   g.traverse(o => {
