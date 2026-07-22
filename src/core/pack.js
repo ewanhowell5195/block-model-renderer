@@ -1,4 +1,5 @@
 import { THREE, Canvas } from "./platform.js"
+import { subUpload, subFlush } from "./subtex.js"
 
 export async function packScene(handle, opts = {}) {
   const shared = opts.sharedAtlas ?? null
@@ -143,7 +144,18 @@ export async function packAtlasDelta(shared, since = 0) {
       const page = sheet.pages[r.ai]
       const bitmap = await createImageBitmap(page.canvas, r.x - 1, r.y - 1, r.w + 2, r.h + 2)
       transfers.push(bitmap)
-      deltas.push({ sig, page: r.ai, x: r.x - 1, y: r.y - 1, bitmap, colorSpace: page.texture.colorSpace })
+      const d = { sig, page: r.ai, x: r.x - 1, y: r.y - 1, bitmap, colorSpace: page.texture.colorSpace }
+      const region = page.texture.userData.regions?.find(g => g.x === r.x && g.y === r.y)
+      if (region) {
+        const frames = []
+        for (const f of region.frames) {
+          const fb = await createImageBitmap(f)
+          transfers.push(fb)
+          frames.push(fb)
+        }
+        d.anim = { frames, times: region.times ?? null, interpolate: !!region.interpolate }
+      }
+      deltas.push(d)
     }
   }
   return { deltas, serial, size: shared.size, transfers }
@@ -153,6 +165,10 @@ export function createAtlasMirror(opts = {}) {
   const renderer = opts.renderer ?? null
   const sheets = new Map()
   return {
+    regionsVersion: 0,
+    eachPage(fn) {
+      for (const sheet of sheets.values()) for (const page of sheet) if (page) fn(page)
+    },
     apply(pack) {
       for (const d of pack.deltas) {
         let sheet = sheets.get(d.sig)
@@ -172,15 +188,28 @@ export function createAtlasMirror(opts = {}) {
           try {
             const sub = new Canvas(d.bitmap.width, d.bitmap.height)
             sub.getContext("2d").drawImage(d.bitmap, 0, 0)
-            const st = new THREE.CanvasTexture(sub)
-            renderer.copyTextureToTexture(new THREE.Vector2(d.x, pack.size - d.y - d.bitmap.height), st, page.texture)
-            st.dispose()
-            subbed = true
+            subbed = subUpload(renderer, page.texture, sub, d.x, d.y)
           } catch {}
         }
         if (!subbed) page.texture.needsUpdate = true
         d.bitmap.close?.()
+        if (d.anim) {
+          const frames = d.anim.interpolate
+            ? d.anim.frames.map(f => {
+                const c = new Canvas(f.width, f.height)
+                c.getContext("2d").drawImage(f, 0, 0)
+                f.close?.()
+                return c
+              })
+            : d.anim.frames
+          ;(page.texture.userData.regions ??= []).push({
+            x: d.x + 1, y: d.y + 1, w: frames[0].width, h: frames[0].height,
+            frames, times: d.anim.times ?? undefined, interpolate: d.anim.interpolate
+          })
+          this.regionsVersion++
+        }
       }
+      subFlush(renderer)
     },
     texture(sig, page) {
       return sheets.get(sig)?.[page]?.texture ?? null

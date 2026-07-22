@@ -1,5 +1,9 @@
-import { Canvas, loadImage, parseJson } from "./platform.js"
+import { THREE, Canvas, loadImage, parseJson } from "./platform.js"
 import { readFile } from "./assets.js"
+import { subUpload, subFlush } from "./subtex.js"
+
+let _animRenderer = null
+export function setAnimationRenderer(renderer) { _animRenderer = renderer }
 
 function textureChannels(tex) {
   const regions = tex.userData.regions
@@ -17,6 +21,13 @@ export function applyFrame(s, image) {
     ctx.drawImage(image, 0, h - 1, w, 1, x, y + h, w, 1)
     ctx.drawImage(image, 0, 0, 1, h, x - 1, y, 1, h)
     ctx.drawImage(image, w - 1, 0, 1, h, x + w, y, 1, h)
+    if (_animRenderer) {
+      try {
+        const sub = new Canvas(w + 2, h + 2)
+        sub.getContext("2d").drawImage(s.tex.image, x - 1, y - 1, w + 2, h + 2, 0, 0, w + 2, h + 2)
+        if (subUpload(_animRenderer, s.tex, sub, x - 1, y - 1)) return
+      } catch {}
+    }
   } else {
     s.tex.image = image
   }
@@ -268,14 +279,25 @@ export function evaluateAnimation(schedules, shaders, tickTime) {
       changed = true
     }
   }
+  if (changed && _animRenderer) subFlush(_animRenderer)
   return changed
+}
+
+const _framePixels = new WeakMap()
+function framePixels(c) {
+  let d = _framePixels.get(c)
+  if (!d) {
+    d = c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data
+    _framePixels.set(c, d)
+  }
+  return d
 }
 
 export function interpolateFrames(a, b, ratio) {
   const canvas = new Canvas(a.width, a.height)
   const ctx = canvas.getContext("2d")
-  const da = a.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, a.width, a.height).data
-  const db = b.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, b.width, b.height).data
+  const da = framePixels(a)
+  const db = framePixels(b)
   const out = ctx.createImageData(a.width, a.height)
   const inv = 1 - ratio
   for (let i = 0; i < out.data.length; i += 4) {

@@ -1,4 +1,5 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
+import { subUpload, subFlush } from "./subtex.js"
 import { initDynamic, dynamicFrame, primeDynamic } from "./models.js"
 import { sortTranslucent } from "./sorting.js"
 
@@ -385,10 +386,7 @@ async function sharedLocate(shared, sheet, tex) {
       sctx.drawImage(img, 0, ih - 1, iw, 1, 1, ih + 1, iw, 1)
       sctx.drawImage(img, 0, 0, 1, ih, 0, 1, 1, ih)
       sctx.drawImage(img, iw - 1, 0, 1, ih, iw + 1, 1, 1, ih)
-      const st = new THREE.CanvasTexture(sub)
-      shared.renderer.copyTextureToTexture(new THREE.Vector2(dx - 1, shared.size - (dy - 1) - ch), st, page.texture)
-      st.dispose()
-      subbed = true
+      subbed = subUpload(shared.renderer, page.texture, sub, dx - 1, dy - 1)
     } catch {}
   }
   if (!subbed) page.texture.needsUpdate = true
@@ -463,7 +461,7 @@ export async function optimizeScene(placements, opts = {}) {
     }
     function toAtlas(mat, tex, face) {
       const translucent = isTranslucent(tex, cutoff)
-      const sig = atlasSignature(mat) + (translucent ? "|T" : tex.userData?.frames ? "|A" : "|O")
+      const sig = atlasSignature(mat) + (translucent ? "|T" : "|O")
       let grp = atlasGroups.get(sig)
       if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: mat, translucent })
       grp.textures.add(tex)
@@ -594,6 +592,7 @@ export async function optimizeScene(placements, opts = {}) {
       if (!sheet) shared.sheets.set(sig, sheet = { pages: [], rects: new Map() })
       const rects = new Map()
       for (const t of grp.textures) rects.set(t, await sharedLocate(shared, sheet, t))
+      subFlush(shared.renderer)
       const sizes = sheet.pages.map(() => ({ w: shared.size, h: shared.size }))
       const materials = sheet.pages.map(pg => {
         const m = grp.repMat.clone()
