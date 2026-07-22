@@ -241,7 +241,7 @@ Which resolved models this loader builds for. Return `true` to have `build` (and
 
 ### `build({ group, model, assets, args, block, helpers })`
 
-Optional, may be async. Adds three.js objects to the model's group. Runs after the standard elements build, so vanilla elements and loader geometry coexist; display transforms, lighting modes, and mirroring all apply automatically. Geometry added here participates in [culling masks](scenes.md#culling-hidden-faces) (occlusion rasterizes real triangles), and meshes can tag `userData.cullface = [dir]` to make their faces droppable per placement like element faces.
+Optional, may be async. Adds three.js objects to the model's group. Runs after the standard elements build, so vanilla elements and loader geometry coexist; display transforms, lighting modes, and mirroring all apply automatically. Geometry added here participates in [culling masks](culling.md#culling-hidden-faces) (occlusion rasterizes real triangles), and meshes can tag `userData.cullface = [dir]` to make their faces droppable per placement like element faces.
 
 | Property | Description | Example |
 |---|---|---|
@@ -275,7 +275,7 @@ Optional. A loader whose output varies by placement returns a short string (e.g.
 
 ### Placement-aware models
 
-Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbors). The `block` argument to `build` carries that context: `{ id, properties, neighbors }`, with `neighbors` in the same shape as [culling neighbors](scenes.md#culling-hidden-faces). [`renderBlock`](standard-api.md#renderblockargs) fills it in automatically from its `id`/`blockstates`/`neighbors` args; when calling [`loadModel`](scenes.md#loadmodelscene-assets-model-args) directly, pass `block: { id, properties }` and the surrounding blocks as the separate `neighbors` arg, which gets merged in as `block.neighbors`. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
+Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbors). The `block` argument to `build` carries that context: `{ id, properties, neighbors }`, with `neighbors` in the same shape as [culling neighbors](culling.md#culling-hidden-faces). [`renderBlock`](standard-api.md#renderblockargs) fills it in automatically from its `id`/`blockstates`/`neighbors` args; when calling [`loadModel`](scenes.md#loadmodelscene-assets-model-args) directly, pass `block: { id, properties }` and the surrounding blocks as the separate `neighbors` arg, which gets merged in as `block.neighbors`. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
 
 A loader whose output varies by placement should also implement [`variantKey`](#variantkeymodel-block), so anything caching built models keys the variants apart.
 

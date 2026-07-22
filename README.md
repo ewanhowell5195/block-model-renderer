@@ -126,7 +126,9 @@ The full documentation lives in [`docs/`](docs/):
 | [Models](docs/models.md) | Model-level behavior: display transforms, model-inspection helpers, the tint tables |
 | [Assets](docs/assets.md) | Asset sources, pack layering, virtual handlers, [`prepareAssets`](docs/api.md) and caching, the bundled packs, file access |
 | [Fluids](docs/fluids.md) | Water and lava surface shaping, [`fluidTypeOf`](docs/api.md), [`fluidHeights`](docs/api.md) |
-| [Building scenes](docs/scenes.md) | The low-level API: blockstate and item definition parsing, [`loadModel`](docs/api.md), hidden-face culling, scene optimization |
+| [Building scenes](docs/scenes.md) | The low-level API: [`createScene`](docs/api.md), blockstate and item definition parsing, [`loadModel`](docs/api.md), dynamic models, map art |
+| [Culling](docs/culling.md) | Hidden-face culling, [`getCullFaces`](docs/api.md), [`fullyOccludes`](docs/api.md), persisting the occlusion cache |
+| [Scene optimization](docs/optimization.md) | [`optimizeScene`](docs/api.md), translucent sorting, scene lighting, packed scenes and shared atlases for worker builds |
 | [Extending](docs/extending.md) | Non-vanilla model and blockstate fields, default blockstates, custom model loaders |
 | [Legacy Minecraft versions](docs/versions.md) | The `version` option and the era-specific behavior it enables |
 

@@ -94,7 +94,7 @@ Caching stays enabled after a dispose; it just repopulates. Don't dispose while 
 
 ### Minecraft version
 
-Pass `{ version: "1.21.11" }` to pin the Minecraft version the assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (the armor trim palette locations, the [versioned override packs](#versioned-overrides)). Without it, the first render that passes a `version` stamps it onto the prepared assets, and with no version at all both the modern and legacy forms are probed.
+Pass `{ version: "1.21.11" }` to pin the Minecraft version the assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (the armor trim palette locations, the [versioned override packs](#versioned-packs)). Without it, the first render that passes a `version` stamps it onto the prepared assets, and with no version at all both the modern and legacy forms are probed.
 
 With [`{ cache: true }`](#caching) the version must be decided here: the cross-call cache isn't version-aware, so a render-call `version` that doesn't match the prepared assets' version throws instead of silently mixing cached resolutions from two eras.
 
@@ -116,7 +116,7 @@ Blocks that vanilla never renders from resource pack models at all: the [technic
 
 ### Additional (rendered alongside)
 
-Blocks where the game draws an entity model on top of whatever the blockstate produces (vanilla's own blockstates for them point at stub models with no geometry). Here your packs stay fully in effect: [`parseBlockstate`](models.md#parseblockstateassets-blockstate-args) returns the models your blockstates resolve to plus the bundled overlay models together, the same layering the game draws. Remodel the block in your pack and both render.
+Blocks where the game draws an entity model on top of whatever the blockstate produces (vanilla's own blockstates for them point at stub models with no geometry). Here your packs stay fully in effect: [`parseBlockstate`](scenes.md#parseblockstateassets-id-args) returns the models your blockstates resolve to plus the bundled overlay models together, the same layering the game draws. Remodel the block in your pack and both render.
 
 The following categories are covered:
 

@@ -42,8 +42,8 @@ Default display:
 
 | Option | Default | Description |
 |---|---|---|
-| `neighbors` | | The blocks surrounding this one; faces they hide are dropped, and fluid surfaces shape themselves from it. See [Culling hidden faces](scenes.md#culling-hidden-faces) and [Fluids](fluids.md) |
-| `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](scenes.md#culling-hidden-faces) |
+| `neighbors` | | The blocks surrounding this one; faces they hide are dropped, and fluid surfaces shape themselves from it. See [Culling hidden faces](culling.md#culling-hidden-faces) and [Fluids](fluids.md) |
+| `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](culling.md#culling-hidden-faces) |
 
 **Asset interpretation:**
 

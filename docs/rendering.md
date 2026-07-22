@@ -65,7 +65,7 @@ lighting: {
 | `dimension` | `"overworld"` | The dimension's lighting environment, matching the game's dimension type attributes (see below) |
 | `daytime` | `"noon"` | Sky brightness through the day/night cycle: a tick `0`-`23999`, or a name (`"day"` 1000, `"noon"` 6000, `"sunset"` 12000, `"night"` 13000, `"midnight"` 18000, `"sunrise"` 23000). Only the overworld cycles; the nether and end have fixed time, so it has no effect there |
 | `brightness` | `0.5` | The in-game brightness setting, `0` (Moody) to `1` (Bright), applied with the game's exact curve. `0.5` is the game's default |
-| `light` | | A [`computeSceneLight`](scenes.md#scene-lighting) volume for per-block light levels, or `false` for none. Without one, faces get full sky light and only `emission` feeds block light |
+| `light` | | A [`computeSceneLight`](optimization.md#scene-lighting) volume for per-block light levels, or `false` for none. Without one, faces get full sky light and only `emission` feeds block light |
 
 Each dimension carries the game's lightmap attributes; pass an object as `dimension` to override any of them, with missing fields defaulting to the overworld's. To tweak another dimension instead, spread its preset: `dimension: { ...LIGHT_DIMENSIONS.the_nether, ambientColor: 0x000000 }`.
 
@@ -76,7 +76,7 @@ Each dimension carries the game's lightmap attributes; pass an object as `dimens
 | `ambientColor` | `#0A0A0A` | `#302821` | `#3F473F` | The additive ambient floor: this is what keeps the nether warm-dark and the end green-dark with no light around |
 | `blockLightTint` | `#FFD88C` | `#FFD88C` | `#FFD88C` | The warm torchlight tint on block light |
 | `cardinalLight` | `"default"` | `"nether"` | `"default"` | The per-face shade constants. `"default"` is down 0.5, up 1.0, n/s 0.8, w/e 0.6; `"nether"` raises down/up to 0.9. An object with any of `down`/`up`/`north`/`south`/`west`/`east` customizes them |
-| `hasSkyLight` | `true` | `false` | `true` | Whether [`computeSceneLight`](scenes.md#scene-lighting) seeds sky light from above (it takes the same `dimension` option) |
+| `hasSkyLight` | `true` | `false` | `true` | Whether [`computeSceneLight`](optimization.md#scene-lighting) seeds sky light from above (it takes the same `dimension` option) |
 
 Colors can be a hex number, a `"#rrggbb"` string, an `[r, g, b]` array of `0`-`1` floats, or a `THREE.Color`. The presets are exported as `LIGHT_DIMENSIONS` if you need the values. The day/night curve runs in the shader from a shared uniform exposed as `scene.userData.daytime`, so a live cycle is just `scene.userData.daytime.value = tick` per frame, with no rebuild.
 
@@ -86,7 +86,7 @@ Blocks that glow in game without their models using `light_emission` (glowstone,
 
 The render functions and `loadModel` also take an `emission` option (0-15) that floors every element the same way, and when present it replaces the automatic block level entirely. `emission: 15` keeps a model bright at any `daytime` or light level without the flat look of `lighting: "off"`, covering renders the game draws at full lightmap while keeping their normal face shading, like the contents of a glow item frame; `emission: 0` turns a glowing block's automatic glow off.
 
-Emission alone keeps a glowing block bright; it doesn't light anything around it. For scenes where torches should light up their surroundings, compute a light volume with [`computeSceneLight`](scenes.md#scene-lighting) and pass it as `lighting: { light }`.
+Emission alone keeps a glowing block bright; it doesn't light anything around it. For scenes where torches should light up their surroundings, compute a light volume with [`computeSceneLight`](optimization.md#scene-lighting) and pass it as `lighting: { light }`.
 
 A light volume also enables the game's smooth-lighting ambient occlusion: faces darken toward corners where full-cube blocks crowd them, with vanilla's exact neighbor rules and falloff, evaluated per fragment so it stays correct across merged geometry. Matching the game, it skips emitting elements, fluids, and models with `ambientocclusion: false`; without a volume there is no occlusion data, so plain `"world"` lighting renders without it.
 

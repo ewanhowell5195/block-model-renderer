@@ -35,10 +35,10 @@ import {
 | `renderItem(args)` | Render an item by id. [Details](standard-api.md#renderitemargs) |
 | `renderModel(args)` | Render a raw model JSON. [Details](standard-api.md#rendermodelargs) |
 | `renderTexture(args)` | Render a texture by path, animated per its mcmeta. [Details](standard-api.md#rendertextureargs) |
-| `getCullFaces(args)` | Which faces a block's neighbors hide, for [culling](scenes.md#culling-hidden-faces). [Details](scenes.md#getcullfacesargs) |
-| `fullyOccludes(args)` | Whether a block state is a full occluding cube, for world-scale preprocessing. [Details](scenes.md#fullyoccludes-id-properties-assets-version-) |
-| `exportOcclusionCache(assets)` | Serialize the computed occlusion masks for persistence. [Details](scenes.md#persisting-the-occlusion-cache) |
-| `importOcclusionCache(assets, entries)` | Seed a prepared assets instance with persisted masks. [Details](scenes.md#persisting-the-occlusion-cache) |
+| `getCullFaces(args)` | Which faces a block's neighbors hide, for [culling](culling.md#culling-hidden-faces). [Details](culling.md#getcullfacesargs) |
+| `fullyOccludes(args)` | Whether a block state is a full occluding cube, for world-scale preprocessing. [Details](culling.md#fullyoccludesargs) |
+| `exportOcclusionCache(assets)` | Serialize the computed occlusion masks for persistence. [Details](culling.md#persisting-the-occlusion-cache) |
+| `importOcclusionCache(assets, entries)` | Seed a prepared assets instance with persisted masks. [Details](culling.md#persisting-the-occlusion-cache) |
 
 ## Assets and files
 
@@ -69,14 +69,14 @@ import {
 | `loadModel(scene, assets, model, args?)` | Build a model's geometry into a scene. [Details](scenes.md#loadmodelscene-assets-model-args) |
 | `poseSpecial(root, pose)` | Manually pose a dynamic model (chest lid, shulker lid, enchanting book); books animate and lids `.open()`/`.close()` on their own. [Details](scenes.md#dynamic-models) |
 | `renderModelScene(scene, camera, args?)` | Render a scene to output. [Details](scenes.md#rendermodelscenescene-camera-args) |
-| `optimizeScene(placements, options?)` | Merge the whole scene into a handful of draw calls, with far fewer polygons. [Details](scenes.md#scene-optimization) |
-| `sortTranslucent(group, options?)` | Depth-sort a group's translucent faces for a moving camera. [Details](scenes.md#translucent-sorting) |
+| `optimizeScene(placements, options?)` | Merge the whole scene into a handful of draw calls, with far fewer polygons. [Details](optimization.md#scene-optimization) |
+| `sortTranslucent(group, options?)` | Depth-sort a group's translucent faces for a moving camera. [Details](optimization.md#translucent-sorting) |
 | `renderMapColors(assets, colors)` | Render a save's map color bytes into a 128×128 canvas through the vanilla palette. [Details](scenes.md#map-art) |
 | `MAP_COLORS` | The vanilla map palette, `{ base, shade }`. [Details](scenes.md#map-art) |
 | `mapIdOf(item)` | The map id from an item's components, `null` when absent. [Details](scenes.md#map-art) |
 | `disposeMapArt(assets)` | Clear the cached framed-map art. [Details](scenes.md#map-art) |
-| `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](scenes.md#scene-lighting) |
-| `createSharedAtlas(opts?)` | An atlas pool shared across scenes, for worker builds and streaming. [Details](scenes.md#packed-scenes-and-shared-atlases) |
+| `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](optimization.md#scene-lighting) |
+| `createSharedAtlas(opts?)` | An atlas pool shared across scenes, for worker builds and streaming. [Details](optimization.md#packed-scenes-and-shared-atlases) |
 
 ## Fluids
 
@@ -116,10 +116,10 @@ Not exported on Node.
 | `THREE` | Live binding to that instance, populated after first use. [Details](standard-api.md#providing-threejs-browser) |
 | `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. [Details](standard-api.md#animated-renders-browser) |
 | `createAnimator(root)` | Manual animation control for `loadModel` scenes. [Details](scenes.md#animation-browser) |
-| `packScene(handle, opts?)` | Pack a built scene into transferable data for `postMessage`. [Details](scenes.md#packed-scenes-and-shared-atlases) |
-| `packAtlasDelta(shared, since?)` | The shared atlas regions added since a serial, for mirroring. [Details](scenes.md#packed-scenes-and-shared-atlases) |
-| `createAtlasMirror(opts?)` | Main-thread mirror of a worker's shared atlas pages. [Details](scenes.md#packed-scenes-and-shared-atlases) |
-| `reviveScene(payload, opts?)` | Rebuild a packed scene into live meshes. [Details](scenes.md#packed-scenes-and-shared-atlases) |
-| `setAnimationRenderer(renderer)` | Register the renderer for GPU subimage animation updates. [Details](scenes.md#animating-mirror-pages) |
-| `buildSchedules(textures)` | Precompute animation schedules for atlas textures. [Details](scenes.md#animating-mirror-pages) |
-| `evaluateAnimation(schedules, shaders, tickTime)` | Advance schedules to a game-tick time. [Details](scenes.md#animating-mirror-pages) |
+| `packScene(handle, opts?)` | Pack a built scene into transferable data for `postMessage`. [Details](optimization.md#packed-scenes-and-shared-atlases) |
+| `packAtlasDelta(shared, since?)` | The shared atlas regions added since a serial, for mirroring. [Details](optimization.md#packed-scenes-and-shared-atlases) |
+| `createAtlasMirror(opts?)` | Main-thread mirror of a worker's shared atlas pages. [Details](optimization.md#packed-scenes-and-shared-atlases) |
+| `reviveScene(payload, opts?)` | Rebuild a packed scene into live meshes. [Details](optimization.md#packed-scenes-and-shared-atlases) |
+| `setAnimationRenderer(renderer)` | Register the renderer for GPU subimage animation updates. [Details](optimization.md#animating-mirror-pages) |
+| `buildSchedules(textures)` | Precompute animation schedules for atlas textures. [Details](optimization.md#animating-mirror-pages) |
+| `evaluateAnimation(schedules, shaders, tickTime)` | Advance schedules to a game-tick time. [Details](optimization.md#animating-mirror-pages) |
