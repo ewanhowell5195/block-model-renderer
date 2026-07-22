@@ -397,6 +397,20 @@ async function sharedLocate(shared, sheet, tex) {
   return r
 }
 
+const tiledCache = new Map()
+function tiledSub(srcImg, key, sub, ur, vr) {
+  const k = key + "|" + ur + "x" + vr
+  let c = tiledCache.get(k)
+  if (c) return c
+  c = new Canvas(sub.sw * ur, sub.sh * vr)
+  const ctx = c.getContext("2d")
+  for (let j = 0; j < vr; j++) for (let i = 0; i < ur; i++) ctx.drawImage(srcImg, sub.sx, sub.sy, sub.sw, sub.sh, i * sub.sw, j * sub.sh, sub.sw, sub.sh)
+  texHash.set(c, k + "_" + c.width + "x" + c.height)
+  tiledCache.set(k, c)
+  if (tiledCache.size > 4096) tiledCache.delete(tiledCache.keys().next().value)
+  return c
+}
+
 export async function optimizeScene(placements, opts = {}) {
   if (!Array.isArray(placements)) throw new Error("optimizeScene requires an array of placements")
   const shared = opts.sharedAtlas ?? null
@@ -405,7 +419,6 @@ export async function optimizeScene(placements, opts = {}) {
   const cutoff = opts.translucency
   const onProgress = opts.onProgress
   const shouldCancel = opts.shouldCancel
-  const tiledCache = new Map()
 
   const sliceMs = opts.sliceMs ?? 40
   let sliceT = performance.now()
@@ -413,18 +426,6 @@ export async function optimizeScene(placements, opts = {}) {
     if (performance.now() - sliceT < sliceMs) return
     await nextTask()
     sliceT = performance.now()
-  }
-
-  function tiledSub(srcImg, key, sub, ur, vr) {
-    const k = key + "|" + ur + "x" + vr
-    let c = tiledCache.get(k)
-    if (c) return c
-    c = new Canvas(sub.sw * ur, sub.sh * vr)
-    const ctx = c.getContext("2d")
-    for (let j = 0; j < vr; j++) for (let i = 0; i < ur; i++) ctx.drawImage(srcImg, sub.sx, sub.sy, sub.sw, sub.sh, i * sub.sw, j * sub.sh, sub.sw, sub.sh)
-    texHash.set(c, k + "_" + c.width + "x" + c.height)
-    tiledCache.set(k, c)
-    return c
   }
 
   let progBase = 0, progSpan = 0

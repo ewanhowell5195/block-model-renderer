@@ -92,22 +92,44 @@ export async function createScene(assets, blocks, args = {}) {
   const paletteIndex = new Map()
   const palette = []
   const blockPalette = new Uint32Array(blocks.length).fill(0xFFFFFFFF)
+  const PK = (x, y, z) => ((x + 1048576) * 2048 + (y + 1024)) * 2097152 + (z + 1048576)
+  const NO_PROPS = {}
+  const piMemo = new WeakMap()
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i]
     if (!b?.id || !b.pos) continue
     const id = normalize(b.id)
-    const posKey = b.pos[0] + "," + b.pos[1] + "," + b.pos[2]
+    const posKey = PK(b.pos[0], b.pos[1], b.pos[2])
     if (AIR_BLOCKS.test(id)) {
       cells.delete(posKey)
       continue
     }
     const biome = b.biome ?? args.biome ?? null
-    const stateKey = id + "\0" + JSON.stringify(b.properties ?? null) + "\0" + JSON.stringify(biome) + (b.nbt ? "\0" + JSON.stringify(b.nbt) : "")
-    let pi = paletteIndex.get(stateKey)
-    if (pi === undefined) {
-      pi = palette.length
-      paletteIndex.set(stateKey, pi)
-      palette.push({ id, properties: b.properties ?? null, biome, nbt: b.nbt ?? null, pos: b.nbt ? b.pos : null, models: null })
+    let pi
+    const po = b.nbt ? null : (b.properties ?? NO_PROPS)
+    let byId = po ? piMemo.get(po) : null
+    if (po) {
+      if (!byId) piMemo.set(po, byId = new Map())
+      const bk = biome == null ? id : id + "\0" + JSON.stringify(biome)
+      pi = byId.get(bk)
+      if (pi === undefined) {
+        const stateKey = id + "\0" + JSON.stringify(b.properties ?? null) + "\0" + JSON.stringify(biome)
+        pi = paletteIndex.get(stateKey)
+        if (pi === undefined) {
+          pi = palette.length
+          paletteIndex.set(stateKey, pi)
+          palette.push({ id, properties: b.properties ?? null, biome, nbt: null, pos: null, models: null })
+        }
+        byId.set(bk, pi)
+      }
+    } else {
+      const stateKey = id + "\0" + JSON.stringify(b.properties ?? null) + "\0" + JSON.stringify(biome) + "\0" + JSON.stringify(b.nbt)
+      pi = paletteIndex.get(stateKey)
+      if (pi === undefined) {
+        pi = palette.length
+        paletteIndex.set(stateKey, pi)
+        palette.push({ id, properties: b.properties ?? null, biome, nbt: b.nbt, pos: b.pos, models: null })
+      }
     }
     blockPalette[i] = pi
     if (b.overlay) overlays.push({ pos: b.pos, palette: pi })
@@ -124,7 +146,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (shouldCancel?.()) return null
   }
   const neighborAt = (pos, dx, dy, dz) => {
-    const c = cells.get((pos[0] + dx) + "," + (pos[1] + dy) + "," + (pos[2] + dz))
+    const c = cells.get(PK(pos[0] + dx, pos[1] + dy, pos[2] + dz))
     if (!c) return null
     const p = palette[c.palette]
     return { c, flat: { id: p.id, ...(p.properties ?? {}) } }
@@ -329,7 +351,7 @@ export async function createScene(assets, blocks, args = {}) {
     for (let i = 0; i < blocks.length; i++) {
       const b = blocks[i]
       if (!b?.pos) continue
-      const cell = cells.get(b.pos[0] + "," + b.pos[1] + "," + b.pos[2])
+      const cell = cells.get(PK(b.pos[0], b.pos[1], b.pos[2]))
       if (cell?.template) blockTemplate[i] = templateIdx.get(cell.template)
     }
   }
