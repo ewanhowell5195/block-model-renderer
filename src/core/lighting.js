@@ -102,26 +102,35 @@ export async function computeSceneLight(blocks, opts = {}) {
   const states = [null]
   const stateIds = new Map()
   const cellState = new Uint16Array(n)
+  const NO_PROPS = {}
+  const siMemo = new WeakMap()
   let processed = 0
   for (const c of cells) {
-    const key = stateKey(c.id, c.properties)
-    let si = stateIds.get(key)
+    const po = c.properties ?? NO_PROPS
+    let byId = siMemo.get(po)
+    if (!byId) siMemo.set(po, byId = new Map())
+    let si = byId.get(c.id)
     if (si === undefined) {
-      const resolveDefault = k => {
-        const raw = defaults.unique(c.id)[k] ?? defaults.properties[k]
-        return Array.isArray(raw) ? raw[0] : raw
+      const key = stateKey(c.id, c.properties)
+      si = stateIds.get(key)
+      if (si === undefined) {
+        const resolveDefault = k => {
+          const raw = defaults.unique(c.id)[k] ?? defaults.properties[k]
+          return Array.isArray(raw) ? raw[0] : raw
+        }
+        const masks = await masksFor(c.id, c.properties)
+        const useShape = rules.shapeOcclusion(c.id, c.properties, resolveDefault) && !maskEmpty(masks)
+        const partial = rules.dampening(c.id, c.properties, resolveDefault)
+        states.push({
+          emit: rules.emission(c.id, c.properties, resolveDefault),
+          damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(c.id, c.properties, rules) ? 1 : 0),
+          ao: rules.aoBlocking(c.id, c.properties, resolveDefault),
+          masks: useShape ? masks : null
+        })
+        si = states.length - 1
+        stateIds.set(key, si)
       }
-      const masks = await masksFor(c.id, c.properties)
-      const useShape = rules.shapeOcclusion(c.id, c.properties, resolveDefault) && !maskEmpty(masks)
-      const partial = rules.dampening(c.id, c.properties, resolveDefault)
-      states.push({
-        emit: rules.emission(c.id, c.properties, resolveDefault),
-        damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(c.id, c.properties, rules) ? 1 : 0),
-        ao: rules.aoBlocking(c.id, c.properties, resolveDefault),
-        masks: useShape ? masks : null
-      })
-      si = states.length - 1
-      stateIds.set(key, si)
+      byId.set(c.id, si)
     }
     const i = ((c.z - origin[2]) * h + (c.y - origin[1])) * w + (c.x - origin[0])
     const prev = states[cellState[i]]
