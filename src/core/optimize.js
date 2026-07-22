@@ -298,6 +298,22 @@ function greedyRects(cellSet) {
   return rects
 }
 
+class GrowF32 {
+  constructor() { this.a = new Float32Array(4096); this.length = 0 }
+  ensure(n) {
+    if (this.length + n <= this.a.length) return
+    let cap = this.a.length * 2
+    while (cap < this.length + n) cap *= 2
+    const b = new Float32Array(cap)
+    b.set(this.a)
+    this.a = b
+  }
+  push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
+  push2(x, y) { this.ensure(2); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; this.length = l + 2 }
+  data() { return this.a.length === this.length ? this.a : this.a.slice(0, this.length) }
+}
+const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32() })
+
 let _v = null, _n = null
 function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
   _v ??= new THREE.Vector3()
@@ -308,11 +324,11 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
     _v.fromBufferAttribute(pos, a).applyMatrix4(mat)
     _n.fromBufferAttribute(nrm, a).applyMatrix3(nmat).normalize()
     const u = uv.getX(a), v = uv.getY(a)
-    acc.P.push(_v.x, _v.y, _v.z)
-    acc.N.push(_n.x, _n.y, _n.z)
-    if (rect) acc.U.push((rect.x + u * rect.w) / W, 1 - (rect.y + (1 - v) * rect.h) / H)
-    else acc.U.push(u, v)
-    if (fd) acc.F.push(fd[0], fd[1])
+    acc.P.push3(_v.x, _v.y, _v.z)
+    acc.N.push3(_n.x, _n.y, _n.z)
+    if (rect) acc.U.push2((rect.x + u * rect.w) / W, 1 - (rect.y + (1 - v) * rect.h) / H)
+    else acc.U.push2(u, v)
+    if (fd) acc.F.push2(fd[0], fd[1])
   }
 }
 
@@ -480,7 +496,7 @@ export async function optimizeScene(placements, opts = {}) {
             mat.transparent = tr
             mat.depthWrite = !tr
             fixedAnimMats.add(mat)
-            anims.set(key, { material: mat, acc: { P: [], N: [], U: [] } })
+            anims.set(key, { material: mat, acc: makeAcc() })
           }
           atlasFace(o, { start: g.start, count: g.count, animKey: key, cull })
           continue
@@ -593,7 +609,7 @@ export async function optimizeScene(placements, opts = {}) {
         created.materials.push(m)
         return m
       })
-      atlases.set(sig, { rects, sizes, materials, accs: sheet.pages.map(() => ({ P: [], N: [], U: [], F: [] })) })
+      atlases.set(sig, { rects, sizes, materials, accs: sheet.pages.map(makeAcc) })
       continue
     }
     const { atlases: ats, rects, sizes } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe)
@@ -624,7 +640,7 @@ export async function optimizeScene(placements, opts = {}) {
       created.materials.push(m)
       return m
     })
-    atlases.set(sig, { rects, sizes, materials, accs: ats.map(() => ({ P: [], N: [], U: [], F: [] })) })
+    atlases.set(sig, { rects, sizes, materials, accs: ats.map(makeAcc) })
   }
 
   stage(3000)
@@ -702,10 +718,10 @@ export async function optimizeScene(placements, opts = {}) {
       p[f.pa] = vert.ha ? q.wAHi : q.wALo
       p[f.pb] = vert.hb ? q.wBHi : q.wBLo
       nn[f.na] = f.ns
-      acc.P.push(p[0], p[1], p[2])
-      acc.N.push(nn[0], nn[1], nn[2])
-      acc.U.push((rect.x + vert.u * rect.w) / s.w, 1 - (rect.y + (1 - vert.v) * rect.h) / s.h)
-      if (fd) acc.F.push(fd[0], fd[1])
+      acc.P.push3(p[0], p[1], p[2])
+      acc.N.push3(nn[0], nn[1], nn[2])
+      acc.U.push2((rect.x + vert.u * rect.w) / s.w, 1 - (rect.y + (1 - vert.v) * rect.h) / s.h)
+      if (fd) acc.F.push2(fd[0], fd[1])
     }
   }
 
@@ -714,10 +730,10 @@ export async function optimizeScene(placements, opts = {}) {
   function addMesh(acc, material) {
     if (!acc.P.length) return
     const geo = new THREE.BufferGeometry()
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.P, 3))
-    geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.N, 3))
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.U, 2))
-    if (acc.F?.length) geo.setAttribute("faceData", new THREE.Float32BufferAttribute(acc.F, 2))
+    geo.setAttribute("position", new THREE.BufferAttribute(acc.P.data(), 3))
+    geo.setAttribute("normal", new THREE.BufferAttribute(acc.N.data(), 3))
+    geo.setAttribute("uv", new THREE.BufferAttribute(acc.U.data(), 2))
+    if (acc.F?.length) geo.setAttribute("faceData", new THREE.BufferAttribute(acc.F.data(), 2))
     const mesh = new THREE.Mesh(geo, material)
     if (material.transparent) mesh.renderOrder = material.side === THREE.BackSide ? 0 : 1
     group.add(mesh)

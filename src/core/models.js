@@ -1165,13 +1165,19 @@ function applyTint(img, tint) {
   return canvas
 }
 
+let _alphaCanvas = null, _alphaCtx = null
 function imageIsTranslucent(img, cutoff) {
   const min = cutoff?.min ?? 5
   const max = cutoff?.max ?? 240
-  const canvas = new Canvas(img.width, img.height)
-  const ctx = canvas.getContext("2d")
-  ctx.drawImage(img, 0, 0)
-  const data = ctx.getImageData(0, 0, img.width, img.height).data
+  if (!_alphaCanvas) {
+    _alphaCanvas = new Canvas(1, 1)
+    _alphaCtx = _alphaCanvas.getContext("2d", { willReadFrequently: true })
+  }
+  _alphaCanvas.width = img.width
+  _alphaCanvas.height = img.height
+  _alphaCtx.clearRect(0, 0, img.width, img.height)
+  _alphaCtx.drawImage(img, 0, 0)
+  const data = _alphaCtx.getImageData(0, 0, img.width, img.height).data
   for (let i = 3; i < data.length; i += 4) {
     if (data[i] > min && data[i] < max) return true
   }
