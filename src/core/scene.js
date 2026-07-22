@@ -147,7 +147,8 @@ export async function createScene(assets, blocks, args = {}) {
       const [dx, dy, dz] = DIRS[dir]
       const n = neighborAt(cell.pos, dx, dy, dz)
       if (n) neighbors[dir] = n.flat
-      cullKey += "|" + (n ? n.c.palette : "")
+      else if (args.externalOcclusion?.(cell.pos[0] + dx, cell.pos[1] + dy, cell.pos[2] + dz)) neighbors[dir] = true
+      cullKey += "|" + (n ? n.c.palette : neighbors[dir] === true ? "X" : "")
     }
     let cull = cullMemo.get(cullKey)
     if (cull === undefined) {
