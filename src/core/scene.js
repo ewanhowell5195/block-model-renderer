@@ -1,6 +1,6 @@
 import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { prepareAssets, scopedCache, readFile } from "./assets.js"
-import { parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS } from "./models.js"
+import { parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -26,6 +26,65 @@ const DIRS = {
 const DIR_NAMES = Object.keys(DIRS)
 const DIR_VECS = Object.values(DIRS)
 const _nbr = new Int32Array(6)
+
+const templateCaches = new WeakMap()
+const TEMPLATE_CACHE_MAX = 4096
+const REBIND_UNIFORMS = ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]
+
+function disposeTemplateGroup(g) {
+  g.traverse(o => {
+    if (!o.isMesh) return
+    try { o.geometry?.dispose() } catch {}
+    for (const m of [].concat(o.material)) { try { m?.dispose?.() } catch {} }
+  })
+}
+
+function sweepTemplateCache(cache) {
+  for (const [key, e] of cache) {
+    if (cache.size <= TEMPLATE_CACHE_MAX) break
+    if (e.users > 0) continue
+    cache.delete(key)
+    disposeTemplateGroup(e.group)
+  }
+}
+
+function cloneTemplate(src, rebind) {
+  const matClones = new Map()
+  const cloneMat = m => {
+    if (Array.isArray(m)) return m.map(cloneMat)
+    let c = matClones.get(m)
+    if (!c) {
+      c = m.clone()
+      if (c.uniforms) {
+        for (const k in c.uniforms) {
+          if (m.uniforms[k]?.value?.isTexture) c.uniforms[k].value = m.uniforms[k].value
+        }
+        for (const k of REBIND_UNIFORMS) {
+          if (rebind[k] && c.uniforms[k]) c.uniforms[k] = rebind[k]
+        }
+      }
+      matClones.set(m, c)
+    }
+    return c
+  }
+  const walk = (s, root) => {
+    const d = s.isMesh ? new THREE.Mesh(s.geometry, cloneMat(s.material)) : new THREE.Group()
+    d.name = s.name
+    d.userData = root ? { ...s.userData } : s.userData
+    d.visible = s.visible
+    d.renderOrder = s.renderOrder
+    d.matrixAutoUpdate = s.matrixAutoUpdate
+    d.position.copy(s.position)
+    d.quaternion.copy(s.quaternion)
+    d.scale.copy(s.scale)
+    d.matrix.copy(s.matrix)
+    d.matrixWorldNeedsUpdate = true
+    d.onBeforeRender = s.onBeforeRender
+    for (const ch of s.children) d.add(walk(ch, false))
+    return d
+  }
+  return walk(src, true)
+}
 
 async function hasRandomModels(assets, id) {
   const cache = assets.cache.sceneRandom ??= new Map()
@@ -236,29 +295,59 @@ export async function createScene(assets, blocks, args = {}) {
 
   enter("build")
   const group = new THREE.Group()
-  let daytimeUniform = null
+  let daytimeUniform = worldCfg ? { value: parseDaytime(worldCfg.daytime) } : null
+  let tcache = templateCaches.get(assets.cache)
+  if (!tcache) templateCaches.set(assets.cache, tcache = new Map())
+  const usedEntries = []
+  const envSig = (worldCfg ? JSON.stringify({ ...worldCfg, light: !!light, daytime: 0 }) : String(lighting))
+    + "\0" + (args.shaderScale ?? "") + "\0" + (args.ignoreAtlases ? 1 : 0) + "\0" + (version ?? "") + "\0" + shaderSaltNow()
+  const rebind = { daytime: daytimeUniform, ...(light?.uniforms ?? {}) }
   let built = 0
   for (const [key, spec] of templateSpecs) {
-    const tmpl = new THREE.Group()
-    if (daytimeUniform) tmpl.userData.daytime = daytimeUniform
-    const models = spec.seed != null
-      ? await parseBlockstate(assets, spec.entry.id, {
-        data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
-        mapArt: args.mapArt, pos: spec.entry.pos ?? undefined, seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version
-      })
-      : spec.entry.models
-    for (const model of models) {
-      try {
-        await loadModel(tmpl, assets, await resolveModelData(assets, model), {
-          display: {}, animate: false, lighting: lightingOpt,
-          shaderScale: args.shaderScale,
-          block: { id: spec.entry.id, properties: spec.entry.properties ?? {} },
-          fluidHeights: spec.fh, version
+    const cacheable = !spec.entry.nbt && !spec.entry.pos
+    const cacheKey = cacheable
+      ? spec.entry.id + "\0" + JSON.stringify(spec.entry.properties) + "\0" + JSON.stringify(spec.entry.biome)
+        + "\0" + (spec.seed ?? "") + "\0" + (spec.fh ? JSON.stringify(spec.fh) : "") + "\0" + envSig
+      : null
+    let tmpl
+    const hit = cacheKey ? tcache.get(cacheKey) : undefined
+    if (hit) {
+      tcache.delete(cacheKey)
+      tcache.set(cacheKey, hit)
+      hit.users++
+      usedEntries.push(hit)
+      tmpl = cloneTemplate(hit.group, rebind)
+      if (daytimeUniform) tmpl.userData.daytime = daytimeUniform
+      daytimeUniform ??= tmpl.userData.daytime
+      templateOf.set(key, tmpl)
+    } else {
+      tmpl = new THREE.Group()
+      if (daytimeUniform) tmpl.userData.daytime = daytimeUniform
+      const models = spec.seed != null
+        ? await parseBlockstate(assets, spec.entry.id, {
+          data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
+          mapArt: args.mapArt, pos: spec.entry.pos ?? undefined, seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version
         })
-      } catch {}
+        : spec.entry.models
+      for (const model of models) {
+        try {
+          await loadModel(tmpl, assets, await resolveModelData(assets, model), {
+            display: {}, animate: false, lighting: lightingOpt,
+            shaderScale: args.shaderScale,
+            block: { id: spec.entry.id, properties: spec.entry.properties ?? {} },
+            fluidHeights: spec.fh, version
+          })
+        } catch {}
+      }
+      daytimeUniform ??= tmpl.userData.daytime
+      templateOf.set(key, tmpl)
+      if (cacheKey) {
+        const entry = { group: tmpl, users: 1 }
+        tcache.set(cacheKey, entry)
+        usedEntries.push(entry)
+        sweepTemplateCache(tcache)
+      }
     }
-    daytimeUniform ??= tmpl.userData.daytime
-    templateOf.set(key, tmpl)
     report(++built, templateSpecs.size)
     await breathe()
     if (shouldCancel?.()) return null
@@ -380,17 +469,25 @@ export async function createScene(assets, blocks, args = {}) {
     dispose() {
       optimized?.dispose()
       if (computeLight) light?.dispose?.()
+      const cachedGeos = new Set()
+      for (const e of usedEntries) e.group.traverse(o => { if (o.isMesh) cachedGeos.add(o.geometry) })
+      if (!this.__released) {
+        this.__released = true
+        for (const e of usedEntries) e.users--
+        sweepTemplateCache(tcache)
+      }
       for (const t of templates ?? []) {
         t.group.traverse(o => {
           if (!o.isMesh) return
-          try { o.geometry?.dispose() } catch {}
+          if (!cachedGeos.has(o.geometry)) { try { o.geometry?.dispose() } catch {} }
           for (const m of [].concat(o.material)) { try { m?.dispose?.() } catch {} }
         })
       }
       group.traverse(o => {
         if (!o.isMesh) return
-        try { o.geometry?.dispose() } catch {}
         for (const m of [].concat(o.material)) { try { m?.dispose?.() } catch {} }
+        if (cachedGeos.has(o.geometry)) return
+        try { o.geometry?.dispose() } catch {}
       })
       group.removeFromParent()
     }

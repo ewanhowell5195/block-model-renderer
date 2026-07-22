@@ -401,7 +401,7 @@ export function resolveWorldLighting(param) {
   return { dim, cardinal, daytime: o.daytime, brightness: Math.max(0, Math.min(1, o.brightness ?? 0.5)), light: o.light }
 }
 
-function parseDaytime(v) {
+export function parseDaytime(v) {
   if (v == null) return NAMED_TIMES.noon
   if (typeof v === "number") return ((v % 24000) + 24000) % 24000
   return NAMED_TIMES[String(v).toLowerCase()] ?? NAMED_TIMES.noon
@@ -2428,6 +2428,10 @@ export async function loadModel(scene, assets, model, args) {
 }
 
 let shaderSalt = 0
+
+export function shaderSaltNow() {
+  return shaderSalt
+}
 
 function patchShaderSalt(scene) {
   scene.traverse(obj => {
