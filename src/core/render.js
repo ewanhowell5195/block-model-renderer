@@ -113,6 +113,44 @@ export async function fullyOccludes({ id, properties, assets, version } = {}) {
   return true
 }
 
+const MASK_DIRS = ["east", "west", "up", "down", "south", "north"]
+
+export async function exportOcclusionCache(assets) {
+  assets = await prepareAssets(assets)
+  const cache = assets.cache?.occlusion
+  if (!cache) return []
+  const out = []
+  for (const [k, m] of cache) {
+    if (!m) { out.push([k, null]); continue }
+    const packed = {}
+    for (const d of MASK_DIRS) packed[d] = m[d]
+    out.push([k, packed])
+  }
+  return out
+}
+
+export async function importOcclusionCache(assets, entries) {
+  assets = await prepareAssets(assets)
+  const cache = assets.cache?.occlusion
+  if (!cache || !Array.isArray(entries)) return 0
+  let added = 0
+  for (const [k, m] of entries) {
+    if (typeof k !== "string" || cache.has(k)) continue
+    if (m == null) { cache.set(k, null); added++; continue }
+    const masks = {}
+    let ok = true
+    for (const d of MASK_DIRS) {
+      const a = m[d]
+      if (!(a instanceof Uint16Array) || a.length !== 16) { ok = false; break }
+      masks[d] = a
+    }
+    if (!ok) continue
+    cache.set(k, masks)
+    added++
+  }
+  return added
+}
+
 const OUTPUT_DEFAULTS = {
   jpeg: { mozjpeg: true },
   jpg: { mozjpeg: true },
