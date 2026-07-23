@@ -4,40 +4,51 @@ Model-level behavior and data: posing a model with display transforms, inspectin
 
 ## Display transforms
 
-The `display` option controls how the model is rotated, translated, and scaled before rendering. The render functions and [`loadModel`](scenes.md#loadmodelscene-assets-model-args) both take it. It takes one of three forms:
+The `display` option controls how the model is rotated, translated, and scaled before rendering. The render functions and [`loadModel`](scenes.md#loadmodelscene-assets-model-args) both take it.
 
-**String**: name of a context in the model's `display` block (`"gui"`, `"fixed"`, `"ground"`, `"firstperson_righthand"`, etc.). The renderer uses that context's transform from the model.
+It takes a **string**, naming a context in the model's own `display` block (`"gui"`, `"fixed"`, `"ground"`, `"firstperson_righthand"`, etc.), or an **object**:
 
-```js
-display: "firstperson_righthand"
-```
-
-**Plain transform**: an object with `rotation`, `translation`, and/or `scale`. Applied directly, ignoring anything the model defines.
-
-```js
-display: { rotation: [30, 225, 0], scale: [0.625, 0.625, 0.625] }
-```
-
-**Fallback transform**: add `type: "fallback"` to a plain transform to first try the model's own `display` for a named context (`display: "gui"` by default), falling back to the object's own `rotation`/`translation`/`scale` if the model doesn't define that context.
+| Property | Description |
+|---|---|
+| `display` | The context to take from the model. When `type: "fallback"` is set, defaults to `gui`, otherwise defaults to no display settings |
+| `rotation`, `translation`, `scale` | Transform values. When used with `display`, each one replaces that display type. With `type: "fallback"` they are used only when the model has nothing matching its `display` context |
+| `type` | `"fallback"` only use the defined `rotation`, `translation`, `scale` when the model is missing the specified `display` context |
+| `generated` | When `false`, the fallback doesn't apply to generated models (`"parent": "builtin/generated"`) |
+| `rotateCross` | `true` turns [cross models](#iscrossmodelmodels) (flowers, saplings, cobwebs) 45°. Useful for diagonal camera angles, where they would otherwise appear flat. Applies to whichever transform is used, from the model or from here. Skipped when a display rotation exists on the X or Z axis, or the Y axis is a multiple of 90° |
 
 ```js
-// Use the model's "gui" transform if it defines one, otherwise use this one
-display: {
-  type: "fallback",
-  rotation: [30, 225, 0],
-  scale: [0.625, 0.625, 0.625]
-}
-
-// Use the model's "firstperson_righthand" transform if it defines one, otherwise use this one
-display: {
-  type: "fallback",
-  display: "firstperson_righthand",
-  rotation: [30, 225, 0],
-  scale: [0.625, 0.625, 0.625]
-}
+display: "gui"                                            // the model's gui display
+display: { display: "gui" }                               // the same thing
+display: { scale: [2, 1, 2] }                             // these exact settings
+display: { display: "gui", scale: [2, 1, 2] }             // the model's gui, with this scale instead
+display: { display: "gui", type: "fallback", ... }        // the model's gui, or these settings if it has none
+display: { type: "fallback", generated: false, ...DISPLAYS.block }  // as above, but never on item sprites
 ```
+
+A model that doesn't define the named context, with nothing to fall back to, renders untransformed. That is what the game does: a missing context is `NO_TRANSFORM` (no rotation, no translation, scale 1), and the isometric look of blocks in an inventory comes from vanilla's `block/block` declaring a `gui` transform, not from any built-in default. [`DISPLAYS`](#displays) provides that transform for models that don't carry one.
 
 Translation values are clamped to ±80 and scale to ±4, like the game. Mirrored scales (an odd number of negative components) render inside out from 1.15 onwards (MC-176864), which is what unversioned renders do too; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) for the pre-1.15 behavior.
+
+## `DISPLAYS`
+
+Ready-made transforms for the `display` option, for posing models that don't carry a transform of their own.
+
+| Preset | Description |
+|---|---|
+| `DISPLAYS.block` | Vanilla `block/block`'s gui transform: rotation `[30, 225, 0]`, scale `0.625`. The isometric inventory look |
+| `DISPLAYS.block_90` | The same pose turned 90° around Y: rotation `[30, 315, 0]` |
+| `DISPLAYS.block_180` | Turned 180°: rotation `[30, 45, 0]` |
+| `DISPLAYS.block_270` | Turned 270°: rotation `[30, 135, 0]` |
+| `DISPLAYS.flat` | No rotation or translation, scale 1. Face-on |
+
+The numbered block presets show the other sides of a model at the same isometric angle, for directional blocks whose front doesn't face the default view.
+
+```js
+import { renderModel, DISPLAYS } from "block-model-renderer"
+
+// a model with no gui transform of its own, posed like an inventory block
+await renderModel({ model, assets, display: { type: "fallback", ...DISPLAYS.block } })
+```
 
 ## `isWaterloggable(id)`
 

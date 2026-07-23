@@ -99,7 +99,8 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 | Option | Default | Description |
 |---|---|---|
 | `model` | required | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
-| `assets`, `width`, `height`, `background`, `display`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen` | | Same as [`renderBlock`](#renderblockargs) |
+| `display` | `"gui"` | The model's own gui transform, or none if it doesn't define one. Unlike [`renderBlock`](#renderblockargs) nothing is imposed on a model that carries no transform, so item models render face-on like the game. Pass [`DISPLAYS.block`](models.md#displays) for the isometric look |
+| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderTexture(args)`
 

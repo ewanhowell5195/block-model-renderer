@@ -20,7 +20,7 @@ import {
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
-  isWaterloggable, isWaterlogged, isCrossModel, getLightEmission, getBiomeTint, COLORS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS,
+  isWaterloggable, isWaterlogged, isCrossModel, getLightEmission, getBiomeTint, COLORS, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS,
   // extending
   ModelLoader,
   // browser only
@@ -113,6 +113,7 @@ import {
 | `getLightEmission(id, properties?, resolveDefault?)` | The light level (0-15) a block emits in game, from its blockstate. [Details](models.md#getlightemissionid-properties-resolvedefault) |
 | `getBiomeTint(assets, map, biome?)` | The hex tint a biome (or blend of biomes) produces from a colormap. [Details](models.md#getbiometintassets-map-biome) |
 | `COLORS` | The color tables the renderer tints with, for your own lookups. [Details](models.md#colors) |
+| `DISPLAYS` | Ready-made display transforms for posing models that don't carry one. [Details](models.md#displays) |
 | `LIGHT_DIMENSIONS` | The per-dimension world lighting presets, for spreading into overrides. [Details](rendering.md#world-lighting) |
 | `SKIP_BLOCKS` | The `Set` of block ids that resolve to no models (the airs, `moving_piston`); skip these when iterating every block. [Details](models.md#skip_blocks-and-technical_blocks) |
 | `TECHNICAL_BLOCKS` | The `Set` of invisible-in-game ids rendered here as placeholder icons (`barrier`, `light`, `structure_void`). [Details](models.md#skip_blocks-and-technical_blocks) |

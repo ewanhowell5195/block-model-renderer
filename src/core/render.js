@@ -238,12 +238,7 @@ export async function renderTexture(args = {}) {
 export async function renderModel(args = {}) {
   if (!args.model) throw new Error("renderModel requires the model option")
   if (args.assets == null || args.assets.length === 0) throw new Error("renderModel requires the assets option")
-  args.display ??= {
-    rotation: [30, 225, 0],
-    scale: [0.625, 0.625, 0.625],
-    type: "fallback",
-    display: "gui"
-  }
+  args.display ??= "gui"
 
   args.assets = await prepareAssets(args.assets)
   const { scene, camera } = makeModelScene()

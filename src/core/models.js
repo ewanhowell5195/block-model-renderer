@@ -10,6 +10,14 @@ import { mapArtFor, mapIdOf } from "./maps.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
+export const DISPLAYS = {
+  block: { rotation: [30, 225, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] },
+  block_90: { rotation: [30, 315, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] },
+  block_180: { rotation: [30, 45, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] },
+  block_270: { rotation: [30, 135, 0], translation: [0, 0, 0], scale: [0.625, 0.625, 0.625] },
+  flat: { rotation: [0, 0, 0], translation: [0, 0, 0], scale: [1, 1, 1] }
+}
+
 export const SKIP_BLOCKS = new Set(["air", "cave_air", "void_air", "moving_piston"])
 export const TECHNICAL_BLOCKS = new Set(["barrier", "light", "structure_void"])
 export const AIR_BLOCKS = new RegExp(`(^|:)(${Array.from(SKIP_BLOCKS).join("|")})$`)
@@ -1864,13 +1872,29 @@ export async function loadModel(scene, assets, model, args) {
 
   let settings
   if (typeof display === "object") {
-    if (display.type === "fallback" && model.display?.[display.display ?? "gui"]) {
-      settings = model.display[display.display ?? "gui"]
-    } else {
+    const context = display.display ?? (display.type === "fallback" ? "gui" : null)
+    const own = context ? model.display?.[context] : null
+    if (!context) {
       settings = structuredClone(display)
+    } else if (display.type === "fallback") {
+      const withheld = display.generated === false && model.generated
+      settings = own ? structuredClone(own) : withheld ? {} : structuredClone(display)
+    } else {
+      settings = { ...own, ...display }
+    }
+    delete settings.type
+    delete settings.display
+    delete settings.generated
+    delete settings.rotateCross
+
+    if (display.rotateCross && settings.rotation && isCrossModel(model)) {
+      const [x, y, z] = settings.rotation
+      if ((((y % 90) + 90) % 90) === 45) {
+        settings.rotation = [x, y - 45, z]
+      }
     }
   } else {
-    settings = model.display?.[display]
+    settings = structuredClone(model.display?.[display] ?? {})
   }
 
   if (model.billboard) {
