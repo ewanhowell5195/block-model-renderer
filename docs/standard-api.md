@@ -112,6 +112,7 @@ On Node the output goes through the standard pipeline: a buffer back, a file via
 | `texture` | required | The texture path, relative to the pack root (e.g. `"assets/minecraft/textures/block/magma.png"`) |
 | `assets` | required | The assets source |
 | `width`, `height` | the texture's frame size | Output size. The image scales with nearest-neighbor sampling |
+| `tint` | | A color multiplied into the texture, preserving its alpha: a hex string (`"#3F76E4"`) or a dye name (`"red"`). Applies to animated frames too |
 | `animated` | `false` | Node: animated WebP/GIF output. Browser: play the texture's animation, returning a [texture player](#texture-players) |
 | Node: `path`, `format`, `output`, `background`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames` | | Same as [`renderBlock`](#renderblockargs) |
 | Browser: `canvas` | a fresh canvas | Draw into this canvas instead (resized to the output size) |

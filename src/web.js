@@ -566,9 +566,19 @@ export async function renderTexture(args = {}) {
   if (!args.texture) throw new Error("renderTexture requires the texture option")
   if (args.assets == null || args.assets.length === 0) throw new Error("renderTexture requires the assets option")
   let ctx = null
+  const tint = args.tint ? core.COLORS.dye[args.tint] ?? args.tint : null
   const draw = frame => {
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-    ctx.drawImage(frame, 0, 0, ctx.canvas.width, ctx.canvas.height)
+    const w = ctx.canvas.width, h = ctx.canvas.height
+    ctx.clearRect(0, 0, w, h)
+    ctx.drawImage(frame, 0, 0, w, h)
+    if (tint) {
+      ctx.globalCompositeOperation = "multiply"
+      ctx.fillStyle = tint
+      ctx.fillRect(0, 0, w, h)
+      ctx.globalCompositeOperation = "destination-in"
+      ctx.drawImage(frame, 0, 0, w, h)
+      ctx.globalCompositeOperation = "source-over"
+    }
   }
   let texture = await readTexture(args.texture, args.assets, args.animated ? { onChange: draw } : undefined)
   if (!texture) {

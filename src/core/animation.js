@@ -1,6 +1,7 @@
 import { THREE, Canvas, loadImage, parseJson } from "./platform.js"
 import { readFile } from "./assets.js"
 import { subUpload, subFlush } from "./subtex.js"
+import { COLORS } from "./colors.js"
 
 let _animRenderer = null
 export function setAnimationRenderer(renderer) { _animRenderer = renderer }
@@ -189,7 +190,7 @@ export async function readTexture(path, assets) {
   }
 }
 
-function applyTint(img, tint) {
+export function applyTint(img, tint) {
   const canvas = new Canvas(img.width, img.height)
   const ctx = canvas.getContext("2d")
   ctx.drawImage(img, 0, 0)

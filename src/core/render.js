@@ -4,7 +4,7 @@ import { sortObjectOnce } from "./sorting.js"
 import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, buildOcclusionModel, occlusionStateKey } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
-import { computeAnimationTimeline, collectAnimated, applyFrame, readTexture } from "./animation.js"
+import { computeAnimationTimeline, collectAnimated, applyFrame, applyTint, readTexture } from "./animation.js"
 import { blockRules } from "./data.js"
 
 const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east: "west", west: "east" }
@@ -201,7 +201,9 @@ export async function renderTexture(args = {}) {
 
   args.assets = await prepareAssets(args.assets)
   const texture = await readTexture(args.texture, args.assets)
-  const frame = texture ? texture.frames[0] : await getMissingImage(args.assets)
+  let frames = texture?.frames
+  if (args.tint && frames) frames = frames.map(f => applyTint(f, args.tint))
+  const frame = frames ? frames[0] : await getMissingImage(args.assets)
   if (args.canvas == null) {
     args.width ??= frame.width
     args.height ??= frame.height
@@ -219,7 +221,7 @@ export async function renderTexture(args = {}) {
   tex.minFilter = THREE.NearestFilter
   tex.generateMipmaps = false
   if (texture?.animated) {
-    tex.userData.frames = texture.frames
+    tex.userData.frames = frames
     tex.userData.times = texture.times
     tex.userData.interpolate = texture.interpolate
   }
