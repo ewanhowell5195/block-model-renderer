@@ -316,6 +316,58 @@ async function loadAtlases(assets) {
   }
 }
 
+async function walkTextureDir(dir, assets, out, rel = "", depth = 0) {
+  if (depth > 4) return out
+  const names = await listDirectory(dir, assets)
+  for (const name of names) {
+    if (name.endsWith(".png")) out.push(rel + name)
+    else if (!name.includes(".")) await walkTextureDir(`${dir}/${name}`, assets, out, `${rel}${name}/`, depth + 1)
+  }
+  return out
+}
+
+export async function listAtlasSprites(assets, ids = ["blocks", "items"]) {
+  assets = await prepareAssets(assets)
+  const sprites = new Set()
+  const namespaces = await listDirectory("assets", assets)
+  for (const entry of assets) {
+    for (const id of ids) {
+      for (const src of entry.atlasSources?.get(id) ?? []) {
+        const type = normalize(src.type ?? "")
+        if (type === "directory") {
+          const source = (src.source ?? "").replace(/\/$/, "")
+          for (const ns of namespaces) {
+            const base = `assets/${ns}/textures/${source}`
+            for (const rel of await walkTextureDir(base, assets, [])) sprites.add(`${base}/${rel}`)
+          }
+        } else if (type === "single") {
+          if (src.resource) sprites.add(spritePathOf(normalize(src.sprite ?? src.resource)))
+        } else if (type === "unstitch") {
+          for (const region of src.regions ?? []) if (region?.sprite) sprites.add(spritePathOf(region.sprite))
+        } else if (type === "paletted_permutations") {
+          const separator = src.separator ?? "_"
+          for (const tex of src.textures ?? []) {
+            const { namespace, item } = resolveNamespace(normalize(tex))
+            for (const suffix of Object.keys(src.permutations ?? {})) {
+              sprites.add(`assets/${namespace}/textures/${item}${separator}${suffix}.png`)
+            }
+          }
+        } else if (type === "filter") {
+          const pattern = src.pattern ?? {}
+          const nsRe = pattern.namespace ? new RegExp(pattern.namespace) : null
+          const pathRe = pattern.path ? new RegExp(pattern.path) : null
+          for (const filePath of Array.from(sprites)) {
+            const m = filePath.match(/^assets\/([^/]+)\/textures\/(.+)\.png$/)
+            if (!m) continue
+            if ((!nsRe || nsRe.test(m[1])) && (!pathRe || pathRe.test(m[2]))) sprites.delete(filePath)
+          }
+        }
+      }
+    }
+  }
+  return Array.from(sprites).sort()
+}
+
 function layerDisk(sprites, filePath, fn) {
   const prev = sprites.get(filePath)
   sprites.set(filePath, prev ? memoizeAsync(async () => (await fn()) ?? (await prev())) : fn)

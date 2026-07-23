@@ -1,6 +1,8 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
 import { subUpload, subFlush } from "./subtex.js"
-import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS } from "./models.js"
+import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS, loadSpriteTexture } from "./models.js"
+import { buildSchedules, evaluateAnimation } from "./animation.js"
+import { listAtlasSprites } from "./assets.js"
 import { sortTranslucent } from "./sorting.js"
 
 const nextTask = globalThis.scheduler?.yield
@@ -147,13 +149,13 @@ const texHash = new WeakMap()
 const animHash = new WeakMap()
 let animHashId = 0
 function hashTexture(tex) {
+  const sh = tex.userData?.srcHash
+  if (sh) return sh
   if (tex.userData?.frames) {
     let ah = animHash.get(tex)
     if (ah === undefined) animHash.set(tex, ah = `anim${++animHashId}_${tex.image.width}x${tex.image.height}`)
     return ah
   }
-  const sh = tex.userData?.srcHash
-  if (sh) return sh
   const img = tex.image
   let h = texHash.get(img)
   if (h !== undefined) return h
@@ -226,8 +228,14 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
   const corners = {}
   for (const c of verts) corners[`${c.ha}${c.hb}`] = `${c.u.toFixed(2)},${c.v.toFixed(2)}`
   const orient = Object.keys(corners).sort().map(k => k + ":" + corners[k]).join("|")
-  const cellKey = `${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}:${faceDataOf(mat)?.join(",") ?? ""}`
-  return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig: atlasSignature(mat), tex, mat, srcHash, cull, cellKey }
+  const col = geo.attributes.color
+  let tint = null
+  if (col) {
+    const a = idx.getX(grp.start) * 3
+    if (col.array[a] !== 255 || col.array[a + 1] !== 255 || col.array[a + 2] !== 255) tint = [col.array[a], col.array[a + 1], col.array[a + 2]]
+  }
+  const cellKey = `${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
+  return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig: atlasSignature(mat), tex, mat, srcHash, cull, cellKey, tint }
 }
 
 function extractFlats(geo, grp, mw, nm, tex, mat, cull) {
@@ -341,6 +349,20 @@ function greedyRects(cellSet) {
   return rects
 }
 
+class GrowU8 {
+  constructor() { this.a = new Uint8Array(4096); this.length = 0 }
+  ensure(n) {
+    if (this.length + n <= this.a.length) return
+    let cap = this.a.length * 2
+    while (cap < this.length + n) cap *= 2
+    const b = new Uint8Array(cap)
+    b.set(this.a)
+    this.a = b
+  }
+  push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
+  data() { return this.a.length === this.length ? this.a : this.a.slice(0, this.length) }
+}
+
 class GrowF32 {
   constructor() { this.a = new Float32Array(4096); this.length = 0 }
   ensure(n) {
@@ -355,7 +377,7 @@ class GrowF32 {
   push2(x, y) { this.ensure(2); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; this.length = l + 2 }
   data() { return this.a.length === this.length ? this.a : this.a.slice(0, this.length) }
 }
-const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32() })
+const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8() })
 
 let _v = null, _n = null
 function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
@@ -365,11 +387,12 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
     const m = mat.elements, e = nmat.elements
     const m0 = m[0], m1 = m[1], m2 = m[2], m4 = m[4], m5 = m[5], m6 = m[6], m8 = m[8], m9 = m[9], m10 = m[10], m12 = m[12], m13 = m[13], m14 = m[14]
     const e0 = e[0], e1 = e[1], e2 = e[2], e3 = e[3], e4 = e[4], e5 = e[5], e6 = e[6], e7 = e[7], e8 = e[8]
-    const P = acc.P, N = acc.N, U = acc.U, F = acc.F
-    P.ensure(count * 3); N.ensure(count * 3); U.ensure(count * 2)
+    const ca = geo.attributes.color?.array
+    const P = acc.P, N = acc.N, U = acc.U, F = acc.F, T = acc.T
+    P.ensure(count * 3); N.ensure(count * 3); U.ensure(count * 2); T.ensure(count * 3)
     if (fd) F.ensure(count * 2)
-    const Pa = P.a, Na = N.a, Ua = U.a, Fa = F.a
-    let pl = P.length, nl = N.length, ul = U.length, fl = F.length
+    const Pa = P.a, Na = N.a, Ua = U.a, Fa = F.a, Ta = T.a
+    let pl = P.length, nl = N.length, ul = U.length, fl = F.length, tl = T.length
     for (let i = start; i < start + count; i++) {
       const a = ia[i], a3 = a * 3, a2 = a * 2
       const x = pa[a3], y = pa[a3 + 1], z = pa[a3 + 2]
@@ -389,14 +412,18 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
       if (rect) { Ua[ul] = (rect.x + u * rect.w) / W; Ua[ul + 1] = 1 - (rect.y + (1 - v) * rect.h) / H }
       else { Ua[ul] = u; Ua[ul + 1] = v }
       ul += 2
+      if (ca) { Ta[tl] = ca[a3]; Ta[tl + 1] = ca[a3 + 1]; Ta[tl + 2] = ca[a3 + 2] }
+      else { Ta[tl] = 255; Ta[tl + 1] = 255; Ta[tl + 2] = 255 }
+      tl += 3
       if (fd) { Fa[fl] = fd[0]; Fa[fl + 1] = fd[1]; fl += 2 }
     }
-    P.length = pl; N.length = nl; U.length = ul
+    P.length = pl; N.length = nl; U.length = ul; T.length = tl
     if (fd) F.length = fl
     return
   }
   _v ??= new THREE.Vector3()
   _n ??= new THREE.Vector3()
+  const col = geo.attributes.color
   for (let i = start; i < start + count; i++) {
     const a = idx.getX(i)
     _v.fromBufferAttribute(pos, a).applyMatrix4(mat)
@@ -406,23 +433,152 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
     acc.N.push3(_n.x, _n.y, _n.z)
     if (rect) acc.U.push2((rect.x + u * rect.w) / W, 1 - (rect.y + (1 - v) * rect.h) / H)
     else acc.U.push2(u, v)
+    if (col) acc.T.push3(col.array[a * 3], col.array[a * 3 + 1], col.array[a * 3 + 2])
+    else acc.T.push3(255, 255, 255)
     if (fd) acc.F.push2(fd[0], fd[1])
   }
 }
 
-export function createSharedAtlas(opts = {}) {
+export async function stitchSharedAtlas(shared, assets, opts = {}) {
+  const sprites = await listAtlasSprites(assets, opts.atlases ?? ["blocks", "items"])
+  let sheet = shared.sheets.get("*")
+  if (!sheet) shared.sheets.set("*", sheet = { pages: [], rects: new Map() })
+  let n = 0
+  for (const path of sprites) {
+    const tex = await loadSpriteTexture(path, assets)
+    if (tex?.image) await sharedLocate(shared, sheet, tex)
+    if (++n % 64 === 0) {
+      opts.onProgress?.(n, sprites.length)
+      await nextTask()
+      if (opts.shouldCancel?.()) return null
+    }
+  }
+  subFlush(shared.renderer)
+  return shared
+}
+
+export function exportSharedAtlasLayout(shared) {
+  const sheet = shared.sheets.get("*")
   return {
+    size: shared.size,
+    pages: sheet?.pages.length ?? 0,
+    rects: sheet ? Array.from(sheet.rects.entries()) : []
+  }
+}
+
+export function adoptSharedAtlasLayout(shared, layout) {
+  const pages = []
+  for (let i = 0; i < layout.pages; i++) {
+    pages.push({ canvas: null, ctx: null, texture: new THREE.Texture(), x: 0, y: layout.size, rowH: 0, index: i })
+  }
+  shared.size = layout.size
+  shared.sheets.set("*", { pages, rects: new Map(layout.rects) })
+  shared.frozen = true
+  return shared
+}
+
+export async function insertSharedTextures(shared, items) {
+  let sheet = shared.sheets.get("*")
+  if (!sheet) shared.sheets.set("*", sheet = { pages: [], rects: new Map() })
+  const rects = []
+  for (const it of items) {
+    let r = sheet.rects.get(it.key)
+    if (!r && it.image) {
+      const userData = { srcHash: it.key }
+      if (it.frames?.length) {
+        userData.frames = it.frames.map(f => {
+          const c = new Canvas(f.width, f.height)
+          c.getContext("2d").drawImage(f, 0, 0)
+          f.close?.()
+          return c
+        })
+        if (it.times) userData.times = it.times
+        userData.interpolate = !!it.interpolate
+      }
+      r = await sharedLocate(shared, sheet, { image: it.image, userData, colorSpace: undefined })
+    } else if (it.frames) {
+      for (const f of it.frames) f.close?.()
+    }
+    it.image?.close?.()
+    if (r) rects.push([it.key, r])
+  }
+  subFlush(shared.renderer)
+  return { rects, pages: sheet.pages.length }
+}
+
+function makeAtlasPlayer(shared) {
+  let schedules = null
+  let version = -1
+  let cursor = 0
+  let timer = null
+  function tick() {
+    if (!schedules || version !== shared.serial) {
+      version = shared.serial
+      const texs = []
+      for (const sheet of shared.sheets.values()) {
+        for (const pg of sheet.pages) if (pg.texture.userData?.regions?.length) texs.push(pg.texture)
+      }
+      const prev = new Map((schedules ?? []).map(s => [s.region, s.lastKey]))
+      schedules = buildSchedules(texs)
+      for (const s of schedules) if (prev.has(s.region)) s.lastKey = prev.get(s.region)
+    }
+    const N = schedules.length
+    if (!N) return
+    const budget = 64
+    const t = performance.now() / 50
+    if (N <= budget) evaluateAnimation(schedules, [], t)
+    else {
+      cursor %= N
+      const subset = []
+      for (let i = 0; i < budget; i++) subset.push(schedules[(cursor + i) % N])
+      cursor = (cursor + budget) % N
+      evaluateAnimation(subset, [], t)
+    }
+  }
+  return {
+    playing: false,
+    play() {
+      if (this.playing || this._disposed) return
+      this.playing = true
+      timer = setInterval(tick, 50)
+      timer.unref?.()
+    },
+    pause() {
+      this.playing = false
+      clearInterval(timer)
+      timer = null
+    },
+    dispose() {
+      this.pause()
+      this._disposed = true
+      schedules = null
+    }
+  }
+}
+
+export function createSharedAtlas(opts = {}) {
+  const shared = {
     size: opts.size ?? 2048,
     renderer: opts.renderer ?? null,
     serial: 0,
     sheets: new Map(),
+    animation: null,
+    texture(sig, page) {
+      return this.sheets.get(sig)?.pages[page]?.texture ?? null
+    },
     dispose() {
+      this.animation?.dispose()
       for (const sheet of this.sheets.values()) {
         for (const page of sheet.pages) { try { page.texture.dispose() } catch {} }
       }
       this.sheets.clear()
     }
   }
+  if (opts.animate) {
+    shared.animation = makeAtlasPlayer(shared)
+    shared.animation.play()
+  }
+  return shared
 }
 
 async function sharedLocate(shared, sheet, tex) {
@@ -512,7 +668,7 @@ export async function optimizeScene(placements, opts = {}) {
   const atlasGroups = new Map()
   const anims = new Map(), animTexId = new Map()
   const tdata = new Map()
-  const scanKey = (shared ? "s" : "n") + "\0" + JSON.stringify(cutoff ?? null)
+  const scanKey = (shared ? (shared.frozen ? "f" : "s") : "n") + "\0" + JSON.stringify(cutoff ?? null)
 
   function registerAnim(mat, tex) {
     const id = tex ?? mat
@@ -530,6 +686,35 @@ export async function optimizeScene(placements, opts = {}) {
     let grp = atlasGroups.get(sig)
     if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: mat, translucent })
     grp.textures.add(tex)
+  }
+
+  if (shared?.frozen && shared.requestSpace) {
+    const sheet = shared.sheets.get("*")
+    if (sheet) {
+      const miss = new Map()
+      for (const p of placements) {
+        p.group?.traverse(o => {
+          if (!o.isMesh) return
+          for (const mat of [].concat(o.material)) {
+            const tex = mat && matMap(mat)
+            if (!tex?.image || mat.userData?.glint) continue
+            if (tex.wrapS === THREE.RepeatWrapping || tex.wrapT === THREE.RepeatWrapping) continue
+            const k = hashTexture(tex)
+            if (!sheet.rects.has(k) && !miss.has(k)) miss.set(k, tex)
+          }
+        })
+      }
+      if (miss.size) {
+        const res = await Promise.resolve(shared.requestSpace(Array.from(miss, ([key, t]) => ({
+          key, image: t.image, w: t.image.width, h: t.image.height,
+          frames: t.userData?.frames ?? null, times: t.userData?.times ?? null, interpolate: !!t.userData?.interpolate
+        })))).catch(() => null)
+        if (res) {
+          for (const [key, r] of res.rects) sheet.rects.set(key, r)
+          while (sheet.pages.length < res.pages) sheet.pages.push({ canvas: null, ctx: null, texture: new THREE.Texture(), x: 0, y: shared.size, rowH: 0, index: sheet.pages.length })
+        }
+      }
+    }
   }
 
   stage(500)
@@ -622,8 +807,9 @@ export async function optimizeScene(placements, opts = {}) {
         const tex = matMap(mat)
         if (!tex && !matAnimated(mat)) continue
         const cull = o.userData.cullface?.[g.materialIndex] ?? null
-        if (matAnimated(mat)) {
-          if (tex?.userData?.frames && !mat.userData?.glint) {
+        const offAtlas = shared?.frozen && (!tex || !shared.sheets.get("*")?.rects.has(hashTexture(tex)))
+        if (matAnimated(mat) || offAtlas) {
+          if (!offAtlas && tex?.userData?.frames && !mat.userData?.glint) {
             const face = toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull })
             rec.regs.push({ kind: 0, ni: nodeIdx.get(o), mi: g.materialIndex, tex, sig: face.sig, translucent: face.translucent })
             atlasFace(o, face, { kind: 0, start: g.start, count: g.count, tex, cull, sig: face.sig, fd: face.fd })
@@ -743,11 +929,17 @@ export async function optimizeScene(placements, opts = {}) {
     await breathe()
     if (shouldCancel?.()) return null
     if (shared) {
-      let sheet = shared.sheets.get(sig)
-      if (!sheet) shared.sheets.set(sig, sheet = { pages: [], rects: new Map() })
+      let sheet
       const rects = new Map()
-      for (const t of grp.textures) rects.set(t, await sharedLocate(shared, sheet, t))
-      subFlush(shared.renderer)
+      if (shared.frozen) {
+        sheet = shared.sheets.get("*")
+        for (const t of grp.textures) rects.set(t, sheet.rects.get(hashTexture(t)))
+      } else {
+        sheet = shared.sheets.get(sig)
+        if (!sheet) shared.sheets.set(sig, sheet = { pages: [], rects: new Map() })
+        for (const t of grp.textures) rects.set(t, await sharedLocate(shared, sheet, t))
+        subFlush(shared.renderer)
+      }
       const sizes = sheet.pages.map(() => ({ w: shared.size, h: shared.size }))
       const materials = sheet.pages.map(pg => {
         const m = grp.repMat.clone()
@@ -871,6 +1063,7 @@ export async function optimizeScene(placements, opts = {}) {
     }
     const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo), s = at.sizes[rect.ai], acc = at.accs[rect.ai], f = q.f
     const fd = faceDataOf(f.mat)
+    const ft = f.tint
     for (const vert of f.verts) {
       const p = [0, 0, 0], nn = [0, 0, 0]
       p[f.na] = q.wpc
@@ -880,6 +1073,8 @@ export async function optimizeScene(placements, opts = {}) {
       acc.P.push3(p[0], p[1], p[2])
       acc.N.push3(nn[0], nn[1], nn[2])
       acc.U.push2((rect.x + vert.u * rect.w) / s.w, 1 - (rect.y + (1 - vert.v) * rect.h) / s.h)
+      if (ft) acc.T.push3(ft[0], ft[1], ft[2])
+      else acc.T.push3(255, 255, 255)
       if (fd) acc.F.push2(fd[0], fd[1])
     }
   }
@@ -893,6 +1088,7 @@ export async function optimizeScene(placements, opts = {}) {
     geo.setAttribute("position", new THREE.BufferAttribute(pd, 3))
     geo.setAttribute("normal", new THREE.BufferAttribute(acc.N.data(), 3))
     geo.setAttribute("uv", new THREE.BufferAttribute(acc.U.data(), 2))
+    geo.setAttribute("color", new THREE.BufferAttribute(acc.T.data(), 3, true))
     if (acc.F?.length) geo.setAttribute("faceData", new THREE.BufferAttribute(acc.F.data(), 2))
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
     for (let i = 0; i < pd.length; i += 3) {

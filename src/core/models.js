@@ -1168,6 +1168,21 @@ function applyTint(img, tint) {
   return canvas
 }
 
+const _tintRGB = new Map()
+function tintRGB(tint) {
+  let c = _tintRGB.get(tint)
+  if (!c) {
+    const cv = new Canvas(1, 1)
+    const ctx = cv.getContext("2d", { willReadFrequently: true })
+    ctx.fillStyle = COLORS.dye[tint] ?? tint
+    ctx.fillRect(0, 0, 1, 1)
+    const d = ctx.getImageData(0, 0, 1, 1).data
+    c = [d[0], d[1], d[2]]
+    _tintRGB.set(tint, c)
+  }
+  return c
+}
+
 let _alphaCanvas = null, _alphaCtx = null
 function imageIsTranslucent(img, cutoff) {
   const min = cutoff?.min ?? 5
@@ -1617,6 +1632,23 @@ async function makeThreeTexture(img) {
   return texture
 }
 
+export async function loadSpriteTexture(path, assets) {
+  const loaded = await loadMinecraftTexture(path, assets)
+  if (!loaded?.image) return null
+  const texture = await makeThreeTexture(loaded.image)
+  if (loaded.cls) {
+    texture.userData.translucent = loaded.cls.translucent
+    texture.userData.opaque = loaded.cls.opaque
+  }
+  if (loaded.srcHash != null) texture.userData.srcHash = loaded.srcHash + "_" + loaded.image.width + "x" + loaded.image.height
+  if (loaded.animated && loaded.frames) {
+    texture.userData.frames = loaded.frames
+    texture.userData.times = loaded.times
+    texture.userData.interpolate = loaded.interpolate
+  }
+  return texture
+}
+
 function bakeMirroredScale(displayGroup, solid) {
   const sign = new THREE.Matrix4().makeScale(
     Math.sign(displayGroup.scale.x),
@@ -1924,11 +1956,10 @@ export async function loadModel(scene, assets, model, args) {
     if (model.fluid === "water" && heights.overlay) {
       for (const [face, mi] of [["east", 0], ["west", 1], ["south", 4], ["north", 5]]) {
         if (!heights.overlay[face] || mesh.material[mi].visible === false) continue
-        const tint = model.tints?.[0]
-        const mkey = `minecraft:block/water_overlay\0${tint ?? ""}\0false`
+        const mkey = "minecraft:block/water_overlay\0false"
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay", tint), assets, model.shader, false, true, lightConfig, lighting, undefined, 0, false)
+          material = await makeMaterial(await loadModelTexture("minecraft:block/water_overlay"), assets, model.shader, false, true, lightConfig, lighting, undefined, 0, false)
           materialCache.set(mkey, material)
         }
         mesh.material[mi] = material
@@ -1943,12 +1974,11 @@ export async function loadModel(scene, assets, model, args) {
     if (heights.angle != null) {
       let texRef = "#flow"
       while (texRef && texRef.startsWith("#")) texRef = model.textures?.[texRef.slice(1)]
-      const tint = model.tints?.[0]
       for (const [idx, side] of [[2, false], [8, "back"]]) {
-        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${side}\0flow`
+        const mkey = `${texRef ?? ""}\0${side}\0flow`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, true, lightConfig, lighting, undefined, 0, false)
+          material = await makeMaterial(await loadModelTexture(texRef), assets, model.shader, side, true, lightConfig, lighting, undefined, 0, false)
           materialCache.set(mkey, material)
         }
         mesh.material[idx] = material
@@ -2089,6 +2119,7 @@ export async function loadModel(scene, assets, model, args) {
     }
     geometry.attributes.uv.needsUpdate = true
 
+    const faceTints = []
     async function faceMaterials(back) {
       const out = []
       for (let i = 0; i < faceOrder.length; i++) {
@@ -2102,9 +2133,8 @@ export async function loadModel(scene, assets, model, args) {
         let texRef = face.texture
         if (texRef && !texRef.startsWith("#")) texRef = "#" + texRef
 
-        let tint
-        if (model.tints) {
-          tint = model.tints[face.tintindex]
+        if (!back && model.tints) {
+          faceTints[i] = model.tints[face.tintindex]
         }
 
         while (texRef && texRef.startsWith("#")) {
@@ -2121,10 +2151,10 @@ export async function loadModel(scene, assets, model, args) {
         const side = back ? "back" : false
         const emission = Math.max(blockEmission, !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0)
         const ao = model.ambientocclusion !== false
-        const mkey = `${texRef ?? ""}\0${tint ?? ""}\0${shadeDir ?? ""}\0${side}\0${emission}\0${ao}`
+        const mkey = `${texRef ?? ""}\0${shadeDir ?? ""}\0${side}\0${emission}\0${ao}`
         let material = materialCache.get(mkey)
         if (!material) {
-          material = await makeMaterial(await loadModelTexture(texRef, tint), assets, model.shader, side, true, lightConfig, lighting, shadeDir, emission, ao)
+          material = await makeMaterial(await loadModelTexture(texRef), assets, model.shader, side, true, lightConfig, lighting, shadeDir, emission, ao)
           if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
           materialCache.set(mkey, material)
         }
@@ -2141,6 +2171,21 @@ export async function loadModel(scene, assets, model, args) {
       for (const g of groups) geometry.addGroup(g.start, g.count, g.materialIndex + 6)
       for (const g of groups) geometry.addGroup(g.start, g.count, g.materialIndex)
       cullDirs.push(...cullDirs)
+    }
+
+    {
+      const tintAttr = new Uint8Array(geometry.attributes.position.count * 3).fill(255)
+      for (let i = 0; i < 6; i++) {
+        const t = faceTints[i]
+        if (t == null) continue
+        const [r, g, b] = tintRGB(t)
+        for (let v = i * 4; v < i * 4 + 4 && v * 3 + 2 < tintAttr.length; v++) {
+          tintAttr[v * 3] = r
+          tintAttr[v * 3 + 1] = g
+          tintAttr[v * 3 + 2] = b
+        }
+      }
+      geometry.setAttribute("color", new THREE.BufferAttribute(tintAttr, 3, true))
     }
 
     const mesh = new THREE.Mesh(geometry, materials)
@@ -2267,7 +2312,8 @@ export async function loadModel(scene, assets, model, args) {
         let dirs = buckets.get(material)
         if (!dirs) buckets.set(material, dirs = new Map())
         let acc = dirs.get(dir)
-        if (!acc) dirs.set(dir, acc = { positions: [], normals: [], uvs: [] })
+        if (!acc) dirs.set(dir, acc = { positions: [], normals: [], uvs: [], tints: [] })
+        const col = geo.attributes.color
         for (let i = group.start; i < group.start + group.count; i++) {
           const a = geo.index.getX(i)
           vert.fromBufferAttribute(pos, a).applyMatrix4(matrix)
@@ -2275,6 +2321,8 @@ export async function loadModel(scene, assets, model, args) {
           acc.positions.push(vert.x, vert.y, vert.z)
           acc.normals.push(norm.x, norm.y, norm.z)
           acc.uvs.push(uv.getX(a), uv.getY(a))
+          if (col) acc.tints.push(col.array[a * 3], col.array[a * 3 + 1], col.array[a * 3 + 2])
+          else acc.tints.push(255, 255, 255)
         }
       }
       group.remove(child)
@@ -2287,6 +2335,7 @@ export async function loadModel(scene, assets, model, args) {
         geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.positions, 3))
         geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.normals, 3))
         geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.uvs, 2))
+        geo.setAttribute("color", new THREE.BufferAttribute(new Uint8Array(acc.tints), 3, true))
         geo.setIndex(Array.from(Array(acc.positions.length / 3).keys()))
         const mesh = new THREE.Mesh(geo, material)
         mesh.userData.cullface = [dir]
@@ -2562,7 +2611,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     texture.needsUpdate = true
     const side = doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide
     if (lighting === "scene") {
-      const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: 0.5, side })
+      const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: 0.5, side, vertexColors: true })
       if (emission > 0) {
         mat.emissive = new THREE.Color(0xffffff)
         mat.emissiveMap = texture
@@ -2570,7 +2619,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       }
       return mat
     }
-    return new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.5, side })
+    return new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.5, side, vertexColors: true })
   }
   if (shader?.type === "end_portal") {
     const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
@@ -2716,6 +2765,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      attribute vec3 color;
+      varying vec3 vTint;
       #ifdef FACE_ATTRS
         attribute vec2 faceData;
         varying vec2 vFaceData;
@@ -2726,6 +2777,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       #include <clipping_planes_pars_vertex>
       void main() {
         vUv = uv;
+        vTint = color;
         #ifdef FACE_ATTRS
           vFaceData = faceData;
         #endif
@@ -2772,6 +2824,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      varying vec3 vTint;
       #ifdef FACE_ATTRS
         varying vec2 vFaceData;
       #endif
@@ -2920,7 +2973,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           vec3 n = hasOverride ? v * shadeDirV : vNormal;
           shade = min(1.0, ambient + d0 * max(0.0, dot(n, v * light0)) + d1 * max(0.0, dot(n, v * light1)));
         }
-        gl_FragColor = vec4(texColor.rgb * shade * light, texColor.a);
+        gl_FragColor = vec4(texColor.rgb * vTint * shade * light, texColor.a);
       }
       //salt:${shaderSalt}`,
     transparent: texture?.userData?.translucent === true,
