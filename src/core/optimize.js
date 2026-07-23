@@ -443,12 +443,32 @@ export async function stitchSharedAtlas(shared, assets, opts = {}) {
   const sprites = await listAtlasSprites(assets, opts.atlases ?? ["blocks", "items"])
   let sheet = shared.sheets.get("*")
   if (!sheet) shared.sheets.set("*", sheet = { pages: [], rects: new Map() })
+  const total = sprites.length * 2
   let n = 0
+  const texs = []
+  let area = 0
   for (const path of sprites) {
     const tex = await loadSpriteTexture(path, assets)
-    if (tex?.image) await sharedLocate(shared, sheet, tex)
+    if (tex?.image) {
+      texs.push(tex)
+      area += (tex.image.width + 2) * (tex.image.height + 2)
+    }
     if (++n % 64 === 0) {
-      opts.onProgress?.(n, sprites.length)
+      opts.onProgress?.(n, total)
+      await nextTask()
+      if (opts.shouldCancel?.()) return null
+    }
+  }
+  if (shared.autoSize && !sheet.pages.length) {
+    const cap = Math.min(detectMaxAtlas(), 8192)
+    let size = 1024
+    while (size < cap && size * size * 0.75 < area * 1.15) size *= 2
+    shared.size = size
+  }
+  for (const tex of texs) {
+    await sharedLocate(shared, sheet, tex)
+    if (++n % 64 === 0) {
+      opts.onProgress?.(n, total)
       await nextTask()
       if (opts.shouldCancel?.()) return null
     }
@@ -559,6 +579,7 @@ function makeAtlasPlayer(shared) {
 export function createSharedAtlas(opts = {}) {
   const shared = {
     size: opts.size ?? 2048,
+    autoSize: opts.size == null,
     renderer: opts.renderer ?? null,
     serial: 0,
     sheets: new Map(),
