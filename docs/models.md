@@ -14,7 +14,7 @@ It takes a **string**, naming a context in the model's own `display` block (`"gu
 | `rotation`, `translation`, `scale` | Transform values. When used with `display`, each one replaces that display type. With `type: "fallback"` they are used only when the model has nothing matching its `display` context |
 | `type` | `"fallback"` only use the defined `rotation`, `translation`, `scale` when the model is missing the specified `display` context |
 | `generated` | When `false`, the fallback doesn't apply to generated models (`"parent": "builtin/generated"`) |
-| `rotateCross` | `true` turns [cross models](#iscrossmodelmodels) (flowers, saplings, cobwebs) 45°. Useful for diagonal camera angles, where they would otherwise appear flat. Applies to whichever transform is used, from the model or from here. Skipped when a display rotation exists on the X or Z axis, or the Y axis is a multiple of 90° |
+| `rotateCross` | `true` turns [cross models](#iscrossmodelmodels) (flowers, saplings, cobwebs) 45°. Useful for diagonal camera angles, where they would otherwise appear flat. Applies to whichever transform is used, from the model or from here. Only when the transform leaves one of the model's planes edge-on to the camera, so angles that already show both planes are left as they are |
 
 ```js
 display: "gui"                                            // the model's gui display

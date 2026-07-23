@@ -1889,7 +1889,12 @@ export async function loadModel(scene, assets, model, args) {
 
     if (display.rotateCross && settings.rotation && isCrossModel(model)) {
       const [x, y, z] = settings.rotation
-      if ((((y % 90) + 90) % 90) === 45) {
+      const euler = new THREE.Euler(THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z))
+      const edgeOn = [45, 135].some(angle => {
+        const a = THREE.MathUtils.degToRad(angle)
+        return Math.abs(new THREE.Vector3(Math.sin(a), 0, Math.cos(a)).applyEuler(euler).z) < 0.01
+      })
+      if (edgeOn) {
         settings.rotation = [x, y - 45, z]
       }
     }
