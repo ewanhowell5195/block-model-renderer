@@ -110,6 +110,8 @@ const assets = await prepareAssets(sources, { translucency: { min: 5, max: 240 }
 
 Minecraft renders some blocks dynamically at runtime with hardcoded geometry, with no usable model JSON in the vanilla resource pack. block-model-renderer ships bundled packs that supply models for these cases, so they render correctly without any setup from you. They come in two categories that mirror how the game treats each block:
 
+In the browser these come from a single `assets.zip` fetched at runtime. If they all seem missing at once (block entities as empty stubs, flat tints), that fetch failed: see [Asset sources](standard-api.md#asset-sources).
+
 ### Forced (highest priority)
 
 Blocks that vanilla never renders from resource pack models at all: the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void), the end portal and end gateway, the fluids (water, lava), and the item frames (their frame; held items render from nbt). A resource pack can't remodel these in game, so the renderer matches that: the bundled blockstates for these blocks always win, shadowing anything your packs provide for them.

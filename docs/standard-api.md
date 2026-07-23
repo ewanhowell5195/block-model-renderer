@@ -352,6 +352,19 @@ The zip reader handles standard stored/deflate zips (what every normal tool prod
 
 The bundled block entity overrides are fetched once as a single `assets.zip` resolved relative to the module URL (works on jsDelivr and through most bundlers). If yours lives somewhere unusual, or your build inlines the library so the module URL is lost, point at it with [`configure({ assetsUrl })`](#browser-only-exports), e.g. `https://cdn.jsdelivr.net/npm/block-model-renderer/assets.zip`. A failed fetch logs a one-time warning and rendering continues without the bundled entries instead of erroring; the failure isn't cached, and changing `assetsUrl` refetches. Either applies to assets prepared afterwards, while already-prepared assets keep the entries they were built with.
 
+With Vite's dev server, for example, the dependency pre-bundler moves the module URL without copying `assets.zip` alongside it, so the fetch quietly fails and the bundled entries drop out. Exclude the library from pre-bundling:
+
+```js
+// vite.config.js
+export default defineConfig({
+  optimizeDeps: {
+    exclude: ["block-model-renderer"]
+  }
+})
+```
+
+Vite builds are unaffected, since Rollup resolves the URL itself and emits the zip as an asset. Other bundlers may need their own equivalent, or [`configure({ assetsUrl })`](#browser-only-exports).
+
 Setting `configure({ assetsUrl: false })` skips the bundled zip entirely: nothing is fetched, and block entities (chests, banners, beds, shulker boxes...) render from whatever your own assets provide, which for vanilla jars means not at all. The zip also carries the biome colormaps and end sky texture, so tints and end portals degrade to flat colors without it. The small internal fallbacks (the missing-model texture, default blockstate data, atlas definitions) are built into the library and always available.
 
 ## Browser-only exports
