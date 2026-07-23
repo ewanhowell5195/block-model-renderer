@@ -43,7 +43,7 @@ The `lighting` option picks how faces are shaded:
 | `"scene"` | `MeshStandardMaterial` | Reacts to lights you add to the scene (`roughness: 1`, `metalness: 0`, cutout `alphaTest`, sRGB texture). Renders black until you add lights |
 | `"off"` | `MeshBasicMaterial` | Unlit and flat: the texture at full brightness, ignoring all lighting |
 
-Tints are baked into the textures in every mode, and the end portal keeps its own emissive shader.
+Tints apply as per-vertex colors multiplied with the texture in the shader, like the game, in every mode; tinted and untinted faces of the same texture share one material and one atlas entry. The end portal keeps its own emissive shader.
 
 The model element fields `shade: false` (legacy, versions before 26.3) and `shade_direction_override` (26.3 onward) redirect an element's shading: it lights as if it faced that direction (`shade: false` forces up). In `"world"` mode that means the direction's cardinal shade constant; in `"item"` mode the directional lights evaluate against the override instead of the element's real face normals. They apply to block-type models only; item-type models ignore both, like the game.
 

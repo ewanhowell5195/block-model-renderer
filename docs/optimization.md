@@ -93,47 +93,84 @@ handle.detach()     // stop sorting (when discarding the scene)
 
 It traverses the object, hooks every mesh with translucent materials, and needs nothing per-frame from you: the renderer hands it the camera on draw.
 
-## Packed scenes and shared atlases
+## Shared atlases
 
-For streaming-scale apps, scenes can build in web workers and ship to the main thread as transferable data: the worker runs [`createScene`](scenes.md#createsceneassets-blocks-args) (workers have no WebGL, so the output group is plain geometry and materials), packs the result, and the main thread revives it into live meshes without rebuilding anything. Atlas pages are deduplicated across every scene a worker builds through a shared atlas, and the main thread mirrors those pages once rather than receiving them again per scene.
+A shared atlas is an atlas pool that outlives any one scene: pass it as `sharedAtlas` to [`createScene`](scenes.md#createsceneassets-blocks-args) / [`optimizeScene`](#scene-optimization) and every scene using the handle resolves its textures against the same pages instead of building per-scene atlases.
 
 | Export | Description |
 |---|---|
-| `createSharedAtlas({ size?, renderer? })` | An atlas pool handle (default page size 2048). Pass it as `sharedAtlas` to [`createScene`](scenes.md#createsceneassets-blocks-args) / [`optimizeScene`](#scene-optimization) and every scene using it packs textures into the same growing pages. `dispose()` frees the pages |
-| `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references into the mirror |
-| `packAtlasDelta(shared, since?)` | The shared atlas regions added after serial `since`, as `{ deltas, serial, size, transfers }`. Send alongside each packed scene and feed the returned `serial` into the next call so each region crosses the thread boundary once. Animated regions carry their frame bitmaps and timing |
-| `createAtlasMirror({ renderer? })` | The main-thread counterpart of a worker's shared atlas. `apply(pack)` draws delta regions into locally owned pages (with the renderer, established pages update by GPU sub-uploads instead of full re-uploads); `texture(sig, page)` resolves the page textures that revived scenes reference; `dispose()` frees them |
-| `reviveScene(payload, { atlas?, releaseArrays? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the mirror that page-referencing textures resolve against. `releaseArrays` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
+| `createSharedAtlas({ size?, renderer?, animate? })` | The atlas handle. With a `renderer`, page updates upload as GPU subimages instead of full re-uploads. `animate: true` makes the atlas [tick its own animated regions](#atlas-animation). `texture(sig, page)` resolves a page's texture (what revived scenes reference); `dispose()` frees the pages and stops the animator. Page size auto-picks at stitch time (below); pass `size` to force one |
+| `stitchSharedAtlas(shared, assets, opts?)` | Stitch every sprite the packs' atlas definition files list into the atlas up front, the way the game builds its block atlas at startup. `opts.atlases` picks the definitions (default `["blocks", "items"]`, merged into the one atlas), `onProgress(done, total)` reports, `shouldCancel()` aborts (resolving `null`). Unless the handle was given an explicit `size`, the page size is picked from the measured sprite area so the stitch fills at most ~3/4 of one page (capped by GPU limits), leaving headroom for runtime textures. After this, scenes are pure rect lookups: no stitching cost, and every scene shares the exact same coordinates |
+| `exportSharedAtlasLayout(shared)` | The atlas's coordinate table as a structured-cloneable `{ size, pages, rects }` (no pixels, on the order of 150KB for the vanilla pack). Send it to workers once |
+| `adoptSharedAtlasLayout(shared, layout)` | Turn a fresh handle into a pixel-less adopter of that layout: scenes built against it bake UVs to the fixed coordinates, and `packScene` emits page references only. Adopters never stitch locally; textures missing from the layout either go through `requestSpace` (below) or fall back to per-material textures |
+| `insertSharedTextures(shared, items)` | Add runtime textures (sign text, patterned banners, map art) to a live atlas. `items` is `[{ key, image, frames?, times?, interpolate? }]`: `key` is your stable content hash, `image` a bitmap or canvas, and the optional frame fields register the region as animated. Already-present keys dedup to the existing rect; passed bitmaps are closed. Returns `{ rects, pages }` to merge into worker layouts |
 
-The shape of the flow, worker side then main side:
+### Packing scenes across workers
+
+For streaming-scale apps, scenes build in web workers and ship to the main thread as transferable data: the worker runs [`createScene`](scenes.md#createsceneassets-blocks-args) (workers have no WebGL, so the output group is plain geometry and materials), packs the result, and the main thread revives it into live meshes without rebuilding anything. With a prestitched atlas the pixels live only on the main thread; workers carry just the coordinate layout. These exports also exist on Node (useful for testing the pipeline end to end); the one gap is that packing a non-atlas texture as a bitmap needs `createImageBitmap`, so on Node pack scenes against a shared atlas.
+
+| Export | Description |
+|---|---|
+| `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references |
+| `reviveScene(payload, { atlas?, releaseArrays? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas` (or a legacy mirror). `releaseArrays` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
+
+The whole flow:
 
 ```js
-// worker: build against its own shared atlas, pack, post
-const shared = createSharedAtlas()
-const handle = await createScene(assets, blocks, { sharedAtlas: shared, animate: false })
-const scene = await packScene(handle, { sharedAtlas: shared })
-const atlas = await packAtlasDelta(shared, lastSerial)
-lastSerial = atlas.serial
-postMessage({ scene: scene.payload, atlas }, [...scene.transfers, ...atlas.transfers])
+// main, once: stitch, export the layout, send it to each worker
+const shared = createSharedAtlas({ renderer, animate: true })
+await stitchSharedAtlas(shared, assets)
+worker.postMessage({ type: "init", layout: exportSharedAtlasLayout(shared) })
+
+// worker, once: adopt the layout; scenes bake UVs against the fixed coordinates
+const atlas = adoptSharedAtlasLayout(createSharedAtlas(), msg.layout)
+
+// worker, per scene: build, pack (page references only), post
+const handle = await createScene(assets, blocks, { sharedAtlas: atlas, animate: false })
+const scene = await packScene(handle, { sharedAtlas: atlas })
+postMessage({ scene: scene.payload }, scene.transfers)
 handle.dispose()
 
-// main: mirror the new atlas regions, revive, add
-mirror ??= createAtlasMirror({ renderer })
-mirror.apply(msg.atlas)
-const tile = reviveScene(msg.scene, { atlas: mirror, releaseArrays: true })
+// main, per scene: revive against the stitched atlas, add
+const tile = reviveScene(msg.scene, { atlas: shared, releaseArrays: true })
 world.add(tile.group)
 ```
 
-Revived groups are inert data, not `createScene` handles: no palette, no light handle, no [dynamic model](scenes.md#dynamic-models) rigs (dynamic parts can't cross the thread boundary as live objects; build those separately on the main thread). Billboards re-attach their camera-facing behavior on revive.
+Revived groups are inert data, not `createScene` handles: no palette, no light handle, no [dynamic model](scenes.md#dynamic-models) rigs (dynamic parts can't cross the thread boundary as live objects; build those separately on the main thread; the main thread's own scenes can keep stitching into the same live atlas). Billboards re-attach their camera-facing behavior on revive.
 
-### Animating mirror pages
+### Requesting atlas space from workers
 
-Packed scenes reference mirror pages, and animated texture regions ride along in the atlas deltas, but nothing plays them automatically: the mirror's pages aren't wired into the page-global animator. Drive them with the schedule helpers:
+Runtime textures a worker generates (sign text, patterned banners) aren't in the prestitched layout. Set `requestSpace` on an adopted handle and the optimizer batches every missing texture in a scene into one call before it bakes UVs:
+
+```js
+// worker: ship the pixels to the main thread, get coordinates back
+atlas.requestSpace = async items => {
+  const bitmaps = await Promise.all(items.map(it => createImageBitmap(it.image)))
+  return await askMainThread(items.map((it, i) => ({ ...it, image: bitmaps[i] })), bitmaps)
+}
+
+// main, on that message: stitch them in, reply with the rects
+const res = await insertSharedTextures(shared, msg.items)
+reply({ rects: res.rects, pages: res.pages })
+```
+
+`items` is `[{ key, image, w, h, frames, times, interpolate }]` and the resolved value is `insertSharedTextures`' `{ rects, pages }`; the granted rects merge into the worker's layout automatically, so the scene packs them as page references like everything else. Duplicate content across workers dedups to one rect on the main thread. Textures that stay unresolved (a failed request, glint, repeat-wrapping textures) fall back to per-material textures, which pack as bitmaps and still render correctly.
+
+### Atlas animation
+
+`createSharedAtlas({ animate: true })` gives the atlas its own player at `shared.animation` (`playing`, `play()`, `pause()`), auto-playing on creation. It ticks every animated region on the pages at the game's 20Hz, budgeted so one tick never uploads an unbounded number of regions, and picks up regions added later (a `stitchSharedAtlas` run, `insertSharedTextures`, live scene builds) automatically. Call `setAnimationRenderer(renderer)` so the frame updates upload as GPU subimages.
+
+To drive animation yourself instead, the schedule helpers work on any animated textures or atlas pages:
 
 | Export | Description |
 |---|---|
 | `setAnimationRenderer(renderer)` | Register the renderer once so frame updates upload as GPU subimages instead of full-page texture re-uploads. Also used by the automatic animator; call it in any app that animates atlas textures on large pages |
-| `buildSchedules(textures)` | Precompute per-region frame schedules for a list of textures with animated frames or regions (a mirror's pages via `eachPage`) |
-| `evaluateAnimation(schedules, shaders, tickTime)` | Advance every schedule to `tickTime` (in game ticks, 20 per second) and update the textures; `shaders` is materials whose `GameTime` uniform should follow (the end portal). Returns whether anything changed |
+| `collectAnimated(root)` | Gather `{ textures, shaders }` from a built group: textures with animated frames or regions, and materials whose `GameTime` uniform should advance (the end portal) |
+| `buildSchedules(textures)` | Precompute per-region frame schedules for a list of textures with animated frames or regions |
+| `evaluateAnimation(schedules, shaders, tickTime)` | Advance every schedule to `tickTime` (in game ticks, 20 per second) and update the textures. Returns whether anything changed |
 
-Rebuild the schedules when the mirror's `regionsVersion` changes (new animated regions arrived) and call `evaluateAnimation` from your render loop at whatever rate you like; the game runs at 20Hz and interpolated textures look right up to 60Hz.
+The game runs at 20Hz and interpolated textures look right up to 60Hz. Regions only re-blend and re-upload when their evaluated frame actually changes.
+
+### Incremental mirroring (legacy)
+
+Before the prestitched flow, workers grew their own atlases dynamically and shipped the pixels to the main thread as deltas. The exports remain for that pattern: `packAtlasDelta(shared, since?)` returns the regions a worker atlas added after serial `since` (as `{ deltas, serial, size, transfers }`, animated regions carrying their frames), and `createAtlasMirror({ renderer? })` is the main-thread counterpart whose `apply(pack)` draws the deltas into locally owned pages, with `texture(sig, page)` / `dispose()` like a shared atlas. Prefer the prestitched flow: one atlas, no per-scene pixel traffic, and animation in one place.

@@ -13,7 +13,10 @@ import {
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
   makeModelScene, createScene, loadModel, poseSpecial, renderModelScene, optimizeScene, sortTranslucent,
-  computeSceneLight, createSharedAtlas, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
+  computeSceneLight, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
+  // shared atlases, packing, animation
+  createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures,
+  packScene, reviveScene, setAnimationRenderer, collectAnimated, buildSchedules, evaluateAnimation,
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
@@ -22,8 +25,7 @@ import {
   ModelLoader,
   // browser only
   configure, getThree, THREE, pauseAnimations, resumeAnimations, createAnimator,
-  packScene, packAtlasDelta, createAtlasMirror, reviveScene,
-  setAnimationRenderer, buildSchedules, evaluateAnimation
+  packAtlasDelta, createAtlasMirror
 } from "block-model-renderer"
 ```
 
@@ -77,7 +79,22 @@ import {
 | `mapIdOf(item)` | The map id from an item's components, `null` when absent. [Details](scenes.md#map-art) |
 | `disposeMapArt(assets)` | Clear the cached framed-map art. [Details](scenes.md#map-art) |
 | `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](rendering.md#scene-lighting) |
-| `createSharedAtlas(opts?)` | An atlas pool shared across scenes, for worker builds and streaming. [Details](optimization.md#packed-scenes-and-shared-atlases) |
+
+## Shared atlases, packing, animation
+
+| Export | Description |
+|---|---|
+| `createSharedAtlas(opts?)` | An atlas pool shared across scenes, for worker builds and streaming; `animate: true` makes it tick its own regions. [Details](optimization.md#shared-atlases) |
+| `stitchSharedAtlas(shared, assets, opts?)` | Stitch every pack sprite into the atlas up front, like the game's startup stitch. [Details](optimization.md#shared-atlases) |
+| `exportSharedAtlasLayout(shared)` | The atlas's coordinate table, structured-cloneable for workers. [Details](optimization.md#shared-atlases) |
+| `adoptSharedAtlasLayout(shared, layout)` | Adopt a layout pixel-free so worker scenes bake UVs against fixed coordinates. [Details](optimization.md#shared-atlases) |
+| `insertSharedTextures(shared, items)` | Add runtime textures (sign text, banners), animated included, to a live atlas. [Details](optimization.md#shared-atlases) |
+| `packScene(handle, opts?)` | Pack a built scene into transferable data for `postMessage`. [Details](optimization.md#packing-scenes-across-workers) |
+| `reviveScene(payload, opts?)` | Rebuild a packed scene into live meshes. [Details](optimization.md#packing-scenes-across-workers) |
+| `setAnimationRenderer(renderer)` | Register the renderer for GPU subimage animation updates. [Details](optimization.md#atlas-animation) |
+| `collectAnimated(root)` | Gather a group's animated textures and `GameTime` shaders. [Details](optimization.md#atlas-animation) |
+| `buildSchedules(textures)` | Precompute animation schedules for atlas textures. [Details](optimization.md#atlas-animation) |
+| `evaluateAnimation(schedules, shaders, tickTime)` | Advance schedules to a game-tick time. [Details](optimization.md#atlas-animation) |
 
 ## Fluids
 
@@ -117,10 +134,5 @@ Not exported on Node.
 | `THREE` | Live binding to that instance, populated after first use. [Details](standard-api.md#providing-threejs-browser) |
 | `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. [Details](standard-api.md#animated-renders-browser) |
 | `createAnimator(root)` | Manual animation control for `loadModel` scenes. [Details](scenes.md#animation-browser) |
-| `packScene(handle, opts?)` | Pack a built scene into transferable data for `postMessage`. [Details](optimization.md#packed-scenes-and-shared-atlases) |
-| `packAtlasDelta(shared, since?)` | The shared atlas regions added since a serial, for mirroring. [Details](optimization.md#packed-scenes-and-shared-atlases) |
-| `createAtlasMirror(opts?)` | Main-thread mirror of a worker's shared atlas pages. [Details](optimization.md#packed-scenes-and-shared-atlases) |
-| `reviveScene(payload, opts?)` | Rebuild a packed scene into live meshes. [Details](optimization.md#packed-scenes-and-shared-atlases) |
-| `setAnimationRenderer(renderer)` | Register the renderer for GPU subimage animation updates. [Details](optimization.md#animating-mirror-pages) |
-| `buildSchedules(textures)` | Precompute animation schedules for atlas textures. [Details](optimization.md#animating-mirror-pages) |
-| `evaluateAnimation(schedules, shaders, tickTime)` | Advance schedules to a game-tick time. [Details](optimization.md#animating-mirror-pages) |
+| `packAtlasDelta(shared, since?)` | The shared atlas regions added since a serial, for the legacy mirroring flow. [Details](optimization.md#incremental-mirroring-legacy) |
+| `createAtlasMirror(opts?)` | Main-thread mirror of a worker's dynamically grown atlas pages. [Details](optimization.md#incremental-mirroring-legacy) |
