@@ -637,56 +637,95 @@ export async function renderTexture(args = {}) {
   ctx = canvas.getContext("2d")
   ctx.imageSmoothingEnabled = false
   draw(texture.current ?? texture.image)
-  if (!args.animated) return canvas
-  if (!texture.animated) {
-    return { canvas, animated: false, playing: false, duration: 0, play() {}, pause() {}, dispose() {} }
-  }
-  const sub = texture._player
-  return {
-    canvas,
-    animated: true,
-    duration: texture.times.reduce((total, t) => total + t, 0) * 50,
-    get playing() { return sub.playing },
-    play() { sub.play() },
-    pause() { sub.pause() },
-    dispose() {
-      sub.pause()
-      texture.stop()
+  const makeTexturePlayer = () => {
+    const sub = texture._player
+    return {
+      canvas: ctx.canvas,
+      animated: true,
+      duration: texture.times.reduce((total, t) => total + t, 0) * 50,
+      get playing() { return sub.playing },
+      play() { sub.play() },
+      pause() { sub.pause() },
+      dispose() {
+        sub.pause()
+        texture.stop()
+      }
     }
   }
+  if (args.animated) {
+    if (!texture.animated) {
+      return { canvas, animated: false, playing: false, duration: 0, play() {}, pause() {}, dispose() {} }
+    }
+    return makeTexturePlayer()
+  }
+  if (!args.upgradable) return canvas
+  if (!texture.animated) return { canvas }
+  let player = null
+  let dropped = false
+  const toAnimated = replacement => {
+    if (dropped) return null
+    if (player) {
+      if (replacement !== undefined) throw new Error("This render has already been upgraded, so it cannot be given a new canvas")
+      return player
+    }
+    if (replacement != null) {
+      if (replacement.width !== width || replacement.height !== height) {
+        replacement.width = width
+        replacement.height = height
+      }
+      ctx = replacement.getContext("2d")
+      ctx.imageSmoothingEnabled = false
+    }
+    attachTexturePlayer(texture, draw)
+    draw(texture.current)
+    player = makeTexturePlayer()
+    const inner = player.dispose
+    player.dispose = () => {
+      dropped = true
+      inner()
+    }
+    return player
+  }
+  const dispose = () => {
+    if (player) return player.dispose()
+    dropped = true
+  }
+  return { canvas, toAnimated, dispose }
 }
 
 export async function readTexture(path, assets, opts) {
   await init()
   const texture = await core.readTexture(path, assets)
   if (!texture) return texture
-  if (texture.animated && opts?.onChange) {
-    texture.current = texture.frameAt(clockNow() / 50)
-    const sub = {
-      playing: true,
-      _visible: true,
-      animated: true,
-      play() {
-        if (this.playing) return
-        this.playing = true
-        wakeScheduler()
-      },
-      pause() {
-        this.playing = false
-      },
-      _renderTick(tick) {
-        const frame = texture.frameAt(tick)
-        if (frame === texture.current) return
-        texture.current = frame
-        opts.onChange(frame)
-      }
-    }
-    players.add(sub)
-    wakeScheduler()
-    texture._player = sub
-    texture.stop = () => players.delete(sub)
-  }
+  if (texture.animated && opts?.onChange) attachTexturePlayer(texture, opts.onChange)
   return texture
+}
+
+function attachTexturePlayer(texture, onChange) {
+  texture.current = texture.frameAt(clockNow() / 50)
+  const sub = {
+    playing: true,
+    _visible: true,
+    animated: true,
+    play() {
+      if (this.playing) return
+      this.playing = true
+      wakeScheduler()
+    },
+    pause() {
+      this.playing = false
+    },
+    _renderTick(tick) {
+      const frame = texture.frameAt(tick)
+      if (frame === texture.current) return
+      texture.current = frame
+      onChange(frame)
+    }
+  }
+  players.add(sub)
+  wakeScheduler()
+  texture._player = sub
+  texture.stop = () => players.delete(sub)
 }
 
 export async function loadModel(scene, assets, model, args) {
