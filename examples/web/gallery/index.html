@@ -12,13 +12,6 @@
 <meta property="og:description" content="Batch-render Minecraft blocks straight to canvases, with live animation players. Filter by name or namespace, or render every block in the pack.">
 <link rel="icon" type="image/webp" sizes="16x16" href="https://ewanhowell.com/assets/images/logo/logo_16.webp">
 <link rel="icon" type="image/webp" sizes="32x32" href="https://ewanhowell.com/assets/images/logo/logo_32.webp">
-<script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js"
-    }
-  }
-</script>
 <link rel="stylesheet" href="../style.css">
 <style>
   main { overflow-y: auto; }
@@ -115,77 +108,117 @@
 </script>
 
 <script type="module">
-  const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
-
-  const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, DISPLAYS } = await import(LIB)
-  const { loadMojangJar } = await import("../mojang-pack.js")
+  const POOL = Math.max(2, Math.min(8, (navigator.hardwareConcurrency ?? 4) - 2))
+  const absNow = () => performance.timeOrigin + performance.now()
+  let clockStart = absNow()
+  const workers = Array.from({ length: POOL }, () => {
+    const worker = new Worker("worker.js", { type: "module" })
+    worker.postMessage({ type: "clock", clockStart })
+    return worker
+  })
+  const workerReady = workers.map(() => false)
+  const workerBusy = workers.map(() => false)
+  const broadcast = msg => { for (const w of workers) w.postMessage(msg) }
 
   const $ = id => document.getElementById(id)
 
-  let assets = null
   let channel = null
-  let baseBytes = null
   let userFile = null
   let blockIds = null
+  let assetsToken = 0
+  const assetsWaiters = new Map()
+  const pending = new Map()
 
-  const sources = () => [userFile, baseBytes].filter(Boolean)
-  function useAssets(prepared, chan) {
+  let seq = 0
+  let running = false
+  let playing = true
+  let animatedCount = 0
+  let keyCounter = 0
+  let dispatchMore = null
+
+  const keyOf = new Map()
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      const owner = keyOf.get(entry.target)
+      owner?.worker.postMessage({ type: "visible", key: owner.key, visible: entry.isIntersecting })
+    }
+  })
+
+  workers.forEach((worker, index) => worker.addEventListener("message", e => {
+    const m = e.data
+    if (m.type === "progress") {
+      if (index === 0) $("packstatus").textContent = `Downloading ${m.ver}… ${(m.got / 1048576).toFixed(0)}/${(m.total / 1048576).toFixed(0)}MB`
+    } else if (m.type === "assets") {
+      const waiter = assetsWaiters.get(`${m.token}:${index}`)
+      assetsWaiters.delete(`${m.token}:${index}`)
+      waiter?.(m)
+    } else if (m.type === "rendered") {
+      const callback = pending.get(m.key)
+      pending.delete(m.key)
+      callback?.(m)
+    }
+  }))
+
+  function clear() {
+    observer.disconnect()
+    keyOf.clear()
+    animatedCount = 0
+    $("grid").replaceChildren()
+    $("playpause").hidden = true
+  }
+
+  const stopRun = () => {
+    dispatchMore = null
+    broadcast({ type: "seq", seq: ++seq })
+  }
+
+  async function loadAssets(chan) {
+    $("status").textContent = ""
+    $("release").disabled = $("snapshot").disabled = true
+    stopRun()
     clear()
-    const prev = assets
-    assets = prepared
+    const token = ++assetsToken
+    workerReady.fill(false)
+    const ask = index => new Promise(resolve => {
+      assetsWaiters.set(`${token}:${index}`, resolve)
+      workers[index].postMessage({ type: "assets", token, channel: chan, file: userFile })
+    })
+    const first = await ask(0)
+    if (token !== assetsToken) return false
+    $("release").disabled = $("snapshot").disabled = false
+    if (first.error) {
+      $("packstatus").textContent = "Pack failed"
+      $("status").textContent = first.error
+      return false
+    }
+    workerReady[0] = true
+    for (let i = 1; i < workers.length; i++) {
+      ask(i).then(m => {
+        if (token !== assetsToken || m.error) return
+        workerReady[i] = true
+        dispatchMore?.()
+      })
+    }
+    blockIds = { ids: first.ids, namespaces: first.namespaces }
     channel = chan
-    blockIds = null
     $("packstatus").textContent = ""
     $("render").disabled = $("randomise").disabled = $("renderall").disabled = false
     $("release").classList.toggle("active", chan === "release")
     $("snapshot").classList.toggle("active", chan === "snapshot")
     $("open").textContent = userFile ? userFile.name : "Select Resource Pack or Mod…"
-    if (prev && prev !== prepared) disposeCache(prev)
     syncNamespaces()
+    return true
   }
 
-  async function loadChannel(chan) {
-    $("status").textContent = ""
-    $("release").disabled = $("snapshot").disabled = true
-    try {
-      const { bytes } = await loadMojangJar((got, total, ver) => {
-        $("packstatus").textContent = `Downloading ${ver}… ${(got / 1048576).toFixed(0)}/${(total / 1048576).toFixed(0)}MB`
-      }, chan)
-      baseBytes = bytes
-      useAssets(await prepareAssets(sources(), { cache: true }), chan)
-    } catch (err) {
-      $("packstatus").textContent = "Pack failed"
-      $("status").textContent = String(err)
-    }
-    $("release").disabled = $("snapshot").disabled = false
-  }
-
-  $("release").addEventListener("click", () => loadChannel("release"))
-  $("snapshot").addEventListener("click", () => loadChannel("snapshot"))
+  $("release").addEventListener("click", () => loadAssets("release"))
+  $("snapshot").addEventListener("click", () => loadAssets("snapshot"))
   $("open").addEventListener("click", () => $("packfile").click())
-  $("packfile").addEventListener("change", async () => {
+  $("packfile").addEventListener("change", () => {
     const file = $("packfile").files[0]
     if (!file) return
-    $("status").textContent = ""
-    try {
-      userFile = file
-      useAssets(await prepareAssets(sources(), { cache: true }), channel)
-    } catch (err) {
-      $("status").textContent = String(err)
-    }
+    userFile = file
+    loadAssets(channel)
   })
-
-  let players = []
-  let playing = true
-  let runId = 0
-  let running = false
-
-  function clear() {
-    for (const p of players) p.dispose()
-    players = []
-    $("grid").replaceChildren()
-    $("playpause").hidden = true
-  }
 
   function setRunning(on) {
     running = on
@@ -193,7 +226,7 @@
     $("render").textContent = on ? "Cancel" : "Render"
     if (!on) {
       $("packstatus").textContent = ""
-      $("playpause").hidden = !players.length
+      $("playpause").hidden = !animatedCount
       $("progress").style.width = "0"
     }
   }
@@ -205,8 +238,9 @@
     $("grid").append(empty)
   }
 
-  async function render(requested, target) {
-    const run = ++runId
+  function render(requested, target) {
+    const run = ++seq
+    broadcast({ type: "seq", seq: run })
     clear()
     setRunning(true)
     $("status").textContent = ""
@@ -215,66 +249,22 @@
     const animatedOnly = animate && $("fanimated").checked
     $("grid").style.gridTemplateColumns = `repeat(auto-fill, minmax(min(${size + 22}px, 100%), 1fr))`
 
-    const known = new Set((await blockList()).ids)
+    const known = new Set(blockIds.ids)
     const exists = id => known.has(id) || known.has(id.startsWith("minecraft:") ? id.slice(10) : `minecraft:${id}`)
     const ids = requested.filter(exists)
     if (ids.length < requested.length && ids.length) {
       $("status").textContent = `Skipped ${requested.length - ids.length} ID(s) not in the pack`
     }
 
+    let next = 0
     let done = 0
+    let active = 0
     const rendered = []
-    for (const id of ids) {
-      if (run !== runId) return
-      const figure = document.createElement("figure")
-      const caption = document.createElement("figcaption")
-      caption.textContent = id
-      let skip = false
-      try {
-        const result = await renderBlock({
-          id,
-          assets,
-          width: size,
-          height: size,
-          animated: animate,
-          display: { ...DISPLAYS.block, type: "fallback", rotateFlat: true }
-        })
-        const player = animate ? result : null
-        const canvas = animate ? result.canvas : result
-        if (run !== runId) {
-          player?.dispose()
-          return
-        }
-        if (animatedOnly && !player.animated) {
-          player.dispose()
-          skip = true
-        } else {
-          canvas.style.width = canvas.style.height = size + "px"
-          figure.append(canvas, caption)
-          rendered.push(id)
-          if (player?.animated) {
-            players.push(player)
-            figure.classList.add("animated")
-          } else {
-            player?.dispose()
-          }
-        }
-      } catch (err) {
-        caption.textContent = `${id}: ${err.message}`
-        figure.append(caption)
-      }
-      if (!skip) $("grid").append(figure)
-      done++
-      if (target) {
-        $("progress").style.width = rendered.length / Math.min(target, ids.length) * 100 + "%"
-        $("packstatus").textContent = `Rendering ${rendered.length}/${target}…`
-      } else {
-        $("progress").style.width = done / ids.length * 100 + "%"
-        if (ids.length > 50) $("packstatus").textContent = `Rendering ${done}/${ids.length}…`
-      }
-      if (target && rendered.length >= target) break
-    }
-    if (run === runId) {
+    const targetMet = () => target && rendered.length >= target
+
+    const finish = () => {
+      if (run !== seq) return
+      dispatchMore = null
       if (target) $("ids").value = rendered.join(", ")
       if (!$("grid").children.length) {
         showEmpty(requested.length && !ids.length
@@ -283,6 +273,76 @@
       }
       setRunning(false)
     }
+
+    const progress = () => {
+      if (target) {
+        $("progress").style.width = rendered.length / Math.min(target, ids.length) * 100 + "%"
+        $("packstatus").textContent = `Rendering ${rendered.length}/${target}…`
+      } else {
+        $("progress").style.width = done / ids.length * 100 + "%"
+        if (ids.length > 50) $("packstatus").textContent = `Rendering ${done}/${ids.length}…`
+      }
+    }
+
+    const dispatch = () => {
+      if (run !== seq) return
+      for (let i = 0; i < workers.length; i++) {
+        if (next >= ids.length || targetMet()) break
+        if (!workerReady[i] || workerBusy[i]) continue
+        const id = ids[next++]
+        const worker = workers[i]
+        workerBusy[i] = true
+        active++
+        const figure = document.createElement("figure")
+        const caption = document.createElement("figcaption")
+        caption.textContent = id
+        const canvas = document.createElement("canvas")
+        canvas.style.width = canvas.style.height = size + "px"
+        figure.append(canvas, caption)
+        $("grid").append(figure)
+        const key = ++keyCounter
+        pending.set(key, m => {
+          workerBusy[i] = false
+          active--
+          if (run !== seq) {
+            m.bitmap?.close()
+            return
+          }
+          done++
+          if (m.error) {
+            caption.textContent = `${id}: ${m.error}`
+            canvas.remove()
+          } else if ((animatedOnly && !m.animates) || targetMet()) {
+            m.bitmap?.close()
+            figure.remove()
+          } else {
+            rendered.push(id)
+            canvas.width = canvas.height = size
+            canvas.getContext("2d").drawImage(m.bitmap, 0, 0)
+            m.bitmap.close()
+            if (m.animates && animate) {
+              const live = document.createElement("canvas")
+              live.style.width = live.style.height = size + "px"
+              canvas.replaceWith(live)
+              const offscreen = live.transferControlToOffscreen()
+              worker.postMessage({ type: "animate", seq: run, key, id, size, canvas: offscreen }, [offscreen])
+              figure.classList.add("animated")
+              animatedCount++
+              keyOf.set(live, { worker, key })
+              observer.observe(live)
+            }
+          }
+          progress()
+          if ((next >= ids.length || targetMet()) && !active) finish()
+          else dispatch()
+        })
+        worker.postMessage({ type: "render", seq: run, key, id, size })
+      }
+    }
+
+    if (!ids.length) return finish()
+    dispatchMore = dispatch
+    dispatch()
   }
 
   const listOf = id => $(id).value.split(",").map(s => s.trim()).filter(Boolean)
@@ -312,7 +372,7 @@
 
   $("render").addEventListener("click", () => {
     if (running) {
-      runId++
+      stopRun()
       setRunning(false)
     } else {
       renderFromInput()
@@ -325,27 +385,8 @@
     }
   })
 
-  async function blockList() {
-    if (!blockIds) {
-      const lists = []
-      for (const ns of await listDirectory("assets", assets)) {
-        const files = (await listDirectory(`assets/${ns}/blockstates`, assets)).filter(f => f.endsWith(".json"))
-        if (files.length) lists.push([ns, files])
-      }
-      const prefix = lists.length > 1
-      const ids = []
-      for (const [ns, files] of lists) {
-        for (const f of files) ids.push(prefix ? `${ns}:${f.slice(0, -5)}` : f.slice(0, -5))
-      }
-      blockIds = { ids: ids.sort(), namespaces: lists.map(([ns]) => ns).sort() }
-    }
-    return blockIds
-  }
-
-  const allBlockIds = async () => (await blockList()).ids
-
-  async function syncNamespaces() {
-    const { namespaces } = await blockList()
+  function syncNamespaces() {
+    const { namespaces } = blockIds
     const select = $("fnamespace")
     const previous = select.value
     select.replaceChildren(
@@ -359,8 +400,8 @@
     if (solo) select.value = ""
   }
 
-  $("randomise").addEventListener("click", async () => {
-    const ids = (await allBlockIds()).filter(filterPredicate())
+  $("randomise").addEventListener("click", () => {
+    const ids = blockIds.ids.filter(filterPredicate())
     if (!ids.length) {
       $("status").textContent = "No blocks match the filters"
       return
@@ -382,8 +423,8 @@
     renderFromInput()
   })
 
-  $("renderall").addEventListener("click", async () => {
-    const ids = (await allBlockIds()).filter(filterPredicate())
+  $("renderall").addEventListener("click", () => {
+    const ids = blockIds.ids.filter(filterPredicate())
     if (!ids.length) {
       $("status").textContent = "No blocks match the filters"
       return
@@ -397,19 +438,23 @@
     $("fanimatedrow").hidden = !$("animenable").checked
   })
 
+  let pausedAt = null
   $("playpause").addEventListener("click", () => {
     playing = !playing
-    playing ? resumeAnimations() : pauseAnimations()
+    if (playing) {
+      clockStart += absNow() - pausedAt
+      broadcast({ type: "playing", playing: true, clockStart })
+    } else {
+      pausedAt = absNow()
+      broadcast({ type: "playing", playing: false })
+    }
     $("playpause").textContent = playing ? "Pause All" : "Play All"
   })
 
-  addEventListener("pagehide", () => {
-    clear()
-    if (assets) disposeCache(assets)
-  })
+  addEventListener("pagehide", stopRun)
 
-  loadChannel("release").then(() => {
-    if (assets) renderFromInput()
+  loadAssets("release").then(ok => {
+    if (ok) renderFromInput()
   })
 </script>
 </body>
