@@ -366,7 +366,7 @@ export default defineConfig({
 
 Vite builds are unaffected, since Rollup resolves the URL itself and emits the zip as an asset. Other bundlers may need their own equivalent, or [`configure({ assetsUrl })`](#browser-only-exports).
 
-Setting `configure({ assetsUrl: false })` skips the bundled zip entirely: nothing is fetched, and block entities (chests, banners, beds, shulker boxes...) render from whatever your own assets provide, which for vanilla jars means not at all. The zip also carries the biome colormaps and end sky texture, so tints and end portals degrade to flat colors without it. The small internal fallbacks (the missing-model texture, default blockstate data, atlas definitions) are built into the library and always available.
+Setting [`configure({ assetsUrl: false })`](#browser-only-exports) skips the bundled zip entirely: nothing is fetched, and block entities (chests, banners, beds, shulker boxes...) render from whatever your own assets provide, which for vanilla jars means not at all. The zip also carries the biome colormaps and end sky texture, so tints and end portals degrade to flat colors without it. The small internal fallbacks (the missing-model texture, default blockstate data, atlas definitions) are built into the library and always available.
 
 ## Browser-only exports
 

@@ -158,7 +158,7 @@ reply({ rects: res.rects, pages: res.pages })
 
 ### Atlas animation
 
-`createSharedAtlas({ animate: true })` gives the atlas its own player at `shared.animation` (`playing`, `play()`, `pause()`), auto-playing on creation. It ticks every animated region on the pages at the game's 20Hz, budgeted so one tick never uploads an unbounded number of regions, and picks up regions added later (a `stitchSharedAtlas` run, `insertSharedTextures`, live scene builds) automatically. Call `setAnimationRenderer(renderer)` so the frame updates upload as GPU subimages.
+[`createSharedAtlas({ animate: true })`](#shared-atlases) gives the atlas its own player at `shared.animation` (`playing`, `play()`, `pause()`), auto-playing on creation. It ticks every animated region on the pages at the game's 20Hz, budgeted so one tick never uploads an unbounded number of regions, and picks up regions added later (a `stitchSharedAtlas` run, `insertSharedTextures`, live scene builds) automatically. Call [`setAnimationRenderer(renderer)`](#atlas-animation) so the frame updates upload as GPU subimages.
 
 To drive animation yourself instead, the schedule helpers work on any animated textures or atlas pages:
 
