@@ -525,9 +525,14 @@ function makePlatform() {
       }
       let player = null
       let dropped = false
-      const toAnimated = () => {
-        if (dropped) return null
-        return player ??= makePlayer({ scene, camera, width, height, animatedTextures: collected.textures, args, targets, snapshots })
+      const toAnimated = canvas => {
+        if (dropped || player?._disposed) return null
+        if (player) {
+          if (canvas !== undefined) throw new Error("This render has already been upgraded, so it cannot be given new canvases")
+          return player
+        }
+        const into = canvas === undefined ? targets : getTargets({ ...args, canvas }, width, height)
+        return player = makePlayer({ scene, camera, width, height, animatedTextures: collected.textures, args, targets: into, snapshots: into === targets ? snapshots : takeSnapshots(into) })
       }
       const dispose = () => {
         dropped = true
