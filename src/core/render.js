@@ -1,7 +1,7 @@
 import { platform, render, THREE, loadTexture } from "./platform.js"
 import { prepareAssets, scopedCache, getMissingImage } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
-import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, buildOcclusionModel, occlusionStateKey } from "./models.js"
+import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, collectAnimated, applyFrame, applyTint, readTexture } from "./animation.js"
@@ -316,13 +316,28 @@ export async function renderModelScene(scene, camera, args) {
 
   fitCameraToAspect(camera, baseWidth / baseHeight)
 
-  const animatedTextures = args?.animated ? collectAnimated(scene).textures : []
+  const collected = args?.animated ? collectAnimated(scene) : null
+  const animatedTextures = collected?.textures ?? []
 
   if (platform.presentScene) {
     return platform.presentScene({ scene, camera, width: baseWidth, height: baseHeight, animatedTextures, args })
   }
 
-  const hasAnimation = animatedTextures.length > 0
+  let dynamicLoop = 0
+  if (collected) {
+    const fold = loop => {
+      let a = dynamicLoop || loop, b = loop
+      while (b) [a, b] = [b, a % b]
+      dynamicLoop = ((dynamicLoop || loop) * loop) / a
+    }
+    for (const d of collected.dynamics) {
+      const loop = DYNAMIC_LOOPS[d.userData.dynamic]
+      if (loop) fold(loop)
+    }
+    if (collected.shaders.length) dynamicLoop = Infinity
+  }
+
+  const hasAnimation = animatedTextures.length > 0 || dynamicLoop > 0
   const animFormat = hasAnimation ? resolveAnimatedFormat(args?.animated, args?.format) : null
   const finalFormat = args?.format ?? animFormat
   const finalPath = animFormat ? adjustPathForFormat(args?.path, animFormat, args?.format) : args?.path
@@ -350,42 +365,71 @@ export async function renderModelScene(scene, camera, args) {
   const pixelLimit = platform.maxAnimationPixels ?? Infinity
   const hardFrameCap = Math.floor(pixelLimit / (width * height))
   const maxFrameCount = Math.min(hardFrameCap, args?.maxAnimationFrames ?? 4096)
+  const excerptFrames = args?.maxAnimationFrames != null ? maxFrameCount : Math.min(maxFrameCount, 300)
 
-  const { schedules, events, frameCount, delay } = computeAnimationTimeline(animatedTextures, maxFrameCount)
+  const { schedules, events, frameCount, delay } = computeAnimationTimeline(animatedTextures, maxFrameCount, dynamicLoop, excerptFrames)
+
+  let advanceDynamics = null
+  if (dynamicLoop) {
+    let dynTime = 0
+    let fakeFrame = 1e9
+    const fake = { info: { render: { frame: 0 } } }
+    setDynamicClock(() => dynTime)
+    scene.updateMatrixWorld(true)
+    camera.updateMatrixWorld(true)
+    const tick = () => {
+      fake.info.render.frame = ++fakeFrame
+      for (const d of collected.dynamics) dynamicFrame(d, fake, camera)
+    }
+    tick()
+    advanceDynamics = to => {
+      while (dynTime < to) {
+        dynTime = Math.min(dynTime + 200, to)
+        tick()
+      }
+    }
+    advanceDynamics(1000)
+  }
 
   const frameRenderer = platform.createFrameRenderer({ width, height, background: args?.background, camera })
   applyShaderSalt(scene)
 
   const stacked = new Uint8Array(width * height * 4 * frameCount)
 
-  for (let f = 0; f < frameCount; f++) {
-    const t = events[f]
-    for (const s of schedules) {
-      const localT = t % s.total
-      let frameIdx = 0
-      for (let i = 0; i < s.boundaries.length - 1; i++) {
-        if (localT >= s.boundaries[i] && localT < s.boundaries[i + 1]) {
-          frameIdx = i
-          break
+  try {
+    for (let f = 0; f < frameCount; f++) {
+      const t = events[f]
+      for (const s of schedules) {
+        const localT = t % s.total
+        let frameIdx = 0
+        for (let i = 0; i < s.boundaries.length - 1; i++) {
+          if (localT >= s.boundaries[i] && localT < s.boundaries[i + 1]) {
+            frameIdx = i
+            break
+          }
         }
+        applyFrame(s, s.frames[frameIdx])
       }
-      applyFrame(s, s.frames[frameIdx])
-    }
+      advanceDynamics?.(1000 + t * 50)
+      for (const mat of collected.shaders) mat.uniforms.GameTime.value = (t % 24000) / 24000
 
-    frameRenderer.renderFrame(scene, camera)
-    if (f === 0 && frameRenderer.programCount && frameRenderer.programCount() > verifiedPrograms) {
-      let prev = frameRenderer.readPixels()
-      for (let attempt = 0; attempt < 3; attempt++) {
-        bumpShaderSalt(scene)
-        frameRenderer.renderFrame(scene, camera)
-        const cur = frameRenderer.readPixels()
-        const agreed = buffersEqual(prev, cur)
-        prev = cur
-        if (agreed) break
+      frameRenderer.renderFrame(scene, camera)
+      if (f === 0 && frameRenderer.programCount && frameRenderer.programCount() > verifiedPrograms) {
+        let prev = frameRenderer.readPixels()
+        for (let attempt = 0; attempt < 3; attempt++) {
+          bumpShaderSalt(scene)
+          frameRenderer.renderFrame(scene, camera)
+          const cur = frameRenderer.readPixels()
+          const agreed = buffersEqual(prev, cur)
+          prev = cur
+          if (agreed) break
+        }
+        verifiedPrograms = frameRenderer.programCount()
       }
-      verifiedPrograms = frameRenderer.programCount()
+      stacked.set(frameRenderer.readPixels(), f * width * height * 4)
     }
-    stacked.set(frameRenderer.readPixels(), f * width * height * 4)
+  } finally {
+    if (dynamicLoop) setDynamicClock(null)
   }
 
   frameRenderer.dispose()

@@ -46,6 +46,7 @@ function dynState(root) {
 }
 
 const AUTO_DYNAMICS = new Set(["banner", "dragon_head", "piglin_head", "enchanting_book"])
+export const DYNAMIC_LOOPS = { banner: 100, dragon_head: 10, piglin_head: 50, enchanting_book: 314 }
 
 export function isAutoDynamic(obj) {
   if (!AUTO_DYNAMICS.has(obj.userData?.dynamic)) return false

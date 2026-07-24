@@ -159,7 +159,7 @@ A static render can also defer that choice: with [`upgradable: true`](#upgradabl
 
 ## Animated output (Node)
 
-Minecraft textures with an accompanying `.mcmeta` animation block are supported out of the box. When the model uses animated textures, enable animated output with `animated: true`:
+Minecraft textures with an accompanying `.mcmeta` animation block are supported out of the box. When the model animates, enable animated output with `animated: true`:
 
 ```js
 await renderBlock({
@@ -173,9 +173,9 @@ await renderBlock({
 | Value | Result |
 |---|---|
 | `false` | Single-frame PNG (default). Renders frame 0 of any animated textures |
-| `true` | WebP if the model has animated textures, PNG otherwise |
+| `true` | WebP if the model animates, PNG otherwise |
 | `"webp"` | Same as `true` |
-| `"gif"` | GIF if the model has animated textures, PNG otherwise |
+| `"gif"` | GIF if the model animates, PNG otherwise |
 
 > **Note:** GIF doesn't handle semi-transparent pixels well. For textures like water or nether portals, stick with WebP.
 
@@ -185,6 +185,10 @@ A few mechanics worth knowing:
 * **Encoder defaults**: animated WebP is encoded lossless by default. Pass `animatedOutput` to override (e.g. `{ quality: 80, lossless: false }`)
 * **Frame budget**: alongside `maxAnimationFrames`, the total decoded animation is capped at roughly 268 million pixels (`frames × width × height`), so very large `animatedWidth`/`animatedHeight` values reduce the frame cap. Loops are truncated to whole cycles of the longest texture where possible
 * Interpolated textures (`interpolate` in the mcmeta) render with sub-frame blending, up to 8 blend steps per frame, reduced automatically if the frame budget would overflow
+
+[Self-animating block entity parts](#animated-renders-browser) are captured into animated output too, alongside any animated textures, at the same 20fps as texture animation. Their loops are fixed: 5s for the banner wave, 0.5s for the dragon jaw, 2.5s for the piglin ears, and ~15.7s for the book's idle rotation.
+
+The `GameTime` shaders join too: the enchantment glint, end portal, and end gateway don't loop within a practical file, so a render containing one is captured as an excerpt with one jump where it wraps: 15 seconds by default, or exactly `maxAnimationFrames` frames when passed. The same fallback applies to any loop that overflows the frame budget.
 
 ## Rendering to canvases (browser)
 

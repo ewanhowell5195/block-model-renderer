@@ -36,7 +36,7 @@ export function applyFrame(s, image) {
   s.tex.needsUpdate = true
 }
 
-export function computeAnimationTimeline(animatedTextures, maxFrameCount) {
+export function computeAnimationTimeline(animatedTextures, maxFrameCount, dynamicLoop = 0, excerptFrames = maxFrameCount) {
   let schedules, totalDuration, events, frameCount
   for (let maxSubFrames = 8; maxSubFrames >= 1; maxSubFrames--) {
     schedules = animatedTextures.flatMap(textureChannels).map(ch => {
@@ -61,6 +61,21 @@ export function computeAnimationTimeline(animatedTextures, maxFrameCount) {
       while (b) [a, b] = [b, a % b]
       return (acc * s.total) / a
     }, 1)
+    if (dynamicLoop) {
+      if (dynamicLoop === Infinity) {
+        totalDuration = Infinity
+      } else {
+        let a = totalDuration, b = dynamicLoop
+        while (b) [a, b] = [b, a % b]
+        totalDuration = (totalDuration * dynamicLoop) / a
+      }
+      if (totalDuration > maxFrameCount) {
+        frameCount = Math.min(excerptFrames, maxFrameCount)
+        totalDuration = frameCount
+        events = Array.from({ length: frameCount }, (_, i) => i)
+        break
+      }
+    }
 
     const cap = maxFrameCount + 1
     const eventSet = new Set()
@@ -74,6 +89,11 @@ export function computeAnimationTimeline(animatedTextures, maxFrameCount) {
           if (++added >= cap) break outer
         }
       }
+    }
+    if (dynamicLoop) {
+      const budget = Math.max(1, maxFrameCount - eventSet.size)
+      const steps = Math.min(totalDuration, budget)
+      for (let i = 0; i < steps; i++) eventSet.add(i * totalDuration / steps)
     }
     events = Array.from(eventSet).sort((a, b) => a - b).slice(0, cap)
     frameCount = events.length
