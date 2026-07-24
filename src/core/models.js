@@ -193,18 +193,22 @@ function bookFrame(root, s, camera, now) {
   let b = s.book
   if (!b) {
     const rot = -Math.PI / 2
-    b = s.book = { time: 0, rot, oRot: rot, tRot: rot, open: 0, oOpen: 0, flip: 0, oFlip: 0, flipT: 0, flipA: 0, acc: 0, last: null }
+    b = s.book = { time: 0, rot, oRot: rot, tRot: rot, open: 0, oOpen: 0, flip: 0, oFlip: 0, flipT: 0, flipA: 0, acc: 0, last: null, space: null }
   }
   if (b.last === null) b.last = now
   b.acc = Math.min(b.acc + (now - b.last), 250)
   b.last = now
+  if (!b.space) {
+    root.traverse(o => { if (!b.space && o.name?.startsWith("part:")) b.space = o.parent })
+    b.space ??= root
+  }
   _dcam ??= new THREE.Vector3()
   const cam = _dcam.setFromMatrixPosition(camera.matrixWorld)
-  root.parent?.worldToLocal(cam)
+  b.space.worldToLocal(cam)
   const range = (root.userData.range ?? 3) * 16
   while (b.acc >= 50) {
     b.acc -= 50
-    bookTick(b, cam, range, root.position)
+    bookTick(b, cam, range)
   }
   const partial = b.acc / 50
   applyDynamicPose(root, {
@@ -216,12 +220,11 @@ function bookFrame(root, s, camera, now) {
   return true
 }
 
-function bookTick(b, cam, range, pos) {
+function bookTick(b, cam, range) {
   b.oOpen = b.open
   b.oRot = b.rot
-  const dx = cam.x - pos.x, dy = cam.y - pos.y, dz = cam.z - pos.z
-  if (dx * dx + dy * dy + dz * dz < range * range) {
-    b.tRot = Math.atan2(dz, dx)
+  if (cam.x * cam.x + cam.y * cam.y + cam.z * cam.z < range * range - 0.001) {
+    b.tRot = Math.atan2(cam.z, cam.x)
     b.open += 0.1
     if (b.open < 0.5 || Math.floor(Math.random() * 40) === 0) {
       const prev = b.flipT

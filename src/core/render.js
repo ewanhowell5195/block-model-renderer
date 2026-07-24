@@ -168,6 +168,8 @@ export async function renderBlock(args = {}) {
     await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
   }
 
+  scene.traverse(o => { if (o.userData.dynamic === "enchanting_book") o.userData.range = 0 })
+
   return renderModelScene(scene, camera, args)
 }
 
