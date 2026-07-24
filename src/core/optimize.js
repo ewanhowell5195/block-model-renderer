@@ -461,8 +461,9 @@ export async function stitchSharedAtlas(shared, assets, opts = {}) {
   }
   if (shared.autoSize && !sheet.pages.length) {
     const cap = Math.min(detectMaxAtlas(), 8192)
+    const fill = 1 - Math.min(Math.max(shared.headroom, 0), 0.95)
     let size = 1024
-    while (size < cap && size * size * 0.75 < area * 1.15) size *= 2
+    while (size < cap && size * size * fill < area * 1.15) size *= 2
     shared.size = size
   }
   for (const tex of texs) {
@@ -580,6 +581,7 @@ export function createSharedAtlas(opts = {}) {
   const shared = {
     size: opts.size ?? 2048,
     autoSize: opts.size == null,
+    headroom: opts.headroom ?? 0.25,
     renderer: opts.renderer ?? null,
     serial: 0,
     sheets: new Map(),
