@@ -171,6 +171,14 @@ To drive animation yourself instead, the schedule helpers work on any animated t
 
 The game runs at 20Hz and interpolated textures look right up to 60Hz. Regions only re-blend and re-upload when their evaluated frame actually changes.
 
+## Batch rendering from workers
+
+Standard renders run fine in a worker, and a pool of them keeps batch work off the main thread entirely. Static tiles are simple: render, post an `ImageBitmap` of the canvas back, draw it into the page. Animation needs one more step, since a worker's render lives on a canvas the main thread never receives: animating it in place would drive something nobody is looking at.
+
+[Upgradable renders](standard-api.md#upgradable-renders) bridge that. `!!handle.toAnimated` is the "would this animate" flag to post back with the bitmap, and the upgrade stays worker-side, driven by messages: the main thread creates a fresh canvas, hands it over with `transferControlToOffscreen()`, and the worker calls `toAnimated(thatCanvas)`. The retained scene, materials and schedules are reused, so the tile starts animating without a second render. Note the canvas has to be a fresh one, since `transferControlToOffscreen()` throws on a canvas that already has a rendering context, and the canvas showing the static bitmap has a 2d one. The scene still renders at the original `width`/`height` and the new canvas is only a blit target, so a larger canvas scales the same frames up rather than re-rendering sharper. Output moves rather than duplicating: the original canvas keeps its last static frame and stops updating.
+
+When the upgrade happens immediately rather than on demand, the bitmap round trip can be skipped too: the worker posts back the flag alone, and the main thread answers by transferring its still-blank tile canvas, so the first frame the player draws is the first thing shown. The [gallery example](https://block-model-renderer.ewanhowell.com/gallery/) runs this pattern across its render worker pool, with the clock sync below keeping tiles from different workers in step.
+
 ## Syncing the animation clock
 
 The animation clock is per JavaScript context: everything in one context stays in phase with itself, but each context starts its own clock when the library loads, so animations in two contexts sit at different phases. This shows up whenever renders from separate contexts share a screen, a pool of render workers being the usual case: every tile animates correctly, but tiles from different workers tick out of step with each other. [`configure({ clockStart })`](standard-api.md#browser-only-exports) fixes the clock to an absolute epoch (`performance.timeOrigin + performance.now()` scale). Derive one value in the primary context and hand that same number to every other context; a context computing its own just recreates the offset. With one shared value, they all compute the same game-time phase:
