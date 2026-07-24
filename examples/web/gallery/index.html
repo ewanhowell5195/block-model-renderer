@@ -117,7 +117,7 @@
 <script type="module">
   const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
 
-  const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, parseBlockstate, resolveModelData, isFlatModel } = await import(LIB)
+  const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, DISPLAYS } = await import(LIB)
   const { loadMojangJar } = await import("../mojang-pack.js")
 
   const $ = id => document.getElementById(id)
@@ -231,20 +231,13 @@
       caption.textContent = id
       let skip = false
       try {
-        const resolved = []
-        for (const model of await parseBlockstate(assets, id)) resolved.push(await resolveModelData(assets, model))
         const result = await renderBlock({
           id,
           assets,
           width: size,
           height: size,
           animated: animate,
-          display: {
-            rotation: [30, isFlatModel(resolved) ? 180 : 225, 0],
-            scale: [0.625, 0.625, 0.625],
-            type: "fallback",
-            display: "gui"
-          }
+          display: { ...DISPLAYS.block, type: "fallback", rotateFlat: true }
         })
         const player = animate ? result : null
         const canvas = animate ? result.canvas : result
