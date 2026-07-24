@@ -112,7 +112,7 @@ For streaming-scale apps, scenes build in web workers and ship to the main threa
 | Export | Description |
 |---|---|
 | `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references |
-| `reviveScene(payload, { atlas?, releaseArrays? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas` (or a legacy mirror). `releaseArrays` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
+| `reviveScene(payload, { atlas?, releaseArrays? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `releaseArrays` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
 
 The whole flow:
 
@@ -170,7 +170,3 @@ To drive animation yourself instead, the schedule helpers work on any animated t
 | `evaluateAnimation(schedules, shaders, tickTime)` | Advance every schedule to `tickTime` (in game ticks, 20 per second) and update the textures. Returns whether anything changed |
 
 The game runs at 20Hz and interpolated textures look right up to 60Hz. Regions only re-blend and re-upload when their evaluated frame actually changes.
-
-### Incremental mirroring (legacy)
-
-Before the prestitched flow, workers grew their own atlases dynamically and shipped the pixels to the main thread as deltas. The exports remain for that pattern: `packAtlasDelta(shared, since?)` returns the regions a worker atlas added after serial `since` (as `{ deltas, serial, size, transfers }`, animated regions carrying their frames), and `createAtlasMirror({ renderer? })` is the main-thread counterpart whose `apply(pack)` draws the deltas into locally owned pages, with `texture(sig, page)` / `dispose()` like a shared atlas. Prefer the prestitched flow: one atlas, no per-scene pixel traffic, and animation in one place.

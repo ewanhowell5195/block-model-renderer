@@ -1,5 +1,4 @@
 import { THREE, Canvas } from "./platform.js"
-import { subUpload, subFlush } from "./subtex.js"
 
 export async function packScene(handle, opts = {}) {
   const shared = opts.sharedAtlas ?? null
@@ -135,101 +134,6 @@ export async function packScene(handle, opts = {}) {
     meshes.push(spec)
   }
   return { payload: { meshes, materials, textures }, transfers }
-}
-
-export async function packAtlasDelta(shared, since = 0) {
-  const deltas = []
-  const transfers = []
-  let serial = since
-  for (const [sig, sheet] of shared.sheets) {
-    for (const r of sheet.rects.values()) {
-      if (!(r.serial > since)) continue
-      serial = Math.max(serial, r.serial)
-      const page = sheet.pages[r.ai]
-      const bitmap = await createImageBitmap(page.canvas, r.x - 1, r.y - 1, r.w + 2, r.h + 2)
-      transfers.push(bitmap)
-      const d = { sig, page: r.ai, x: r.x - 1, y: r.y - 1, bitmap, colorSpace: page.texture.colorSpace }
-      const region = page.texture.userData.regions?.find(g => g.x === r.x && g.y === r.y)
-      if (region) {
-        const frames = []
-        for (const f of region.frames) {
-          const fb = await createImageBitmap(f)
-          transfers.push(fb)
-          frames.push(fb)
-        }
-        d.anim = { frames, times: region.times ?? null, interpolate: !!region.interpolate }
-      }
-      deltas.push(d)
-    }
-  }
-  return { deltas, serial, size: shared.size, transfers }
-}
-
-export function createAtlasMirror(opts = {}) {
-  const renderer = opts.renderer ?? null
-  const sheets = new Map()
-  return {
-    regionsVersion: 0,
-    eachPage(fn) {
-      for (const sheet of sheets.values()) for (const page of sheet) if (page) fn(page)
-    },
-    apply(pack) {
-      const fresh = new Set()
-      for (const d of pack.deltas) {
-        let sheet = sheets.get(d.sig)
-        if (!sheet) sheets.set(d.sig, sheet = [])
-        let page = sheet[d.page]
-        if (!page) {
-          const canvas = new Canvas(pack.size, pack.size)
-          const texture = new THREE.CanvasTexture(canvas)
-          texture.magFilter = texture.minFilter = THREE.NearestFilter
-          texture.generateMipmaps = false
-          texture.colorSpace = d.colorSpace ?? THREE.NoColorSpace
-          sheet[d.page] = page = { canvas, ctx: canvas.getContext("2d"), texture }
-          fresh.add(page)
-        }
-        page.ctx.drawImage(d.bitmap, d.x, d.y)
-        let subbed = false
-        if (renderer && !fresh.has(page)) {
-          try {
-            const sub = new Canvas(d.bitmap.width, d.bitmap.height)
-            sub.getContext("2d").drawImage(d.bitmap, 0, 0)
-            subbed = subUpload(renderer, page.texture, sub, d.x, d.y)
-          } catch {}
-        }
-        if (!subbed) page.texture.needsUpdate = true
-        d.bitmap.close?.()
-        if (d.anim) {
-          const regions = page.texture.userData.regions ??= []
-          if (!regions.some(g => g.x === d.x + 1 && g.y === d.y + 1)) {
-            const frames = d.anim.interpolate
-              ? d.anim.frames.map(f => {
-                  const c = new Canvas(f.width, f.height)
-                  c.getContext("2d").drawImage(f, 0, 0)
-                  f.close?.()
-                  return c
-                })
-              : d.anim.frames
-            regions.push({
-              x: d.x + 1, y: d.y + 1, w: frames[0].width, h: frames[0].height,
-              frames, times: d.anim.times ?? undefined, interpolate: d.anim.interpolate
-            })
-            this.regionsVersion++
-          } else {
-            for (const f of d.anim.frames) f.close?.()
-          }
-        }
-      }
-      subFlush(renderer)
-    },
-    texture(sig, page) {
-      return sheets.get(sig)?.[page]?.texture ?? null
-    },
-    dispose() {
-      for (const sheet of sheets.values()) for (const page of sheet) { try { page?.texture.dispose() } catch {} }
-      sheets.clear()
-    }
-  }
 }
 
 export function reviveScene(payload, opts = {}) {

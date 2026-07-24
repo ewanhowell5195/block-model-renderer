@@ -24,8 +24,7 @@ import {
   // extending
   ModelLoader,
   // browser only
-  configure, getThree, THREE, pauseAnimations, resumeAnimations, createAnimator,
-  packAtlasDelta, createAtlasMirror
+  configure, getThree, THREE, pauseAnimations, resumeAnimations, createAnimator
 } from "block-model-renderer"
 ```
 
@@ -135,5 +134,3 @@ Not exported on Node.
 | `THREE` | Live binding to that instance, populated after first use. [Details](standard-api.md#providing-threejs-browser) |
 | `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. [Details](standard-api.md#animated-renders-browser) |
 | `createAnimator(root)` | Manual animation control for `loadModel` scenes. [Details](scenes.md#animation-browser) |
-| `packAtlasDelta(shared, since?)` | The shared atlas regions added since a serial, for the legacy mirroring flow. [Details](optimization.md#incremental-mirroring-legacy) |
-| `createAtlasMirror(opts?)` | Main-thread mirror of a worker's dynamically grown atlas pages. [Details](optimization.md#incremental-mirroring-legacy) |
