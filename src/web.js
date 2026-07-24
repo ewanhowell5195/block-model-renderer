@@ -228,15 +228,18 @@ function wakeScheduler() {
   rafId ??= requestAnimationFrame(schedulerLoop)
 }
 
-function makePlayer({ scene, camera, width, height, animatedTextures, args, targets }) {
-  const schedules = buildSchedules(animatedTextures)
-
-  const snapshots = targets.map(target => {
+function takeSnapshots(targets) {
+  return targets.map(target => {
     if (!target.placement || target.clear) return null
     const snapshot = new OffscreenCanvas(target.dw, target.dh)
     snapshot.getContext("2d").drawImage(target.canvas, target.x, target.y, target.dw, target.dh, 0, 0, target.dw, target.dh)
     return snapshot
   })
+}
+
+function makePlayer({ scene, camera, width, height, animatedTextures, args, targets, snapshots }) {
+  const schedules = buildSchedules(animatedTextures)
+  snapshots ??= takeSnapshots(targets)
 
   const gameTimeMats = collectAnimated(scene).shaders
 
@@ -493,11 +496,29 @@ function makePlatform() {
       if (args?.animated) {
         return makePlayer({ scene, camera, width, height, animatedTextures, args, targets })
       }
+      const collected = args?.upgradable ? collectAnimated(scene) : null
+      const animates = !!collected && (collected.textures.length > 0 || collected.shaders.length > 0)
+      const snapshots = animates ? takeSnapshots(targets) : null
       const source = takeBitmap(renderScene(scene, camera, width, height, args?.background))
       for (const target of targets) blit(target, source, width, height)
       source.close?.()
-      if (scene.userData.ephemeral) disposeScene(scene)
-      return targetCanvases(targets)
+      if (!animates) {
+        if (scene.userData.ephemeral) disposeScene(scene)
+        const canvas = targetCanvases(targets)
+        return collected ? { canvas } : canvas
+      }
+      let player = null
+      let dropped = false
+      const toAnimated = () => {
+        if (dropped) return null
+        return player ??= makePlayer({ scene, camera, width, height, animatedTextures: collected.textures, args, targets, snapshots })
+      }
+      const dispose = () => {
+        dropped = true
+        if (player) return player.dispose()
+        if (scene.userData.ephemeral) disposeScene(scene)
+      }
+      return { canvas: targetCanvases(targets), toAnimated, dispose }
     },
 
     async getImageSize(data) {

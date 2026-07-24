@@ -80,6 +80,7 @@ Default display:
 | `cache` | `"auto"` | Player frame caching. See [Frame cache](#frame-cache) |
 | `cacheBudget` | `4194304` | Frame cache budget in bytes (4MB). See [Frame cache](#frame-cache) |
 | `pauseOffscreen` | `true` | Players pause automatically while scrolled offscreen. See [Animated renders](#animated-renders-browser) |
+| `upgradable` | `false` | Static renders return a handle that can upgrade to a player later, instead of the bare canvas. See [Upgradable renders](#upgradable-renders) |
 
 ## `renderItem(args)`
 
@@ -90,7 +91,7 @@ Renders an item by id using its item definition.
 | `id` | required | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn, or `{ enchantments: { sharpness: 5 } }` for the enchantment glint). See [Item definitions](scenes.md#item-definitions) for what's supported |
 | `display` | `{ type: "fallback", display: "gui" }` | Same as [`renderBlock`](#renderblockargs), with a plainer default (no rotation or scale) |
-| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen` | | Same as [`renderBlock`](#renderblockargs) |
+| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderModel(args)`
 
@@ -100,7 +101,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 |---|---|---|
 | `model` | required | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
 | `display` | `"gui"` | The model's own gui transform, or none if it doesn't define one. Unlike [`renderBlock`](#renderblockargs) nothing is imposed on a model that carries no transform, so item models render face-on like the game. Pass [`DISPLAYS.block`](models.md#displays) for the isometric look |
-| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen` | | Same as [`renderBlock`](#renderblockargs) |
+| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderTexture(args)`
 
@@ -153,6 +154,8 @@ When `animated` is truthy they return a [player](#animated-renders-browser) inst
 const player = await renderBlock({ id: "magma_block", assets, animated: true })
 document.body.append(player.canvas)
 ```
+
+A static render can also defer that choice: with [`upgradable: true`](#upgradable-renders) it returns a handle wrapping the canvas that can be upgraded to a player later.
 
 ## Animated output (Node)
 
@@ -279,6 +282,29 @@ To freeze everything at once, pause the clock itself with [`pauseAnimations()`](
 Interpolated textures (`interpolate` in the mcmeta) are blended per tick with the exact ratio.
 
 The end portal and end gateway also animate live. Their shader is driven by game time rather than texture frames, so there's no frame timeline (`frames` is empty, `duration` is `0`), but `renderTime(ms)` works and playback advances per game tick.
+
+### Upgradable renders
+
+A static render normally frees its scene the moment the pixels land. `upgradable: true` keeps it alive and returns a **handle** instead of the bare canvas, so the render can become a player later without redoing any of the work:
+
+```js
+const handle = await renderBlock({ id: "magma_block", assets, upgradable: true })
+document.body.append(handle.canvas)
+
+handle.toAnimated?.().play()
+```
+
+| Member | Description |
+|---|---|
+| `canvas` | The canvas (or array), exactly what the render would have returned without the option |
+| `toAnimated()` | Only present when the model animates, so its existence is the "would this animate" check. Builds and returns the [player](#animated-renders-browser) that `animated: true` would have made, painting into the same canvas and placement. Repeat calls return the same player; after `dispose()` it returns `null` |
+| `dispose()` | Only present alongside `toAnimated()`. Frees the retained scene, or the player if you upgraded |
+
+When the model turns out fully static the handle is just `{ canvas }`: the scene is freed immediately as usual and there's nothing to upgrade. With `animated: true` the option is moot (you already have a player), and on Node it's ignored.
+
+The point is deferring animation cost: render everything statically, then upgrade only what needs motion, when it needs it (scrolled into view, hovered, whatever your app decides). Placement renders into a shared canvas each get their own handle, so several models on one canvas upgrade and dispose independently. The flow works from workers too: `!!handle.toAnimated` is the flag to post back to the main thread, and with transferred-control canvases the upgrade itself can stay worker-side, driven by messages.
+
+An unupgraded handle holds its scene until you call `toAnimated()` or `dispose()`, so like players, upgradable renders are a place the library holds resources: `dispose()` the ones you never upgrade.
 
 ### Frame cache
 
