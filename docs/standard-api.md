@@ -353,6 +353,8 @@ The zip reader handles standard stored/deflate zips (what every normal tool prod
 
 The bundled block entity overrides are fetched once as a single `assets.zip` resolved relative to the module URL (works on jsDelivr and through most bundlers). If yours lives somewhere unusual, or your build inlines the library so the module URL is lost, point at it with [`configure({ assetsUrl })`](#browser-only-exports), e.g. `https://cdn.jsdelivr.net/npm/block-model-renderer/assets.zip`. A failed fetch logs a one-time warning and rendering continues without the bundled entries instead of erroring; the failure isn't cached, and changing `assetsUrl` refetches. Either applies to assets prepared afterwards, while already-prepared assets keep the entries they were built with.
 
+The zip's contents track new Minecraft versions, so loading the library from a major-pinned CDN URL (`block-model-renderer@2`) keeps the bundled packs current on their own; pinning an exact version freezes them where that release left them, and a hand-set `assetsUrl` wants the same treatment. Dropping the version entirely works but is worth avoiding: jsDelivr caches unversioned URLs at the edge and can serve a build several releases old for days after a publish.
+
 With Vite's dev server, for example, the dependency pre-bundler moves the module URL without copying `assets.zip` alongside it, so the fetch quietly fails and the bundled entries drop out. Exclude the library from pre-bundling:
 
 ```js

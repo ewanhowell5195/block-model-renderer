@@ -33,8 +33,10 @@ npm install block-model-renderer
 Or in the browser, import it straight from a [CDN](https://www.jsdelivr.com/package/npm/block-model-renderer):
 
 ```js
-import { renderBlock } from "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
+import { renderBlock } from "https://cdn.jsdelivr.net/npm/block-model-renderer@2/dist/block-model-renderer.min.js"
 ```
+
+Pinning to the major version like that is the recommended way to load it. The library ships the [bundled packs](docs/assets.md#bundled-packs) that make block entities render, and those are updated for new Minecraft versions as they land, so a major-pinned URL picks the new assets up on its own while staying on an API you've built against. Pinning an exact version freezes the assets where that release left them.
 
 In the browser you also provide three.js yourself; see [Providing three.js](docs/standard-api.md#providing-threejs-browser).
 
