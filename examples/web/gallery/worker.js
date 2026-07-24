@@ -7,6 +7,7 @@ let lib = null
 let assets = null
 let seq = 0
 let clockStart = null
+const handles = new Map()
 const players = new Map()
 
 const ready = (async () => {
@@ -17,6 +18,8 @@ const ready = (async () => {
 })()
 
 function clearRenders() {
+  for (const handle of handles.values()) handle.dispose()
+  handles.clear()
   for (const player of players.values()) player.dispose()
   players.clear()
 }
@@ -70,39 +73,38 @@ self.addEventListener("message", async e => {
       return
     }
     try {
-      const handle = await lib.renderBlock({
+      const result = await lib.renderBlock({
         id: msg.id,
         assets,
         width: msg.size,
         height: msg.size,
-        upgradable: true,
+        upgradable: msg.upgradable,
         display: { ...lib.DISPLAYS.block, type: "fallback", rotateFlat: true }
       })
-      const animates = !!handle.toAnimated
-      const bitmap = await createImageBitmap(handle.canvas)
-      handle.dispose?.()
-      postMessage({ type: "rendered", seq: msg.seq, key: msg.key, animates, bitmap }, [bitmap])
+      if (result.toAnimated) {
+        if (msg.seq !== seq) {
+          result.dispose()
+          postMessage({ type: "rendered", seq: msg.seq, key: msg.key })
+          return
+        }
+        handles.set(msg.key, result)
+        postMessage({ type: "rendered", seq: msg.seq, key: msg.key, animates: true })
+      } else {
+        const bitmap = await createImageBitmap(result.canvas ?? result)
+        postMessage({ type: "rendered", seq: msg.seq, key: msg.key, animates: false, bitmap }, [bitmap])
+      }
     } catch (err) {
       postMessage({ type: "rendered", seq: msg.seq, key: msg.key, error: err.message })
     }
   } else if (msg.type === "animate") {
-    if (msg.seq !== seq) return
-    try {
-      const player = await lib.renderBlock({
-        id: msg.id,
-        assets,
-        width: msg.size,
-        height: msg.size,
-        canvas: msg.canvas,
-        animated: true,
-        display: { ...lib.DISPLAYS.block, type: "fallback", rotateFlat: true }
-      })
-      if (msg.seq !== seq) {
-        player.dispose()
-        return
-      }
-      players.set(msg.key, player)
-    } catch {}
+    const handle = handles.get(msg.key)
+    if (!handle) return
+    handles.delete(msg.key)
+    const player = handle.toAnimated(msg.canvas)
+    if (player) players.set(msg.key, player)
+  } else if (msg.type === "drop") {
+    handles.get(msg.key)?.dispose()
+    handles.delete(msg.key)
   } else if (msg.type === "visible") {
     players.get(msg.key)?.[msg.visible ? "play" : "pause"]()
   } else if (msg.type === "playing") {

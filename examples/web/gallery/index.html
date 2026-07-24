@@ -314,29 +314,28 @@
             canvas.remove()
           } else if ((animatedOnly && !m.animates) || targetMet()) {
             m.bitmap?.close()
+            if (m.animates) worker.postMessage({ type: "drop", key })
             figure.remove()
+          } else if (m.animates) {
+            rendered.push(id)
+            canvas.width = canvas.height = size
+            const offscreen = canvas.transferControlToOffscreen()
+            worker.postMessage({ type: "animate", key, canvas: offscreen }, [offscreen])
+            figure.classList.add("animated")
+            animatedCount++
+            keyOf.set(canvas, { worker, key })
+            observer.observe(canvas)
           } else {
             rendered.push(id)
             canvas.width = canvas.height = size
             canvas.getContext("2d").drawImage(m.bitmap, 0, 0)
             m.bitmap.close()
-            if (m.animates && animate) {
-              const live = document.createElement("canvas")
-              live.style.width = live.style.height = size + "px"
-              canvas.replaceWith(live)
-              const offscreen = live.transferControlToOffscreen()
-              worker.postMessage({ type: "animate", seq: run, key, id, size, canvas: offscreen }, [offscreen])
-              figure.classList.add("animated")
-              animatedCount++
-              keyOf.set(live, { worker, key })
-              observer.observe(live)
-            }
           }
           progress()
           if ((next >= ids.length || targetMet()) && !active) finish()
           else dispatch()
         })
-        worker.postMessage({ type: "render", seq: run, key, id, size })
+        worker.postMessage({ type: "render", seq: run, key, id, size, upgradable: animate })
       }
     }
 
