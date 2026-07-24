@@ -1,4 +1,4 @@
-import { renderBlock, renderItem, renderModel, prepareAssets } from "../../index.js"
+import { renderBlock, renderItem, renderModel, prepareAssets, DISPLAYS } from "../../index.js"
 import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 
@@ -54,6 +54,7 @@ await renderModel({
       }
     ]
   },
+  display: DISPLAYS.block,
   assets,
   path: `${import.meta.dirname}/renders/simple/model.png`
 })

@@ -1,6 +1,6 @@
 import {
   renderBlock, renderItem, renderModel, prepareAssets, readFile,
-  makeModelScene, renderModelScene,
+  makeModelScene, renderModelScene, DISPLAYS,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel
 } from "../../index.js"
 import { loadMojangJar } from "./mojang-jar.js"
@@ -110,6 +110,7 @@ await renderModel({
       }
     ]
   },
+  display: DISPLAYS.block,
   path: `${outDir}/custom_torch.png`
 })
 
