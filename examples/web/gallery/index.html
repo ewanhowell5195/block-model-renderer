@@ -117,7 +117,7 @@
 <script type="module">
   const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
 
-  const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, parseBlockstate, resolveModelData, isCrossModel } = await import(LIB)
+  const { renderBlock, listDirectory, prepareAssets, disposeCache, pauseAnimations, resumeAnimations, parseBlockstate, resolveModelData, isFlatModel } = await import(LIB)
   const { loadMojangJar } = await import("../mojang-pack.js")
 
   const $ = id => document.getElementById(id)
@@ -240,7 +240,7 @@
           height: size,
           animated: animate,
           display: {
-            rotation: [30, isCrossModel(resolved) ? 180 : 225, 0],
+            rotation: [30, isFlatModel(resolved) ? 180 : 225, 0],
             scale: [0.625, 0.625, 0.625],
             type: "fallback",
             display: "gui"
