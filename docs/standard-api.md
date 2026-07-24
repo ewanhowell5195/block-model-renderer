@@ -77,10 +77,10 @@ Default display:
 | `canvas` | | A canvas to draw into, or an array of canvases/descriptors; omit to get a fresh canvas back. See [Rendering to canvases](#rendering-to-canvases-browser) |
 | `x`, `y` | | Placement mode: draw into a region of the canvas without resizing or clearing it. See [Rendering to canvases](#rendering-to-canvases-browser) |
 | `clear` | `true` | Clear the target rect before drawing. Defaults to `false` in placement mode |
-| `cache` | `"auto"` | Player frame caching. See [Frame cache](#frame-cache) |
-| `cacheBudget` | `4194304` | Frame cache budget in bytes (4MB). See [Frame cache](#frame-cache) |
+| `cache` | `"auto"` | Player frame caching. See [Frame cache](advanced-api.md#frame-cache) |
+| `cacheBudget` | `4194304` | Frame cache budget in bytes (4MB). See [Frame cache](advanced-api.md#frame-cache) |
 | `pauseOffscreen` | `true` | Players pause automatically while scrolled offscreen. See [Animated renders](#animated-renders-browser) |
-| `upgradable` | `false` | Static renders return a handle that can upgrade to a player later, instead of the bare canvas. See [Upgradable renders](#upgradable-renders) |
+| `upgradable` | `false` | Static renders return a handle that can upgrade to a player later, instead of the bare canvas. See [Upgradable renders](advanced-api.md#upgradable-renders) |
 
 ## `renderItem(args)`
 
@@ -107,7 +107,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 
 Renders a texture on its own: the flat image, pixel-crisp, with animated textures playing per their `.mcmeta`. The texture-drawing counterpart to `renderBlock`, when you want the art rather than a model (see [`readTexture`](assets.md#readtexturepath-assets-opts) for the raw frames instead).
 
-On Node the output goes through the standard pipeline: a buffer back, a file via `path`, animated WebP/GIF via `animated`. In the browser it's a plain 2d canvas draw returning the canvas (the one you passed, or a fresh one); with `animated: true` it returns a simplified [texture player](#texture-players) instead.
+On Node the output goes through the standard pipeline: a buffer back, a file via `path`, animated WebP/GIF via `animated`. In the browser it's a plain 2d canvas draw returning the canvas (the one you passed, or a fresh one); with `animated: true` it returns a simplified [texture player](advanced-api.md#texture-players) instead.
 
 | Option | Default | Description |
 |---|---|---|
@@ -115,9 +115,10 @@ On Node the output goes through the standard pipeline: a buffer back, a file via
 | `assets` | required | The assets source |
 | `width`, `height` | the texture's frame size | Output size. The image scales with nearest-neighbor sampling |
 | `tint` | | A color multiplied into the texture, preserving its alpha: a hex string (`"#3F76E4"`) or a dye name (`"red"`). Applies to animated frames too |
-| `animated` | `false` | Node: animated WebP/GIF output. Browser: play the texture's animation, returning a [texture player](#texture-players) |
+| `animated` | `false` | Node: animated WebP/GIF output. Browser: play the texture's animation, returning a [texture player](advanced-api.md#texture-players) |
 | Node: `path`, `format`, `output`, `background`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames` | | Same as [`renderBlock`](#renderblockargs) |
 | Browser: `canvas` | a fresh canvas | Draw into this canvas instead (resized to the output size) |
+| Browser: `upgradable` | `false` | Static renders return a handle that can upgrade to a texture player later. See [Upgradable renders](advanced-api.md#upgradable-renders) |
 
 ## Return value
 
@@ -141,7 +142,7 @@ The buffer is returned whether or not `path` is set, so you can save and post-pr
 
 ### In the browser
 
-The three model render functions return a canvas: the one you passed, or a fresh one. If `canvas` was an array, you get the array back. [`renderTexture`](#rendertextureargs) returns its canvas, or its own simplified [texture player](#texture-players) when `animated` is set.
+The three model render functions return a canvas: the one you passed, or a fresh one. If `canvas` was an array, you get the array back. [`renderTexture`](#rendertextureargs) returns its canvas, or its own simplified [texture player](advanced-api.md#texture-players) when `animated` is set.
 
 ```js
 const canvas = await renderBlock({ id: "stone", assets })
@@ -155,7 +156,7 @@ const player = await renderBlock({ id: "magma_block", assets, animated: true })
 document.body.append(player.canvas)
 ```
 
-A static render can also defer that choice: with [`upgradable: true`](#upgradable-renders) it returns a handle wrapping the canvas that can be upgraded to a player later.
+A static render can also defer that choice: with [`upgradable: true`](advanced-api.md#upgradable-renders) it returns a handle wrapping the canvas that can be upgraded to a player later.
 
 ## Animated output (Node)
 
@@ -289,44 +290,7 @@ The end portal and end gateway also animate live. Their shader is driven by game
 
 Block entities with self-animating parts count as animated too: waving banners, the enchanting table's book, and dragon and piglin heads with the `powered=true` blockstate. The book always idle-spins closed in `renderBlock` output; opening toward a nearby camera is scene behavior. Their motion runs on the animation clock directly rather than in tick steps: the player redraws every frame while playing, there's no frame timeline, and `renderTime(ms)` poses the tick-driven parts while these keep following the live clock. `pauseAnimations()` freezes them like everything else. Rendered as items none of these animate, so none count.
 
-### Upgradable renders
-
-A static render normally frees its scene the moment the pixels land. `upgradable: true` keeps it alive and returns a **handle** instead of the bare canvas, so the render can become a player later without redoing any of the work:
-
-```js
-const handle = await renderBlock({ id: "magma_block", assets, upgradable: true })
-document.body.append(handle.canvas)
-
-handle.toAnimated?.().play()
-```
-
-| Member | Description |
-|---|---|
-| `canvas` | The canvas (or array), exactly what the render would have returned without the option |
-| `toAnimated(canvas?)` | Only present when the model animates, so its existence is the "would this animate" check. Builds and returns the [player](#animated-renders-browser) that `animated: true` would have made, painting into the same canvas and placement. Pass `canvas` to send the animation somewhere else instead, taking the same forms as the render's own [`canvas` option](#rendering-to-canvases-browser): one canvas, an array, or descriptors with their own `x`/`y`/`width`/`height`/`clear` (anything an entry leaves out still inherits from the original call). Repeat calls return the same player, and passing canvases to one throws; after `dispose()` it returns `null` |
-| `dispose()` | Only present alongside `toAnimated()`. Frees the retained scene, or the player if you upgraded |
-
-When the model turns out fully static the handle is just `{ canvas }`: the scene is freed immediately as usual and there's nothing to upgrade. With `animated: true` the option does nothing (you already have a player), and on Node it's ignored.
-
-The point is deferring animation cost: render everything statically, then upgrade only what needs motion, when it needs it (scrolled into view, hovered, whatever your app decides). Placement renders into a shared canvas each get their own handle, so several models on one canvas upgrade and dispose independently. The flow works from workers too, redirecting the upgrade onto a canvas the main thread hands over; see [Batch rendering from workers](optimization.md#batch-rendering-from-workers).
-
-An unupgraded handle holds its scene until you call `toAnimated()` or `dispose()`, so like players, upgradable renders are a place the library holds resources: `dispose()` the ones you never upgrade.
-
-### Frame cache
-
-Players cache their rendered frames as they play, so steady-state playback is a single `drawImage` per tick instead of a scene render. Controlled by the `cache` option on the render call:
-
-| Value | Behavior |
-|---|---|
-| `"auto"` | Default. Cache when one full loop fits the budget (`frames.length × width × height × 4` bytes ≤ the `cacheBudget` option, default 4MB) |
-| `true` | Always cache; you've done the memory maths yourself |
-| `false` | Never cache, always live-render |
-
-Shader-driven animation (the end portal) never caches in any mode: its frames don't repeat, so there is no loop to cache. Idle players (paused, or scrolled offscreen) drop their cache after 10 seconds and rebuild it lazily when they resume.
-
-### Texture players
-
-[`renderTexture`](#rendertextureargs)'s animated form returns a simplified player: `{ canvas, animated, playing, duration, play(), pause(), dispose() }`. It follows the same rules as the full players: the shared clock (so `pauseAnimations` freezes it), `play()` snapping back onto that clock, `duration` as the loop length in ms, and `animated: false` when the texture turned out static, with everything no-oping and a `duration` of `0`. But a texture redraw is a single `drawImage`, so none of the heavier machinery exists: no frame cache, no offscreen pausing, no `frames` timeline or frame stepping. `dispose()` just ends the redraws; there's nothing on the GPU to free.
+Beyond playback there's more player machinery, covered in the [Advanced API](advanced-api.md): [upgradable renders](advanced-api.md#upgradable-renders) defer the static-or-player choice, the [frame cache](advanced-api.md#frame-cache) is what makes steady-state playback cheap, and worker pools with synced clocks handle batch rendering.
 
 ## Providing three.js (browser)
 
@@ -406,10 +370,10 @@ Setting [`configure({ assetsUrl: false })`](#browser-only-exports) skips the bun
 
 | Export | Description |
 |---|---|
-| `configure({ THREE, assetsUrl, clockStart })` | Optional overrides, call before first use (`three` is accepted too). See [Providing three.js](#providing-threejs-browser), [Asset sources](#in-the-browser), and [Syncing the animation clock](optimization.md#syncing-the-animation-clock) |
+| `configure({ THREE, assetsUrl, clockStart })` | Optional overrides, call before first use (`three` is accepted too). See [Providing three.js](#providing-threejs-browser), [Asset sources](#in-the-browser), and [Syncing the animation clock](advanced-api.md#syncing-the-animation-clock) |
 | `getThree()` | Resolves and returns the three instance the library uses. See [Providing three.js](#providing-threejs-browser) |
 | `THREE` | The same instance as a live binding (populated after first use) |
-| `pauseAnimations()` / `resumeAnimations(clockStart?)` | Pause and resume the page-global animation clock. See [Animated renders](#animated-renders-browser). Resuming with a `clockStart` rebases onto that absolute epoch instead of the locally measured pause, for [multi-context sync](optimization.md#syncing-the-animation-clock) |
+| `pauseAnimations()` / `resumeAnimations(clockStart?)` | Pause and resume the page-global animation clock. See [Animated renders](#animated-renders-browser). Resuming with a `clockStart` rebases onto that absolute epoch instead of the locally measured pause, for [multi-context sync](advanced-api.md#syncing-the-animation-clock) |
 | `createAnimator(root)` | Manual animation control for [`loadModel`](scenes.md#loadmodelscene-assets-model-args) scenes. See [Animation in the browser](scenes.md#animation-browser) |
 
 [`makeModelScene()`](scenes.md#makemodelscene) is async in the browser, since three resolves lazily.
@@ -417,6 +381,7 @@ Setting [`configure({ assetsUrl: false })`](#browser-only-exports) skips the bun
 ## Going further
 
 * [API reference](api.md): every export in one place
+* [Advanced API](advanced-api.md): upgradable renders, batch rendering from workers, clock sync, the frame cache
 * [Rendering](rendering.md): backgrounds and lighting modes
 * [Models](models.md): display transforms, model-inspection helpers, the tint tables
 * [Assets](assets.md): pack layering, virtual handlers, [`prepareAssets`](assets.md#prepareassetsassets-options) and caching, the bundled packs

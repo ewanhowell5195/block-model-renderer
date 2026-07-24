@@ -129,8 +129,8 @@ Not exported on Node.
 
 | Export | Description |
 |---|---|
-| `configure({ THREE, assetsUrl })` | Provide the three.js instance and/or the bundled `assets.zip` URL (`false` skips the bundled assets entirely). [Details](standard-api.md#browser-only-exports) |
+| `configure({ THREE, assetsUrl, clockStart })` | Provide the three.js instance, the bundled `assets.zip` URL (`false` skips the bundled assets entirely), and/or a shared animation clock epoch. [Details](standard-api.md#browser-only-exports) |
 | `getThree()` | Resolve and return the three.js instance the library uses. [Details](standard-api.md#providing-threejs-browser) |
 | `THREE` | Live binding to that instance, populated after first use. [Details](standard-api.md#providing-threejs-browser) |
-| `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. [Details](standard-api.md#animated-renders-browser) |
+| `pauseAnimations()` / `resumeAnimations(clockStart?)` | Pause and resume the page-global animation clock, optionally rebasing onto a [shared epoch](advanced-api.md#syncing-the-animation-clock). [Details](standard-api.md#animated-renders-browser) |
 | `createAnimator(root)` | Manual animation control for `loadModel` scenes. [Details](scenes.md#animation-browser) |
