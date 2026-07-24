@@ -2,6 +2,7 @@ import { THREE, Canvas, loadImage, parseJson } from "./platform.js"
 import { readFile } from "./assets.js"
 import { subUpload, subFlush } from "./subtex.js"
 import { COLORS } from "./colors.js"
+import { isAutoDynamic } from "./models.js"
 
 let _animRenderer = null
 export function setAnimationRenderer(renderer) { _animRenderer = renderer }
@@ -222,7 +223,9 @@ function expandInterpolated(frames, times, maxSubFrames) {
 export function collectAnimated(root) {
   const textures = []
   const shaders = []
+  const dynamics = []
   root.traverse(obj => {
+    if (isAutoDynamic(obj)) dynamics.push(obj)
     if (!obj.isMesh) return
     for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
       if (!mat) continue
@@ -231,7 +234,7 @@ export function collectAnimated(root) {
       if ((tex?.userData?.frames || tex?.userData?.regions) && !textures.includes(tex)) textures.push(tex)
     }
   })
-  return { textures, shaders }
+  return { textures, shaders, dynamics }
 }
 
 export function buildSchedules(textures) {

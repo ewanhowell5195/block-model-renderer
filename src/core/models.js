@@ -45,6 +45,14 @@ function dynState(root) {
   return s
 }
 
+const AUTO_DYNAMICS = new Set(["banner", "dragon_head", "piglin_head", "enchanting_book"])
+
+export function isAutoDynamic(obj) {
+  if (!AUTO_DYNAMICS.has(obj.userData?.dynamic)) return false
+  const s = dynamicStates.get(obj)
+  return !s || s.auto
+}
+
 export function poseSpecial(root, data = {}) {
   const kind = root?.userData?.dynamic
   if (!kind) return
@@ -79,7 +87,9 @@ export function initDynamic(root) {
   root.traverse(o => { if (o.isMesh) o.onBeforeRender = dynamicBeforeRender })
 }
 
-const dynNow = () => typeof performance !== "undefined" ? performance.now() : Date.now()
+let dynClock = null
+export function setDynamicClock(fn) { dynClock = fn }
+const dynNow = () => dynClock ? dynClock() : typeof performance !== "undefined" ? performance.now() : Date.now()
 
 function dynamicBeforeRender(renderer, scene, camera) {
   let root = this

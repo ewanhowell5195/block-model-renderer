@@ -1,5 +1,5 @@
 import * as core from "./core.js"
-import { setPlatform, zipEntryFromFiles, overridesRole, computeAnimationTimeline, collectAnimated, buildSchedules, evaluateAnimation } from "./core.js"
+import { setPlatform, zipEntryFromFiles, overridesRole, computeAnimationTimeline, collectAnimated, buildSchedules, evaluateAnimation, setDynamicClock } from "./core.js"
 import { parseZip } from "./zip.js"
 
 const config = {}
@@ -176,6 +176,7 @@ const players = new Set()
 let epoch = typeof performance !== "undefined" ? performance.now() : 0
 let clockPausedAt = null
 const clockNow = () => (clockPausedAt ?? performance.now()) - epoch
+setDynamicClock(clockNow)
 
 export function pauseAnimations() {
   clockPausedAt ??= performance.now()
@@ -207,6 +208,12 @@ function schedulerLoop() {
       if (p.playing && p._visible && !starved.has(p)) fresh.push(p)
     }
     queue = queue.filter(p => p.playing && p._visible).concat(fresh)
+  }
+
+  if (clockPausedAt === null) {
+    for (const p of players) {
+      if (p._dynamic && p.playing && p._visible && !queue.includes(p)) queue.push(p)
+    }
   }
 
   const deadline = now + FRAME_BUDGET_MS
@@ -241,7 +248,9 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
   const schedules = buildSchedules(animatedTextures)
   snapshots ??= takeSnapshots(targets)
 
-  const gameTimeMats = collectAnimated(scene).shaders
+  const collected = collectAnimated(scene)
+  const gameTimeMats = collected.shaders
+  const dynamic = collected.dynamics.length > 0
 
   const evaluate = tickTime => evaluateAnimation(schedules, gameTimeMats, tickTime)
 
@@ -291,7 +300,7 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
 
   function resolveCacheEnabled() {
     if (cacheEnabled !== null) return cacheEnabled
-    if (gameTimeMats.length || !schedules.length) return cacheEnabled = false
+    if (gameTimeMats.length || dynamic || !schedules.length) return cacheEnabled = false
     if (cacheMode === true) return cacheEnabled = true
     return cacheEnabled = getTimeline().frameCount * width * height * 4 <= cacheBudget
   }
@@ -317,8 +326,9 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
 
   const player = {
     canvas: targetCanvases(targets),
-    animated: schedules.length > 0 || gameTimeMats.length > 0,
+    animated: schedules.length > 0 || gameTimeMats.length > 0 || dynamic,
     playing: false,
+    _dynamic: dynamic,
     _visible: true,
     _lastTick: null,
     _stale: false,
@@ -368,12 +378,12 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
 
     _renderTick(tickTime) {
       const tick = Math.floor(tickTime)
-      if (tick === this._lastTick && !this._stale) return
+      if (tick === this._lastTick && !this._stale && !this._dynamic) return
       this._lastTick = tick
       const t0 = globalThis.__BMR_PROF ? performance.now() : 0
       const changed = evaluate(tick)
       if (t0) (globalThis.__bmrProf ??= { evaluate: 0, render: 0, blit: 0, draws: 0 }).evaluate += performance.now() - t0
-      if (changed || this._stale) draw()
+      if (changed || this._stale || this._dynamic) draw()
       this._stale = false
     }
   }
@@ -497,7 +507,7 @@ function makePlatform() {
         return makePlayer({ scene, camera, width, height, animatedTextures, args, targets })
       }
       const collected = args?.upgradable ? collectAnimated(scene) : null
-      const animates = !!collected && (collected.textures.length > 0 || collected.shaders.length > 0)
+      const animates = !!collected && (collected.textures.length > 0 || collected.shaders.length > 0 || collected.dynamics.length > 0)
       const snapshots = animates ? takeSnapshots(targets) : null
       const source = takeBitmap(renderScene(scene, camera, width, height, args?.background))
       for (const target of targets) blit(target, source, width, height)

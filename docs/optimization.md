@@ -165,7 +165,7 @@ To drive animation yourself instead, the schedule helpers work on any animated t
 | Export | Description |
 |---|---|
 | `setAnimationRenderer(renderer)` | Register the renderer once so frame updates upload as GPU subimages instead of full-page texture re-uploads. Also used by the automatic animator; call it in any app that animates atlas textures on large pages |
-| `collectAnimated(root)` | Gather `{ textures, shaders }` from a built group: textures with animated frames or regions, and materials whose `GameTime` uniform should advance (the end portal) |
+| `collectAnimated(root)` | Gather `{ textures, shaders, dynamics }` from a built group: textures with animated frames or regions, materials whose `GameTime` uniform should advance (the end portal), and the roots of self-animating block entity parts |
 | `buildSchedules(textures)` | Precompute per-region frame schedules for a list of textures with animated frames or regions |
 | `evaluateAnimation(schedules, shaders, tickTime)` | Advance every schedule to `tickTime` (in game ticks, 20 per second) and update the textures. Returns whether anything changed |
 

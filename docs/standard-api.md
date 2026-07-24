@@ -268,7 +268,7 @@ To freeze everything at once, pause the clock itself with [`pauseAnimations()`](
 | Member | Description |
 |---|---|
 | `canvas` | The canvas being painted (the one you passed, or a new one) |
-| `animated` | `false` if the model turned out to have no animated textures; the canvas just holds a static render and everything else no-ops |
+| `animated` | `false` if the model turned out to have nothing to animate; the canvas just holds a static render and everything else no-ops |
 | `playing` | Whether playback is running |
 | `play()` / `pause()` | Resume / stop playback. Resuming snaps back onto the global clock |
 | `frames` | Timeline metadata for one loop: `[{ time, duration }, ...]` in ms. Computed lazily; `maxAnimationFrames` caps this enumeration only |
@@ -282,6 +282,8 @@ To freeze everything at once, pause the clock itself with [`pauseAnimations()`](
 Interpolated textures (`interpolate` in the mcmeta) are blended per tick with the exact ratio.
 
 The end portal and end gateway also animate live. Their shader is driven by game time rather than texture frames, so there's no frame timeline (`frames` is empty, `duration` is `0`), but `renderTime(ms)` works and playback advances per game tick.
+
+Block entities with self-animating parts count as animated too: waving banners, the enchanting table's book, and dragon and piglin heads with the `powered=true` blockstate. The book always idle-spins closed in `renderBlock` output; opening toward a nearby camera is scene behavior. Their motion runs on the animation clock directly rather than in tick steps: the player redraws every frame while playing, there's no frame timeline, and `renderTime(ms)` poses the tick-driven parts while these keep following the live clock. `pauseAnimations()` freezes them like everything else. Rendered as items none of these animate, so none count.
 
 ### Upgradable renders
 
