@@ -300,7 +300,7 @@ handle.toAnimated?.().play()
 | `toAnimated()` | Only present when the model animates, so its existence is the "would this animate" check. Builds and returns the [player](#animated-renders-browser) that `animated: true` would have made, painting into the same canvas and placement. Repeat calls return the same player; after `dispose()` it returns `null` |
 | `dispose()` | Only present alongside `toAnimated()`. Frees the retained scene, or the player if you upgraded |
 
-When the model turns out fully static the handle is just `{ canvas }`: the scene is freed immediately as usual and there's nothing to upgrade. With `animated: true` the option is moot (you already have a player), and on Node it's ignored.
+When the model turns out fully static the handle is just `{ canvas }`: the scene is freed immediately as usual and there's nothing to upgrade. With `animated: true` the option does nothing (you already have a player), and on Node it's ignored.
 
 The point is deferring animation cost: render everything statically, then upgrade only what needs motion, when it needs it (scrolled into view, hovered, whatever your app decides). Placement renders into a shared canvas each get their own handle, so several models on one canvas upgrade and dispose independently. The flow works from workers too: `!!handle.toAnimated` is the flag to post back to the main thread, and with transferred-control canvases the upgrade itself can stay worker-side, driven by messages.
 
