@@ -170,3 +170,28 @@ To drive animation yourself instead, the schedule helpers work on any animated t
 | `evaluateAnimation(schedules, shaders, tickTime)` | Advance every schedule to `tickTime` (in game ticks, 20 per second) and update the textures. Returns whether anything changed |
 
 The game runs at 20Hz and interpolated textures look right up to 60Hz. Regions only re-blend and re-upload when their evaluated frame actually changes.
+
+## Syncing the animation clock
+
+The animation clock is per JavaScript context: everything in one context stays in phase with itself, but each context starts its own clock when the library loads, so animations in two contexts sit at different phases. This shows up whenever renders from separate contexts share a screen, a pool of render workers being the usual case: every tile animates correctly, but tiles from different workers tick out of step with each other. [`configure({ clockStart })`](standard-api.md#browser-only-exports) fixes the clock to an absolute epoch (`performance.timeOrigin + performance.now()` scale). Derive one value in the primary context and hand that same number to every other context; a context computing its own just recreates the offset. With one shared value, they all compute the same game-time phase:
+
+```js
+const clockStart = performance.timeOrigin + performance.now()
+
+// in every context
+configure({ THREE, clockStart })
+```
+
+[`pauseAnimations()`](standard-api.md#browser-only-exports) is per context too. To pause everywhere, note the time in the primary context and pause each context; to resume, advance the shared epoch by the paused interval (again, computed once in the primary context) and pass it to `resumeAnimations`. Every context continues seamlessly from the frozen moment, on one exact timeline instead of its own measured pause:
+
+```js
+// pausing
+pausedAt = performance.timeOrigin + performance.now()
+pauseAnimations()             // in every context
+
+// resuming
+clockStart += performance.timeOrigin + performance.now() - pausedAt
+resumeAnimations(clockStart)  // in every context
+```
+
+The [gallery example](https://block-model-renderer.ewanhowell.com/gallery/) runs this pattern across its render worker pool.

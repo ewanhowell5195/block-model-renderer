@@ -9,6 +9,7 @@ export function configure(opts) {
     bundledZipPromise = null
     warnedBundled = false
   }
+  if ("clockStart" in opts) epoch = opts.clockStart - performance.timeOrigin
   Object.assign(config, opts)
 }
 
@@ -182,7 +183,12 @@ export function pauseAnimations() {
   clockPausedAt ??= performance.now()
 }
 
-export function resumeAnimations() {
+export function resumeAnimations(clockStart) {
+  if (clockStart !== undefined) {
+    epoch = clockStart - performance.timeOrigin
+    clockPausedAt = null
+    return
+  }
   if (clockPausedAt === null) return
   epoch += performance.now() - clockPausedAt
   clockPausedAt = null

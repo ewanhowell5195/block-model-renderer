@@ -406,10 +406,10 @@ Setting [`configure({ assetsUrl: false })`](#browser-only-exports) skips the bun
 
 | Export | Description |
 |---|---|
-| `configure({ THREE, assetsUrl })` | Optional overrides, call before first use (`three` is accepted too). See [Providing three.js](#providing-threejs-browser) and [Asset sources](#in-the-browser) |
+| `configure({ THREE, assetsUrl, clockStart })` | Optional overrides, call before first use (`three` is accepted too). See [Providing three.js](#providing-threejs-browser), [Asset sources](#in-the-browser), and [Syncing the animation clock](optimization.md#syncing-the-animation-clock) |
 | `getThree()` | Resolves and returns the three instance the library uses. See [Providing three.js](#providing-threejs-browser) |
 | `THREE` | The same instance as a live binding (populated after first use) |
-| `pauseAnimations()` / `resumeAnimations()` | Pause and resume the page-global animation clock. See [Animated renders](#animated-renders-browser) |
+| `pauseAnimations()` / `resumeAnimations(clockStart?)` | Pause and resume the page-global animation clock. See [Animated renders](#animated-renders-browser). Resuming with a `clockStart` rebases onto that absolute epoch instead of the locally measured pause, for [multi-context sync](optimization.md#syncing-the-animation-clock) |
 | `createAnimator(root)` | Manual animation control for [`loadModel`](scenes.md#loadmodelscene-assets-model-args) scenes. See [Animation in the browser](scenes.md#animation-browser) |
 
 [`makeModelScene()`](scenes.md#makemodelscene) is async in the browser, since three resolves lazily.
