@@ -84,7 +84,9 @@ An element's `light_emission` (0-15) is the light level it emits: the element fe
 
 Blocks that glow in game without their models using `light_emission` (glowstone, lanterns, lava) get it automatically: when the renderer knows the block being rendered (`renderBlock`, or `loadModel` with `args.block`), every element's emission is floored at the block's own in-game light level, including state-dependent ones like a lit furnace or candle counts (see [`getLightEmission`](models.md#getlightemissionid-properties-resolvedefault)). So a glowstone stays bright at midnight with no model changes.
 
-The render functions and `loadModel` also take an `emission` option (0-15) that floors every element the same way, and when present it replaces the automatic block level entirely. `emission: 15` keeps a model bright at any `daytime` or light level without the flat look of `lighting: "off"`, covering renders the game draws at full lightmap while keeping their normal face shading, like the contents of a glow item frame; `emission: 0` turns a glowing block's automatic glow off.
+A model or blockstate can set its own floor with a top-level [`light_emission`](extending.md#model-json), which stacks with the automatic block level rather than replacing it: the glow item frame uses it on its blockstate, so the frame renders fullbright while emitting no light into the world, and packs can remodel it freely.
+
+The render functions and `loadModel` also take an `emission` option (0-15) that floors every element the same way, and when present it replaces both the automatic block level and any model floor. `emission: 15` keeps a model bright at any `daytime` or light level without the flat look of `lighting: "off"`, covering renders the game draws at full lightmap while keeping their normal face shading, like the contents of a glow item frame; `emission: 0` turns a glowing block's automatic glow off.
 
 Emission alone keeps a glowing block bright; it doesn't light anything around it. For scenes where torches should light up their surroundings, compute a light volume with [`computeSceneLight`](#scene-lighting) and pass it as `lighting: { light }`.
 

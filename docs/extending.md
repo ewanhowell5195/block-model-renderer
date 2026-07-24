@@ -21,6 +21,7 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 | `shader` | `{ type: "end_portal", layers: 15 }` | Apply the end portal / end gateway shader to the model |
 | `type` | `"block"`, `"item"` | Which texture atlas rules to enforce. Block-type models use only the manually provided display settings. Model-defined displays are ignored since they are meant to apply to items, not blocks |
 | `ignore_atlas_restrictions` | `true` | Skip texture atlas membership checks for this model, letting it reference textures from any atlas |
+| `light_emission` | `15` | Emission floor (0-15) for every element in the model, on top of the block's own in-game glow. Elements with a higher [`light_emission`](rendering.md#lighting-modes) keep theirs, lower ones are raised. Unlike the element field this isn't gated to 1.21.2+, and the `emission` render option still overrides it outright. See [Lighting modes](rendering.md#lighting-modes) |
 | `version` | `"26.3"` | Minecraft version the model is for. Enables era-appropriate behavior, see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
 ### Element JSON
@@ -50,6 +51,7 @@ The kinds a model can declare with `dynamic`, and the `part` names each animates
 | Field | Example | Description |
 |---|---|---|
 | `allow_invalid_rotations` | `true` | Allow variant `x`/`y`/`z` rotation values that aren't multiples of 90 |
+| `light_emission` | `15` | Top level, alongside `variants`/`multipart`. Passes the [model `light_emission`](#model-json) floor to every model the blockstate picks, so a block glows without its models carrying the field. Used for the glow item frame, which the game draws fullbright without emitting light |
 
 ### Item components
 

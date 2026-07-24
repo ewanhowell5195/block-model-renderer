@@ -655,6 +655,7 @@ export async function parseBlockstate(assets, blockstate, args) {
     }
 
     for (const model of models.slice(start)) {
+      if (json.light_emission != null) model.light_emission ??= json.light_emission
       if (args?.version && isBefore(args.version, "1.21.11")) delete model.z
       if (json.allow_invalid_rotations) {
         model.allow_invalid_rotations = true
@@ -817,7 +818,7 @@ async function blockEntityItemModels(assets, block, data, args) {
         texture_images: { "block-model-renderer:map_art": art },
         transformation: mat.elements
       }
-      if (block === "glow_item_frame") entry.emission = 15
+      if (block === "glow_item_frame") entry.light_emission = 15
       out.push(entry)
     }
   }
@@ -835,7 +836,7 @@ async function blockEntityItemModels(assets, block, data, args) {
     mat.multiply(new THREE.Matrix4().makeScale(0.5, 0.5, 0.5))
     for (const entry of await parseItemDefinition(assets, nbt.Item.id, itemArgs(nbt.Item))) {
       await compose(entry, mat)
-      if (block === "glow_item_frame") entry.emission = 15
+      if (block === "glow_item_frame") entry.light_emission = 15
       out.push(entry)
     }
   }
@@ -1831,15 +1832,16 @@ export async function loadModel(scene, assets, model, args) {
   let blockEmission = 0
   if (args?.emission != null) {
     blockEmission = Math.max(0, Math.min(15, args.emission))
-  } else if (model.emission != null) {
-    blockEmission = Math.max(0, Math.min(15, model.emission))
-  } else if (block?.id) {
-    const blockId = normalize(block.id)
-    const defaults = await defaultBlockstates(assets)
-    blockEmission = (await blockRules(assets)).emission(blockId, block.properties, k => {
-      const raw = defaults.unique(blockId)[k] ?? defaults.properties[k]
-      return Array.isArray(raw) ? raw[0] : raw
-    })
+  } else {
+    if (block?.id) {
+      const blockId = normalize(block.id)
+      const defaults = await defaultBlockstates(assets)
+      blockEmission = (await blockRules(assets)).emission(blockId, block.properties, k => {
+        const raw = defaults.unique(blockId)[k] ?? defaults.properties[k]
+        return Array.isArray(raw) ? raw[0] : raw
+      })
+    }
+    if (model.light_emission != null) blockEmission = Math.max(blockEmission, Math.max(0, Math.min(15, model.light_emission)))
   }
 
   if (!(await modelPassesAtlasRules(model, assets))) {
