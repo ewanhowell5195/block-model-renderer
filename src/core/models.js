@@ -1210,14 +1210,30 @@ function imageIsTranslucent(img, cutoff) {
   return false
 }
 
-export function isCrossModel(models) {
+export function flatPlaneYaws(models) {
   const elements = (Array.isArray(models) ? models : [models]).flatMap(m => m?.elements ?? [])
-  return elements.length > 0 && elements.every(el => {
+  if (elements.length < 2) return null
+  const yaws = new Set()
+  for (const el of elements) {
     const r = el.rotation
-    if (!r) return false
-    const y = r.axis ? (r.axis === "y" ? r.angle : null) : (r.x || r.z ? null : r.y ?? null)
-    return y != null && (((y % 90) + 90) % 90) === 45
-  })
+    let y = 0
+    if (r) {
+      y = r.axis ? (r.axis === "y" ? r.angle : null) : (r.x || r.z ? null : r.y ?? 0)
+      if (y == null) return null
+    }
+    if (el.to[1] - el.from[1] === 0) return null
+    const flatX = el.to[0] - el.from[0] === 0
+    const flatZ = el.to[2] - el.from[2] === 0
+    if (flatX === flatZ) return null
+    yaws.add(((((flatX ? 90 : 0) + y) % 180) + 180) % 180)
+  }
+  if (yaws.size < 2) return null
+  const list = Array.from(yaws)
+  return list.every(v => ((((v - list[0]) % 90) + 90) % 90) === 0) ? list : null
+}
+
+export function isFlatModel(models) {
+  return flatPlaneYaws(models) !== null
 }
 
 export function cloneData(v) {
@@ -1885,12 +1901,13 @@ export async function loadModel(scene, assets, model, args) {
     delete settings.type
     delete settings.display
     delete settings.generated
-    delete settings.rotateCross
+    delete settings.rotateFlat
 
-    if (display.rotateCross && settings.rotation && isCrossModel(model)) {
+    const flatYaws = display.rotateFlat && settings.rotation ? flatPlaneYaws(model) : null
+    if (flatYaws) {
       const [x, y, z] = settings.rotation
       const euler = new THREE.Euler(THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z))
-      const edgeOn = [45, 135].some(angle => {
+      const edgeOn = flatYaws.some(angle => {
         const a = THREE.MathUtils.degToRad(angle)
         return Math.abs(new THREE.Vector3(Math.sin(a), 0, Math.cos(a)).applyEuler(euler).z) < 0.01
       })

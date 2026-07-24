@@ -14,7 +14,7 @@ It takes a **string**, naming a context in the model's own `display` block (`"gu
 | `rotation`, `translation`, `scale` | Transform values. When used with `display`, each one replaces that display type. With `type: "fallback"` they are used only when the model has nothing matching its `display` context |
 | `type` | `"fallback"` only use the defined `rotation`, `translation`, `scale` when the model is missing the specified `display` context |
 | `generated` | When `false`, the fallback doesn't apply to generated models (`"parent": "builtin/generated"`) |
-| `rotateCross` | `true` turns [cross models](#iscrossmodelmodels) (flowers, saplings, cobwebs) 45°. Useful for diagonal camera angles, where they would otherwise appear flat. Applies to whichever transform is used, from the model or from here. Only when the transform leaves one of the model's planes edge-on to the camera, so angles that already show both planes are left as they are |
+| `rotateFlat` | `true` turns [flat models](#isflatmodelmodels) (crosses, crops) 45°. Useful for diagonal camera angles, where they would otherwise appear flat. Applies to whichever transform is used, from the model or from here. Only when the transform leaves one of the model's planes edge-on to the camera, so angles that already show every plane are left as they are |
 
 ```js
 display: "gui"                                            // the model's gui display
@@ -108,12 +108,14 @@ getLightEmission("stone")                                    // 0
 
 The renderer applies this automatically: rendering a block that glows in game (via `renderBlock` or a `loadModel` call with `args.block`) floors every element's [`light_emission`](rendering.md#lighting-modes) at the block's own level (unless an explicit `emission` option overrides it), so glowstone stays bright at a dark [`daytime`](rendering.md#lighting-modes) without the model needing `light_emission`. Missing properties resolve through the same `default_blockstates` data the model picker uses, so a bare `campfire` glows lit, matching the model it renders.
 
-## `isCrossModel(models)`
+## `isFlatModel(models)`
 
-Checks whether resolved model data is a cross model (flowers, saplings, cobwebs: flat planes rotated 45° around Y). Takes one resolved model or an array of them and returns `true` when every element sits on the diagonal. Cross models render edge-on at the standard gui angle, so rotate the display 45° when this hits:
+Checks whether resolved model data is built entirely from flat planes: crosses (flowers, saplings, cobwebs) and crops. Takes one resolved model or an array of them, and returns `true` when there are two or more elements, every one is a flat vertical plane rotated only around Y, and their faces all sit 90° apart. The angle itself doesn't matter, so off-axis planes count as long as they stay square to each other.
+
+A model like this always has a plane edge-on to the camera from some angles, showing nothing. [`rotateFlat`](#display-transforms) handles that for you, or check it yourself:
 
 ```js
-import { parseBlockstate, resolveModelData, isCrossModel } from "block-model-renderer"
+import { parseBlockstate, resolveModelData, isFlatModel } from "block-model-renderer"
 
 const resolved = []
 for (const model of await parseBlockstate(assets, "fern")) {
@@ -125,7 +127,7 @@ await renderBlock({
   assets,
   path: "fern.png",
   display: {
-    rotation: [30, isCrossModel(resolved) ? 180 : 225, 0],
+    rotation: [30, isFlatModel(resolved) ? 180 : 225, 0],
     scale: [0.625, 0.625, 0.625]
   }
 })

@@ -20,7 +20,7 @@ import {
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
-  isWaterloggable, isWaterlogged, isCrossModel, getLightEmission, getBiomeTint, COLORS, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS,
+  isWaterloggable, isWaterlogged, isFlatModel, getLightEmission, getBiomeTint, COLORS, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS,
   // extending
   ModelLoader,
   // browser only
@@ -109,7 +109,7 @@ import {
 |---|---|
 | `isWaterloggable(id)` | Whether the renderer recognizes a block id as waterloggable. [Details](models.md#iswaterloggableid) |
 | `isWaterlogged(id)` | Whether a block id is inherently water-filled (kelp, seagrass, bubble columns). [Details](models.md#iswaterloggedid) |
-| `isCrossModel(models)` | Whether resolved model data is a diagonal cross model (flowers, saplings). [Details](models.md#iscrossmodelmodels) |
+| `isFlatModel(models)` | Whether resolved model data is built entirely from flat planes (crosses, crops). [Details](models.md#isflatmodelmodels) |
 | `getLightEmission(id, properties?, resolveDefault?)` | The light level (0-15) a block emits in game, from its blockstate. [Details](models.md#getlightemissionid-properties-resolvedefault) |
 | `getBiomeTint(assets, map, biome?)` | The hex tint a biome (or blend of biomes) produces from a colormap. [Details](models.md#getbiometintassets-map-biome) |
 | `COLORS` | The color tables the renderer tints with, for your own lookups. [Details](models.md#colors) |

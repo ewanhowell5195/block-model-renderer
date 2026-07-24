@@ -206,7 +206,7 @@ export {
   COLORS, isWaterloggable, isWaterlogged, getLightEmission, computeSceneLight, getCullFaces, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, prepareAssets, disposeCache, listDirectory, readFile,
   renderBlock, renderItem, renderModel, renderTexture, fullyOccludes, exportOcclusionCache, importOcclusionCache,
   makeModelScene, renderModelScene,
-  parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, isCrossModel, getBiomeTint,
+  parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, isFlatModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
   optimizeScene, createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures, sortTranslucent, poseSpecial,
   packScene, reviveScene, collectAnimated, buildSchedules, evaluateAnimation, setAnimationRenderer,
