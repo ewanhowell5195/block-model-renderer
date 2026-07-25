@@ -60,6 +60,20 @@ export interface Player {
   renderFrame(index: number): void
   /** Paint the state at an arbitrary clock time. Wraps, and stays exact regardless of `maxAnimationFrames`. */
   renderTime(ms: number): void
+  /**
+   * Point the player at a different set of canvases, replacing the current ones
+   * and returning the new `canvas` value. Takes the same shapes as the render's
+   * own `canvas` option.
+   *
+   * The scene is reused, so retargeting costs no render: it's the cheap way to
+   * follow a grid that reshuffles or a panel that reopens elsewhere. The current
+   * frame is painted into the new canvases straight away rather than at the next
+   * tick, and offscreen pausing re-observes them. Canvases dropped from the set
+   * keep whatever frame they last showed.
+   */
+  setCanvases(canvas: CanvasTarget): BrowserCanvas | BrowserCanvas[]
+  /** Add canvases to the ones already being painted, leaving the existing set in place. */
+  addCanvases(canvas: CanvasTarget): BrowserCanvas | BrowserCanvas[]
   /** Stop playback and free the scene and GPU textures. Call it when you remove the canvas. */
   dispose(): void
 }

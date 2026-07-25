@@ -371,6 +371,14 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
       const i = ((index % frames.length) + frames.length) % frames.length
       this.renderTime(frames[i].time)
     },
+    setCanvases(canvas) {
+      retarget(canvas, false)
+      return this.canvas
+    },
+    addCanvases(canvas) {
+      retarget(canvas, true)
+      return this.canvas
+    },
     dispose() {
       if (this._disposed) return
       this._disposed = true
@@ -395,10 +403,18 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
   }
 
   let observer = null
-  const observable = typeof HTMLCanvasElement !== "undefined"
-    ? targets.filter(t => t.canvas instanceof HTMLCanvasElement)
-    : []
-  if (args?.pauseOffscreen !== false && typeof IntersectionObserver !== "undefined" && observable.length) {
+
+  function watchTargets() {
+    observer?.disconnect()
+    observer = null
+    const observable = typeof HTMLCanvasElement !== "undefined"
+      ? targets.filter(t => t.canvas instanceof HTMLCanvasElement)
+      : []
+    if (args?.pauseOffscreen === false || typeof IntersectionObserver === "undefined" || !observable.length) {
+      player._visible = true
+      updateCacheTimer()
+      return
+    }
     const visible = new Set()
     observer = new IntersectionObserver(entries => {
       for (const entry of entries) {
@@ -411,6 +427,26 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
     })
     for (const canvas of new Set(observable.map(t => t.canvas))) observer.observe(canvas)
   }
+
+  function retarget(canvas, append) {
+    if (player._disposed) return
+    const next = getTargets({ ...args, canvas }, width, height)
+    if (append) {
+      const merged = targets.concat(Array.from(next))
+      merged.multi = true
+      targets = merged
+    } else {
+      targets = next
+    }
+    snapshots = takeSnapshots(targets)
+    player.canvas = targetCanvases(targets)
+    watchTargets()
+    player._lastTick = null
+    player._stale = true
+    draw()
+  }
+
+  watchTargets()
 
   if (player.animated) {
     evaluate(Math.floor(clockNow() / 50))

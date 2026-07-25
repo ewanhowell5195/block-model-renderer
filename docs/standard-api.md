@@ -280,6 +280,8 @@ To freeze everything at once, pause the clock itself with [`pauseAnimations()`](
 | `duration` | Total loop length in ms |
 | `renderFrame(index)` | Paint one frame by index (wraps modulo the loop) |
 | `renderTime(ms)` | Paint the state at an arbitrary clock time (wraps; exact regardless of `maxAnimationFrames`) |
+| [`setCanvases(canvas)`](advanced-api.md#retargeting-a-player) | Point the player at different canvases, replacing the current set |
+| [`addCanvases(canvas)`](advanced-api.md#retargeting-a-player) | Add canvases alongside the ones already being painted |
 | `dispose()` | Stop playback and free the scene and GPU textures. Call it when you remove the canvas; animated renders are the one place the library holds resources |
 
 `frames` is metadata, not bitmaps. To get a specific frame's image, `player.renderFrame(i)` paints it into `player.canvas`.

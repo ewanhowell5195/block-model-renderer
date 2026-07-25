@@ -35,6 +35,23 @@ Standard renders run fine in a worker, and a pool of them keeps batch work off t
 
 When the upgrade happens immediately rather than on demand, the bitmap round trip can be skipped too: the worker posts back the flag alone, and the main thread answers by transferring its still-blank tile canvas, so the first frame the player draws is the first thing shown. The [gallery example](https://block-model-renderer.ewanhowell.com/gallery/) runs this pattern across its render worker pool, with the clock sync below keeping tiles from different workers in step.
 
+## Retargeting a player
+
+A player's canvases aren't fixed for its lifetime. `setCanvases(canvas)` replaces the set it paints, `addCanvases(canvas)` extends it, and both take the same shapes as the [`canvas` option](standard-api.md#rendering-to-canvases-browser): one canvas, an array, or descriptors with their own `x`/`y`/`width`/`height`/`clear`. Both return the player's new `canvas` value.
+
+```js
+const player = await renderItem({ id: "magma_block", assets, animated: true, canvas: [slotA, slotB] })
+
+player.setCanvases([slotC, slotD])                 // same animation, different slots
+player.addCanvases({ canvas: sheet, x: 64, y: 0 }) // and also here
+```
+
+The scene, textures and schedules are reused, so retargeting costs no render. That makes it the cheap way to follow a UI that moves: a slot grid that reshuffles on every roll, or a panel that closes and reopens somewhere else, keeps one player rather than disposing and rebuilding it each time.
+
+The current frame is painted into new canvases immediately rather than at the next tick, so nothing flashes blank while it waits, and [offscreen pausing](standard-api.md#animated-renders-browser) re-observes the new set, so a player follows visibility to wherever it now draws.
+
+Canvases dropped from the set keep whatever frame they last showed; clear them yourself if you want them blank.
+
 ## Syncing the animation clock
 
 The animation clock is per JavaScript context: everything in one context stays in phase with itself, but each context starts its own clock when the library loads, so animations in two contexts sit at different phases. This shows up whenever renders from separate contexts share a screen, a pool of render workers being the usual case: every tile animates correctly, but tiles from different workers tick out of step with each other. [`configure({ clockStart })`](standard-api.md#browser-only-exports) fixes the clock to an absolute epoch (`performance.timeOrigin + performance.now()` scale). Derive one value in the primary context and hand that same number to every other context; a context computing its own just recreates the offset. With one shared value, they all compute the same game-time phase:
