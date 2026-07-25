@@ -75,7 +75,7 @@ The optimize pass:
 | Option | Default | Description |
 |---|---|---|
 | `optimize` | `true` | Merge the built scene with [`optimizeScene`](optimization.md#scene-optimization). `false` keeps one group clone per block, which renders far slower on big scenes but leaves every block individually addressable |
-| `resortDistance`, `maxAtlas`, `translucency` | | Passed through to the optimize pass |
+| `resortDistance`, `maxAtlas`, `translucency`, `batchDynamics` | | Passed through to the [optimize pass](optimization.md#scene-optimization) |
 | `sharedAtlas` | | A [`createSharedAtlas`](optimization.md#shared-atlases) handle. Textures resolve against its pages (shared across every scene using the handle) instead of per-scene atlases; the handle owns the pages and outlives each scene. [Prestitch it](optimization.md#shared-atlases) and scene builds become pure coordinate lookups |
 
 The build itself:
@@ -129,6 +129,9 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `args.data` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `args.seed` | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. Omit to always take the first variant. The picks don't match the game's per-position randomness |
 | `args.biome` | Biome tinting for the colormap tints: one `{ temperature, downfall, tint, combine, weight }` biome, or an array of them for a weighted blend. Same as [`renderBlock`](standard-api.md#renderblockargs) |
+| `args.nbt` | Block entity data rendered with the block, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Its models come back appended to the list |
+| `args.mapArt` | Map art callback for framed maps, as on [`renderBlock`](standard-api.md#renderblockargs). See [Map art](#map-art) |
+| `args.pos` | The block's grid position, passed through to the `mapArt` callback |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
 | `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 

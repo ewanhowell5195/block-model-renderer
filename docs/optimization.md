@@ -61,7 +61,7 @@ Share one `group` reference across placements of the same block state, as `group
 
 You *can* cull the other way, pre-culling a separate group per placement and passing those with no `cull` field, and it renders the same. But then no two placements share a build, so you're back to one build per block instead of one per block state. Passing `cull` per placement keeps the single shared build and drops each instance's hidden faces as it merges, which is far cheaper for anything bigger than a handful of blocks.
 
-Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
+Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), `batchDynamics: false` forces dynamic parts to `InstancedMesh` instead of `BatchedMesh` (what [worker builds](#packing-scenes-across-workers) need, since a revived `BatchedMesh` draws garbage), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). [`createScene`](scenes.md#createsceneassets-blocks-args) passes all of these through. `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
 
 The result:
 
@@ -107,7 +107,7 @@ A shared atlas is an atlas pool that outlives any one scene: pass it as `sharedA
 
 ### Packing scenes across workers
 
-For streaming-scale apps, scenes build in web workers and ship to the main thread as transferable data: the worker runs [`createScene`](scenes.md#createsceneassets-blocks-args) (workers have no WebGL, so the output group is plain geometry and materials), packs the result, and the main thread revives it into live meshes without rebuilding anything. With a prestitched atlas the pixels live only on the main thread; workers carry just the coordinate layout. These exports also exist on Node (useful for testing the pipeline end to end); the one gap is that packing a non-atlas texture as a bitmap needs `createImageBitmap`, so on Node pack scenes against a shared atlas.
+For streaming-scale apps, scenes build in web workers and ship to the main thread as transferable data: the worker runs [`createScene`](scenes.md#createsceneassets-blocks-args) with `batchDynamics: false` (workers have no WebGL, so the output group is plain geometry and materials, and a revived `BatchedMesh` draws garbage), packs the result, and the main thread revives it into live meshes without rebuilding anything. With a prestitched atlas the pixels live only on the main thread; workers carry just the coordinate layout. These exports also exist on Node (useful for testing the pipeline end to end); the one gap is that packing a non-atlas texture as a bitmap needs `createImageBitmap`, so on Node pack scenes against a shared atlas.
 
 | Export | Description |
 |---|---|
@@ -126,7 +126,7 @@ worker.postMessage({ type: "init", layout: exportSharedAtlasLayout(shared) })
 const atlas = adoptSharedAtlasLayout(createSharedAtlas(), msg.layout)
 
 // worker, per scene: build, pack (page references only), post
-const handle = await createScene(assets, blocks, { sharedAtlas: atlas, animate: false })
+const handle = await createScene(assets, blocks, { sharedAtlas: atlas, animate: false, batchDynamics: false })
 const scene = await packScene(handle, { sharedAtlas: atlas })
 postMessage({ scene: scene.payload }, scene.transfers)
 handle.dispose()
