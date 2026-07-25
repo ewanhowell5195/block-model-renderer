@@ -1,4 +1,4 @@
-import { ModelLoader, renderModel, prepareAssets } from "../../index.js"
+import { ModelLoader, renderModel, prepareAssets } from "block-model-renderer"
 import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 

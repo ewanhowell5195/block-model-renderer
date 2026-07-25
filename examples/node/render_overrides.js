@@ -1,4 +1,4 @@
-import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets, SKIP_BLOCKS } from "../../index.js"
+import { listDirectory, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets, SKIP_BLOCKS } from "block-model-renderer"
 import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 import path from "node:path"

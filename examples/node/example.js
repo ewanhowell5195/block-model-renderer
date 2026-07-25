@@ -2,7 +2,7 @@ import {
   renderBlock, renderItem, renderModel, prepareAssets, readFile,
   makeModelScene, renderModelScene, DISPLAYS,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel
-} from "../../index.js"
+} from "block-model-renderer"
 import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 import sharp from "sharp"

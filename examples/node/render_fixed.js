@@ -1,4 +1,4 @@
-import { renderModel, zipAssets } from "../../index.js"
+import { renderModel, zipAssets } from "block-model-renderer"
 import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 

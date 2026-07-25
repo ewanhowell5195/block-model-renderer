@@ -1,4 +1,4 @@
-import { createScene, makeModelScene, renderModelScene, prepareAssets } from "../../index.js"
+import { createScene, makeModelScene, renderModelScene, prepareAssets } from "block-model-renderer"
 import { loadMojangJar } from "./mojang-jar.js"
 import sharp from "sharp"
 import fs from "node:fs"

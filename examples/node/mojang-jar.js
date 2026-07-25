@@ -1,4 +1,4 @@
-import { parseZip } from "../../src/zip.js"
+import { parseZip } from "block-model-renderer"
 import zlib from "node:zlib"
 import fs from "node:fs"
 import path from "node:path"
