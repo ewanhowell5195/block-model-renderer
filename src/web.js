@@ -648,9 +648,6 @@ export async function renderTexture(args = {}) {
   let scratch = null
   let sctx = null
   const tint = args.tint ? core.COLORS.dye[args.tint] ?? args.tint : null
-  // painted once into a scratch canvas, then blitted to every target, so the
-  // array and descriptor forms of `canvas` work here exactly as they do for a
-  // model render
   const draw = frame => {
     if (!targets) return
     const w = scratch.width, h = scratch.height
