@@ -1,6 +1,6 @@
 # Advanced API
 
-Deeper behavior of the [standard render functions](standard-api.md) in the browser: deferring the static-or-animated choice, batch rendering across worker pools, keeping animation clocks in sync across contexts, and the playback machinery behind [players](standard-api.md#animated-renders-browser).
+Deeper behavior of the [standard render functions](standard-api.md) in the browser: deferring the static-or-animated choice, batch rendering across worker pools, moving a running animation between canvases, keeping animation clocks in sync across contexts, and the playback machinery behind [players](standard-api.md#animated-renders-browser).
 
 ## Upgradable renders
 
@@ -21,7 +21,7 @@ handle.toAnimated?.().play()
 
 When the model turns out fully static the handle is just `{ canvas }`: nothing was retained and there's nothing to upgrade. With `animated: true` the option does nothing (you already have a player), and on Node it's ignored.
 
-[`renderTexture`](standard-api.md#rendertextureargs) takes the option too, upgrading to its simplified [texture player](#texture-players) under the same handle contract. Its `toAnimated(canvas?)` accepts a single replacement canvas, matching its own `canvas` option (no arrays or placement), and an unupgraded handle holds nothing heavy: a texture redraw needs no retained scene.
+[`renderTexture`](standard-api.md#rendertextureargs) takes the option too, upgrading to its simplified [texture player](#texture-players) under the same handle contract. Its `toAnimated(canvas?)` accepts the same canvas forms as everything else, and an unupgraded handle holds nothing heavy: a texture redraw needs no retained scene.
 
 The point is choosing what animates and when: render everything statically, upgrade only what needs motion, and trigger each upgrade at the moment your app wants it (immediately, scrolled into view, hovered, whatever you decide). Placement renders into a shared canvas each get their own handle, so several models on one canvas upgrade and dispose independently. The flow works from workers too, redirecting the upgrade onto a canvas the main thread hands over; see [Batch rendering from workers](#batch-rendering-from-workers).
 
@@ -91,4 +91,4 @@ Shader-driven animation (the end portal) never caches in any mode: its frames do
 
 ## Texture players
 
-[`renderTexture`](standard-api.md#rendertextureargs)'s animated form returns a simplified player: `{ canvas, animated, playing, duration, play(), pause(), dispose() }`. It follows the same rules as the full players: the shared clock (so `pauseAnimations` freezes it), `play()` snapping back onto that clock, `duration` as the loop length in ms, and `animated: false` when the texture turned out static, with everything no-oping and a `duration` of `0`. But a texture redraw is a single `drawImage`, so none of the heavier machinery exists: no frame cache, no offscreen pausing, no `frames` timeline or frame stepping. `dispose()` just ends the redraws; there's nothing on the GPU to free.
+[`renderTexture`](standard-api.md#rendertextureargs)'s animated form returns a simplified player: `{ canvas, animated, playing, duration, play(), pause(), setCanvases(), addCanvases(), dispose() }`. It follows the same rules as the full players: the shared clock (so `pauseAnimations` freezes it), `play()` snapping back onto that clock, `duration` as the loop length in ms, [retargeting](#retargeting-a-player) through the same two methods, and `animated: false` when the texture turned out static, with everything no-oping and a `duration` of `0`. But a texture redraw is a single `drawImage`, so none of the heavier machinery exists: no frame cache, no offscreen pausing, no `frames` timeline or frame stepping. `dispose()` just ends the redraws; there's nothing on the GPU to free.

@@ -86,8 +86,8 @@ export interface Player {
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/advanced-api.md#texture-players
  */
 export interface TexturePlayer {
-  /** The canvas being painted. */
-  canvas: BrowserCanvas
+  /** The canvas being painted: the one you passed, or a new one. An array if `canvas` was one. */
+  canvas: BrowserCanvas | BrowserCanvas[]
   /** `false` when the texture turned out static, with everything no-oping and a `duration` of `0`. */
   animated: boolean
   /** Whether playback is running. */
@@ -98,6 +98,10 @@ export interface TexturePlayer {
   play(): void
   /** Stop playback. */
   pause(): void
+  /** Point the player at a different set of canvases, replacing the current ones and returning the new `canvas` value. */
+  setCanvases(canvas: CanvasTarget): BrowserCanvas | BrowserCanvas[]
+  /** Add canvases to the ones already being painted, leaving the existing set in place. */
+  addCanvases(canvas: CanvasTarget): BrowserCanvas | BrowserCanvas[]
   /** End the redraws. There's nothing on the GPU to free. */
   dispose(): void
 }
@@ -139,10 +143,10 @@ export interface UpgradableHandle {
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/advanced-api.md#upgradable-renders
  */
 export interface TextureUpgradableHandle {
-  /** The canvas the static frame was drawn into. */
-  canvas: BrowserCanvas
+  /** The canvas the static frame was drawn into, or the array if `canvas` was one. */
+  canvas: BrowserCanvas | BrowserCanvas[]
   /** Only present when the texture animates. Returns `null` after `dispose()`. */
-  toAnimated?(canvas?: BrowserCanvas): TexturePlayer | null
+  toAnimated?(canvas?: CanvasTarget): TexturePlayer | null
   /** Only present alongside `toAnimated()`. */
   dispose?(): void
 }
@@ -183,8 +187,14 @@ export interface RenderModelArgs extends BrowserRenderOptions, ModelRenderInput 
 export interface RenderTextureArgs extends TextureRenderInput {
   /** Play the texture's animation, returning a {@link TexturePlayer}. Default `false`. */
   animated?: boolean
-  /** Draw into this canvas instead of a fresh one, resizing it to the output size. */
-  canvas?: BrowserCanvas
+  /** A canvas to draw into, or an array of canvases/descriptors. Omit to get a fresh canvas back. */
+  canvas?: CanvasTarget
+  /** Placement mode: draw into a region of the canvas without resizing or clearing it. */
+  x?: number
+  /** Placement mode. The other axis defaults to `0`. */
+  y?: number
+  /** Clear the target rect before drawing. Default `true`, or `false` in placement mode. */
+  clear?: boolean
   /** Static renders return a {@link TextureUpgradableHandle} that can upgrade to a texture player later. Default `false`. */
   upgradable?: boolean
 }

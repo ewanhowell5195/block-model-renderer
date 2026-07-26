@@ -117,7 +117,7 @@ On Node the output goes through the standard pipeline: a buffer back, a file via
 | `tint` | | A color multiplied into the texture, preserving its alpha: a hex string (`"#3F76E4"`) or a dye name (`"red"`). Applies to animated frames too |
 | `animated` | `false` | Node: animated WebP/GIF output. Browser: play the texture's animation, returning a [texture player](advanced-api.md#texture-players) |
 | Node: `path`, `format`, `output`, `background`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `maxAnimationFrames` | | Same as [`renderBlock`](#renderblockargs) |
-| Browser: `canvas` | a fresh canvas | Draw into this canvas instead (resized to the output size) |
+| Browser: `canvas`, `x`, `y`, `clear` | a fresh canvas | Where to draw, taking the same forms as [`renderBlock`](#rendering-to-canvases-browser): one canvas, an array, or descriptors with their own placement |
 | Browser: `upgradable` | `false` | Static renders return a handle that can upgrade to a texture player later. See [Upgradable renders](advanced-api.md#upgradable-renders) |
 
 ## Return value

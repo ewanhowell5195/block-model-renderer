@@ -643,54 +643,91 @@ export async function renderTexture(args = {}) {
   await init()
   if (!args.texture) throw new Error("renderTexture requires the texture option")
   if (args.assets == null || args.assets.length === 0) throw new Error("renderTexture requires the assets option")
-  let ctx = null
+  let targets = null
+  let snapshots = null
+  let scratch = null
+  let sctx = null
   const tint = args.tint ? core.COLORS.dye[args.tint] ?? args.tint : null
+  // painted once into a scratch canvas, then blitted to every target, so the
+  // array and descriptor forms of `canvas` work here exactly as they do for a
+  // model render
   const draw = frame => {
-    const w = ctx.canvas.width, h = ctx.canvas.height
-    ctx.clearRect(0, 0, w, h)
-    ctx.drawImage(frame, 0, 0, w, h)
+    if (!targets) return
+    const w = scratch.width, h = scratch.height
+    sctx.clearRect(0, 0, w, h)
+    sctx.drawImage(frame, 0, 0, w, h)
     if (tint) {
-      ctx.globalCompositeOperation = "multiply"
-      ctx.fillStyle = tint
-      ctx.fillRect(0, 0, w, h)
-      ctx.globalCompositeOperation = "destination-in"
-      ctx.drawImage(frame, 0, 0, w, h)
-      ctx.globalCompositeOperation = "source-over"
+      sctx.globalCompositeOperation = "multiply"
+      sctx.fillStyle = tint
+      sctx.fillRect(0, 0, w, h)
+      sctx.globalCompositeOperation = "destination-in"
+      sctx.drawImage(frame, 0, 0, w, h)
+      sctx.globalCompositeOperation = "source-over"
     }
+    for (let i = 0; i < targets.length; i++) blit(targets[i], scratch, w, h, snapshots[i])
   }
   let texture = await readTexture(args.texture, args.assets, args.animated ? { onChange: draw } : undefined)
   if (!texture) {
     const image = await core.getMissingImage(await core.prepareAssets(args.assets))
     texture = { image, animated: false }
   }
-  const canvas = args.canvas ?? document.createElement("canvas")
   const width = args.width ?? texture.image.width
   const height = args.height ?? texture.image.height
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width
-    canvas.height = height
+  scratch = typeof document !== "undefined" ? document.createElement("canvas") : new OffscreenCanvas(width, height)
+  scratch.width = width
+  scratch.height = height
+  sctx = scratch.getContext("2d")
+  sctx.imageSmoothingEnabled = false
+
+  const retarget = (canvas, append) => {
+    const next = getTargets({ ...args, canvas }, width, height)
+    if (append && targets) {
+      const merged = targets.concat(Array.from(next))
+      merged.multi = true
+      targets = merged
+    } else {
+      targets = next
+    }
+    snapshots = takeSnapshots(targets)
+    return targetCanvases(targets)
   }
-  ctx = canvas.getContext("2d")
-  ctx.imageSmoothingEnabled = false
+
+  retarget(args.canvas, false)
+  const canvas = targetCanvases(targets)
   draw(texture.current ?? texture.image)
+
   const makeTexturePlayer = () => {
     const sub = texture._player
-    return {
-      canvas: ctx.canvas,
+    const player = {
+      canvas,
       animated: true,
       duration: texture.times.reduce((total, t) => total + t, 0) * 50,
       get playing() { return sub.playing },
       play() { sub.play() },
       pause() { sub.pause() },
+      setCanvases(canvas) {
+        player.canvas = retarget(canvas, false)
+        draw(texture.current ?? texture.image)
+        return player.canvas
+      },
+      addCanvases(canvas) {
+        player.canvas = retarget(canvas, true)
+        draw(texture.current ?? texture.image)
+        return player.canvas
+      },
       dispose() {
         sub.pause()
         texture.stop()
       }
     }
+    return player
   }
   if (args.animated) {
     if (!texture.animated) {
-      return { canvas, animated: false, playing: false, duration: 0, play() {}, pause() {}, dispose() {} }
+      const still = { canvas, animated: false, playing: false, duration: 0, play() {}, pause() {}, dispose() {} }
+      still.setCanvases = c => { still.canvas = retarget(c, false); draw(texture.image); return still.canvas }
+      still.addCanvases = c => { still.canvas = retarget(c, true); draw(texture.image); return still.canvas }
+      return still
     }
     return makeTexturePlayer()
   }
@@ -701,17 +738,10 @@ export async function renderTexture(args = {}) {
   const toAnimated = replacement => {
     if (dropped) return null
     if (player) {
-      if (replacement !== undefined) throw new Error("This render has already been upgraded, so it cannot be given a new canvas")
+      if (replacement !== undefined) throw new Error("This render has already been upgraded, so it cannot be given new canvases")
       return player
     }
-    if (replacement != null) {
-      if (replacement.width !== width || replacement.height !== height) {
-        replacement.width = width
-        replacement.height = height
-      }
-      ctx = replacement.getContext("2d")
-      ctx.imageSmoothingEnabled = false
-    }
+    if (replacement != null) retarget(replacement, false)
     attachTexturePlayer(texture, draw)
     draw(texture.current)
     player = makeTexturePlayer()
