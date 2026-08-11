@@ -549,13 +549,14 @@ export async function parseBlockstate(assets, blockstate, args) {
   let data = args?.data ?? {}
   const rand = args?.seed != null ? seededRandom(args.seed) : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
-  const defaults = await defaultBlockstates(assets, args?.defaults)
+  const defaultsMode = args?.defaults ?? assets.defaults
+  const defaults = await defaultBlockstates(assets, defaultsMode)
   const rules = await blockRules(assets)
   const colors = await colorTables(assets)
 
   const { namespace, item: block } = resolveNamespace(blockstate)
   const defaultsId = normalize(blockstate)
-  const stateValue = args?.defaults === "game"
+  const stateValue = defaultsMode === "game"
     ? key => data[key] ?? defaults.unique(defaultsId)[key] ?? defaults.properties[key]
     : key => data[key]
 
@@ -1862,7 +1863,7 @@ export async function loadModel(scene, assets, model, args) {
   } else {
     if (block?.id) {
       const blockId = normalize(block.id)
-      const defaults = await defaultBlockstates(assets, args?.defaults)
+      const defaults = await defaultBlockstates(assets, args?.defaults ?? assets.defaults)
       blockEmission = (await blockRules(assets)).emission(blockId, block.properties, k => {
         const raw = defaults.unique(blockId)[k] ?? defaults.properties[k]
         return Array.isArray(raw) ? raw[0] : raw

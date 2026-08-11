@@ -211,6 +211,7 @@ export async function prepareAssets(assets, opts) {
     if (opts?.version && !assets.version) assets.version = opts.version
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
     if (opts?.translucency) assets.translucency = opts.translucency
+    if (opts?.defaults) assets.defaults = opts.defaults
     return assets
   }
 
@@ -231,6 +232,7 @@ export async function prepareAssets(assets, opts) {
   if (opts?.cache) prepared.cache = makeCache()
   if (opts?.translucency) prepared.translucency = opts.translucency
   if (opts?.version) prepared.version = opts.version
+  if (opts?.defaults) prepared.defaults = opts.defaults
   await loadAtlases(prepared)
   return prepared
 }

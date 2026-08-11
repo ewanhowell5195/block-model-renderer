@@ -44,7 +44,7 @@ export async function computeSceneLight(blocks, opts = {}) {
   const assets = scopedCache(await prepareAssets(opts.assets))
   const version = opts.version
   const occCache = assets.cache.occlusion
-  const defaultsMode = opts.defaults
+  const defaultsMode = opts.defaults ?? assets.defaults
   const defaults = await defaultBlockstates(assets, defaultsMode)
   const rules = await blockRules(assets)
 

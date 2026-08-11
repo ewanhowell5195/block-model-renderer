@@ -124,13 +124,13 @@ export async function createScene(assets, blocks, args = {}) {
   if (assets == null || assets.length === 0) throw new Error("createScene requires assets")
   if (!Array.isArray(blocks)) throw new Error("createScene requires an array of blocks")
   assets = scopedCache(await prepareAssets(assets))
+  const defaults = args.defaults ?? assets.defaults
   const rules = await blockRules(assets)
   const lightingArg = args.lighting ?? "world"
   const worldCfg = lightingArg && typeof lightingArg === "object" ? lightingArg : lightingArg === "world" ? {} : null
   const lighting = worldCfg ? "world" : lightingArg
   const optimize = args.optimize !== false
   const version = args.version
-  const defaults = args.defaults
   const onProgress = args.onProgress
   const shouldCancel = args.shouldCancel
 

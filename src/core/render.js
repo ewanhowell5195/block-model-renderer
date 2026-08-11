@@ -24,6 +24,7 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
   if (AIR_BLOCKS.test(id)) return new Set()
   if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
+  defaults ??= assets.defaults
   const occCache = assets.cache.occlusion
   const rules = await blockRules(assets)
   async function masksFor(bid, props) {
@@ -80,6 +81,7 @@ export async function fullyOccludes({ id, properties, assets, version, defaults 
   if (!id || AIR_BLOCKS.test(id)) return false
   if (assets == null || assets.length === 0) throw new Error("fullyOccludes requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
+  defaults ??= assets.defaults
   const occCache = assets.cache.occlusion
   const rules = await blockRules(assets)
   const key = occlusionStateKey(id, properties, defaults)

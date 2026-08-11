@@ -106,6 +106,16 @@ Whether a texture renders blended (water, stained glass, ice) or solid is decide
 const assets = await prepareAssets(sources, { translucency: { min: 5, max: 240 } })
 ```
 
+### Default blockstate mode
+
+Which [default blockstates](extending.md#default-blockstates) fill properties a block doesn't carry can be pinned per prepared assets, so every render, scene and light pass through them agrees without threading an option:
+
+```js
+const assets = await prepareAssets(sources, { cache: true, defaults: "game" })
+```
+
+`"preferred"` (the default) layers the preferred overrides over each block's real default state; `"game"` uses the real default state alone, for block data whose format omits properties that are at their default. A `defaults` passed to an individual call still wins over the assets-level one, so an app can render its scenes in one mode and its item icons in the other.
+
 ## Bundled packs
 
 Minecraft renders some blocks dynamically at runtime with hardcoded geometry, with no usable model JSON in the vanilla resource pack. block-model-renderer ships bundled packs that supply models for these cases, so they render correctly without any setup from you. They come in two categories that mirror how the game treats each block:

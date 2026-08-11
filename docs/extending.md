@@ -74,7 +74,7 @@ assets/block-model-renderer/default_blockstates.json            every block's re
 assets/block-model-renderer/default_blockstates_preferred.json  overrides for how blocks look
 ```
 
-The base file is each block's actual default state, the one the game gives a freshly placed block. The preferred file sits on top of it and holds only the values the renderer would rather show: stairs facing the camera, crops fully grown, vines with a face attached. `defaults: "game"` on [`parseBlockstate`](scenes.md#parseblockstateassets-id-args), [`renderBlock`](standard-api.md#renderblockargs) and [`createScene`](scenes.md#createsceneassets-blocks-args) skips the preferred overlay, for data whose format omits properties that are at their default (26.3+ structure and worldgen files). Both files are pack files, so any pack can extend or override them:
+The base file is each block's actual default state, the one the game gives a freshly placed block. The preferred file sits on top of it and holds only the values the renderer would rather show: stairs facing the camera, crops fully grown, vines with a face attached. `defaults: "game"` skips the preferred overlay, for data whose format omits properties that are at their default (26.3+ structure and worldgen files). Pass it per call to [`parseBlockstate`](scenes.md#parseblockstateassets-id-args), [`renderBlock`](standard-api.md#renderblockargs) or [`createScene`](scenes.md#createsceneassets-blocks-args), or pin it for everything sharing one assets instance with [`prepareAssets(sources, { defaults: "game" })`](assets.md#default-blockstate-mode). Both files are pack files, so any pack can extend or override them:
 
 ```json
 {

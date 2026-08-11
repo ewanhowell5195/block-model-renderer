@@ -76,6 +76,13 @@ export interface PrepareAssetsOptions {
   version?: string
   /** Override the alpha cutoffs used for translucency detection. */
   translucency?: TranslucencyCutoffs
+  /**
+   * Which default blockstates fill properties a block doesn't carry, for every
+   * call made with these assets: `"preferred"` (default) layers the preferred
+   * overrides over the block's real default state, `"game"` uses the real
+   * default state alone. A per-call `defaults` overrides this.
+   */
+  defaults?: "preferred" | "game"
 }
 
 /** A file read out of the asset stack, with where it came from attached. */
