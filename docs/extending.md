@@ -67,17 +67,20 @@ Any future non-component select properties vanilla adds will work without render
 
 ## Default blockstates
 
-Blockstate properties you don't pass to [`renderBlock`](standard-api.md#renderblockargs) fall back to sensible defaults (stairs face the camera, campfires are lit, mushroom blocks show caps on all sides). The defaults merge with whatever `blockstates` you do provide, per property. Those rules live in a pack file, so any pack can extend or override them by shipping its own:
+Blockstate properties you don't pass to [`renderBlock`](standard-api.md#renderblockargs) are filled in for you, and the filled values merge with whatever `blockstates` you do provide, per property. There are two tables behind that, because "the caller didn't say" and "the data left it out because it was default" are different questions:
 
 ```
-assets/block-model-renderer/default_blockstates.json
+assets/block-model-renderer/default_blockstates.json            every block's real default state
+assets/block-model-renderer/default_blockstates_preferred.json  overrides for how blocks look
 ```
+
+The base file is each block's actual default state, the one the game gives a freshly placed block. The preferred file sits on top of it and holds only the values the renderer would rather show: stairs facing the camera, crops fully grown, vines with a face attached. `defaults: "game"` on [`parseBlockstate`](scenes.md#parseblockstateassets-id-args), [`renderBlock`](standard-api.md#renderblockargs) and [`createScene`](scenes.md#createsceneassets-blocks-args) skips the preferred overlay, for data whose format omits properties that are at their default (26.3+ structure and worldgen files). Both files are pack files, so any pack can extend or override them:
 
 ```json
 {
   "properties": {
     "facing": "north",
-    "half": ["bottom", "lower"]
+    "half": "bottom"
   },
   "blocks": [
     { "match": "*_stairs|*_glazed_terracotta", "defaults": { "facing": "south" } },
@@ -86,12 +89,17 @@ assets/block-model-renderer/default_blockstates.json
 }
 ```
 
-* `properties` are per-property fallbacks used for any block. A value can be an array of candidates tried in order (the first one the blockstate actually has wins)
-* `blocks` is an ordered rule list. `match` matches block ids with `*` wildcards and `|` alternatives; the first matching rule's `defaults` are used whole
+* `properties` are per-property fallbacks used for any block. In the preferred file a value can be an array of candidates tried in order (the first one the blockstate actually has wins); the base file always uses a single value so a lookup has exactly one answer
+* `blocks` is an ordered rule list. `match` matches block ids with `*` wildcards and `|` alternatives; within one file, the first matching rule's `defaults` are used whole
 * Files from every pack merge, higher packs win: per property for `properties`, and higher packs' rules go first for `blocks` (a matching rule in a higher pack completely replaces lower ones)
-* The library's own rules ship in its [bundled fallback pack](assets.md#bundled-packs) at the very bottom of the stack, so anything a pack defines beats them
+* Across the two files the merge is per property instead, so a preferred rule only needs the values it wants to change and the base still supplies the rest of that block's properties
+* The library's own tables ship in its [bundled fallback pack](assets.md#bundled-packs) at the very bottom of the stack, so anything a pack defines beats them
 
-Lookup order for a property: the `blockstates` option → the first matching `blocks` rule → `properties`.
+Declare a modded block in the base file: that one entry serves both modes. Only reach for the preferred file when the block's real default and its best-looking default genuinely differ.
+
+Lookup order for a property: the `blockstates` option → the first matching preferred `blocks` rule → the first matching base `blocks` rule → preferred `properties` → base `properties`, with the two preferred tiers skipped in `defaults: "game"`.
+
+The base file is generated from the game by `tools/generate/generate.js`, so it covers every vanilla block for the version it was built from. Blocks it doesn't know fall through to `properties`, which means an unrecognised modded block still resolves rather than failing.
 
 ## Block data and colors
 

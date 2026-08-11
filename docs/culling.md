@@ -36,6 +36,7 @@ The same logic as a standalone helper, for building your own scenes with [`loadM
 | `blockstates` | `{}` | The block's blockstate property values |
 | `neighbors` | | The surrounding blocks, as in [`renderBlock`](standard-api.md#renderblockargs) above |
 | `version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
+| `defaults` | | Which [default blockstates](extending.md#default-blockstates) fill properties `blockstates` doesn't set, as in [`renderBlock`](standard-api.md#renderblockargs) |
 
 Returns a `Set` of directions to drop (`"down"`, `"up"`, `"north"`, `"south"`, `"west"`, `"east"`). Pass it as the `cull` option to any render function or [`loadModel`](scenes.md#loadmodelscene-assets-model-args); a plain object like `{ north: true }` works there too. Air ids return an empty set without touching the assets, and air neighbors count as absent.
 
@@ -61,7 +62,7 @@ Because occlusion comes from the models, modded blocks and custom packs just wor
 
 ## `fullyOccludes(args)`
 
-Whether a block state is a full occluding cube: every one of its six faces completely hides whatever is pressed against it (stone yes, stairs, glass, and leaves no). Takes `{ id, properties?, assets, version? }`; async, resolves a boolean. Air ids resolve `false` without touching the assets.
+Whether a block state is a full occluding cube: every one of its six faces completely hides whatever is pressed against it (stone yes, stairs, glass, and leaves no). Takes `{ id, properties?, assets, version?, defaults? }`; async, resolves a boolean. Air ids resolve `false` without touching the assets.
 
 Useful for world-scale preprocessing: a cell whose six neighbors all fully occlude can be dropped before building a scene at all, which is how a caller thins buried terrain. The per-face masks it computes are the same ones culling uses, and land in the same cache.
 

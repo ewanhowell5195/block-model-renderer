@@ -19,7 +19,7 @@ function buffersEqual(a, b) {
   return true
 }
 
-export async function getCullFaces({ id, blockstates, neighbors, assets, version } = {}) {
+export async function getCullFaces({ id, blockstates, neighbors, assets, version, defaults } = {}) {
   if (!id) throw new Error("getCullFaces requires the id option")
   if (AIR_BLOCKS.test(id)) return new Set()
   if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
@@ -28,11 +28,11 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
   const rules = await blockRules(assets)
   async function masksFor(bid, props) {
     if (AIR_BLOCKS.test(bid)) return null
-    const key = occlusionStateKey(bid, props)
+    const key = occlusionStateKey(bid, props, defaults)
     let m = occCache.get(key)
     if (m === undefined) {
       try {
-        const g = await buildOcclusionModel(assets, bid, props, version)
+        const g = await buildOcclusionModel(assets, bid, props, version, defaults)
         m = g ? occludingFaces(g, bid, false, rules) : null
       } catch { m = null }
       occCache.set(key, m)
@@ -40,11 +40,11 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     return m
   }
   async function selfMasksFor() {
-    const key = "self\0" + occlusionStateKey(id, blockstates)
+    const key = "self\0" + occlusionStateKey(id, blockstates, defaults)
     let m = occCache.get(key)
     if (m === undefined) {
       try {
-        const g = await buildOcclusionModel(assets, id, blockstates, version)
+        const g = await buildOcclusionModel(assets, id, blockstates, version, defaults)
         m = g ? occludingFaces(g, null, true) : null
       } catch { m = null }
       occCache.set(key, m)
@@ -76,17 +76,17 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
 
 const MASK_DIRS = ["east", "west", "up", "down", "south", "north"]
 
-export async function fullyOccludes({ id, properties, assets, version } = {}) {
+export async function fullyOccludes({ id, properties, assets, version, defaults } = {}) {
   if (!id || AIR_BLOCKS.test(id)) return false
   if (assets == null || assets.length === 0) throw new Error("fullyOccludes requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
   const occCache = assets.cache.occlusion
   const rules = await blockRules(assets)
-  const key = occlusionStateKey(id, properties)
+  const key = occlusionStateKey(id, properties, defaults)
   let m = occCache.get(key)
   if (m === undefined) {
     try {
-      const g = await buildOcclusionModel(assets, id, properties, version)
+      const g = await buildOcclusionModel(assets, id, properties, version, defaults)
       m = g ? occludingFaces(g, id, false, rules) : null
     } catch { m = null }
     occCache.set(key, m)
@@ -158,14 +158,14 @@ export async function renderBlock(args = {}) {
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
 
-  const models = await parseBlockstate(assets, args.id, { data: args.blockstates, nbt: args.nbt, mapArt: args.mapArt, seed: args.seed, biome: args.biome, ignoreAtlases: args.ignoreAtlases, version: args.version })
+  const models = await parseBlockstate(assets, args.id, { data: args.blockstates, nbt: args.nbt, mapArt: args.mapArt, seed: args.seed, biome: args.biome, ignoreAtlases: args.ignoreAtlases, version: args.version, defaults: args.defaults })
 
-  const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, blockstates: args.blockstates, neighbors: args.neighbors, assets, version: args.version }) : undefined)
+  const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, blockstates: args.blockstates, neighbors: args.neighbors, assets, version: args.version, defaults: args.defaults }) : undefined)
 
   const block = { id: args.id, properties: args.blockstates }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
+    await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
   }
 
   scene.traverse(o => { if (o.userData.dynamic === "enchanting_book") o.userData.range = 0 })
@@ -191,7 +191,7 @@ export async function renderItem(args = {}) {
 
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
+    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
   }
 
   return renderModelScene(scene, camera, args)
@@ -247,7 +247,7 @@ export async function renderModel(args = {}) {
   scene.userData.ephemeral = true
 
   const resolved = await resolveModelData(args.assets, { model: args.model})
-  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
+  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
 
   return renderModelScene(scene, camera, args)
 }

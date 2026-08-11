@@ -303,6 +303,8 @@ export interface ComputeSceneLightOptions {
   dimension?: LightDimensionName | LightDimension
   /** Progress while the scene's blocks are processed. The flood fill after the last call is quick. */
   onProgress?(done: number, total: number): void
+  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
+  defaults?: "preferred" | "game"
 }
 
 /**
@@ -425,6 +427,8 @@ export interface CreateSceneOptions {
   keepTemplates?: boolean
   /** Treat absent cells as full occluders, for building a chunk of a larger world. */
   externalOcclusion?(x: number, y: number, z: number): boolean
+  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
+  defaults?: "preferred" | "game"
 }
 
 /** One unique block state a built scene used. */
@@ -491,6 +495,8 @@ export interface ParseBlockstateArgs {
   ignoreAtlases?: boolean
   /** The Minecraft version the assets are for. */
   version?: string
+  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
+  defaults?: "preferred" | "game"
 }
 
 export interface ParseItemDefinitionArgs {
@@ -535,6 +541,8 @@ export interface LoadModelArgs {
   mergeElements?: boolean
   /** The Minecraft version the assets are for. Sets `model.version` if not already present. */
   version?: string
+  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
+  defaults?: "preferred" | "game"
 }
 
 /** The block entity kinds that load as dynamic models. */
@@ -612,6 +620,8 @@ export interface GetCullFacesArgs {
   neighbors?: Neighbors
   /** The Minecraft version the assets are for. */
   version?: string
+  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
+  defaults?: "preferred" | "game"
 }
 
 export interface FullyOccludesArgs {
@@ -623,6 +633,8 @@ export interface FullyOccludesArgs {
   properties?: BlockProperties
   /** The Minecraft version the assets are for. */
   version?: string
+  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
+  defaults?: "preferred" | "game"
 }
 
 // #endregion
@@ -957,6 +969,8 @@ export interface RenderOptionsCommon {
   version?: string
   /** Render without enforcing texture atlas membership rules. Default `false`. */
   ignoreAtlases?: boolean
+  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
+  defaults?: "preferred" | "game"
   /** Caps the animation timeline. Default `4096`. */
   maxAnimationFrames?: number
 }

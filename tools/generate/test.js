@@ -13,11 +13,19 @@ import waterlogging from "../../src/core/data/waterlogging.json" with { type: "j
 import culling from "../../src/core/data/culling.json" with { type: "json" }
 import lighting from "../../src/core/data/lighting.json" with { type: "json" }
 import colors from "../../src/core/data/colors.json" with { type: "json" }
+import defaults from "../../src/core/data/default_blockstates.json" with { type: "json" }
+import preferred from "../../src/core/data/default_blockstates_preferred.json" with { type: "json" }
+import { defaultBlockstates } from "../../src/core/models.js"
+import { prepareAssets } from "../../src/node.js"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 let pass = 0, fail = 0
 function test(name, fn) {
   try { fn(); pass++; console.log("ok  ", name) }
+  catch (e) { fail++; console.error("FAIL", name, "\n     ", e.message) }
+}
+async function asyncTest(name, fn) {
+  try { await fn(); pass++; console.log("ok  ", name) }
   catch (e) { fail++; console.error("FAIL", name, "\n     ", e.message) }
 }
 
@@ -57,6 +65,59 @@ test("colors.json structure", () => {
   assert.deepEqual(colors.potions.swiftness, ["speed"])
   assert.deepEqual(colors.potions.turtle_master, [["slowness", 3], ["resistance", 2]])
   assert.ok(!("poison" in colors.potions), "potions whose name is an effect are omitted (direct fallback)")
+})
+
+test("default blockstates structure", () => {
+  for (const [k, v] of Object.entries(defaults.properties)) {
+    assert.equal(typeof v, "string", `generated ${k} is a scalar, never a priority array`)
+  }
+  for (const rule of defaults.blocks) {
+    assert.match(rule.match, /^[\w*|.-]+$/, `match: ${rule.match}`)
+    assert.ok(Object.keys(rule.defaults).length, `${rule.match} carries values`)
+  }
+  assert.equal(defaults.properties.age, "0")
+  assert.equal(defaults.properties.segment_amount, "1")
+  assert.equal(defaults.properties.half, "bottom")
+})
+
+test("preferred overlay only holds what differs from the base", () => {
+  const rx = m => m.split("|").map(p => new RegExp("^" + p.replace(/\*/g, ".*") + "$"))
+  const baseRules = defaults.blocks.map(r => ({ patterns: rx(r.match), value: r.defaults }))
+  const baseValue = (id, k) => baseRules.find(r => r.patterns.some(p => p.test(id)))?.value?.[k] ?? defaults.properties[k]
+  for (const [k, v] of Object.entries(preferred.properties ?? {})) {
+    assert.notEqual(String(v), String(defaults.properties[k]), `preferred ${k} differs from the base`)
+  }
+  // a rule may repeat a base value for some of the blocks it covers (barrel and
+  // amethyst_cluster share one facing rule, but only barrel's differs); what it
+  // must never be is redundant for every block it matches
+  for (const rule of preferred.blocks ?? []) {
+    const ids = rule.match.split("|").filter(p => !p.includes("*"))
+    if (!ids.length) continue
+    const useful = ids.some(id => Object.entries(rule.defaults).some(([k, v]) => String(v) !== String(baseValue(id, k))))
+    assert.ok(useful, `preferred rule ${rule.match} changes something`)
+  }
+})
+
+await asyncTest("default blockstate layering", async () => {
+  const assets = await prepareAssets([{ read: () => null, list: () => [] }])
+  const game = await defaultBlockstates(assets, "game")
+  const pref = await defaultBlockstates(assets)
+  // the game table is the base alone: real default states, one value per property
+  assert.equal(game.properties.age, "0")
+  assert.equal(game.unique("potatoes").age, undefined)
+  assert.equal(game.unique("hopper").facing, "down")
+  assert.equal(game.unique("light").level, "15")
+  // the preferred overlay wins per property, and the base still fills the rest
+  assert.deepEqual(pref.properties.age, [7, 6, 5, 4, 3, 2, 1, 0])
+  assert.equal(pref.unique("oak_stairs").facing, "south")
+  assert.equal(pref.unique("redstone_wire").north, "side")
+  assert.equal(pref.unique("redstone_wire").east, "side")
+  assert.equal(pref.unique("vine").south, true)
+  assert.equal(pref.unique("vine").up, "false")
+  assert.equal(pref.unique("hopper").facing, "down")
+  // a rule matching in one layer does not hide the other layer's values
+  assert.equal(pref.unique("glow_lichen").down, true)
+  assert.equal(pref.unique("glow_lichen").up, "false")
 })
 
 test("light emission matches the game", () => {

@@ -183,6 +183,7 @@ public class Extract {
     TreeMap<String, String> shapeLightOcclusion = new TreeMap<>();
     TreeMap<String, String> lightDampening = new TreeMap<>();
     TreeMap<String, String> aoBlocking = new TreeMap<>();
+    TreeMap<String, String> defaultStates = new TreeMap<>();
     for (Block block : BuiltInRegistries.BLOCK) {
       String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
       all.add(id);
@@ -196,6 +197,18 @@ public class Extract {
         String kind = p == grassRef ? "grass" : p == foliageRef ? "foliage" : p == dryRef ? "dry_foliage" : null;
         if (kind != null) { colormap.get(kind).add(id); if (i > 0) tintindex.put(id, i); break; }
       }
+      // The block's real default state (what registerDefaultState leaves it as),
+      // property by property. Data formats that omit a state's properties when
+      // they're all at their default need this to reconstruct what was written.
+      TreeMap<String, String> dprops = new TreeMap<>();
+      for (Property<?> p : block.getStateDefinition().getProperties()) dprops.put(p.getName(), pval(st, p));
+      if (!dprops.isEmpty()) {
+        StringBuilder ds = new StringBuilder("{");
+        boolean fds = true;
+        for (var e : dprops.entrySet()) { if (!fds) ds.append(","); fds = false; ds.append("\"").append(e.getKey()).append("\":\"").append(e.getValue()).append("\""); }
+        defaultStates.put(id, ds.append("}").toString());
+      }
+
       boolean canWaterlog = block.getStateDefinition().getProperties().contains(BlockStateProperties.WATERLOGGED);
       if (canWaterlog) waterlog.add(id);
       // Inherently water-filled blocks: no waterlogged property, but their
@@ -342,6 +355,9 @@ public class Extract {
     sb.append("},\n\"aoBlocking\":{");
     fe = true;
     for (var e : aoBlocking.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
+    sb.append("},\n\"defaultStates\":{");
+    fe = true;
+    for (var e : defaultStates.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
     sb.append("},\n\"colormap\":{");
     boolean fc = true;
     for (var e : colormap.entrySet()) { if (!fc) sb.append(","); fc = false; sb.append("\"").append(e.getKey()).append("\":").append(arr(e.getValue())); }

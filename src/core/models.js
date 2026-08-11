@@ -452,35 +452,57 @@ function composeTransformations(parent, child) {
   return new THREE.Matrix4().copy(parent).multiply(child)
 }
 
-export async function defaultBlockstates(assets) {
-  return assets.defaultBlockstates ??= (async () => {
-    const properties = {}
-    const rules = []
-    for (const buf of await readFileAll("assets/block-model-renderer/default_blockstates.json", assets)) {
-      let json
-      try { json = parseJson(buf) } catch { continue }
-      for (const [key, value] of Object.entries(json.properties ?? {})) {
-        if (!(key in properties)) properties[key] = value
-      }
-      for (const rule of json.blocks ?? []) {
-        if (!rule?.match || !rule.defaults) continue
-        rules.push({
-          patterns: rule.match.split("|").map(pattern => new RegExp("^" + pattern.replace(/\*/g, ".*") + "$")),
-          value: rule.defaults
-        })
-      }
+async function defaultBlockstateLayer(assets, file) {
+  const properties = {}
+  const rules = []
+  for (const buf of await readFileAll(file, assets)) {
+    let json
+    try { json = parseJson(buf) } catch { continue }
+    for (const [key, value] of Object.entries(json.properties ?? {})) {
+      if (!(key in properties)) properties[key] = value
     }
-    const matched = new Map()
-    function unique(block) {
-      let hit = matched.get(block)
-      if (hit === undefined) {
-        hit = rules.find(rule => rule.patterns.some(regex => regex.test(block)))?.value ?? {}
-        matched.set(block, hit)
-      }
-      return hit
+    for (const rule of json.blocks ?? []) {
+      if (!rule?.match || !rule.defaults) continue
+      rules.push({
+        patterns: rule.match.split("|").map(pattern => new RegExp("^" + pattern.replace(/\*/g, ".*") + "$")),
+        value: rule.defaults
+      })
     }
-    return { properties, unique }
-  })()
+  }
+  return { properties, rules }
+}
+
+function defaultBlockstateTable(layers) {
+  const properties = {}
+  for (const layer of layers) {
+    for (const [key, value] of Object.entries(layer.properties)) {
+      if (!(key in properties)) properties[key] = value
+    }
+  }
+  const matched = new Map()
+  function unique(block) {
+    let hit = matched.get(block)
+    if (hit === undefined) {
+      hit = {}
+      for (const layer of layers) {
+        const rule = layer.rules.find(entry => entry.patterns.some(regex => regex.test(block)))
+        if (!rule) continue
+        for (const key in rule.value) if (!(key in hit)) hit[key] = rule.value[key]
+      }
+      matched.set(block, hit)
+    }
+    return hit
+  }
+  return { properties, unique }
+}
+
+export async function defaultBlockstates(assets, mode) {
+  const tables = await (assets.defaultBlockstates ??= (async () => {
+    const base = await defaultBlockstateLayer(assets, "assets/block-model-renderer/default_blockstates.json")
+    const preferred = await defaultBlockstateLayer(assets, "assets/block-model-renderer/default_blockstates_preferred.json")
+    return { game: defaultBlockstateTable([base]), preferred: defaultBlockstateTable([preferred, base]) }
+  })())
+  return mode === "game" ? tables.game : tables.preferred
 }
 
 function getMultipartDefaults(multipart) {
@@ -527,11 +549,15 @@ export async function parseBlockstate(assets, blockstate, args) {
   let data = args?.data ?? {}
   const rand = args?.seed != null ? seededRandom(args.seed) : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
-  const defaults = await defaultBlockstates(assets)
+  const defaults = await defaultBlockstates(assets, args?.defaults)
   const rules = await blockRules(assets)
   const colors = await colorTables(assets)
 
   const { namespace, item: block } = resolveNamespace(blockstate)
+  const defaultsId = normalize(blockstate)
+  const stateValue = args?.defaults === "game"
+    ? key => data[key] ?? defaults.unique(defaultsId)[key] ?? defaults.properties[key]
+    : key => data[key]
 
   let frameMapArt = null
   if (args?.nbt && /^(glow_)?item_frame$/.test(block) && /(^|:)filled_map$/.test(args.nbt.Item?.id ?? "")) {
@@ -572,7 +598,7 @@ export async function parseBlockstate(assets, blockstate, args) {
           const parts = key.split(",").map(s => s.trim())
           score = parts.reduce((acc, part) => {
             const [k, v] = part.split("=")
-            const raw = data[k] ?? defaults.unique(blockstate)[k] ?? defaults.properties[k]
+            const raw = data[k] ?? defaults.unique(defaultsId)[k] ?? defaults.properties[k]
             const actuals = Array.isArray(raw) ? raw.map(e => e.toString()) : [raw?.toString()]
             const index = actuals.indexOf(v)
             if (index === -1) return acc
@@ -606,7 +632,7 @@ export async function parseBlockstate(assets, blockstate, args) {
         for (const cond of conds) {
           const matches = Object.entries(cond).every(([k, v]) => {
             const allowed = v.toString().split("|")
-            const raw = data[k] ?? defaults.unique(blockstate)[k] ?? defaults.properties[k] ?? multipartDefaults[k]
+            const raw = data[k] ?? defaults.unique(defaultsId)[k] ?? defaults.properties[k] ?? multipartDefaults[k]
             let actuals
             if (Array.isArray(raw)) {
               actuals = raw.map(e => e.toString())
@@ -685,7 +711,7 @@ export async function parseBlockstate(assets, blockstate, args) {
       model.tints = [colors.tables.fixed[block]]
     } else if (colors.tables.indexed[block]) {
       const entry = colors.tables.indexed[block]
-      model.tints = [entry.colors[data[entry.property]] ?? entry.colors[entry.default]]
+      model.tints = [entry.colors[stateValue(entry.property)] ?? entry.colors[entry.default]]
     }
 
     if (block === "end_portal" || block == "end_gateway") {
@@ -699,7 +725,8 @@ export async function parseBlockstate(assets, blockstate, args) {
     else if (block === "lava" || block === "flowing_lava") model.fluid = "lava"
   }
 
-  if (((data?.waterlogged === true || data?.waterlogged === "true") && rules.waterloggable(block)) || rules.waterlogged(block)) {
+  const waterlogged = stateValue("waterlogged")
+  if (((waterlogged === true || waterlogged === "true") && rules.waterloggable(block)) || rules.waterlogged(block)) {
     models.push(waterPart(colors))
   }
 
@@ -1835,7 +1862,7 @@ export async function loadModel(scene, assets, model, args) {
   } else {
     if (block?.id) {
       const blockId = normalize(block.id)
-      const defaults = await defaultBlockstates(assets)
+      const defaults = await defaultBlockstates(assets, args?.defaults)
       blockEmission = (await blockRules(assets)).emission(blockId, block.properties, k => {
         const raw = defaults.unique(blockId)[k] ?? defaults.properties[k]
         return Array.isArray(raw) ? raw[0] : raw
@@ -2652,17 +2679,17 @@ function makeGlintMaterial(glintTexture, baseTexture, side) {
 
 export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]
 
-export function occlusionStateKey(id, props) {
-  let key = id
+export function occlusionStateKey(id, props, defaults) {
+  let key = defaults === "game" ? id + "\0game" : id
   if (props) for (const k of Object.keys(props).sort()) key += "," + k + "=" + props[k]
   return key
 }
 
-export async function buildOcclusionModel(assets, id, props, version) {
+export async function buildOcclusionModel(assets, id, props, version, defaults) {
   const g = new THREE.Group()
-  for (const model of await parseBlockstate(assets, id, { data: props ?? {}, ignoreAtlases: true, version })) {
+  for (const model of await parseBlockstate(assets, id, { data: props ?? {}, ignoreAtlases: true, version, defaults })) {
     if (model.model === "block-model-renderer:missing") return null
-    await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false })
+    await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false, defaults })
   }
   return g
 }

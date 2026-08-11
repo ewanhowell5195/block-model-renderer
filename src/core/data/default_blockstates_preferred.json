@@ -1,0 +1,83 @@
+{
+  "properties": {
+    "half": [
+      "bottom",
+      "lower"
+    ],
+    "shape": [
+      "straight",
+      "north_south"
+    ],
+    "age": [
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0
+    ],
+    "segment_amount": 4,
+    "flower_amount": 4
+  },
+  "blocks": [
+    {
+      "match": "*_stairs|*_glazed_terracotta|cocoa|repeater|comparator",
+      "defaults": {
+        "facing": "south"
+      }
+    },
+    {
+      "match": "*_amethyst_bud|amethyst_cluster|barrel|end_rod|*lightning_rod|*piston*|*shulker_box",
+      "defaults": {
+        "facing": "up"
+      }
+    },
+    {
+      "match": "glow_lichen|sculk_vein|resin_clump|chorus_plant",
+      "defaults": {
+        "down": true
+      }
+    },
+    {
+      "match": "grindstone",
+      "defaults": {
+        "face": "floor"
+      }
+    },
+    {
+      "match": "vine",
+      "defaults": {
+        "south": true
+      }
+    },
+    {
+      "match": "redstone_wire",
+      "defaults": {
+        "north": "side",
+        "south": "side",
+        "east": "side",
+        "west": "side"
+      }
+    },
+    {
+      "match": "*cauldron",
+      "defaults": {
+        "level": 3
+      }
+    },
+    {
+      "match": "*_bed",
+      "defaults": {
+        "facing": "south"
+      }
+    },
+    {
+      "match": "*_leaves",
+      "defaults": {
+        "distance": 1
+      }
+    }
+  ]
+}

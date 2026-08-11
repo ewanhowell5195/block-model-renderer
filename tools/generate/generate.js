@@ -150,21 +150,108 @@ function compressEmission(emission, allIds) {
   return out
 }
 
-// Mirrors defaultBlockstates() in src/core/models.js: a block-specific rule wins
-// over the global per-property default, and an array default means the first
-// entry is preferred. Returns (block, property) -> the default value the
-// renderer uses for that property.
-function loadDefaultBlockstates() {
-  const json = JSON.parse(fs.readFileSync(path.join(root, "src/core/data/default_blockstates.json"), "utf8"))
+function tableOf(json) {
   const properties = json.properties ?? {}
   const rules = (json.blocks ?? []).filter(r => r?.match && r.defaults).map(r => ({
     patterns: r.match.split("|").map(p => new RegExp("^" + p.replace(/\*/g, ".*") + "$")),
     value: r.defaults
   }))
-  const unique = block => rules.find(r => r.patterns.some(rx => rx.test(block)))?.value ?? {}
+  return { properties, unique: block => rules.find(r => r.patterns.some(rx => rx.test(block)))?.value ?? {} }
+}
+
+// Mirrors defaultBlockstates() in src/core/models.js in its default ("preferred")
+// mode: the preferred overlay wins over the generated base at each tier, a
+// block-specific rule wins over the global per-property default, and an array
+// default means the first entry is preferred. Returns (block, property) -> the
+// default value the renderer uses for that property.
+function loadDefaultBlockstates(baseJson) {
+  const preferredPath = path.join(dataDir, "default_blockstates_preferred.json")
+  const base = tableOf(baseJson)
+  const pref = tableOf(fs.existsSync(preferredPath) ? JSON.parse(fs.readFileSync(preferredPath, "utf8")) : {})
   return (block, property) => {
-    const raw = unique(block)[property] ?? properties[property]
+    const raw = pref.unique(block)[property] ?? base.unique(block)[property]
+      ?? pref.properties[property] ?? base.properties[property]
     return Array.isArray(raw) ? raw[0] : raw
+  }
+}
+
+// Turns every block's real default state into the { properties, blocks } shape
+// default_blockstates.json uses: one global value per property name (the one
+// most blocks default to), plus a rule per group of blocks that disagree,
+// carrying only the properties where they differ. Scalars only, never the
+// priority arrays the preferred overlay uses, so a lookup resolves to exactly
+// one value and can be checked. The result is replayed over every block and
+// property below and must reproduce the game's default state exactly.
+function compressDefaults(defaultStates, allIds) {
+  const counts = {}
+  for (const props of Object.values(defaultStates)) {
+    for (const [k, v] of Object.entries(props)) {
+      counts[k] ??= {}
+      counts[k][v] = (counts[k][v] ?? 0) + 1
+    }
+  }
+  const properties = {}
+  for (const [k, values] of Object.entries(counts)) {
+    const best = Object.entries(values).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0]
+    properties[k] = best[0]
+  }
+
+  const groups = new Map()
+  for (const [id, props] of Object.entries(defaultStates)) {
+    const delta = {}
+    for (const [k, v] of Object.entries(props)) if (properties[k] !== v) delta[k] = v
+    if (!Object.keys(delta).length) continue
+    const key = JSON.stringify(delta)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(id)
+  }
+
+  const ordered = Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1))
+  const grouped = new Set(ordered.flatMap(([, ids]) => ids))
+
+  // A rule may safely catch a block outside its group when that block has none
+  // of the rule's properties (the lookup never reads them) or already defaults
+  // to the same values. Blocks belonging to another group are never safe: the
+  // first matching rule is used whole, so they would lose their own values.
+  function buildRules(cover) {
+    const claimed = new Set()
+    return ordered.map(([key, ids]) => {
+      const delta = JSON.parse(key)
+      let match = ids.slice().sort()
+      if (cover) {
+        const free = new Set(claimed)
+        for (const id of allIds) {
+          if (grouped.has(id)) continue
+          const own = defaultStates[id] ?? {}
+          if (Object.entries(delta).every(([k, v]) => !(k in own) || own[k] === v)) free.add(id)
+        }
+        const c = compress(ids, allIds, free)
+        if (!c.except?.length) match = c.suffix.map(s => "*" + s).concat(c.exact).sort()
+      }
+      for (const id of ids) claimed.add(id)
+      return { match: match.join("|"), defaults: delta }
+    })
+  }
+
+  function verify(blocks) {
+    const table = tableOf({ properties, blocks })
+    for (const [id, props] of Object.entries(defaultStates)) {
+      for (const [k, v] of Object.entries(props)) {
+        if ((table.unique(id)[k] ?? properties[k]) !== v) return false
+      }
+    }
+    return true
+  }
+
+  let blocks = buildRules(true)
+  if (!verify(blocks)) {
+    log("default blockstates: suffix cover failed verification, falling back to exact ids")
+    blocks = buildRules(false)
+    if (!verify(blocks)) throw new Error("default blockstates: exact cover failed verification")
+  }
+  return {
+    properties: Object.fromEntries(Object.keys(properties).sort().map(k => [k, properties[k]])),
+    blocks
   }
 }
 
@@ -205,14 +292,16 @@ async function main() {
   // default. Resolve it the same way models.js does, from default_blockstates
   // (e.g. age's [7,6,..] priority makes stems default to a full 7, redstone_wire
   // pins power to 0), falling back to the extractor's default-state value.
-  const defaultState = loadDefaultBlockstates()
-  for (const [id, entry] of Object.entries(d.indexed)) {
-    const resolved = defaultState(id, entry.property)
-    if (resolved !== undefined) entry.default = resolved
-  }
-
   fs.mkdirSync(dataDir, { recursive: true })
   const stamp = `from minecraft ${version.id} by tools/generate/generate.js`
+  const defaultBlockstates = { _generated: stamp, ...compressDefaults(d.defaultStates, d.allBlocks) }
+
+  const defaultState = loadDefaultBlockstates(defaultBlockstates)
+  for (const [id, entry] of Object.entries(d.indexed)) {
+    const resolved = defaultState(id, entry.property)
+    if (resolved !== undefined) entry.default = typeof entry.default === "number" ? Number(resolved) : resolved
+  }
+
   const waterlogging = {
     _generated: stamp,
     waterloggable: compress(d.waterloggable, d.allBlocks),
@@ -268,6 +357,7 @@ async function main() {
       log("wrote", rel)
     }
   }
+  write("default_blockstates.json", defaultBlockstates)
   write("waterlogging.json", waterlogging)
   write("culling.json", culling)
   write("lighting.json", lighting)

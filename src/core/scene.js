@@ -130,6 +130,7 @@ export async function createScene(assets, blocks, args = {}) {
   const lighting = worldCfg ? "world" : lightingArg
   const optimize = args.optimize !== false
   const version = args.version
+  const defaults = args.defaults
   const onProgress = args.onProgress
   const shouldCancel = args.shouldCancel
 
@@ -205,7 +206,7 @@ export async function createScene(assets, blocks, args = {}) {
   for (const entry of palette) {
     entry.models = await parseBlockstate(assets, entry.id, {
       data: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
-      mapArt: args.mapArt, pos: entry.pos ?? undefined, ignoreAtlases: args.ignoreAtlases, version
+      mapArt: args.mapArt, pos: entry.pos ?? undefined, ignoreAtlases: args.ignoreAtlases, version, defaults
     })
     entry.flat = { id: entry.id, ...(entry.properties ?? {}) }
     entry.fluid = fluidTypeOf(entry.id, entry.properties, rules)
@@ -246,7 +247,7 @@ export async function createScene(assets, blocks, args = {}) {
         if (_nbr[di] >= 0) neighbors[DIR_NAMES[di]] = palette[_nbr[di]].flat
         else if (_nbr[di] === -2) neighbors[DIR_NAMES[di]] = true
       }
-      cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version })
+      cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults })
       cullMemo.set(cullKey, cull)
     }
     cell.cull = cull.size ? cull : null
@@ -289,7 +290,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (cells.size) {
       light = await computeSceneLight(Array.from(cells.values(), c => ({
         id: palette[c.palette].id, properties: palette[c.palette].properties ?? undefined, pos: c.pos
-      })), { assets, version, dimension: worldCfg?.dimension, sliceMs: args.sliceMs })
+      })), { assets, version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs })
     }
     report(1, 1)
     if (shouldCancel?.()) return null
@@ -303,7 +304,7 @@ export async function createScene(assets, blocks, args = {}) {
   if (!tcache) templateCaches.set(assets.cache, tcache = new Map())
   const usedEntries = []
   const envSig = (worldCfg ? JSON.stringify({ ...worldCfg, light: !!light, daytime: 0 }) : String(lighting))
-    + "\0" + (args.shaderScale ?? "") + "\0" + (args.ignoreAtlases ? 1 : 0) + "\0" + (version ?? "") + "\0" + shaderSaltNow()
+    + "\0" + (args.shaderScale ?? "") + "\0" + (args.ignoreAtlases ? 1 : 0) + "\0" + (version ?? "") + "\0" + (defaults ?? "") + "\0" + shaderSaltNow()
   const rebind = { daytime: daytimeUniform, ...(light?.uniforms ?? {}) }
   let built = 0
   for (const [key, spec] of templateSpecs) {
@@ -329,7 +330,7 @@ export async function createScene(assets, blocks, args = {}) {
       const models = spec.seed != null
         ? await parseBlockstate(assets, spec.entry.id, {
           data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
-          mapArt: args.mapArt, pos: spec.entry.pos ?? undefined, seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version
+          mapArt: args.mapArt, pos: spec.entry.pos ?? undefined, seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version, defaults
         })
         : spec.entry.models
       for (const model of models) {
@@ -338,7 +339,7 @@ export async function createScene(assets, blocks, args = {}) {
             display: {}, animate: false, lighting: lightingOpt,
             shaderScale: args.shaderScale,
             block: { id: spec.entry.id, properties: spec.entry.properties ?? {} },
-            fluidHeights: spec.fh, version
+            fluidHeights: spec.fh, version, defaults
           })
         } catch {}
       }
@@ -396,7 +397,7 @@ export async function createScene(assets, blocks, args = {}) {
           const models = spec.seed != null
             ? await parseBlockstate(assets, spec.entry.id, {
               data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined,
-              seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version
+              seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version, defaults
             })
             : spec.entry.models
           for (const model of models) {
@@ -405,7 +406,7 @@ export async function createScene(assets, blocks, args = {}) {
                 display: {}, animate: false, lighting: lightingOpt, cull: cell.cull,
                 shaderScale: args.shaderScale,
                 block: { id: spec.entry.id, properties: spec.entry.properties ?? {} },
-                fluidHeights: spec.fh, version
+                fluidHeights: spec.fh, version, defaults
               })
             } catch {}
           }

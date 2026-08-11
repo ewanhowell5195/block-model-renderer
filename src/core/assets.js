@@ -2,6 +2,7 @@ import { platform, loadImage, toBytes, parseJson, textDecoder, normalize, resolv
 import { parseZip, parseZipSlices, zipEntryData } from "../zip.js"
 import fallbackData from "./data/fallbacks.json" with { type: "json" }
 import defaultBlockstatesData from "./data/default_blockstates.json" with { type: "json" }
+import preferredBlockstatesData from "./data/default_blockstates_preferred.json" with { type: "json" }
 
 export async function getMissingImage(assets) {
   if (assets.__missingImage) return assets.__missingImage
@@ -186,7 +187,11 @@ function builtinFallbackFiles() {
   return builtinFiles ??= (async () => {
     const files = new Map()
     const enc = new TextEncoder()
-    const fallbacks = { ...fallbackData, "assets/block-model-renderer/default_blockstates.json": defaultBlockstatesData }
+    const fallbacks = {
+      ...fallbackData,
+      "assets/block-model-renderer/default_blockstates.json": defaultBlockstatesData,
+      "assets/block-model-renderer/default_blockstates_preferred.json": preferredBlockstatesData
+    }
     for (const [p, json] of Object.entries(fallbacks)) files.set(p, { content: enc.encode(JSON.stringify(json)) })
     const M = [248, 0, 248, 255], K = [0, 0, 0, 255]
     const png = await platform.encodeRawToPng({ data: new Uint8Array([...M, ...K, ...K, ...M]), width: 2, height: 2 })

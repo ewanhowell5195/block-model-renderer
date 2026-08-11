@@ -50,6 +50,7 @@ Default display:
 | Option | Default | Description |
 |---|---|---|
 | `version` | | Minecraft version the assets are for. Enables era-appropriate behavior (see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)) |
+| `defaults` | `"preferred"` | Which [default blockstates](extending.md#default-blockstates) fill properties you don't pass. `"preferred"` layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone |
 | `ignoreAtlases` | `false` | Render without enforcing texture atlas membership rules (which atlas a model's textures may come from) |
 
 **Output size and animation:**

@@ -68,6 +68,7 @@ Asset interpretation:
 | Option | Default | Description |
 |---|---|---|
 | `version` | | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
+| `defaults` | `"preferred"` | Which [default blockstates](extending.md#default-blockstates) fill properties a block entry doesn't set. `"preferred"` layers the preferred overrides over each block's real default state (stairs face the camera, crops grown); `"game"` uses the real default state alone, for block data whose format omits properties that are at their default (26.3+ structure and worldgen files) |
 | `ignoreAtlases` | `false` | Skip texture atlas membership rules |
 
 The optimize pass:
@@ -134,6 +135,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `args.pos` | The block's grid position, passed through to the `mapArt` callback |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
 | `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
+| `args.defaults` | Which [default blockstates](extending.md#default-blockstates) fill properties `data` doesn't set: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone |
 
 Returns a list of model references, one per matching model.
 

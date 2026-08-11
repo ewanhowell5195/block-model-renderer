@@ -113,6 +113,7 @@ scene.add(new THREE.DirectionalLight(0xffffff, 1))
 | `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too). Cell coordinates, as in [`optimizeScene`](optimization.md#scene-optimization) placements |
 | `options.assets` | required | The assets source |
 | `options.version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
+| `options.defaults` | | Which [default blockstates](extending.md#default-blockstates) fill properties a block doesn't set, as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `options.dimension` | `"overworld"` | The dimension, as in [world lighting](#world-lighting): dimensions without sky light (the nether) skip the sky seeding, so their volumes carry block light only |
 | `options.onProgress` | | `(done, total)` while the scene's blocks are processed, for progress bars. The flood fill after the last call is quick |
 

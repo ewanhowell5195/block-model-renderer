@@ -44,16 +44,17 @@ export async function computeSceneLight(blocks, opts = {}) {
   const assets = scopedCache(await prepareAssets(opts.assets))
   const version = opts.version
   const occCache = assets.cache.occlusion
-  const defaults = await defaultBlockstates(assets)
+  const defaultsMode = opts.defaults
+  const defaults = await defaultBlockstates(assets, defaultsMode)
   const rules = await blockRules(assets)
 
   async function masksFor(bid, props) {
     if (AIR_BLOCKS.test(bid)) return null
-    const key = occlusionStateKey(bid, props)
+    const key = occlusionStateKey(bid, props, defaultsMode)
     let m = occCache.get(key)
     if (m === undefined) {
       try {
-        const g = await buildOcclusionModel(assets, bid, props, version)
+        const g = await buildOcclusionModel(assets, bid, props, version, defaultsMode)
         m = g ? occludingFaces(g, bid, false, rules) : null
       } catch { m = null }
       occCache.set(key, m)
@@ -112,7 +113,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     if (!byId) siMemo.set(po, byId = new Map())
     let si = byId.get(id)
     if (si === undefined) {
-      const key = occlusionStateKey(id, b.properties)
+      const key = occlusionStateKey(id, b.properties, defaultsMode)
       si = stateIds.get(key)
       if (si === undefined) {
         const resolveDefault = k => {

@@ -1,85 +1,194 @@
 {
+  "_generated": "from minecraft 26.3-snapshot-3 by tools/generate/generate.js",
   "properties": {
-    "facing": "north",
-    "half": [
-      "bottom",
-      "lower"
-    ],
+    "age": "0",
+    "attached": "false",
     "attachment": "floor",
-    "shape": [
-      "straight",
-      "north_south"
-    ],
-    "age": [
-      7,
-      6,
-      5,
-      4,
-      3,
-      2,
-      1,
-      0
-    ],
-    "tilt": "none",
-    "north": false,
-    "east": false,
-    "south": false,
-    "west": false,
     "axis": "y",
+    "berries": "false",
+    "bites": "0",
+    "bloom": "false",
+    "bottom": "false",
+    "can_summon": "false",
+    "candles": "1",
+    "charges": "0",
+    "conditional": "false",
+    "copper_golem_pose": "standing",
+    "cracked": "false",
+    "crafting": "false",
+    "creaking_heart_state": "uprooted",
+    "delay": "1",
+    "disarmed": "false",
+    "distance": "7",
+    "down": "false",
+    "drag": "true",
+    "dusted": "0",
+    "east": "false",
+    "eggs": "1",
+    "enabled": "true",
+    "extended": "false",
+    "eye": "false",
     "face": "wall",
+    "facing": "north",
+    "flower_amount": "1",
+    "half": "bottom",
+    "hanging": "false",
+    "has_book": "false",
+    "has_bottle_0": "false",
+    "has_bottle_1": "false",
+    "has_bottle_2": "false",
+    "has_record": "false",
+    "hatch": "0",
+    "hinge": "left",
+    "honey_level": "0",
+    "hydration": "0",
+    "in_wall": "false",
+    "instrument": "harp",
+    "inverted": "false",
+    "layers": "1",
+    "leaves": "none",
+    "level": "0",
+    "lit": "false",
+    "locked": "false",
+    "mode": "compare",
+    "moisture": "0",
+    "natural": "false",
+    "north": "false",
+    "note": "0",
+    "occupied": "false",
+    "ominous": "false",
+    "open": "false",
     "orientation": "north_up",
-    "powered": false,
-    "has_book": false,
-    "segment_amount": 4,
-    "flower_amount": 4,
-    "rotation": 8,
-    "lit": false
+    "part": "foot",
+    "persistent": "false",
+    "pickles": "1",
+    "potent_sulfur_state": "dry",
+    "power": "0",
+    "powered": "false",
+    "rotation": "8",
+    "sculk_sensor_phase": "inactive",
+    "segment_amount": "1",
+    "shape": "straight",
+    "short": "false",
+    "shrieking": "false",
+    "side_chain": "unconnected",
+    "signal_fire": "false",
+    "slot_0_occupied": "false",
+    "slot_1_occupied": "false",
+    "slot_2_occupied": "false",
+    "slot_3_occupied": "false",
+    "slot_4_occupied": "false",
+    "slot_5_occupied": "false",
+    "snowy": "false",
+    "south": "false",
+    "stage": "0",
+    "thickness": "tip",
+    "tilt": "none",
+    "tip": "true",
+    "trial_spawner_state": "inactive",
+    "triggered": "false",
+    "type": "bottom",
+    "unstable": "false",
+    "up": "true",
+    "vault_state": "inactive",
+    "vertical_direction": "up",
+    "waterlogged": "false",
+    "west": "false"
   },
   "blocks": [
     {
-      "match": "*_mushroom_block|mushroom_stem",
+      "match": "*wall|redstone_wire",
       "defaults": {
-        "north": true,
-        "east": true,
-        "south": true,
-        "west": true
+        "east": "none",
+        "north": "none",
+        "south": "none",
+        "west": "none"
       }
     },
     {
-      "match": "*_stairs|*_glazed_terracotta|cocoa|repeater|comparator",
+      "match": "*_door|*grass|large_fern|lilac|peony|pitcher_crop|pitcher_plant|rose_bush|small_dripleaf|sunflower",
       "defaults": {
-        "facing": "south"
+        "half": "lower"
       }
     },
     {
-      "match": "*_amethyst_bud|amethyst_cluster|barrel|end_rod|*lightning_rod|*piston*|*shulker_box",
+      "match": "*coral|*fan|conduit|sea_pickle",
+      "defaults": {
+        "waterlogged": "true"
+      }
+    },
+    {
+      "match": "*box|*bud|*rod|amethyst_cluster",
       "defaults": {
         "facing": "up"
       }
     },
     {
-      "match": "*campfire|redstone_torch|redstone_wall_torch",
+      "match": "*chest",
       "defaults": {
-        "lit": true
+        "type": "single"
       }
     },
     {
-      "match": "glow_lichen|sculk_vein|resin_clump|chorus_plant",
+      "match": "creeper_head|dragon_head|piglin_head|player_head|skeleton_skull|wither_skeleton_skull|zombie_head",
       "defaults": {
-        "up": false,
-        "down": true
+        "rotation": "0"
       }
     },
     {
-      "match": "grindstone",
+      "match": "chorus_plant|fire|glow_lichen|resin_clump|sculk_vein|vine",
       "defaults": {
-        "face": "floor"
+        "up": "false"
       }
     },
     {
-      "match": "vine",
+      "match": "*campfire|*torch",
       "defaults": {
-        "south": true
+        "lit": "true"
+      }
+    },
+    {
+      "match": "*rail",
+      "defaults": {
+        "shape": "north_south"
+      }
+    },
+    {
+      "match": "*_mushroom_block|mushroom_stem",
+      "defaults": {
+        "down": "true",
+        "east": "true",
+        "north": "true",
+        "south": "true",
+        "west": "true"
+      }
+    },
+    {
+      "match": "*cauldron",
+      "defaults": {
+        "level": "1"
+      }
+    },
+    {
+      "match": "moving_piston|piston_head",
+      "defaults": {
+        "type": "normal"
+      }
+    },
+    {
+      "match": "nether_portal",
+      "defaults": {
+        "axis": "x"
+      }
+    },
+    {
+      "match": "pale_moss_carpet",
+      "defaults": {
+        "bottom": "true",
+        "east": "none",
+        "north": "none",
+        "south": "none",
+        "west": "none"
       }
     },
     {
@@ -89,64 +198,15 @@
       }
     },
     {
-      "match": "brewing_stand",
+      "match": "observer",
       "defaults": {
-        "has_bottle_0": false,
-        "has_bottle_1": false,
-        "has_bottle_2": false
-      }
-    },
-    {
-      "match": "redstone_wire",
-      "defaults": {
-        "north": "side",
-        "south": "side",
-        "east": "side",
-        "west": "side",
-        "power": 0
-      }
-    },
-    {
-      "match": "*cauldron",
-      "defaults": {
-        "level": 3
-      }
-    },
-    {
-      "match": "*_bed",
-      "defaults": {
-        "part": "foot",
         "facing": "south"
-      }
-    },
-    {
-      "match": "chiseled_bookshelf",
-      "defaults": {
-        "slot_0_occupied": false,
-        "slot_1_occupied": false,
-        "slot_2_occupied": false,
-        "slot_3_occupied": false,
-        "slot_4_occupied": false,
-        "slot_5_occupied": false
-      }
-    },
-    {
-      "match": "*_leaves",
-      "defaults": {
-        "persistent": false,
-        "distance": 1
-      }
-    },
-    {
-      "match": "bamboo",
-      "defaults": {
-        "leaves": "none"
       }
     },
     {
       "match": "light",
       "defaults": {
-        "level": 15
+        "level": "15"
       }
     },
     {
@@ -159,12 +219,6 @@
       "match": "test_block",
       "defaults": {
         "mode": "start"
-      }
-    },
-    {
-      "match": "player_head|zombie_head|creeper_head|piglin_head|dragon_head|skeleton_skull|wither_skeleton_skull",
-      "defaults": {
-        "rotation": 0
       }
     }
   ]
