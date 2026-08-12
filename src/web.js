@@ -97,6 +97,11 @@ function getRenderer(width, height) {
     })
     sharedRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: true })
     sharedRenderer.outputColorSpace = THREE.LinearSRGBColorSpace
+    const ext = sharedRenderer.extensions
+    if (!ext.has("WEBGL_multi_draw")) {
+      const get = ext.get.bind(ext)
+      ext.get = name => name === "WEBGL_multi_draw" ? null : get(name)
+    }
   }
   const size = sharedRenderer.getSize(new THREE.Vector2())
   if (size.x !== width || size.y !== height) sharedRenderer.setSize(width, height, false)
