@@ -15,3 +15,4 @@ export { optimizeScene, createSharedAtlas, stitchSharedAtlas, exportSharedAtlasL
 export { packScene, reviveScene } from "./core/pack.js"
 export { sortTranslucent } from "./core/sorting.js"
 export { createScene } from "./core/scene.js"
+export { createSky } from "./core/sky.js"

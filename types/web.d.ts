@@ -1,8 +1,8 @@
 import type * as ThreeModule from "three"
 import type {
   AssetsInput, BlockRenderInput, ItemRenderInput, ModelRenderInput, TextureRenderInput,
-  CreateSceneOptions, FitAspect, LoadModelArgs, ReadTextureOptions, RenderOptionsCommon,
-  ResolvedModel, SceneBlock, SceneHandle, TextureData
+  CreateSceneOptions, CreateSkyOptions, FitAspect, LoadModelArgs, ReadTextureOptions, RenderOptionsCommon,
+  ResolvedModel, SceneBlock, SceneHandle, SkyHandle, TextureData
 } from "./common.js"
 
 export * from "./common.js"
@@ -295,6 +295,19 @@ export function loadModel(scene: ThreeModule.Object3D | null, assets: AssetsInpu
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#createsceneassets-blocks-args
  */
 export function createScene(assets: AssetsInput, blocks: SceneBlock[], args?: CreateSceneOptions): Promise<SceneHandle | null>
+
+/**
+ * Build the game's sky: the day/night gradient, the sun and moon from the pack,
+ * the star field, and the sunrise and sunset glow, all driven by one time-of-day
+ * value. The group follows the camera and draws behind the scene.
+ *
+ * @example
+ * const sky = await createSky(assets, { daytime: "sunset" })
+ * scene.add(sky.group)
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#createskyassets-args
+ */
+export function createSky(assets: AssetsInput, args?: CreateSkyOptions): Promise<SkyHandle>
 
 /**
  * Read a texture as ready-to-draw frames, when you want an image rather than a

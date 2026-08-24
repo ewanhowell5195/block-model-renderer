@@ -1688,7 +1688,7 @@ async function resolveSpecialModel(assets, data, base) {
   }
 }
 
-async function makeThreeTexture(img) {
+export async function makeThreeTexture(img) {
   const texture = await loadTexture(img)
   texture.userData ??= {}
   texture.colorSpace = THREE.NoColorSpace
@@ -2607,7 +2607,7 @@ export function bumpShaderSalt(scene) {
   patchShaderSalt(scene)
 }
 
-function tintVec(input, fallback) {
+export function tintVec(input, fallback) {
   if (input == null) input = fallback
   if (Array.isArray(input)) return new THREE.Vector3(input[0], input[1], input[2])
   if (input?.isColor) return new THREE.Vector3(input.r, input.g, input.b)

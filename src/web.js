@@ -810,6 +810,11 @@ export async function createScene(assets, blocks, args) {
   return handle
 }
 
+export async function createSky(assets, args) {
+  await init()
+  return core.createSky(assets, args)
+}
+
 function attachAutoAnimation(root) {
   const { textures, shaders } = collectAnimated(root)
   if (!textures.length && !shaders.length) return

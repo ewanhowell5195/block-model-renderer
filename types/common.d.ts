@@ -589,6 +589,68 @@ export interface SpecialPose {
 }
 
 // #endregion
+// #region Sky
+
+/** A shared time-of-day uniform, as `scene.userData.daytime` and {@link SkyHandle}`.daytime`. */
+export interface DaytimeUniform {
+  value: number
+}
+
+/** A dimension's sky: which skybox it draws, and the colors it draws it in. */
+export interface SkyDimension {
+  /** Which sky the dimension draws: the overworld cycle, the End's tiled skybox, or nothing but fog. */
+  skybox?: "overworld" | "end" | "none"
+  /** The base sky color, before the day/night curve scales it. */
+  skyColor?: ColorInput
+  /** The base fog color the sky fades to at the horizon. */
+  fogColor?: ColorInput
+}
+
+/**
+ * Sky settings.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#createskyassets-args
+ */
+export interface CreateSkyOptions {
+  /** The dimension's sky, by name or as an override object. Default `"overworld"`. */
+  dimension?: LightDimensionName | SkyDimension
+  /** The time of day, or a uniform to share with a scene's `userData.daytime`. Default `"noon"`. */
+  daytime?: Daytime | DaytimeUniform
+  /** The moon phase, `0` (full) to `7`. Default `0`. */
+  moonPhase?: number
+  /** Tilt the sun and moon's path through the sky, in degrees: `0` passes straight overhead. Default `0`. */
+  angle?: number
+  /** The base sky color, overriding the dimension's. */
+  skyColor?: ColorInput
+  /** The base fog color, overriding the dimension's. */
+  fogColor?: ColorInput
+  /** How far out the sky sits, in world units. Default 90% of the camera's `far`. */
+  distance?: number
+  /** Fade the sun and moon out once they are well below the horizon, over the game's 13500-14000 nightfall window and its equivalents. Default `false`, as the game itself only ever hides them behind terrain. */
+  horizonFade?: boolean
+  /** The Minecraft version the assets are for, which picks the sun and moon texture layout. */
+  version?: string
+}
+
+/**
+ * A built sky, as {@link createSky} resolves to.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#createskyassets-args
+ */
+export interface SkyHandle {
+  /** The sky group; add it to your scene. It follows the camera and draws behind everything. */
+  group: THREE.Group
+  /** The time-of-day uniform: assign `daytime.value` for a live cycle. */
+  daytime: DaytimeUniform
+  /** The moon phase, `0` (full) to `7`. Assignable. */
+  moonPhase: number
+  /** The tilt of the sun and moon's path, in degrees off overhead. Assignable. */
+  angle: number
+  /** Free the geometry, materials, and textures, and remove the group from its parent. */
+  dispose(): void
+}
+
+// #endregion
 // #region Map art
 
 /**

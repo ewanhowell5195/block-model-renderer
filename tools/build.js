@@ -63,10 +63,10 @@ function minifyShaderTemplates(source) {
 const shaderMinify = {
   name: "shader-minify",
   setup(build) {
-    build.onLoad({ filter: /core[\\/]models\.js$/ }, async args => {
+    build.onLoad({ filter: /core[\\/](models|sky)\.js$/ }, async args => {
       const source = await fs.promises.readFile(args.path, "utf8")
       const { out, count } = minifyShaderTemplates(source)
-      console.log(`Minified ${count} shader templates`)
+      console.log(`Minified ${count} shader templates in ${args.path.split(/[\\/]/).pop()}`)
       return { contents: out, loader: "js" }
     })
   }
