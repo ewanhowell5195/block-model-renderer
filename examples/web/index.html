@@ -385,6 +385,20 @@
       touch-action: none;
     }
 
+    .demo-three .overlay-clock {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 6px 10px;
+      background: rgba(44, 62, 80, 0.55);
+      color: #fff;
+      border-radius: 6px;
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
+      pointer-events: none;
+      user-select: none;
+    }
+
     .demo-three canvas:active {
       cursor: grabbing;
     }
@@ -958,6 +972,26 @@ handle.group.userData.daytime.value = 18000 // midnight, in ticks</code></pre>
       </div>
 
       <div class="section">
+        <h2>The Sky</h2>
+        <p><code>createSky</code> puts the game's sky behind your scene: the day/night gradient, the pack's own sun and moon, the seeded star field, and the sunrise glow, all running on the same live clock as the world lighting, so the ground darkens as the sun goes down. It follows whatever camera renders it and draws behind everything, so it drops straight into any three.js scene. A full day passes on its own; drag to look around:</p>
+        <div class="demo demo-three">
+          <canvas id="three-sky"></canvas>
+          <span class="overlay-clock" id="skyclock">00:00</span>
+          <button class="fs" title="Fullscreen" aria-label="Fullscreen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+          </button>
+        </div>
+        <pre><code>import { createSky } from "block-model-renderer"
+
+// the game's sky: the day/night gradient, the pack's own sun and moon,
+// the seeded star field, and the sunrise glow. It shares the scene's
+// daytime uniform, so one clock drives the lighting and the sky together
+const sky = await createSky(assets, { daytime: handle.group.userData.daytime })
+scene.add(sky.group)</code></pre>
+      </div>
+
+      <div class="section">
         <h2>Resource Packs</h2>
         <p>Asset sources stack just like in Minecraft: pass more than one and higher packs override lower ones. Load a resource pack (or mod jar) and every render on this page rebuilds with it layered over vanilla, right down to the GUI texture, the font, and the recipes. Anything it adds in its own namespaces shows up too, so a mod's custom blocks and items appear in the pickers:</p>
         <div class="controls">
@@ -1012,7 +1046,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
     try {
       const {
         renderBlock, renderItem, renderModel, prepareAssets, disposeCache, listDirectory, readFile,
-        getThree, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, makeModelScene, createScene, createAnimator,
+        getThree, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, makeModelScene, createScene, createSky, createAnimator,
         pauseAnimations, resumeAnimations, DISPLAYS
       } = await import(LIB)
       const windmillModel = {"textures":{"1":"block/stone","2":"block/oak_planks","3":"block/scaffolding_top","4":"block/stone_bricks","5":"block/spruce_planks","6":"block/dark_oak_log","7":"block/cobblestone"},"elements":[{"from":[1,-16,1],"to":[15,-13,15],"faces":{"north":{"uv":[0,0,14,3],"texture":"#7"},"east":{"uv":[0,0,14,3],"texture":"#7"},"south":{"uv":[0,0,14,3],"texture":"#7"},"west":{"uv":[0,0,14,3],"texture":"#7"},"up":{"uv":[0,0,14,14],"texture":"#7"},"down":{"uv":[0,0,14,14],"texture":"#7"}}},{"from":[2.5,-13,2.5],"to":[13.5,0,13.5],"faces":{"north":{"uv":[2.5,0,13.5,13],"texture":"#4"},"east":{"uv":[2.5,0,13.5,13],"texture":"#4"},"south":{"uv":[2.5,0,13.5,13],"texture":"#4"},"west":{"uv":[2.5,0,13.5,13],"texture":"#4"},"up":{"uv":[2,2.25,13,13.25],"texture":"#1"}}},{"from":[3.5,0,3.5],"to":[12.5,11,12.5],"rotation":{"angle":0,"axis":"y","origin":[0,2,0]},"faces":{"north":{"uv":[3.5,5,12.5,16],"texture":"#4"},"east":{"uv":[3.5,5,12.5,16],"texture":"#4"},"south":{"uv":[3.5,5,12.5,16],"texture":"#4"},"west":{"uv":[3.5,5,12.5,16],"texture":"#4"},"up":{"uv":[6,1,15,10],"texture":"#1"}}},{"from":[4.5,11,4.5],"to":[11.5,16,11.5],"faces":{"north":{"uv":[4.5,0,11.5,5],"texture":"#4"},"east":{"uv":[4.5,0,11.5,5],"texture":"#4"},"south":{"uv":[4.5,0,11.5,5],"texture":"#4"},"west":{"uv":[4.5,0,11.5,5],"texture":"#4"}}},{"from":[4.5,16,4.5],"to":[11.5,22,11.5],"rotation":{"angle":0,"axis":"y","origin":[0,11,0]},"faces":{"north":{"uv":[4.5,10,11.5,16],"texture":"#4"},"east":{"uv":[4.5,10,11.5,16],"texture":"#4"},"south":{"uv":[4.5,10,11.5,16],"texture":"#4"},"west":{"uv":[4.5,10,11.5,16],"texture":"#4"},"up":{"uv":[4.5,4.5,11.5,11.5],"texture":"#4"},"down":{"uv":[4.5,4.5,11.5,11.5],"texture":"#4"}}},{"from":[6.5,22,4.5],"to":[9.5,24,11.5],"rotation":{"angle":0,"axis":"y","origin":[0,11,0]},"faces":{"north":{"uv":[6.5,8,9.5,10],"texture":"#4"},"east":{"uv":[4.5,8,11.5,10],"texture":"#4"},"south":{"uv":[6.5,8,9.5,10],"texture":"#4"},"west":{"uv":[4.5,8,11.5,10],"texture":"#4"}}},{"from":[-0.5,24,3.5],"to":[8.5,26,12.5],"rotation":{"angle":45,"axis":"z","origin":[8.5,25,8]},"faces":{"north":{"uv":[0,0,9,2],"texture":"#5"},"east":{"uv":[0,1,2,10],"rotation":90,"texture":"#5"},"south":{"uv":[0,0,9,2],"texture":"#5"},"west":{"uv":[0,1,2,10],"rotation":90,"texture":"#5"},"up":{"uv":[0,1,9,10],"texture":"#5"},"down":{"uv":[0,1,9,10],"texture":"#5"}}},{"from":[6.5,17,3.5],"to":[8.5,24,12.5],"rotation":{"angle":45,"axis":"z","origin":[8.5,25,8]},"faces":{"north":{"uv":[8,0,15,2],"rotation":90,"texture":"#5"},"east":{"uv":[3.5,1,10.5,10],"rotation":90,"texture":"#5"},"south":{"uv":[6,0,13,2],"rotation":90,"texture":"#5"},"west":{"uv":[3.5,1,10.5,10],"rotation":90,"texture":"#5"},"down":{"uv":[6,1,8,10],"texture":"#5"}}},{"name":"rotate","from":[7,15,-1],"to":[9,17,5],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,0,2,2],"texture":"#6"},"east":{"uv":[0,0,6,2],"texture":"#6"},"south":{"uv":[0,0,2,2],"texture":"#6"},"west":{"uv":[0,0,6,2],"texture":"#6"},"up":{"uv":[0,0,2,6],"texture":"#6"},"down":{"uv":[0,0,2,6],"texture":"#6"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}}]}
@@ -1310,6 +1344,9 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         $("daytimeclock").textContent = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
       })
 
+      let skyDaytime = null
+      let skyHandle = null
+
       const SCENES = {
         campfire: {
           legend: { C: { id: "campfire", properties: { lit: "true" } } },
@@ -1462,6 +1499,11 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         return { blocks, dims }
       }
 
+      SCENES.sky = {
+        legend: { g: "grass_block" },
+        layers: [Array.from({ length: 49 }, () => "g".repeat(49))]
+      }
+
       async function assembleScene(name, stale) {
         const { blocks, dims } = parseScene(SCENES[name])
         const handle = await createScene(assets, Array.from(blocks.values(), b => ({ id: b.id, properties: b.properties, pos: [b.x, b.y, b.z] })), {
@@ -1484,7 +1526,16 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         const result = await assembleScene(name, stale)
         if (!result) return
         if (name === "campsite") campsiteDaytime = result.handle.group.userData.daytime
-        viewers[name].setHandle(result.handle, result.span)
+        if (name !== "sky") return viewers[name].setHandle(result.handle, result.span)
+        skyViewer.setHandle(result.handle)
+        if (!createSky) return
+        skyDaytime = result.handle.group.userData.daytime
+        skyDaytime.value = 11000
+        const sky = await createSky(assets, { daytime: skyDaytime })
+        if (stale()) return sky.dispose()
+        skyHandle?.dispose()
+        skyHandle = sky
+        skyViewer.scene.add(sky.group)
       }
 
       function makeViewer(canvas, rotateSpeed = 2) {
@@ -1536,6 +1587,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         const viewer = {
           handle: null,
           animator: null,
+          scene,
           setHandle(handle, span) {
             if (viewer.handle) {
               viewer.handle.group.removeFromParent()
@@ -1583,7 +1635,105 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         camp: makeViewer($("three-camp")),
         campsite: makeViewer($("three-campsite"), 4 / 3)
       }
-      const sceneRuns = { campfire: 0, camp: 0, campsite: 0 }
+      const sceneRuns = { campfire: 0, camp: 0, campsite: 0, sky: 0 }
+
+      // first person on the ground rather than an orbit: the camera stays put at
+      // eye height and dragging looks around it, while the clock runs on its own
+      const skyViewer = (() => {
+        const canvas = $("three-sky")
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio * 2, 4))
+        const scene = new THREE.Scene()
+        const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 3000)
+        camera.position.set(0, 34, 0)
+        const controls = new OrbitControls(camera, canvas)
+        controls.enableDamping = true
+        controls.enableZoom = false
+        controls.enablePan = false
+        controls.rotateSpeed = -0.4
+        controls.target.set(2, 34.4, 0)
+        let lastW = 0
+        let lastH = 0
+        function resize() {
+          const w = canvas.clientWidth
+          const h = canvas.clientHeight
+          if (w && h && (w !== lastW || h !== lastH)) {
+            lastW = w
+            lastH = h
+            renderer.setSize(w, h, false)
+            camera.aspect = w / h
+            camera.updateProjectionMatrix()
+          }
+        }
+        new ResizeObserver(resize).observe(canvas)
+        // one built chunk, instanced out into a 9x9 grid so the ground runs to
+        // the far plane; the shaders take the offsets through instanceMatrix
+        const viewer = {
+          scene,
+          handle: null,
+          tiles: null,
+          setHandle(handle) {
+            if (viewer.tiles) {
+              viewer.tiles.removeFromParent()
+              viewer.tiles.traverse(o => { if (o.isInstancedMesh) o.dispose() })
+              viewer.handle.dispose()
+            }
+            viewer.handle = handle
+            const W = 49 * 16
+            const R = 4
+            const offsets = []
+            for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) {
+              offsets.push(new THREE.Matrix4().makeTranslation(i * W, 0, j * W))
+            }
+            const tiles = new THREE.Group()
+            handle.group.updateMatrixWorld(true)
+            const tmp = new THREE.Matrix4()
+            handle.group.traverse(o => {
+              if (!o.isMesh) return
+              const inst = new THREE.InstancedMesh(o.geometry, o.material, offsets.length)
+              for (let k = 0; k < offsets.length; k++) inst.setMatrixAt(k, tmp.multiplyMatrices(offsets[k], o.matrixWorld))
+              inst.frustumCulled = false
+              tiles.add(inst)
+            })
+            viewer.tiles = tiles
+            scene.add(tiles)
+          }
+        }
+        // the day whips by and eases off through sunset and sunrise, where the
+        // sky is actually doing something
+        function daySpeed(t) {
+          let w = 0
+          for (const c of [12500, 23500]) {
+            const d = Math.abs((t - c + 36000) % 24000 - 12000)
+            if (d < 1000) w = 1
+            else if (d < 2600) w = Math.max(w, 0.5 + Math.cos((d - 1000) / 1600 * Math.PI) / 2)
+          }
+          return 2000 - 1700 * w
+        }
+
+        const clock = $("skyclock")
+        let shown = ""
+        let lastTime = performance.now()
+        function frame(now) {
+          requestAnimationFrame(frame)
+          resize()
+          const dt = Math.min((now - lastTime) / 1000, 0.1) || 0
+          lastTime = now
+          if (!canvas.clientWidth) return
+          if (skyDaytime) {
+            const t = (skyDaytime.value + dt * daySpeed(skyDaytime.value)) % 24000
+            skyDaytime.value = t
+            const h = Math.floor(t / 1000 + 6) % 24
+            const m = Math.floor(t % 1000 * 60 / 1000)
+            const text = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+            if (text !== shown) clock.textContent = shown = text
+          }
+          controls.update()
+          renderer.render(scene, camera)
+        }
+        requestAnimationFrame(frame)
+        return viewer
+      })()
 
       const previewState = { hero: null, viewer: null, grid: null, scene: null, gallery: null }
       let previewLoopStarted = false
@@ -1612,6 +1762,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
           return true
         }
 
+        const UP = new THREE.Vector3(0, 1, 0)
         let last = performance.now()
         function frame(now) {
           requestAnimationFrame(frame)
@@ -1650,7 +1801,9 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
           }
           const s = previewState.scene
           if (s?.scene && fit(s)) {
-            s.world.rotation.y += dt * 0.5
+            s.elapsed += dt
+            s.camera.position.set(-1, 0.85, -1).normalize().multiplyScalar(s.radius).applyAxisAngle(UP, -s.elapsed * 0.5)
+            s.camera.lookAt(0, -11, 0)
             s.animator.update()
             s.renderer.render(s.scene, s.camera)
           }
@@ -1917,9 +2070,10 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
           world.add(result.handle.group)
           world.position.y = 8
           scene.add(world)
-          const radius = result.span * 16 * 1.05 + 16
-          s.camera.position.copy(new THREE.Vector3(-1, 0.85, -1).normalize().multiplyScalar(radius))
-          s.camera.lookAt(0, -11, 0)
+          const p = result.handle.group.position
+          result.handle.light?.setOffset(p.x, p.y + 8, p.z)
+          s.radius = result.span * 16 * 1.05 + 16
+          s.elapsed = 0
           if (s.handle) {
             s.world.removeFromParent()
             s.handle.dispose()
