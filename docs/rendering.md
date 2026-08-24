@@ -1,6 +1,6 @@
 # Rendering
 
-How a render looks: backgrounds and lighting. These apply wherever a model renders, through the render functions and the low-level scene pipeline alike.
+How a render looks: backgrounds, lighting, and the sky behind a scene. These apply wherever a model renders, through the render functions and the low-level scene pipeline alike.
 
 ## Background
 
@@ -148,3 +148,43 @@ The result:
 | `dispose()` | Frees the light texture. Call it when you discard the scene |
 
 The volume uploads as a single 2D texture of stacked slices with trilinear filtering done in the shader, so it behaves identically on the web and on Node's WebGL1 context. Lighting is static: it's computed once from the block list, so moving or removing emitters means computing a fresh volume and rebuilding the scene.
+
+## Sky
+
+`createSky` builds the game's sky as a three.js group: the sky gradient, the sun and moon textures from the pack, the star field, and the sunrise and sunset glow. It sits behind the scene, follows the camera, and reads the same time of day as [world lighting](#world-lighting), so one value moves the sun and relights the blocks together.
+
+```js
+import { createScene, createSky } from "block-model-renderer"
+
+const handle = await createScene(assets, blocks, { lighting: { daytime: 13000 } })
+scene.add(handle.group)
+
+const sky = await createSky(assets, { daytime: handle.group.userData.daytime })
+scene.add(sky.group)
+```
+
+### `createSky(assets, args)`
+
+| Option | Default | Description |
+|---|---|---|
+| `assets` | required | The assets source, as in [`renderBlock`](standard-api.md#renderblockargs). The sky textures come from the pack stack |
+| `args.dimension` | `"overworld"` | `"overworld"` for the day/night sky, `"the_end"` for the End's tiled skybox, `"the_nether"` for its fog with no sky. An object overrides the parts (`skybox`, `skyColor`, `fogColor`) |
+| `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting). Pass a scene's `userData.daytime` to share one uniform with the blocks |
+| `args.moonPhase` | `0` | The moon phase, `0` (full moon) to `7`, in the game's order. Also settable on the handle |
+| `args.angle` | `0` | Tilts the sun, moon and stars' path, in degrees off overhead; sunrise and sunset stay put on the horizon. Also settable on the handle |
+| `args.skyColor` | the dimension's | The base sky color, the biome's in game. The day/night curve scales it |
+| `args.fogColor` | the dimension's | The base fog color, what the sky fades to at the horizon |
+| `args.distance` | `camera.far * 0.9` | How far out the sky sits in world units. The default stays inside the far plane of whichever camera renders it |
+| `args.horizonFade` | `false` | Fade the sun and moon out below the horizon, over the game's 13500-14000 nightfall window and the matching angles at their other crossings. Off by default: the game keeps drawing them and lets terrain do the hiding |
+| `args.version` | | The Minecraft version, which picks the sun and moon texture layout: `environment/celestial/` from 1.21.11, `environment/` before it, each falling back to the other |
+
+The handle:
+
+| Field | Description |
+|---|---|
+| `group` | The sky group; add it to your scene. It re-centers on the camera every frame and draws before everything else |
+| `daytime` | The time uniform, `{ value }`. The same object when you passed one in |
+| `moonPhase` | The moon phase, assignable |
+| `angle` | The path tilt in degrees, assignable |
+| `dispose()` | Frees the geometry, materials, and textures, and removes the group from its parent |
+

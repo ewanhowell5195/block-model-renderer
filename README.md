@@ -125,7 +125,7 @@ The full documentation lives in [`docs/`](docs/):
 | [API reference](docs/api.md) | Every export in one place, grouped and linked to its full docs |
 | [Standard API](docs/standard-api.md) | The render functions on both platforms: all options, file and buffer output, animated WebP/GIF, canvases, animation players, providing three.js |
 | [Advanced API](docs/advanced-api.md) | Upgradable renders, batch rendering from worker pools, syncing the animation clock, the frame cache, texture players |
-| [Rendering](docs/rendering.md) | How a render looks: backgrounds, lighting modes, [`computeSceneLight`](docs/api.md) volumes |
+| [Rendering](docs/rendering.md) | How a render looks: backgrounds, lighting modes, [`computeSceneLight`](docs/api.md) volumes, the [sky](docs/rendering.md#sky) |
 | [Models](docs/models.md) | Model-level behavior: display transforms, model-inspection helpers, the tint tables |
 | [Assets](docs/assets.md) | Asset sources, pack layering, virtual handlers, [`prepareAssets`](docs/api.md) and caching, the bundled packs, file access |
 | [Fluids](docs/fluids.md) | Water and lava surface shaping, [`fluidTypeOf`](docs/api.md), [`fluidHeights`](docs/api.md) |

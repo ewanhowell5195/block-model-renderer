@@ -12,7 +12,7 @@ import {
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
-  makeModelScene, createScene, loadModel, poseSpecial, renderModelScene, optimizeScene, sortTranslucent,
+  makeModelScene, createScene, createSky, loadModel, poseSpecial, renderModelScene, optimizeScene, sortTranslucent,
   computeSceneLight, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
   // shared atlases, packing, animation
   createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures,
@@ -68,6 +68,7 @@ import {
 |---|---|
 | `makeModelScene()` | Create an empty scene (async on the web, sync on Node). [Details](scenes.md#makemodelscene) |
 | `createScene(assets, blocks, args?)` | Build a whole block scene in one call: parsing, culling, fluids, lighting, and optimization. [Details](scenes.md#createsceneassets-blocks-args) |
+| `createSky(assets, args?)` | Build the game's sky: the gradient, the pack's sun and moon, stars, and the sunrise glow, on one day/night clock. [Details](rendering.md#createskyassets-args) |
 | `loadModel(scene, assets, model, args?)` | Build a model's geometry into a scene. [Details](scenes.md#loadmodelscene-assets-model-args) |
 | `poseSpecial(root, pose)` | Manually pose a dynamic model (chest lid, shulker lid, enchanting book); books animate and lids `.open()`/`.close()` on their own. [Details](scenes.md#dynamic-models) |
 | `renderModelScene(scene, camera, args?)` | Render a scene to output. [Details](scenes.md#rendermodelscenescene-camera-args) |
