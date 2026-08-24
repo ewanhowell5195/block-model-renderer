@@ -6,11 +6,15 @@ echo Current version: %prevVersion%
 set /p "version=Enter new version number: "
 if "%version%"=="" set "version=patch"
 
-set /p "message=Enter commit message: "
-if "%message%"=="" set "message=update"
+set "dirty="
+for /f "delims=" %%i in ('git status --porcelain') do set "dirty=1"
 
-git add .
-git commit -m "%message%"
+set "message="
+if defined dirty set /p "message=Enter commit message: "
+if defined dirty if "%message%"=="" set "message=update"
+
+if defined dirty git add .
+if defined dirty git commit -m "%message%"
 
 call npm version %version%
 
