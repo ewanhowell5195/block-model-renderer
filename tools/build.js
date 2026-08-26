@@ -6,7 +6,7 @@ const version = JSON.parse(fs.readFileSync("package.json", "utf8")).version
 const banner = `/*!
  * block-model-renderer
  * Version  : ${version}
- * License  : MIT
+ * License  : MPL-2.0
  * Copyright: ${new Date().getFullYear()} Ewan Howell
  */`
 

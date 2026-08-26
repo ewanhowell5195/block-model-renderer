@@ -5,7 +5,7 @@ Render any block, item, or custom model JSON, with full support for vanilla reso
 
 [![npm version](https://badge.fury.io/js/block-model-renderer.svg)](https://www.npmjs.com/package/block-model-renderer)
 [![jsDelivr](https://data.jsdelivr.com/v1/package/npm/block-model-renderer/badge)](https://www.jsdelivr.com/package/npm/block-model-renderer)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
 [**Live Examples**](https://block-model-renderer.ewanhowell.com/)
 
@@ -149,4 +149,4 @@ Everything on the live pages runs in your browser, on the latest vanilla Minecra
 
 ## License
 
-MIT © [Ewan Howell](https://ewanhowell.com/)
+[MPL-2.0](LICENSE) © [Ewan Howell](https://ewanhowell.com/)
