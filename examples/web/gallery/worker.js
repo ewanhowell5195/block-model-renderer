@@ -1,6 +1,6 @@
 import { loadMojangJar } from "../mojang-pack.js"
 
-const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer/dist/block-model-renderer.min.js"
+const LIB = "https://cdn.jsdelivr.net/npm/block-model-renderer@2/dist/block-model-renderer.min.js"
 const THREE = "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js"
 
 let lib = null
