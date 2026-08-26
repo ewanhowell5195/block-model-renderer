@@ -9,7 +9,8 @@ const assets = await prepareAssets([
 const outputDir = `${import.meta.dirname}/renders/all`
 const blockDisplay = {
   rotation: [30, 225, 0],
-  scale: [0.625, 0.625, 0.625]
+  scale: [0.625, 0.625, 0.625],
+  rotateFlat: true
 }
 const itemDisplay = "gui"
 const chunkSize = 32

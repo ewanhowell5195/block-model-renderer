@@ -14,7 +14,7 @@ It takes a **string**, naming a context in the model's own `display` block (`"gu
 | `rotation`, `translation`, `scale` | Transform values. When used with `display`, each one replaces that display type. With `type: "fallback"` they are used only when the model has nothing matching its `display` context |
 | `type` | `"fallback"` only use the defined `rotation`, `translation`, `scale` when the model is missing the specified `display` context |
 | `generated` | When `false`, the fallback doesn't apply to generated models (`"parent": "builtin/generated"`) |
-| `rotateFlat` | `true` turns [flat models](#isflatmodelmodels) (crosses, crops) 45°. Useful for diagonal camera angles, where they would otherwise appear flat. Applies to whichever transform is used, from the model or from here. Only when the transform leaves one of the model's planes edge-on to the camera, so angles that already show every plane are left as they are |
+| `rotateFlat` | `true` turns [flat models](#isflatmodelmodels) (crosses, crops) 45°. Useful for diagonal camera angles, where they would otherwise appear flat. Applies to whichever transform is used, from the model or from here. Only when the transform leaves one of the model's planes edge-on to the camera, so angles that already show every plane are left as they are. Waterlogged blocks never turn: the water is part of the model, and the planes can't rotate inside it |
 
 ```js
 display: "gui"                                            // the model's gui display
