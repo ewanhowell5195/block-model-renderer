@@ -11,6 +11,7 @@ const vanillaJar = await loadMojangJar()
 const assets = await prepareAssets(vanillaJar)
 
 const outDir = `${import.meta.dirname}/renders/example`
+fs.rmSync(outDir, { recursive: true, force: true })
 fs.mkdirSync(outDir, { recursive: true })
 
 // A basic block render

@@ -4,6 +4,7 @@ import fs from "node:fs"
 
 const jar = await zipAssets(await fs.promises.readFile(await loadMojangJar()))
 
+fs.rmSync(`${import.meta.dirname}/renders/fixed`, { recursive: true, force: true })
 fs.mkdirSync(`${import.meta.dirname}/renders/fixed`, { recursive: true })
 
 await renderModel({

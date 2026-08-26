@@ -7,6 +7,7 @@ const assets = await prepareAssets([
 ])
 
 const outputDir = `${import.meta.dirname}/renders/banners`
+fs.rmSync(outputDir, { recursive: true, force: true })
 fs.mkdirSync(outputDir, { recursive: true })
 
 // Each design renders as both a banner and a shield: the base color plus a

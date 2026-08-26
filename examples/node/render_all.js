@@ -15,6 +15,7 @@ const blockDisplay = {
 const itemDisplay = "gui"
 const chunkSize = 32
 
+fs.rmSync(outputDir, { recursive: true, force: true })
 fs.mkdirSync(path.join(outputDir, "blocks"), { recursive: true })
 fs.mkdirSync(path.join(outputDir, "items"), { recursive: true })
 

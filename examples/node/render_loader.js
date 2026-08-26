@@ -131,6 +131,7 @@ const assets = await prepareAssets([
 ])
 
 const outputDir = `${import.meta.dirname}/renders/loader`
+fs.rmSync(outputDir, { recursive: true, force: true })
 fs.mkdirSync(outputDir, { recursive: true })
 
 await renderModel({

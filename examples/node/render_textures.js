@@ -7,6 +7,7 @@ const assets = await prepareAssets([
 ])
 const outputDir = `${import.meta.dirname}/renders/textures`
 
+fs.rmSync(outputDir, { recursive: true, force: true })
 fs.mkdirSync(outputDir, { recursive: true })
 
 const textures = [

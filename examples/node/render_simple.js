@@ -6,6 +6,7 @@ const assets = await prepareAssets([
   await loadMojangJar()
 ])
 
+fs.rmSync(`${import.meta.dirname}/renders/simple`, { recursive: true, force: true })
 fs.mkdirSync(`${import.meta.dirname}/renders/simple`, { recursive: true })
 
 // Render from blockstate

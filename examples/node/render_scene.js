@@ -7,6 +7,7 @@ const assets = await prepareAssets([
   await loadMojangJar()
 ])
 
+fs.rmSync(`${import.meta.dirname}/renders/scene`, { recursive: true, force: true })
 fs.mkdirSync(`${import.meta.dirname}/renders/scene`, { recursive: true })
 
 // The campsite scene from the web homepage, as a legend + ascii layers
