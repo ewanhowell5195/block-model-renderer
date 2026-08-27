@@ -728,6 +728,7 @@ export async function parseBlockstate(assets, blockstate, args) {
 
   const waterlogged = stateValue("waterlogged")
   if (((waterlogged === true || waterlogged === "true") && rules.waterloggable(block)) || rules.waterlogged(block)) {
+    for (const m of models) if (m && typeof m === "object") m.waterlogged = true
     models.push(waterPart(colors))
   }
 
@@ -1947,7 +1948,7 @@ export async function loadModel(scene, assets, model, args) {
     delete settings.generated
     delete settings.rotateFlat
 
-    const flatYaws = display.rotateFlat && settings.rotation ? flatPlaneYaws(model) : null
+    const flatYaws = display.rotateFlat && settings.rotation && !model.waterlogged ? flatPlaneYaws(model) : null
     if (flatYaws) {
       const [x, y, z] = settings.rotation
       const euler = new THREE.Euler(THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z))
