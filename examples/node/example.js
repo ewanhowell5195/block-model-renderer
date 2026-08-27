@@ -18,6 +18,9 @@ fs.mkdirSync(outDir, { recursive: true })
 await renderBlock({
   id: "stone",
   assets,
+  lighting: "world",
+  width: 300,
+  height: 300,
   path: `${outDir}/block_stone.png`
 })
 
@@ -26,6 +29,9 @@ await renderBlock({
   id: "oak_log",
   blockstates: { axis: "x" },
   assets,
+  lighting: "world",
+  width: 300,
+  height: 300,
   path: `${outDir}/block_oak_log_x.png`
 })
 
@@ -33,6 +39,9 @@ await renderBlock({
 await renderBlock({
   id: "grass_block",
   assets,
+  lighting: "world",
+  width: 300,
+  height: 300,
   background: "#88CCEE",
   path: `${outDir}/block_grass_background.png`
 })
@@ -41,6 +50,8 @@ await renderBlock({
 await renderItem({
   id: "diamond_sword",
   assets,
+  width: 300,
+  height: 300,
   path: `${outDir}/item_diamond_sword.png`
 })
 
@@ -49,6 +60,8 @@ await renderItem({
   id: "bow",
   components: { using_item: true, use_duration: 20 },
   assets,
+  width: 300,
+  height: 300,
   path: `${outDir}/item_bow_drawn.png`
 })
 
@@ -57,6 +70,8 @@ await renderItem({
   id: "leather_helmet",
   components: { dyed_color: "#FF3366" },
   assets,
+  width: 300,
+  height: 300,
   path: `${outDir}/item_leather_helmet_dyed.png`
 })
 
@@ -64,6 +79,9 @@ await renderItem({
 await renderBlock({
   id: "fire",
   assets,
+  lighting: "world",
+  width: 300,
+  height: 300,
   animated: true,
   path: `${outDir}/block_fire_animated.webp`
 })
@@ -72,6 +90,9 @@ await renderBlock({
 await renderBlock({
   id: "magma_block",
   assets,
+  lighting: "world",
+  width: 300,
+  height: 300,
   animated: "gif",
   path: `${outDir}/block_magma_animated.gif`
 })
@@ -80,6 +101,7 @@ await renderBlock({
 await renderBlock({
   id: "crafting_table",
   assets,
+  lighting: "world",
   width: 1024,
   height: 1024,
   path: `${outDir}/block_crafting_table_large.png`
@@ -135,32 +157,35 @@ const virtualOverride = {
 await renderBlock({
   id: "stone",
   assets: [virtualOverride, vanillaJar],
+  lighting: "world",
+  width: 300,
+  height: 300,
   path: `${outDir}/virtual_blue_stone.png`
 })
 
 // Simple advanced API: the low-level pipeline for a single block
 {
   const { scene, camera } = makeModelScene()
-  const display = { rotation: [30, 225, 0], scale: [0.625, 0.625, 0.625], type: "fallback", display: "gui" }
+  const display = { rotation: [30, 135, 0], scale: [0.625, 0.625, 0.625] }
   const models = await parseBlockstate(assets, "oak_planks")
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display })
+    await loadModel(scene, assets, resolved, { display, lighting: "world" })
   }
-  const buf = await renderModelScene(scene, camera)
+  const buf = await renderModelScene(scene, camera, { width: 300, height: 300 })
   fs.writeFileSync(`${outDir}/advanced_simple_scene.png`, buf)
 }
 
 // Advanced API: build a scene manually and combine multiple models into one render
 {
   const { scene, camera } = makeModelScene()
-  const display = { rotation: [30, 225, 0], scale: [0.44, 0.44, 0.44], type: "fallback", display: "gui" }
+  const display = { rotation: [30, 135, 0], scale: [0.44, 0.44, 0.44] }
   for (const [id, x] of [["diamond_block", -16], ["gold_block", 0], ["emerald_block", 16]]) {
     const models = await parseBlockstate(assets, id)
     for (const model of models) {
       const resolved = await resolveModelData(assets, model)
       resolved.translation = [x, 0, 0]
-      await loadModel(scene, assets, resolved, { display })
+      await loadModel(scene, assets, resolved, { display, lighting: "world" })
     }
   }
   const buf = await renderModelScene(scene, camera, { width: 318, height: 256 })

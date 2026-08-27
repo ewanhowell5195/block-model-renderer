@@ -14,6 +14,9 @@ fs.mkdirSync(`${import.meta.dirname}/renders/simple`, { recursive: true })
 await renderBlock({
   id: "cactus",
   assets,
+  lighting: "world",
+  width: 300,
+  height: 300,
   path: `${import.meta.dirname}/renders/simple/block.png`
 })
 
@@ -22,6 +25,8 @@ await renderBlock({
 await renderItem({
   id: "mace",
   assets,
+  width: 300,
+  height: 300,
   path: `${import.meta.dirname}/renders/simple/item.png`
 })
 

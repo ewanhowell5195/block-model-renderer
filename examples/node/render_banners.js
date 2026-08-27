@@ -46,8 +46,8 @@ for (const [name, { color, patterns }] of Object.entries(designs)) {
     id: `${color}_banner`,
     assets,
     components: { "minecraft:banner_patterns": patterns },
-    width: 256,
-    height: 256,
+    width: 300,
+    height: 300,
     path: `${outputDir}/${name}_banner.png`
   })
   await renderItem({
@@ -57,8 +57,8 @@ for (const [name, { color, patterns }] of Object.entries(designs)) {
       "minecraft:base_color": color,
       "minecraft:banner_patterns": patterns
     },
-    width: 256,
-    height: 256,
+    width: 300,
+    height: 300,
     path: `${outputDir}/${name}_shield.png`
   })
   console.log("Done", name)
