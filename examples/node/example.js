@@ -23,6 +23,7 @@ await renderBlock({
   height: 300,
   path: `${outDir}/block_stone.png`
 })
+console.log("Done block_stone")
 
 // A block with blockstate properties (log rotated on the X axis)
 await renderBlock({
@@ -34,6 +35,7 @@ await renderBlock({
   height: 300,
   path: `${outDir}/block_oak_log_x.png`
 })
+console.log("Done block_oak_log_x")
 
 // A block with a colored background
 await renderBlock({
@@ -45,6 +47,7 @@ await renderBlock({
   background: "#88CCEE",
   path: `${outDir}/block_grass_background.png`
 })
+console.log("Done block_grass_background")
 
 // An item
 await renderItem({
@@ -54,6 +57,7 @@ await renderItem({
   height: 300,
   path: `${outDir}/item_diamond_sword.png`
 })
+console.log("Done item_diamond_sword")
 
 // An item with components (bow fully drawn)
 await renderItem({
@@ -64,6 +68,7 @@ await renderItem({
   height: 300,
   path: `${outDir}/item_bow_drawn.png`
 })
+console.log("Done item_bow_drawn")
 
 // An item with a dyed component (leather armour)
 await renderItem({
@@ -74,6 +79,7 @@ await renderItem({
   height: 300,
   path: `${outDir}/item_leather_helmet_dyed.png`
 })
+console.log("Done item_leather_helmet_dyed")
 
 // Animated output as WebP (fire has animated textures)
 await renderBlock({
@@ -85,6 +91,7 @@ await renderBlock({
   animated: true,
   path: `${outDir}/block_fire_animated.webp`
 })
+console.log("Done block_fire_animated")
 
 // Animated output as GIF
 await renderBlock({
@@ -96,6 +103,7 @@ await renderBlock({
   animated: "gif",
   path: `${outDir}/block_magma_animated.gif`
 })
+console.log("Done block_magma_animated")
 
 // A larger render
 await renderBlock({
@@ -106,6 +114,7 @@ await renderBlock({
   height: 1024,
   path: `${outDir}/block_crafting_table_large.png`
 })
+console.log("Done block_crafting_table_large")
 
 // A custom model JSON (a single torch element)
 await renderModel({
@@ -136,6 +145,7 @@ await renderModel({
   display: DISPLAYS.block,
   path: `${outDir}/custom_torch.png`
 })
+console.log("Done custom_torch")
 
 // Virtual asset handler: tint the real stone texture blue at read time. No files
 // hit disk, layer it above the real pack and it intercepts just that one path.
@@ -162,6 +172,7 @@ await renderBlock({
   height: 300,
   path: `${outDir}/virtual_blue_stone.png`
 })
+console.log("Done virtual_blue_stone")
 
 // Simple advanced API: the low-level pipeline for a single block
 {
@@ -174,6 +185,7 @@ await renderBlock({
   }
   const buf = await renderModelScene(scene, camera, { width: 300, height: 300 })
   fs.writeFileSync(`${outDir}/advanced_simple_scene.png`, buf)
+  console.log("Done advanced_simple_scene")
 }
 
 // Advanced API: build a scene manually and combine multiple models into one render
@@ -190,6 +202,7 @@ await renderBlock({
   }
   const buf = await renderModelScene(scene, camera, { width: 318, height: 256 })
   fs.writeFileSync(`${outDir}/advanced_combined_scene.png`, buf)
+  console.log("Done advanced_combined_scene")
 }
 
 console.log(`Rendered ${fs.readdirSync(outDir).length} images to ${outDir}`)
