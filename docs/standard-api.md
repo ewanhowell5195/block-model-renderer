@@ -35,7 +35,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 
 Default display:
 ```js
-{ rotation: [30, 225, 0], scale: [0.625, 0.625, 0.625], type: "fallback", display: "gui" }
+{ rotation: [30, 135, 0], scale: [0.625, 0.625, 0.625], rotateFlat: true }
 ```
 
 **Placement context:**
@@ -91,7 +91,7 @@ Renders an item by id using its item definition.
 |---|---|---|
 | `id` | required | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn, or `{ enchantments: { sharpness: 5 } }` for the enchantment glint). See [Item definitions](scenes.md#item-definitions) for what's supported |
-| `display` | `{ type: "fallback", display: "gui" }` | Same as [`renderBlock`](#renderblockargs), with a plainer default (no rotation or scale) |
+| `display` | `{ type: "fallback", display: "gui" }` | Display transform, deferring to the model's own `gui` display. See [Display transforms](models.md#display-transforms) |
 | `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderModel(args)`

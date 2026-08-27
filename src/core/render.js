@@ -149,10 +149,9 @@ export async function renderBlock(args = {}) {
   if (args.assets == null || args.assets.length === 0) throw new Error("renderBlock requires the assets option")
   args.blockstates ??= {}
   args.display ??= {
-    rotation: [30, 225, 0],
+    rotation: [30, 135, 0],
     scale: [0.625, 0.625, 0.625],
-    type: "fallback",
-    display: "gui"
+    rotateFlat: true
   }
 
   args.assets = await prepareAssets(args.assets)
