@@ -950,6 +950,63 @@ async function getColorMapTint(assets, mapName, temperature, downfall) {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase()
 }
 
+const DEFAULT_SPECIAL_TRANSFORMS = {
+  banner: { scale: [0.6666667, -0.6666667, -0.6666667], translation: [0.5, 0, 0.5] },
+  head: { left_rotation: [1, 0, 0, 0], translation: [0.5, 0, 0.5] },
+  player_head: { left_rotation: [1, 0, 0, 0], translation: [0.5, 0, 0.5] },
+  conduit: { translation: [0.5, 0.5, 0.5] },
+  shulker_box: { left_rotation: [1, 0, 0, 0], scale: [0.9995, 0.9995, 0.9995], translation: [0.5, 1.4995, 0.5] },
+  shield: { scale: [1, -1, -1] }
+}
+
+const LEGACY_SPECIAL_ITEMS = {
+  chest: { type: "chest", texture: "normal" },
+  trapped_chest: { type: "chest", texture: "trapped" },
+  ender_chest: { type: "chest", texture: "ender" },
+  banner: { type: "banner", color: "white" },
+  bed: { type: "bed", texture: "red" },
+  skull: { type: "head", kind: "skeleton" },
+  skeleton_skull: { type: "head", kind: "skeleton" },
+  wither_skeleton_skull: { type: "head", kind: "wither_skeleton" },
+  zombie_head: { type: "head", kind: "zombie" },
+  creeper_head: { type: "head", kind: "creeper" },
+  dragon_head: { type: "head", kind: "dragon" },
+  piglin_head: { type: "head", kind: "piglin" },
+  player_head: { type: "head", kind: "player" },
+  shield: { type: "shield" },
+  conduit: { type: "conduit" },
+  decorated_pot: { type: "decorated_pot" },
+  shulker_box: version => ({ type: "shulker_box", texture: version && isBefore(version, "1.13") ? "shulker_purple" : "shulker" }),
+  silver_shulker_box: { type: "shulker_box", texture: "shulker_silver" }
+}
+
+for (const color of ["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]) {
+  LEGACY_SPECIAL_ITEMS[`${color}_banner`] = { type: "banner", color }
+  LEGACY_SPECIAL_ITEMS[`${color}_bed`] = { type: "bed", texture: color }
+  LEGACY_SPECIAL_ITEMS[`${color}_shulker_box`] = { type: "shulker_box", texture: `shulker_${color}` }
+}
+
+async function legacyEntityModel(assets, namespace, item) {
+  let ns = namespace
+  let path = `item/${item}`
+  for (let i = 0; i < 8; i++) {
+    const buf = await readFile(`assets/${ns}/models/${path}.json`, assets)
+    if (!buf) return false
+    let parent
+    try {
+      parent = parseJson(buf).parent
+    } catch {
+      return false
+    }
+    if (!parent) return false
+    if (parent.startsWith("builtin")) return parent === "builtin/entity"
+    const resolved = resolveNamespace(parent.replace(/^minecraft:/, ""))
+    ns = resolved.namespace
+    path = resolved.item
+  }
+  return false
+}
+
 export async function parseItemDefinition(assets, itemId, args) {
   if (!itemId) throw new Error("parseItemDefinition requires an item id")
   if (assets == null || assets.length === 0) throw new Error("parseItemDefinition requires assets")
@@ -972,6 +1029,12 @@ export async function parseItemDefinition(assets, itemId, args) {
   if (!buf) {
     const legacy = (!version || isBefore(version, "1.21.4")) && await readFile(`assets/${namespace}/models/item/${item}.json`, assets)
     const m = { type: "item", model: legacy ? `${namespace}:item/${item}` : "block-model-renderer:missing" }
+    const special = legacy && namespace === "minecraft" && LEGACY_SPECIAL_ITEMS[item]
+    if (special && await legacyEntityModel(assets, namespace, item)) {
+      m.special = { ...(typeof special === "function" ? special(version) : special) }
+      const dflt = DEFAULT_SPECIAL_TRANSFORMS[m.special.type]
+      if (dflt) m.transformation = parseTransformation(dflt).elements
+    }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (version) m.version = version
     if (glint) m.glint = true
@@ -1063,7 +1126,12 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
       model.special = Object.assign({}, def.model, { type: normalize(def.model.type) })
       if (data["banner_patterns"]) model.special.patterns = data["banner_patterns"]
       if (data["base_color"] != null) model.special.base_color = data["base_color"]
-      if (currentTransform) model.transformation = currentTransform.elements
+      let transform = currentTransform
+      if (!def.transformation && !accTransform) {
+        const dflt = DEFAULT_SPECIAL_TRANSFORMS[model.special.type]
+        if (dflt) transform = parseTransformation(dflt)
+      }
+      if (transform) model.transformation = transform.elements
       return [model]
     }
 
@@ -1607,7 +1675,9 @@ async function resolveSpecialModel(assets, data, base) {
     modelPath = `block-model-renderer:block/copper_golem_statue/_template_copper_golem_statue_${data.pose}`
   } else if (originalType === "bed") {
     if (!assets.version || !isBefore(assets.version, "26.2")) return
-    modelPath = `block-model-renderer:block/bed/_template_bed_${normalize(data.part ?? "head")}`
+    modelPath = data.part
+      ? `block-model-renderer:block/bed/_template_bed_${normalize(data.part)}`
+      : "block-model-renderer:block/bed/_template_bed"
   } else {
     const baseItem = base ? resolveNamespace(base).item : null
     if (baseItem && await readFile(`assets/block-model-renderer/models/${baseItem}.json`, assets)) {
@@ -1635,7 +1705,12 @@ async function resolveSpecialModel(assets, data, base) {
     }
     case "bed":
       model.textures = { bed: `entity/bed/${normalize(data.texture)}` }
-      rotation = [-90, 180, 0]
+      if (data.part) {
+        rotation = [-90, 180, 0]
+      } else {
+        translation = [0, 1.75, 4]
+        scale = [0.5, 0.5, 0.5]
+      }
       break
     case "chest": {
       rotation = [0, 180, 0]
@@ -2321,7 +2396,7 @@ export async function loadModel(scene, assets, model, args) {
           return false
         }
       }
-      if (model.version) {
+      if (model.version && !model.overridden) {
         const preMultiAxis = isBefore(model.version, "1.21.11")
         if (axis && preMultiAxis && (Math.abs(angle) > 45 || (isBefore(model.version, "1.21.6") && angle % 22.5 !== 0))) {
           return false

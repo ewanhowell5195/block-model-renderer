@@ -535,6 +535,7 @@ function makePlatform() {
         if (role.versionBefore) entry.versionBefore = role.versionBefore
         bundled.push(entry)
       }
+      bundled.sort((a, b) => (a.versionBefore ? 0 : 1) - (b.versionBefore ? 0 : 1))
       arr.unshift(...bundled)
       arr.push(await zipEntryFromFiles(files, "fallbacks/"))
     },

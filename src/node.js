@@ -127,6 +127,7 @@ setPlatform({
       if (role.versionBefore) entry.versionBefore = role.versionBefore
       if (!existing) bundled.push(entry)
     }
+    bundled.sort((a, b) => (a.versionBefore ? 0 : 1) - (b.versionBefore ? 0 : 1))
     arr.unshift(...bundled)
     if (!find(fallbacksPath)) {
       arr.push(await makeFolderEntry(fallbacksPath))
