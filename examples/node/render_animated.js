@@ -1,4 +1,4 @@
-import { listDirectory, readFile, makeModelScene, renderModelScene, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, prepareAssets, SKIP_BLOCKS } from "block-model-renderer"
+import { renderBlock, renderItem, listDirectory, readFile, parseBlockstate, parseItemDefinition, resolveModelData, prepareAssets, SKIP_BLOCKS } from "block-model-renderer"
 import { loadMojangJar } from "./mojang-jar.js"
 import fs from "node:fs"
 import path from "node:path"
@@ -7,12 +7,6 @@ const assets = await prepareAssets([
   await loadMojangJar()
 ])
 const outputDir = `${import.meta.dirname}/renders/animated`
-const blockDisplay = {
-  rotation: [30, 225, 0],
-  scale: [0.625, 0.625, 0.625],
-  rotateFlat: true
-}
-const itemDisplay = "gui"
 const chunkSize = 32
 
 fs.rmSync(outputDir, { recursive: true, force: true })
@@ -46,44 +40,40 @@ async function hasAnimatedTexture(resolved) {
   return false
 }
 
+async function anyAnimated(models) {
+  for (const model of models) {
+    if (await hasAnimatedTexture(await resolveModelData(assets, model))) return true
+  }
+  return false
+}
+
 async function handleBlock(file) {
   const modelId = path.basename(file, ".json")
   if (SKIP_BLOCKS.has(modelId)) return
-  const models = await parseBlockstate(assets, modelId)
-  let animated = false
-  const resolvedModels = []
-  for (const model of models) {
-    const resolved = await resolveModelData(assets, model)
-    resolvedModels.push(resolved)
-    if (await hasAnimatedTexture(resolved)) animated = true
-  }
-  if (!animated) return
-
-  const { scene, camera } = makeModelScene()
-  for (const resolved of resolvedModels) {
-    await loadModel(scene, assets, resolved, { display: blockDisplay })
-  }
-  await renderModelScene(scene, camera, { path: `${outputDir}/blocks/${modelId}.png`, animated: true })
+  if (!await anyAnimated(await parseBlockstate(assets, modelId))) return
+  await renderBlock({
+    id: modelId,
+    assets,
+    lighting: "world",
+    width: 300,
+    height: 300,
+    animated: true,
+    path: `${outputDir}/blocks/${modelId}.png`
+  })
   console.log("Done block", modelId)
 }
 
 async function handleItem(file) {
   const modelId = path.basename(file, ".json")
-  const models = await parseItemDefinition(assets, modelId, { display: itemDisplay })
-  let animated = false
-  const resolvedModels = []
-  for (const model of models) {
-    const resolved = await resolveModelData(assets, model)
-    resolvedModels.push(resolved)
-    if (await hasAnimatedTexture(resolved)) animated = true
-  }
-  if (!animated) return
-
-  const { scene, camera } = makeModelScene()
-  for (const resolved of resolvedModels) {
-    await loadModel(scene, assets, resolved, { display: itemDisplay })
-  }
-  await renderModelScene(scene, camera, { path: `${outputDir}/items/${modelId}.png`, animated: true })
+  if (!await anyAnimated(await parseItemDefinition(assets, modelId, { display: "gui" }))) return
+  await renderItem({
+    id: modelId,
+    assets,
+    width: 300,
+    height: 300,
+    animated: true,
+    path: `${outputDir}/items/${modelId}.png`
+  })
   console.log("Done item", modelId)
 }
 
