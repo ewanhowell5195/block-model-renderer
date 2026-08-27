@@ -549,6 +549,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   let data = args?.data ?? {}
   const rand = args?.seed != null ? seededRandom(args.seed) : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
+  const version = args?.version ?? assets.version
   const defaultsMode = args?.defaults ?? assets.defaults
   const defaults = await defaultBlockstates(assets, defaultsMode)
   const rules = await blockRules(assets)
@@ -574,7 +575,7 @@ export async function parseBlockstate(assets, blockstate, args) {
     if (rules.waterlogged(block)) return [waterPart(colors)]
     const m = { type: "block", model: "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
-    if (args?.version) m.version = args.version
+    if (version) m.version = version
     return [m]
   }
 
@@ -683,7 +684,7 @@ export async function parseBlockstate(assets, blockstate, args) {
 
     for (const model of models.slice(start)) {
       if (json.light_emission != null) model.light_emission ??= json.light_emission
-      if (args?.version && isBefore(args.version, "1.21.11")) delete model.z
+      if (version && isBefore(version, "1.21.11")) delete model.z
       if (json.allow_invalid_rotations) {
         model.allow_invalid_rotations = true
       } else if (model.x && model.x % 90 !== 0 || model.y && model.y % 90 !== 0 || model.z && model.z % 90 !== 0) {
@@ -695,8 +696,8 @@ export async function parseBlockstate(assets, blockstate, args) {
   for (const model of models) {
     model.type = "block"
     if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
-    if (args?.version) model.version = args.version
-    if (args?.version && isBefore(args.version, "1.13")) {
+    if (version) model.version = version
+    if (version && isBefore(version, "1.13")) {
       const i = model.model.indexOf(":") + 1
       if (!model.model.slice(i).includes("/")) {
         model.model = model.model.slice(0, i) + "block/" + model.model.slice(i)
@@ -797,7 +798,7 @@ async function blockEntityItemModels(assets, block, data, args) {
   const context = block.endsWith("shelf") ? "on_shelf" : "fixed"
   const glintRules = await itemRules(assets)
   const itemArgs = id => ({
-    version: args.version,
+    version,
     ignoreAtlases: args.ignoreAtlases,
     data: id.components ?? {},
     glint: itemHasFoil(id, glintRules) || undefined,
@@ -961,6 +962,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   }
   const display = args?.display ?? "gui"
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
+  const version = args?.version ?? assets.version
 
   const { namespace, item } = resolveNamespace(itemId)
   const glint = !!(args?.glint || itemHasFoil({ id: itemId, components: data }, await itemRules(assets)))
@@ -968,10 +970,10 @@ export async function parseItemDefinition(assets, itemId, args) {
   const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
 
   if (!buf) {
-    const legacy = (!args?.version || isBefore(args.version, "1.21.4")) && await readFile(`assets/${namespace}/models/item/${item}.json`, assets)
+    const legacy = (!version || isBefore(version, "1.21.4")) && await readFile(`assets/${namespace}/models/item/${item}.json`, assets)
     const m = { type: "item", model: legacy ? `${namespace}:item/${item}` : "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
-    if (args?.version) m.version = args.version
+    if (version) m.version = version
     if (glint) m.glint = true
     return [m]
   }
@@ -981,12 +983,12 @@ export async function parseItemDefinition(assets, itemId, args) {
   const normalizedData = {}
   for (const key in data) normalizedData[normalize(key)] = data[key]
   const itemColors = await colorTables(assets)
-  const models = await resolveItemModel(assets, json.model, normalizedData, display, undefined, args?.version)
+  const models = await resolveItemModel(assets, json.model, normalizedData, display, undefined, version)
   for (let i = 0; i < models.length; i++) {
     const model = models[i]
     model.type = "item"
     if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
-    if (args?.version) model.version = args.version
+    if (version) model.version = version
     if (model.tints) {
       const tints = []
       for (const tint of model.tints) {
@@ -1855,8 +1857,8 @@ export async function loadModel(scene, assets, model, args) {
   const daytime = scene?.userData?.daytime ?? { value: parseDaytime(world?.daytime) }
   if (scene) scene.userData.daytime = daytime
   const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
-  if (args?.version && !model.version) model.version = args.version
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
+  if (!model.version && (args?.version ?? assets.version)) model.version = args?.version ?? assets.version
 
   let blockEmission = 0
   if (args?.emission != null) {

@@ -130,7 +130,7 @@ export async function createScene(assets, blocks, args = {}) {
   const worldCfg = lightingArg && typeof lightingArg === "object" ? lightingArg : lightingArg === "world" ? {} : null
   const lighting = worldCfg ? "world" : lightingArg
   const optimize = args.optimize !== false
-  const version = args.version
+  const version = args.version ?? assets.version
   const onProgress = args.onProgress
   const shouldCancel = args.shouldCancel
 

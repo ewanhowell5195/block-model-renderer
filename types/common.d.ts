@@ -306,8 +306,8 @@ export interface SceneLightBlock {
 export interface ComputeSceneLightOptions {
   /** The assets source. */
   assets: AssetsInput
-  /** The Minecraft version the assets are for. */
-  version?: string
+  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
+  version?: string | false
   /** The dimension. Ones without sky light skip the sky seeding. Default `"overworld"`. */
   dimension?: LightDimensionName | LightDimension
   /** Progress while the scene's blocks are processed. The flood fill after the last call is quick. */
@@ -410,8 +410,8 @@ export interface CreateSceneOptions {
   technical?: boolean
   /** Map art callback for framed maps, as on `renderBlock`. */
   mapArt?: MapArtCallback
-  /** The Minecraft version the assets are for. */
-  version?: string
+  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
+  version?: string | false
   /** Skip texture atlas membership rules. Default `false`. */
   ignoreAtlases?: boolean
   /** Merge the built scene with {@link optimizeScene}. Default `true`. */
@@ -502,8 +502,8 @@ export interface ParseBlockstateArgs {
   pos?: [number, number, number]
   /** Skip texture atlas membership rules for the returned models. */
   ignoreAtlases?: boolean
-  /** The Minecraft version the assets are for. */
-  version?: string
+  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
+  version?: string | false
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
   defaults?: "preferred" | "game"
 }
@@ -515,8 +515,8 @@ export interface ParseItemDefinitionArgs {
   display?: DisplayOption
   /** Skip texture atlas membership rules for the returned models. */
   ignoreAtlases?: boolean
-  /** The Minecraft version the assets are for. */
-  version?: string
+  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
+  version?: string | false
 }
 
 /** Placement context handed to placement-aware model loaders. */
@@ -548,8 +548,8 @@ export interface LoadModelArgs {
   animate?: boolean
   /** `false` keeps one mesh per element instead of merging them. Default `true`. */
   mergeElements?: boolean
-  /** The Minecraft version the assets are for. Sets `model.version` if not already present. */
-  version?: string
+  /** The Minecraft version the assets are for, defaulting to the prepared assets' pinned version. Sets `model.version` if not already present; `false` renders unversioned despite a pin. */
+  version?: string | false
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
   defaults?: "preferred" | "game"
 }
@@ -689,8 +689,8 @@ export interface GetCullFacesArgs {
   blockstates?: BlockProperties
   /** The surrounding blocks. */
   neighbors?: Neighbors
-  /** The Minecraft version the assets are for. */
-  version?: string
+  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
+  version?: string | false
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
   defaults?: "preferred" | "game"
 }
@@ -702,8 +702,8 @@ export interface FullyOccludesArgs {
   assets: AssetsInput
   /** The block's blockstate property values. */
   properties?: BlockProperties
-  /** The Minecraft version the assets are for. */
-  version?: string
+  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
+  version?: string | false
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
   defaults?: "preferred" | "game"
 }
@@ -1036,8 +1036,8 @@ export interface RenderOptionsCommon {
   shaderScale?: number
   /** Explicit face directions to drop; overrides `neighbors`. */
   cull?: CullOption
-  /** The Minecraft version the assets are for. */
-  version?: string
+  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
+  version?: string | false
   /** Render without enforcing texture atlas membership rules. Default `false`. */
   ignoreAtlases?: boolean
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
