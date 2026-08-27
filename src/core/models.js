@@ -420,7 +420,7 @@ export function resolveWorldLighting(param) {
     : LIGHT_DIMENSIONS[d] ?? LIGHT_DIMENSIONS.overworld
   const c = dim.cardinalLight
   const cardinal = typeof c === "object" && c ? { ...CARDINAL_LIGHTS.default, ...c } : CARDINAL_LIGHTS[c] ?? CARDINAL_LIGHTS.default
-  return { dim, cardinal, daytime: o.daytime, brightness: Math.max(0, Math.min(1, o.brightness ?? 0.5)), light: o.light }
+  return { dim, cardinal, daytime: o.daytime, brightness: Math.max(0, Math.min(1, o.brightness ?? 0.5)), light: o.light, rotateShade: o.rotateShade !== false }
 }
 
 export function parseDaytime(v) {
@@ -1992,6 +1992,11 @@ export async function loadModel(scene, assets, model, args) {
   lightConfig.skyLightFactor = typeof world?.dim.skyLightFactor === "number" ? world.dim.skyLightFactor : -1
   lightConfig.brightness = world?.brightness ?? 0.5
   lightConfig.cardinal = world?.cardinal
+  if (world && world.rotateShade && settings?.rotation) {
+    const [x, y, z] = settings.rotation
+    const euler = new THREE.Euler(THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z))
+    lightConfig.shadeMat = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(euler)).invert()
+  }
 
   const rootGroup = new THREE.Group()
   const displayGroup = new THREE.Group()
@@ -2848,6 +2853,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       brightness: { value: lightConfig?.brightness ?? 0.5 },
       shadePos: { value: new THREE.Vector3(lightConfig?.cardinal?.up ?? 1, lightConfig?.cardinal?.south ?? 0.8, lightConfig?.cardinal?.east ?? 0.6) },
       shadeNeg: { value: new THREE.Vector3(lightConfig?.cardinal?.down ?? 0.5, lightConfig?.cardinal?.north ?? 0.8, lightConfig?.cardinal?.west ?? 0.6) },
+      shadeMat: { value: lightConfig?.shadeMat ?? new THREE.Matrix3() },
       aoEnabled: { value: ao !== false },
       ...(volume ? volume.uniforms : {}),
     },
@@ -2912,6 +2918,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform float brightness;
       uniform vec3 shadePos;
       uniform vec3 shadeNeg;
+      uniform mat3 shadeMat;
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
@@ -2984,7 +2991,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         if (worldShade) {
           if (shadeOn) {
             bool hasOverride = dot(shadeDirV, shadeDirV) > 0.5;
-            vec3 wn = hasOverride ? shadeDirV : vWorldNormal;
+            vec3 wn = hasOverride ? shadeDirV : shadeMat * vWorldNormal;
             vec3 n2 = wn * wn;
             shade = (n2.y * (wn.y >= 0.0 ? shadePos.x : shadeNeg.x)
               + n2.z * (wn.z >= 0.0 ? shadePos.y : shadeNeg.y)

@@ -283,6 +283,8 @@ export interface WorldLighting {
   brightness?: number
   /** A {@link computeSceneLight} volume for per-block light, or `false` for none. */
   light?: SceneLight | false
+  /** Rotate the shade along with the model, so each face keeps its own axis shade under the display transform. `false` leaves the shade field fixed, blending across faces the display turns between axes. Default `true`. */
+  rotateShade?: boolean
 }
 
 /** A lighting mode name, or a world lighting config object. */

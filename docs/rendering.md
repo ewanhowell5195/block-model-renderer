@@ -66,6 +66,7 @@ lighting: {
 | `daytime` | `"noon"` | Sky brightness through the day/night cycle: a tick `0`-`23999`, or a name (`"day"` 1000, `"noon"` 6000, `"sunset"` 12000, `"night"` 13000, `"midnight"` 18000, `"sunrise"` 23000). Only the overworld cycles; the nether and end have fixed time, so it has no effect there |
 | `brightness` | `0.5` | The in-game brightness setting, `0` (Moody) to `1` (Bright), applied with the game's exact curve. `0.5` is the game's default |
 | `light` | | A [`computeSceneLight`](#scene-lighting) volume for per-block light levels, or `false` for none. Without one, faces get full sky light and only `emission` feeds block light |
+| `rotateShade` | `true` | The shade rotates along with the model: each face keeps its own axis shade under any [display transform](models.md#display-transforms) rotation, so a rotated single-block render shades like the block does in the world, north and south brighter than east and west. `false` leaves the shade field fixed in place instead, blending the constants across faces the display turns between axes |
 
 Each dimension carries the game's lightmap attributes; pass an object as `dimension` to override any of them, with missing fields defaulting to the overworld's. To tweak another dimension instead, spread its preset: `dimension: { ...LIGHT_DIMENSIONS.the_nether, ambientColor: 0x000000 }`.
 

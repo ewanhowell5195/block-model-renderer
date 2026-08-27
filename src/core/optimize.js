@@ -73,7 +73,7 @@ function atlasSignature(m) {
   return ["shader", m.side, u.d0?.value, u.d1?.value, u.ambient?.value,
     u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(","),
     u.blockLightTint?.value?.toArray().join(","), u.skyLightColor?.value?.toArray().join(","), u.ambientColor?.value?.toArray().join(","),
-    u.skyLightFactor?.value, u.brightness?.value, u.shadePos?.value?.toArray().join(","), u.shadeNeg?.value?.toArray().join(","), u.worldShade?.value].join("|")
+    u.skyLightFactor?.value, u.brightness?.value, u.shadePos?.value?.toArray().join(","), u.shadeNeg?.value?.toArray().join(","), u.shadeMat?.value?.elements?.join(","), u.worldShade?.value].join("|")
 }
 
 function faceDataOf(m) {
