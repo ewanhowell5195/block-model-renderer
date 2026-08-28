@@ -2146,7 +2146,12 @@ export async function loadModel(scene, assets, model, args) {
     geo.index.needsUpdate = true
     if (heights.angle != null) {
       let texRef = "#flow"
-      while (texRef && texRef.startsWith("#")) texRef = model.textures?.[texRef.slice(1)]
+      const seenRefs = new Set()
+      while (texRef && texRef.startsWith("#") && !seenRefs.has(texRef)) {
+        seenRefs.add(texRef)
+        texRef = model.textures?.[texRef.slice(1)]
+      }
+      if (texRef?.startsWith("#")) texRef = undefined
       for (const [idx, side] of [[2, false], [8, "back"]]) {
         const mkey = `${texRef ?? ""}\0${side}\0flow`
         let material = materialCache.get(mkey)
@@ -2310,9 +2315,12 @@ export async function loadModel(scene, assets, model, args) {
           faceTints[i] = model.tints[face.tintindex]
         }
 
-        while (texRef && texRef.startsWith("#")) {
+        const seenRefs = new Set()
+        while (texRef && texRef.startsWith("#") && !seenRefs.has(texRef)) {
+          seenRefs.add(texRef)
           texRef = model.textures?.[texRef.slice(1)]
         }
+        if (texRef?.startsWith("#")) texRef = undefined
 
         const legacyShade = !model.version || isBefore(model.version, "26.3")
         const modernShade = !model.version || !isBefore(model.version, "26.3")
@@ -2541,8 +2549,12 @@ export async function loadModel(scene, assets, model, args) {
           },
           resolveTexture: ref => {
             let t = ref
-            while (typeof t === "string" && t.startsWith("#")) t = model.textures?.[t.slice(1)]
-            return t
+            const seen = new Set()
+            while (typeof t === "string" && t.startsWith("#") && !seen.has(t)) {
+              seen.add(t)
+              t = model.textures?.[t.slice(1)]
+            }
+            return typeof t === "string" && t.startsWith("#") ? undefined : t
           },
           createMaterial: async (id, opts = {}) => {
             const shadeDir = SHADE_DIR_VECS[opts.shade_direction] ? opts.shade_direction : null
