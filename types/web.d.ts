@@ -48,6 +48,8 @@ export interface Player {
   animated: boolean
   /** Whether playback is running. */
   readonly playing: boolean
+  /** Called after every repaint of the canvases: animation ticks, `renderTime`/`renderFrame`, and retargets. */
+  onUpdate: (() => void) | null
   /** Resume playback, snapping back onto the global clock so it stays in phase. */
   play(): void
   /** Stop playback. */
@@ -92,6 +94,8 @@ export interface TexturePlayer {
   animated: boolean
   /** Whether playback is running. */
   readonly playing: boolean
+  /** Called after every repaint of the canvases. */
+  onUpdate: (() => void) | null
   /** Total loop length in ms. */
   readonly duration: number
   /** Resume playback, snapping back onto the global clock. */

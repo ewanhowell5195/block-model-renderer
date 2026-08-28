@@ -296,6 +296,7 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
       prof.blit += performance.now() - t1
       prof.draws++
     }
+    player.onUpdate?.()
   }
 
   let timeline = null
@@ -339,6 +340,7 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
     canvas: targetCanvases(targets),
     animated: schedules.length > 0 || gameTimeMats.length > 0 || dynamic,
     playing: false,
+    onUpdate: null,
     _dynamic: dynamic,
     _visible: true,
     _lastTick: null,
@@ -668,7 +670,9 @@ export async function renderTexture(args = {}) {
       sctx.globalCompositeOperation = "source-over"
     }
     for (let i = 0; i < targets.length; i++) blit(targets[i], scratch, w, h, snapshots[i])
+    activePlayer?.onUpdate?.()
   }
+  let activePlayer = null
   let texture = await readTexture(args.texture, args.assets, args.animated ? { onChange: draw } : undefined)
   if (!texture) {
     const image = await core.getMissingImage(await core.prepareAssets(args.assets))
@@ -704,6 +708,7 @@ export async function renderTexture(args = {}) {
     const player = {
       canvas,
       animated: true,
+      onUpdate: null,
       duration: texture.times.reduce((total, t) => total + t, 0) * 50,
       get playing() { return sub.playing },
       play() { sub.play() },
@@ -723,6 +728,7 @@ export async function renderTexture(args = {}) {
         texture.stop()
       }
     }
+    activePlayer = player
     return player
   }
   if (args.animated) {
