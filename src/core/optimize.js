@@ -630,7 +630,7 @@ async function sharedLocate(shared, sheet, tex) {
   page.ctx.drawImage(img, 0, 0, 1, ih, dx - 1, dy, 1, ih)
   page.ctx.drawImage(img, iw - 1, 0, 1, ih, dx + iw, dy, 1, ih)
   if (tex.userData?.frames) {
-    ;(page.texture.userData.regions ??= []).push({ x: dx, y: dy, w: iw, h: ih, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate })
+    ;(page.texture.userData.regions ??= []).push({ x: dx, y: dy, w: iw, h: ih, name: tex.userData.name, order: tex.userData.order, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate })
   }
   let subbed = false
   if (shared.renderer) {

@@ -9,8 +9,8 @@ export function setAnimationRenderer(renderer) { _animRenderer = renderer }
 
 function textureChannels(tex) {
   const regions = tex.userData.regions
-  if (!regions) return [{ tex, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate, region: null }]
-  return regions.map(r => ({ tex, frames: r.frames, times: r.times, interpolate: !!r.interpolate, region: r }))
+  if (!regions) return [{ tex, name: tex.userData.name, order: tex.userData.order, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate, region: null }]
+  return regions.map(r => ({ tex, name: r.name ?? tex.userData.name, order: r.order, frames: r.frames, times: r.times, interpolate: !!r.interpolate, region: r }))
 }
 
 export function applyFrame(s, image) {
@@ -152,9 +152,11 @@ export function buildAnimation(image, meta) {
   const defaultTime = meta.frametime ?? 1
   let playback
   let playbackTimes
+  let order
   if (Array.isArray(meta.frames)) {
     playback = []
     playbackTimes = []
+    order = []
     for (const entry of meta.frames) {
       const index = typeof entry === "number" ? entry : entry.index
       const time = typeof entry === "number" ? defaultTime : (entry.time ?? defaultTime)
@@ -162,14 +164,16 @@ export function buildAnimation(image, meta) {
       if (!canvas) continue
       playback.push(canvas)
       playbackTimes.push(time)
+      order.push(index)
     }
   }
   if (!playback?.length) {
     playback = stripFrames
     playbackTimes = stripFrames.map(() => defaultTime)
+    order = stripFrames.map((_, i) => i)
   }
 
-  return { image: playback[0], frames: playback, times: playbackTimes, interpolate: !!meta.interpolate, animated: playback.length > 1 }
+  return { image: playback[0], frames: playback, times: playbackTimes, order, interpolate: !!meta.interpolate, animated: playback.length > 1 }
 }
 
 export async function readTexture(path, assets) {
@@ -178,15 +182,16 @@ export async function readTexture(path, assets) {
   const image = await loadImage(buf)
   let meta = null
   try { meta = parseJson(await readFile(path + ".mcmeta", assets, buf.hintIndex)) } catch {}
-  const anim = meta?.animation ? buildAnimation(image, meta.animation) : { image, frames: [image], times: [1], interpolate: false, animated: false }
+  const anim = meta?.animation ? buildAnimation(image, meta.animation) : { image, frames: [image], times: [1], order: [0], interpolate: false, animated: false }
   const boundaries = [0]
   let total = 0
   for (const t of anim.times) boundaries.push(total += t)
   let lastKey = null, lastFrame = anim.frames[0]
-  return {
+  const texture = {
     ...anim,
     meta,
     current: anim.frames[0],
+    playhead: playheadOf(anim, 0, 0),
     stop() {},
     frameAt(tick) {
       if (!anim.animated) return anim.frames[0]
@@ -199,6 +204,7 @@ export async function readTexture(path, assets) {
         }
       }
       const ratio = anim.interpolate ? (t - boundaries[idx]) / anim.times[idx] : 0
+      texture.playhead = playheadOf(anim, idx, ratio)
       const key = idx + ":" + Math.round(ratio * 1000)
       if (key !== lastKey) {
         lastKey = key
@@ -209,6 +215,17 @@ export async function readTexture(path, assets) {
       return lastFrame
     }
   }
+  return texture
+}
+
+export function playheadOf(anim, idx, ratio) {
+  const detail = { frame: anim.order?.[idx] ?? idx }
+  if (anim.interpolate && ratio > 0) {
+    const next = (idx + 1) % anim.frames.length
+    detail.next = anim.order?.[next] ?? next
+    detail.progress = ratio
+  }
+  return detail
 }
 
 export function applyTint(img, tint) {
@@ -264,7 +281,7 @@ export function buildSchedules(textures) {
     const boundaries = [0]
     let acc = 0
     for (const t of times) boundaries.push(acc += t)
-    return { tex: ch.tex, region: ch.region, frames, times, total: acc, boundaries, interpolate: ch.interpolate, lastKey: null }
+    return { tex: ch.tex, name: ch.name, order: ch.order, region: ch.region, frames, times, total: acc, boundaries, interpolate: ch.interpolate, lastKey: null, playhead: playheadOf(ch, 0, 0) }
   })
 }
 
@@ -297,6 +314,7 @@ export function evaluateAnimation(schedules, shaders, tickTime) {
     }
     if (key !== s.lastKey) {
       s.lastKey = key
+      s.playhead = playheadOf(s, idx, ratio)
       applyFrame(s, s.interpolate
         ? interpolateFrames(s.frames[idx], s.frames[(idx + 1) % s.frames.length], ratio)
         : s.frames[idx])

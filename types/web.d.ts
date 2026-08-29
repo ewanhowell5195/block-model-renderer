@@ -41,6 +41,20 @@ export type CanvasTarget = BrowserCanvas | Array<BrowserCanvas | CanvasDescripto
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/standard-api.md#animated-renders-browser
  */
+/**
+ * Where an animated texture's playback currently is, as reported by
+ * {@link Player.onUpdate} and {@link TexturePlayer.onUpdate}. Frame numbers
+ * index the texture's spritesheet, not the mcmeta playback timeline.
+ */
+export interface AnimationPlayhead {
+  /** The spritesheet frame currently showing. */
+  frame: number
+  /** During an interpolated blend, the spritesheet frame fading in. */
+  next?: number
+  /** During an interpolated blend, how faded in `next` is, 0-1. */
+  progress?: number
+}
+
 export interface Player {
   /** The canvas being painted: the one you passed, or a new one. An array if `canvas` was one. */
   canvas: BrowserCanvas | BrowserCanvas[]
@@ -48,8 +62,13 @@ export interface Player {
   animated: boolean
   /** Whether playback is running. */
   readonly playing: boolean
-  /** Called after every repaint of the canvases: animation ticks, `renderTime`/`renderFrame`, and retargets. */
-  onUpdate: (() => void) | null
+  /**
+   * Called after every repaint of the canvases: animation ticks,
+   * `renderTime`/`renderFrame`, and retargets. `detail.textures` maps each
+   * animated texture to its {@link AnimationPlayhead}; `detail` is `undefined`
+   * when the repaint had no frame-based textures (dynamic parts, shaders).
+   */
+  onUpdate: ((detail?: { textures: Record<string, AnimationPlayhead> }) => void) | null
   /** Resume playback, snapping back onto the global clock so it stays in phase. */
   play(): void
   /** Stop playback. */
@@ -94,8 +113,8 @@ export interface TexturePlayer {
   animated: boolean
   /** Whether playback is running. */
   readonly playing: boolean
-  /** Called after every repaint of the canvases. */
-  onUpdate: (() => void) | null
+  /** Called after every repaint of the canvases with the texture's {@link AnimationPlayhead}. */
+  onUpdate: ((detail?: AnimationPlayhead) => void) | null
   /** Total loop length in ms. */
   readonly duration: number
   /** Resume playback, snapping back onto the global clock. */

@@ -276,7 +276,7 @@ To freeze everything at once, pause the clock itself with [`pauseAnimations()`](
 | `canvas` | The canvas being painted (the one you passed, or a new one) |
 | `animated` | `false` if the model turned out to have nothing to animate; the canvas just holds a static render and everything else no-ops |
 | `playing` | Whether playback is running |
-| `onUpdate` | Set to a function to be called after every repaint of the canvases: animation ticks, `renderTime`/`renderFrame`, and retargets |
+| `onUpdate` | Set to a function to be called after every repaint of the canvases: animation ticks, `renderTime`/`renderFrame`, and retargets. Receives the playhead detail below |
 | `play()` / `pause()` | Resume / stop playback. Resuming snaps back onto the global clock |
 | `frames` | Timeline metadata for one loop: `[{ time, duration }, ...]` in ms. Computed lazily; `maxAnimationFrames` caps this enumeration only |
 | `duration` | Total loop length in ms |
@@ -287,6 +287,16 @@ To freeze everything at once, pause the clock itself with [`pauseAnimations()`](
 | `dispose()` | Stop playback and free the scene and GPU textures. Call it when you remove the canvas; animated renders are the one place the library holds resources |
 
 `frames` is metadata, not bitmaps. To get a specific frame's image, `player.renderFrame(i)` paints it into `player.canvas`.
+
+`onUpdate` receives where each animated texture's playback is, keyed by texture id:
+
+```js
+player.onUpdate = detail => {
+  detail.textures // { "minecraft:block/prismarine": { frame: 0, next: 3, progress: 0.4 } }
+}
+```
+
+`frame` is the spritesheet frame showing, not the mcmeta timeline position, and `next`/`progress` (0-1) appear while an interpolated blend fades the next frame in. A repaint with no frame-based textures (dynamic parts, the end portal shader) passes nothing.
 
 Interpolated textures (`interpolate` in the mcmeta) are blended per tick with the exact ratio.
 

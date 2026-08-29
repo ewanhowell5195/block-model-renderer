@@ -1790,6 +1790,8 @@ export async function loadSpriteTexture(path, assets) {
     texture.userData.frames = loaded.frames
     texture.userData.times = loaded.times
     texture.userData.interpolate = loaded.interpolate
+    texture.userData.order = loaded.order
+    texture.userData.name = path.replace(/^assets\/([^/]+)\/textures\//, "$1:").replace(/\.png$/, "")
   }
   return texture
 }
@@ -2000,6 +2002,11 @@ export async function loadModel(scene, assets, model, args) {
       texture.userData.frames = frames
       texture.userData.times = loaded.times
       texture.userData.interpolate = loaded.interpolate
+      texture.userData.order = loaded.order
+      if (id != null) {
+        const { namespace, item } = resolveNamespace(id)
+        texture.userData.name = `${namespace}:${item}`
+      }
     }
 
     if (direct) return texture

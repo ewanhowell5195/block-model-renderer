@@ -296,7 +296,16 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
       prof.blit += performance.now() - t1
       prof.draws++
     }
-    player.onUpdate?.()
+    if (player.onUpdate) player.onUpdate(drawDetail())
+  }
+
+  function drawDetail() {
+    if (!schedules.length) return undefined
+    const textures = {}
+    for (let i = 0; i < schedules.length; i++) {
+      textures[schedules[i].name ?? "#" + i] = schedules[i].playhead
+    }
+    return { textures }
   }
 
   let timeline = null
@@ -670,7 +679,7 @@ export async function renderTexture(args = {}) {
       sctx.globalCompositeOperation = "source-over"
     }
     for (let i = 0; i < targets.length; i++) blit(targets[i], scratch, w, h, snapshots[i])
-    activePlayer?.onUpdate?.()
+    activePlayer?.onUpdate?.(texture.animated ? texture.playhead : undefined)
   }
   let activePlayer = null
   let texture = await readTexture(args.texture, args.assets, args.animated ? { onChange: draw } : undefined)
