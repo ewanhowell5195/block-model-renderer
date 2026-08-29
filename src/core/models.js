@@ -1,4 +1,4 @@
-import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace, isBefore } from "./platform.js"
+import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace, isBefore, isImage } from "./platform.js"
 import { COLORS, parseColor, getPotionColor } from "./colors.js"
 import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
@@ -1264,8 +1264,8 @@ async function loadMinecraftTexture(path, assets, type) {
   const buf = await readFile(path, assets)
   if (!buf) return { image: await getMissingImage(assets) }
 
-  const cls = await classifyPngAlpha(buf, assets.translucency).catch(() => null)
-  const srcHash = hashBytes(buf)
+  const cls = isImage(buf) ? null : await classifyPngAlpha(buf, assets.translucency).catch(() => null)
+  const srcHash = isImage(buf) ? null : hashBytes(buf)
   const image = await loadImage(buf)
 
   let meta

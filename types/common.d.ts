@@ -23,12 +23,23 @@ export type ZipInput = Uint8Array | ArrayBuffer | BlobLike
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#virtual-handlers
  */
 export interface VirtualHandler {
-  /** Return the file's contents, or `null`/`undefined` when it doesn't exist. */
-  read(filePath: string): Uint8Array | string | null | undefined | Promise<Uint8Array | string | null | undefined>
+  /**
+   * Return the file's contents, or `null`/`undefined` when it doesn't exist.
+   * Texture files can also be returned as ready images: anything with numeric
+   * `width`/`height` the platform can draw, like a canvas, `ImageBitmap`,
+   * `Image`, or `ImageData`.
+   */
+  read(filePath: string): Uint8Array | string | VirtualImage | null | undefined | Promise<Uint8Array | string | VirtualImage | null | undefined>
   /** Return the filenames in a directory. */
   list(dir: string): string[] | Promise<string[]>
   /** Return `true` to hide this file from lower-priority entries, like a pack's `pack.mcmeta` filter block. */
   filter?(filePath: string): boolean
+}
+
+/** A ready image a {@link VirtualHandler} can return for a texture file. */
+export interface VirtualImage {
+  width: number
+  height: number
 }
 
 /**

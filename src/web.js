@@ -40,6 +40,9 @@ function init() {
 }
 
 async function loadImage(data) {
+  if (data != null && typeof data === "object" && typeof data.width === "number" && typeof data.height === "number") {
+    return createImageBitmap(data, { premultiplyAlpha: "none", colorSpaceConversion: "none" })
+  }
   const blob = data instanceof Blob ? data : new Blob([data])
   return createImageBitmap(blob, { premultiplyAlpha: "none", colorSpaceConversion: "none" })
 }

@@ -1,4 +1,4 @@
-import { platform, loadImage, toBytes, parseJson, textDecoder, normalize, resolveNamespace, isBefore } from "./platform.js"
+import { platform, loadImage, toBytes, isImage, parseJson, textDecoder, normalize, resolveNamespace, isBefore } from "./platform.js"
 import { parseZip, parseZipSlices, zipEntryData } from "../zip.js"
 import fallbackData from "./data/fallbacks.json" with { type: "json" }
 import defaultBlockstatesData from "./data/default_blockstates.json" with { type: "json" }
@@ -682,7 +682,7 @@ export async function readFile(file, assets, hint) {
       try {
         const data = await entry.read(file)
         if (data !== undefined && data !== null && data !== false) {
-          const buf = toBytes(data)
+          const buf = isImage(data) ? data : toBytes(data)
           buf.path = file
           buf.hintIndex = i
           return buf

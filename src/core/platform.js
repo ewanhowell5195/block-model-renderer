@@ -17,6 +17,10 @@ export function toBytes(data) {
   return new Uint8Array(data)
 }
 
+export function isImage(data) {
+  return data != null && typeof data === "object" && typeof data.width === "number" && typeof data.height === "number"
+}
+
 export function isBefore(version, target) {
   const parse = s => s.split("-")[0].split(".").map(n => +n || 0)
   const a = parse(version), b = parse(target)

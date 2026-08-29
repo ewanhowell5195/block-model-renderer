@@ -73,7 +73,17 @@ setPlatform({
   loadTexture,
   render,
   Canvas,
-  loadImage,
+  loadImage(data) {
+    if (data != null && typeof data === "object" && typeof data.width === "number" && typeof data.height === "number") {
+      if (data instanceof Canvas || data instanceof Image) return data
+      const canvas = new Canvas(data.width, data.height)
+      const ctx = canvas.getContext("2d")
+      if (data instanceof ImageData) ctx.putImageData(data, 0, 0)
+      else ctx.drawImage(data, 0, 0)
+      return canvas
+    }
+    return loadImage(data)
+  },
   maxAnimationPixels: 268402689,
   batchedMesh: false,
 

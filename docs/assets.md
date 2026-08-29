@@ -53,7 +53,7 @@ await renderBlock({ id: "stone", assets: handler, path: "out.png" })
 
 | Method | Required | Description |
 |---|---|---|
-| `read(filePath)` | yes | Return file contents (`Buffer`, `Uint8Array`, or `string`), or `null` / `undefined` if the file doesn't exist |
+| `read(filePath)` | yes | Return file contents (`Buffer`, `Uint8Array`, or `string`), or `null` / `undefined` if the file doesn't exist. Texture files can also be returned as ready images: a canvas, `ImageBitmap`, `Image`, or `ImageData` (in Node, from `skia-canvas`) |
 | `list(dir)` | yes | Return an array of filenames in the given directory |
 | `filter(filePath)` | no | Return `true` to hide this file from lower-priority entries |
 
