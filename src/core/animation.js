@@ -346,7 +346,7 @@ export function interpolateFrames(a, b, ratio) {
     out.data[i]     = Math.round(da[i]     * inv + db[i]     * ratio)
     out.data[i + 1] = Math.round(da[i + 1] * inv + db[i + 1] * ratio)
     out.data[i + 2] = Math.round(da[i + 2] * inv + db[i + 2] * ratio)
-    out.data[i + 3] = da[i + 3]
+    out.data[i + 3] = Math.round(da[i + 3] * inv + db[i + 3] * ratio)
   }
   ctx.putImageData(out, 0, 0)
   return canvas
