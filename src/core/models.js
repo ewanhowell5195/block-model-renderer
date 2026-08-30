@@ -1707,9 +1707,7 @@ async function resolveSpecialModel(assets, data, base) {
       model.textures = { bed: `entity/bed/${normalize(data.texture)}` }
       if (data.part) {
         rotation = [-90, 180, 0]
-      } else {
-        translation = [0, 1.75, 4]
-        scale = [0.5, 0.5, 0.5]
+        translation = [0, 0, -7]
       }
       break
     case "chest": {
