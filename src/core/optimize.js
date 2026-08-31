@@ -1115,6 +1115,35 @@ export async function optimizeScene(placements, opts = {}) {
 
   stage(3000)
   const blockT = new THREE.Matrix4(), full = new THREE.Matrix4(), nmat = new THREE.Matrix3()
+  const dynKeys = new WeakMap()
+  function dynKeyFor(geo, mat) {
+    if (Array.isArray(mat)) return geoHash(geo) + "|" + mat.map(x => matSignature(x) + (matMap(x)?.uuid ?? "")).join(",")
+    let byMat = dynKeys.get(geo)
+    if (!byMat) dynKeys.set(geo, byMat = new WeakMap())
+    let k = byMat.get(mat)
+    if (k === undefined) byMat.set(mat, k = geoHash(geo) + "|" + matSignature(mat) + (matMap(mat)?.uuid ?? ""))
+    return k
+  }
+
+  const cloneNode = (s, root) => {
+    const d = s.isMesh ? new THREE.Mesh(s.geometry, s.material)
+      : s.isLineSegments ? new THREE.LineSegments(s.geometry, s.material)
+      : new THREE.Group()
+    d.name = s.name
+    d.userData = root ? { ...s.userData } : s.userData
+    d.visible = s.visible
+    d.renderOrder = s.renderOrder
+    d.matrixAutoUpdate = s.matrixAutoUpdate
+    d.position.copy(s.position)
+    d.quaternion.copy(s.quaternion)
+    d.scale.copy(s.scale)
+    d.matrix.copy(s.matrix)
+    d.matrixWorldNeedsUpdate = true
+    d.onBeforeRender = s.onBeforeRender
+    for (const ch of s.children) d.add(cloneNode(ch, false))
+    return d
+  }
+
   const dynamicInstances = [], dynBuckets = new Map(), bbBuckets = new Map(), lineBuckets = new Map()
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
@@ -1159,7 +1188,7 @@ export async function optimizeScene(placements, opts = {}) {
       holder.matrixAutoUpdate = false
       holder.matrix.multiplyMatrices(blockT, d.parentMatrix)
       holder.matrixWorldNeedsUpdate = true
-      const inst = d.node.clone()
+      const inst = cloneNode(d.node, true)
       const meshes = []
       inst.traverse(o => { if (o.isMesh || o.isLineSegments) meshes.push(o) })
       for (const m of meshes) {
@@ -1170,7 +1199,7 @@ export async function optimizeScene(placements, opts = {}) {
           continue
         }
         if (inPart) {
-          const key = geoHash(m.geometry) + "|" + [].concat(m.material).map(x => matSignature(x) + (matMap(x)?.uuid ?? "")).join(",")
+          const key = dynKeyFor(m.geometry, m.material)
           let bucket = dynBuckets.get(key)
           if (!bucket) dynBuckets.set(key, bucket = { geometry: m.geometry, material: m.material, entries: [] })
           bucket.entries.push({ parent: m.parent, local: m.matrix.clone(), root: inst })
