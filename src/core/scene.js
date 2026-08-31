@@ -421,6 +421,7 @@ export async function createScene(assets, blocks, args = {}) {
       inst.position.set(cell.pos[0] * 16, cell.pos[1] * 16, cell.pos[2] * 16)
       group.add(inst)
       inst.traverse(o => {
+        if (o.isLineSegments) { drawCalls++; return }
         if (!o.isMesh) return
         if (o.userData.billboard) o.onBeforeRender = billboardBeforeRender
         drawCalls++
@@ -434,6 +435,7 @@ export async function createScene(assets, blocks, args = {}) {
       inst.position.set(o.pos[0] * 16, o.pos[1] * 16, o.pos[2] * 16)
       group.add(inst)
       inst.traverse(m => {
+        if (m.isLineSegments) { drawCalls++; return }
         if (!m.isMesh) return
         if (m.userData.billboard) m.onBeforeRender = billboardBeforeRender
         drawCalls++
@@ -476,7 +478,7 @@ export async function createScene(assets, blocks, args = {}) {
       optimized?.dispose()
       if (computeLight) light?.dispose?.()
       const cachedGeos = new Set()
-      for (const e of usedEntries) e.group.traverse(o => { if (o.isMesh) cachedGeos.add(o.geometry) })
+      for (const e of usedEntries) e.group.traverse(o => { if (o.isMesh || o.isLineSegments) cachedGeos.add(o.geometry) })
       if (!this.__released) {
         this.__released = true
         for (const e of usedEntries) e.users--
@@ -484,13 +486,13 @@ export async function createScene(assets, blocks, args = {}) {
       }
       for (const t of templates ?? []) {
         t.group.traverse(o => {
-          if (!o.isMesh) return
+          if (!o.isMesh && !o.isLineSegments) return
           if (!cachedGeos.has(o.geometry)) { try { o.geometry?.dispose() } catch {} }
           for (const m of [].concat(o.material)) { try { m?.dispose?.() } catch {} }
         })
       }
       group.traverse(o => {
-        if (!o.isMesh) return
+        if (!o.isMesh && !o.isLineSegments) return
         for (const m of [].concat(o.material)) { try { m?.dispose?.() } catch {} }
         if (cachedGeos.has(o.geometry)) return
         try { o.geometry?.dispose() } catch {}

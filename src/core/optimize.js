@@ -1304,7 +1304,7 @@ export async function optimizeScene(placements, opts = {}) {
       if (this.__disposed) return
       this.__disposed = true
       sorter.detach()
-      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh || o.isBatchedMesh) { try { o.dispose() } catch {} } } })
+      group.traverse(o => { if (o.isMesh || o.isLineSegments) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh || o.isBatchedMesh) { try { o.dispose() } catch {} } } })
       for (const m of created.materials) { try { m.dispose() } catch {} }
       for (const e of created.atlasEntries) { try { releaseAtlas(e) } catch {} }
       group.removeFromParent()

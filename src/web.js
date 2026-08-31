@@ -122,7 +122,7 @@ function renderScene(scene, camera, width, height, background) {
 
 function disposeScene(scene) {
   scene.traverse(obj => {
-    if (!obj.isMesh) return
+    if (!obj.isMesh && !obj.isLineSegments) return
     obj.geometry?.dispose()
     for (const mat of Array.isArray(obj.material) ? obj.material : [obj.material]) {
       if (!mat) continue

@@ -299,7 +299,7 @@ export async function renderModelScene(scene, camera, args) {
   scene.updateMatrixWorld(true)
   const v = new THREE.Vector3()
   scene.traverse(obj => {
-    if (obj.isMesh && !obj.userData.sky) {
+    if ((obj.isMesh || obj.isLineSegments) && !obj.userData.sky) {
       const positions = obj.geometry.attributes.position
       let maxZ = -Infinity
       for (let i = 0; i < positions.count; i++) {
