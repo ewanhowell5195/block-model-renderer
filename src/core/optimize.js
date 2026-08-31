@@ -380,6 +380,8 @@ function greedyRects(cellSet) {
   return rects
 }
 
+const GROW_IN_PLACE = typeof ArrayBuffer.prototype.transfer === "function"
+
 class GrowI32 {
   constructor() { this.a = new Int32Array(4096); this.length = 0 }
   push3(x, y, z) {
@@ -401,13 +403,21 @@ class GrowU8 {
     if (this.length + n <= this.a.length) return
     let cap = this.a.length * 2
     while (cap < this.length + n) cap *= 2
+    if (GROW_IN_PLACE) {
+      this.a = new Uint8Array(this.a.buffer.transfer(cap * 1))
+      return
+    }
     const b = new Uint8Array(cap)
     b.set(this.a)
     this.a = b
   }
   push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
   append(v) { if (!v.length) return; this.ensure(v.length); this.a.set(v, this.length); this.length += v.length }
-  data() { return this.a.length === this.length ? this.a : this.a.slice(0, this.length) }
+  data() {
+    if (this.a.length === this.length) return this.a
+    if (GROW_IN_PLACE) return this.a = new Uint8Array(this.a.buffer.transfer(this.length * 1))
+    return this.a.slice(0, this.length)
+  }
 }
 
 class GrowF32 {
@@ -416,6 +426,10 @@ class GrowF32 {
     if (this.length + n <= this.a.length) return
     let cap = this.a.length * 2
     while (cap < this.length + n) cap *= 2
+    if (GROW_IN_PLACE) {
+      this.a = new Float32Array(this.a.buffer.transfer(cap * 4))
+      return
+    }
     const b = new Float32Array(cap)
     b.set(this.a)
     this.a = b
@@ -423,7 +437,11 @@ class GrowF32 {
   push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
   append(v) { if (!v.length) return; this.ensure(v.length); this.a.set(v, this.length); this.length += v.length }
   push2(x, y) { this.ensure(2); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; this.length = l + 2 }
-  data() { return this.a.length === this.length ? this.a : this.a.slice(0, this.length) }
+  data() {
+    if (this.a.length === this.length) return this.a
+    if (GROW_IN_PLACE) return this.a = new Float32Array(this.a.buffer.transfer(this.length * 4))
+    return this.a.slice(0, this.length)
+  }
 }
 const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8() })
 
@@ -989,7 +1007,7 @@ export async function optimizeScene(placements, opts = {}) {
   for (let g = grids.length - 1; g >= 0; g--) if (rectAt[g] === rectRun.length) rectAt[g] = rectAt[g + 1]
 
   const greedyQuads = []
-  const pseudoCache = new Map()
+  const pseudoCache = []
   stage(2500)
   let gi = 0
   for (const grid of grids) {
@@ -1010,9 +1028,11 @@ export async function optimizeScene(placements, opts = {}) {
         const wALo = grid.phaseA + ci * f.wa, wAHi = grid.phaseA + (ei + 1) * f.wa
         const wBLo = grid.phaseB + cj * f.wb, wBHi = grid.phaseB + (ej + 1) * f.wb
         const ur = f.uAxisIsPa ? Na : Nb, vr = f.uAxisIsPa ? Nb : Na
-        const pk = f.cellKey + "|" + ur + "x" + vr
-        let pseudo = pseudoCache.get(pk)
-        if (!pseudo) pseudoCache.set(pk, pseudo = { image: tiledSub(f.tex.image, f.cellKey, f.sub, ur, vr), colorSpace: f.tex.colorSpace })
+        let byCell = pseudoCache[f.cid]
+        if (!byCell) pseudoCache[f.cid] = byCell = new Map()
+        const pk = ur * 4096 + vr
+        let pseudo = byCell.get(pk)
+        if (!pseudo) byCell.set(pk, pseudo = { image: tiledSub(f.tex.image, f.cellKey, f.sub, ur, vr), colorSpace: f.tex.colorSpace })
         grp.textures.add(pseudo)
         greedyQuads.push({ sig, pseudo, f, wpc: grid.wpc, wALo, wAHi, wBLo, wBHi })
       }
@@ -1226,12 +1246,31 @@ export async function optimizeScene(placements, opts = {}) {
   let wasmEmit = accList.length > 0 && wasmLoaded()
   const mark = accList.map(a => [a.P.length, a.N.length, a.U.length, a.F.length, a.T.length])
   if (wasmEmit) {
+    const qAcc = new Int32Array(greedyQuads.length)
+    const qRect = new Array(greedyQuads.length)
+    const qSize = new Array(greedyQuads.length)
+    const verts = new Int32Array(accList.length)
+    for (let i = 0; i < greedyQuads.length; i++) {
+      const q = greedyQuads[i]
+      const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo)
+      const ai = accId.get(at.accs[rect.ai])
+      qAcc[i] = ai
+      qRect[i] = rect
+      qSize[i] = at.sizes[rect.ai]
+      verts[ai] += 6
+    }
+    for (let i = 0; i < accList.length; i++) {
+      const a = accList[i], n = verts[i]
+      if (!n) continue
+      a.P.ensure(n * 3); a.N.ensure(n * 3); a.U.ensure(n * 2); a.T.ensure(n * 3)
+    }
+
     const quadBuf = new Float64Array(BATCH * QUAD_STRIDE)
     let used = 0, done = 0
-    for (const q of greedyQuads) {
-      const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo), s = at.sizes[rect.ai], f = q.f
+    for (let i = 0; i < greedyQuads.length; i++) {
+      const q = greedyQuads[i], rect = qRect[i], s = qSize[i], f = q.f
       const o = used * QUAD_STRIDE
-      quadBuf[o] = accId.get(at.accs[rect.ai])
+      quadBuf[o] = qAcc[i]
       quadBuf[o + 1] = faceIndex(f)
       quadBuf[o + 2] = q.wpc
       quadBuf[o + 3] = q.wALo; quadBuf[o + 4] = q.wAHi

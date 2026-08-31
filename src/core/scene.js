@@ -224,6 +224,27 @@ export async function createScene(assets, blocks, args = {}) {
   // the cull key is the cell's own state plus its six neighbours, packed into
   // two integers rather than built as a string. -1 is "nothing there" and -2 is
   // "occluded from outside", which sit just past the palette
+  let dx0 = Infinity, dy0 = Infinity, dz0 = Infinity, dx1 = -Infinity, dy1 = -Infinity, dz1 = -Infinity
+  for (const c of cells.values()) {
+    const p = c.pos
+    if (p[0] < dx0) dx0 = p[0]
+    if (p[0] > dx1) dx1 = p[0]
+    if (p[1] < dy0) dy0 = p[1]
+    if (p[1] > dy1) dy1 = p[1]
+    if (p[2] < dz0) dz0 = p[2]
+    if (p[2] > dz1) dz1 = p[2]
+  }
+  const dW = dx1 - dx0 + 3, dH = dy1 - dy0 + 3, dD = dz1 - dz0 + 3
+  const dVol = cells.size ? dW * dH * dD : 0
+  let dense = null
+  if (dVol > 0 && dVol <= 12e6) {
+    dense = new Int32Array(dVol).fill(-1)
+    for (const c of cells.values()) {
+      const p = c.pos
+      dense[((p[2] - dz0 + 1) * dH + (p[1] - dy0 + 1)) * dW + (p[0] - dx0 + 1)] = c.palette
+    }
+  }
+
   const cullMemo = new Map()
   const CB = palette.length + 2
   const CB3 = CB * CB * CB
@@ -241,10 +262,18 @@ export async function createScene(assets, blocks, args = {}) {
 
     const px = cell.pos[0], py = cell.pos[1], pz = cell.pos[2]
     for (let di = 0; di < 6; di++) {
-      const [dx, dy, dz] = DIR_VECS[di]
-      const c = cells.get(PK(px + dx, py + dy, pz + dz))
-      if (c) _nbr[di] = c.palette
-      else if (args.externalOcclusion?.(px + dx, py + dy, pz + dz)) _nbr[di] = -2
+      const v = DIR_VECS[di]
+      const nx = px + v[0], ny = py + v[1], nz = pz + v[2]
+      let pal = -1
+      if (dense) {
+        const ix = nx - dx0 + 1, iy = ny - dy0 + 1, iz = nz - dz0 + 1
+        if (ix >= 0 && iy >= 0 && iz >= 0 && ix < dW && iy < dH && iz < dD) pal = dense[(iz * dH + iy) * dW + ix]
+      } else {
+        const c = cells.get(PK(nx, ny, nz))
+        if (c) pal = c.palette
+      }
+      if (pal >= 0) _nbr[di] = pal
+      else if (args.externalOcclusion?.(nx, ny, nz)) _nbr[di] = -2
       else _nbr[di] = -1
     }
     let hi, lo, bucket
