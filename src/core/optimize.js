@@ -1046,7 +1046,7 @@ export async function optimizeScene(placements, opts = {}) {
       }
     }
     for (const l of td.lines ?? []) {
-      const key = matSignature(l.material) + "|" + (l.material?.color?.getHexString?.() ?? "")
+      const key = matSignature(l.material) + "|" + (l.material?.color?.getHexString?.() ?? "") + "|" + (l.material?.opacity ?? 1) + "|" + !!l.material?.transparent
       let bucket = lineBuckets.get(key)
       if (!bucket) lineBuckets.set(key, bucket = { material: l.material, positions: [] })
       full.multiplyMatrices(blockT, l.matrix)
