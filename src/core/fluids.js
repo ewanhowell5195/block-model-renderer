@@ -68,17 +68,34 @@ function cellKeyOf(x, y, z) {
   return k
 }
 
+const FLOW_DIRS = [[0, -1], [0, 1], [-1, 0], [1, 0]]
+const rulesMemo = new WeakMap()
+
 export async function fluidHeights(assets, type, neighbors) {
   if (type == null) return null
   if (assets == null || assets.length === 0) throw new Error("fluidHeights requires assets")
   if (type !== "water" && type !== "lava") throw new Error('fluidHeights requires a type of "water" or "lava"')
-  const rules = await blockRules(await prepareAssets(assets))
+  let rules = typeof assets === "object" ? rulesMemo.get(assets) : undefined
+  if (rules === undefined) {
+    rules = await blockRules(await prepareAssets(assets))
+    if (typeof assets === "object") rulesMemo.set(assets, rules)
+  }
+  const seen = new Array(27)
   function getBlock(x, y, z) {
+    const k = (y + 1) * 9 + (z + 1) * 3 + (x + 1)
+    const hit = seen[k]
+    if (hit !== undefined) return hit
     const v = neighbors?.[cellKey(x, y, z)] ?? (!x && !y && !z ? type : null)
-    if (!v) return null
-    if (typeof v === "string") return { id: v }
-    const { id, ...properties } = v
-    return { id, properties }
+    let c = null
+    if (v) {
+      if (typeof v === "string") c = { id: v }
+      else {
+        const { id, ...properties } = v
+        c = { id, properties }
+      }
+    }
+    seen[k] = c
+    return c
   }
   function typeAt(x, y, z) {
     const c = getBlock(x, y, z)
@@ -124,7 +141,7 @@ export async function fluidHeights(assets, type, neighbors) {
   const selfCell = getBlock(0, 0, 0)
   const selfOwn = selfCell ? ownHeight(selfCell.id, selfCell.properties) : 8 / 9
   let fx = 0, fz = 0
-  for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+  for (const [dx, dz] of FLOW_DIRS) {
     const c = getBlock(dx, 0, dz)
     const t = c ? fluidTypeOf(c.id, c.properties, rules) : null
     let dist = 0
