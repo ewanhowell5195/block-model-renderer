@@ -277,6 +277,7 @@ export async function createScene(assets, blocks, args = {}) {
       mapArt: args.mapArt, pos: entry.pos ?? undefined, ignoreAtlases: args.ignoreAtlases, version, defaults
     })
     entry.flat = { id: entry.id, ...(entry.properties ?? {}) }
+    entry.sig = entry.id + "\u0000" + JSON.stringify(entry.properties ?? null)
     entry.fluid = fluidTypeOf(entry.id, entry.properties, rules)
     entry.random = await hasRandomModels(assets, entry.id)
     await breathe()
@@ -290,6 +291,8 @@ export async function createScene(assets, blocks, args = {}) {
   // the cull key is the cell's own state plus its six neighbours, packed into
   // two integers rather than built as a string. -1 is "nothing there" and -2 is
   // "occluded from outside", which sit just past the palette
+  const cullCache = (assets.cache.cullFaces ??= new Map())
+  const cullEnv = (version ?? "") + "\u0000" + (defaults ?? "") + "\u0001"
   const cullMemo = new Map()
   const CB = palette.length + 2
   const CB3 = CB * CB * CB
@@ -338,7 +341,15 @@ export async function createScene(assets, blocks, args = {}) {
         if (_nbr[di] >= 0) neighbors[DIR_NAMES[di]] = palette[_nbr[di]].flat
         else if (_nbr[di] === -2) neighbors[DIR_NAMES[di]] = true
       }
-      cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults })
+      let ck = cullEnv + entry.sig
+      for (let di = 0; di < 6; di++) {
+        ck += "\u0001" + (_nbr[di] >= 0 ? palette[_nbr[di]].sig : _nbr[di] === -2 ? "\u0002" : "")
+      }
+      cull = cullCache.get(ck)
+      if (cull === undefined) {
+        cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults })
+        cullCache.set(ck, cull)
+      }
       bucket.set(lo, cull)
     }
     cell.cull = cull.size ? cull : null
