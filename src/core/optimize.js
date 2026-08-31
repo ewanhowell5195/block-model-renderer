@@ -411,6 +411,11 @@ class GrowU8 {
     b.set(this.a)
     this.a = b
   }
+  reserve(n) {
+    if (n <= this.a.length) return
+    if (GROW_IN_PLACE) { this.a = new Uint8Array(this.a.buffer.transfer(n)); return }
+    const b = new Uint8Array(n); b.set(this.a); this.a = b
+  }
   push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
   append(v) { if (!v.length) return; this.ensure(v.length); this.a.set(v, this.length); this.length += v.length }
   data() {
@@ -437,13 +442,18 @@ class GrowF32 {
   push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
   append(v) { if (!v.length) return; this.ensure(v.length); this.a.set(v, this.length); this.length += v.length }
   push2(x, y) { this.ensure(2); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; this.length = l + 2 }
+  reserve(n) {
+    if (n <= this.a.length) return
+    if (GROW_IN_PLACE) { this.a = new Float32Array(this.a.buffer.transfer(n * 4)); return }
+    const b = new Float32Array(n); b.set(this.a); this.a = b
+  }
   data() {
     if (this.a.length === this.length) return this.a
     if (GROW_IN_PLACE) return this.a = new Float32Array(this.a.buffer.transfer(this.length * 4))
     return this.a.slice(0, this.length)
   }
 }
-const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8() })
+const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0 })
 
 let _v = null, _n = null
 function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
@@ -455,8 +465,6 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
     const e0 = e[0], e1 = e[1], e2 = e[2], e3 = e[3], e4 = e[4], e5 = e[5], e6 = e[6], e7 = e[7], e8 = e[8]
     const ca = geo.attributes.color?.array
     const P = acc.P, N = acc.N, U = acc.U, F = acc.F, T = acc.T
-    P.ensure(count * 3); N.ensure(count * 3); U.ensure(count * 2); T.ensure(count * 3)
-    if (fd) F.ensure(count * 2)
     const Pa = P.a, Na = N.a, Ua = U.a, Fa = F.a, Ta = T.a
     let pl = P.length, nl = N.length, ul = U.length, fl = F.length, tl = T.length
     for (let i = start; i < start + count; i++) {
@@ -1160,6 +1168,39 @@ export async function optimizeScene(placements, opts = {}) {
     dynPlans.set(node, plan = { proto, parts })
     return plan
   }
+  const touched = []
+  for (let i = 0; i < placements.length; i++) {
+    const p = placements[i]
+    const td = tdata.get(p.group)
+    if (!td) continue
+    for (const m of td.meshes) {
+      for (const f of m.faces) {
+        if (f.cull && p.cull?.has(f.cull)) continue
+        let acc = f.acc
+        if (acc === undefined) {
+          if (f.animKey) { acc = anims.get(f.animKey).acc; f.rect = null; f.sw = 0; f.sh = 0 }
+          else {
+            const at = atlases.get(f.sig), rect = at.rects.get(f.tex), sz = at.sizes[rect.ai]
+            acc = at.accs[rect.ai]
+            f.rect = rect; f.sw = sz.w; f.sh = sz.h
+          }
+          f.acc = acc
+        }
+        if (acc.need === 0) touched.push(acc)
+        acc.need += f.count
+        if (f.fd) acc.needF += f.count
+      }
+    }
+  }
+  for (const acc of touched) {
+    acc.P.reserve(acc.P.length + acc.need * 3)
+    acc.N.reserve(acc.N.length + acc.need * 3)
+    acc.U.reserve(acc.U.length + acc.need * 2)
+    acc.T.reserve(acc.T.length + acc.need * 3)
+    if (acc.needF) acc.F.reserve(acc.F.length + acc.needF * 2)
+    acc.need = 0
+    acc.needF = 0
+  }
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
     const td = tdata.get(p.group)
@@ -1170,11 +1211,7 @@ export async function optimizeScene(placements, opts = {}) {
       nmat.getNormalMatrix(full)
       for (const f of m.faces) {
         if (f.cull && p.cull?.has(f.cull)) continue
-        if (f.animKey) appendGroup(m.geo, f.start, f.count, full, nmat, null, 0, 0, anims.get(f.animKey).acc)
-        else {
-          const at = atlases.get(f.sig), rect = at.rects.get(f.tex), s = at.sizes[rect.ai]
-          appendGroup(m.geo, f.start, f.count, full, nmat, rect, s.w, s.h, at.accs[rect.ai], f.fd)
-        }
+        appendGroup(m.geo, f.start, f.count, full, nmat, f.rect, f.sw, f.sh, f.acc, f.fd)
       }
     }
     for (const l of td.lines ?? []) {
