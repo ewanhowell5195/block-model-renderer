@@ -1,4 +1,4 @@
-import init, { greedyMesh as rsGreedyMesh, emitQuads as rsEmitQuads } from "../../wasm/block_model_renderer.js"
+import init, { greedyMesh as rsGreedyMesh, emitQuads as rsEmitQuads, computeLightVolume as rsLightVolume } from "../../wasm/block_model_renderer.js"
 import { WASM_BASE64 } from "../../wasm/inline.js"
 
 let ready = null
@@ -11,8 +11,9 @@ function bytes() {
   return out
 }
 
+const off = () => !!globalThis.__BMR_NO_WASM
+
 export function wasmReady() {
-  if (globalThis.__BMR_NO_WASM) broken = true
   if (broken) return null
   ready ??= init({ module_or_path: bytes() }).catch(() => {
     broken = true
@@ -22,7 +23,7 @@ export function wasmReady() {
 }
 
 export function wasmLoaded() {
-  return !broken && ready != null
+  return !broken && !off() && ready != null
 }
 
 export async function wasmStatus() {
@@ -31,7 +32,7 @@ export async function wasmStatus() {
 }
 
 export function greedyMeshFast(triples, gridCount) {
-  if (broken || !ready) return null
+  if (broken || off() || !ready) return null
   try {
     return rsGreedyMesh(triples, gridCount)
   } catch {
@@ -40,9 +41,18 @@ export function greedyMeshFast(triples, gridCount) {
 }
 
 export function emitQuadsFast(quads, faces, accCount) {
-  if (broken || !ready) return null
+  if (broken || off() || !ready) return null
   try {
     return rsEmitQuads(quads, faces, accCount)
+  } catch {
+    return null
+  }
+}
+
+export function computeLightVolumeFast(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight) {
+  if (broken || off() || !ready) return null
+  try {
+    return rsLightVolume(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight)
   } catch {
     return null
   }

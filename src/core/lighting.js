@@ -4,6 +4,7 @@ import { blockRules } from "./data.js"
 import { defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS, buildOcclusionModel, occlusionStateKey } from "./models.js"
 import { occludingFaces } from "./occlusion.js"
 import { fluidTypeOf } from "./fluids.js"
+import { wasmReady, computeLightVolumeFast } from "./fast.js"
 
 const DIR = [
   { dx: -1, dy: 0, dz: 0, face: "west", opposite: "east" },
@@ -47,6 +48,7 @@ export async function computeSceneLight(blocks, opts = {}) {
   const defaultsMode = opts.defaults ?? assets.defaults
   const defaults = await defaultBlockstates(assets, defaultsMode)
   const rules = await blockRules(assets)
+  await wasmReady()
 
   async function masksFor(bid, props) {
     if (AIR_BLOCKS.test(bid)) return null
@@ -148,133 +150,179 @@ export async function computeSceneLight(blocks, opts = {}) {
   }
   opts.onProgress?.(blocks.length, blocks.length)
 
-  const strideY = w, strideZ = w * h
-
-  const sliceMs = opts.sliceMs ?? 0
-  let sliceT = performance.now()
-  async function breathe() {
-    if (!sliceMs || performance.now() - sliceT < sliceMs) return
-    await new Promise(resolve => setTimeout(resolve))
-    sliceT = performance.now()
-  }
-
-  async function spread(light) {
-    const buckets = []
-    for (let l = 0; l <= 15; l++) buckets[l] = []
-    for (let i = 0; i < n; i++) if (light[i] > 1) buckets[light[i]].push(i)
-    for (let lvl = 15; lvl >= 2; lvl--) {
-      const bucket = buckets[lvl]
-      for (let bi = 0; bi < bucket.length; bi++) {
-        if (sliceMs && (bi & 2047) === 2047) await breathe()
-        const i = bucket[bi]
-        if (light[i] !== lvl) continue
-        const x = i % w, r = (i / w) | 0, y = r % h, z = (r / h) | 0
-        const fromMasks = states[cellState[i]]?.masks
-        for (let di = 0; di < 6; di++) {
-          const dir = DIR[di]
-          if (dir.dx === -1 && x === 0) continue
-          if (dir.dx === 1 && x === w - 1) continue
-          if (dir.dy === -1 && y === 0) continue
-          if (dir.dy === 1 && y === h - 1) continue
-          if (dir.dz === -1 && z === 0) continue
-          if (dir.dz === 1 && z === d - 1) continue
-          const j = i + dir.dx + dir.dy * strideY + dir.dz * strideZ
-          const to = states[cellState[j]]
-          const nl = lvl - Math.max(1, to?.damp ?? 0)
-          if (nl <= light[j]) continue
-          const toMasks = to?.masks
-          if ((fromMasks || toMasks) && unionCovers(fromMasks?.[dir.face], toMasks?.[dir.opposite])) continue
-          light[j] = nl
-          if (nl > 1) buckets[nl].push(j)
-        }
-      }
-    }
-  }
-
   const dimOpt = opts.dimension
   const hasSkyLight = (typeof dimOpt === "object" && dimOpt
     ? dimOpt.hasSkyLight
     : (LIGHT_DIMENSIONS[dimOpt] ?? LIGHT_DIMENSIONS.overworld).hasSkyLight) !== false
-  if (hasSkyLight) {
-    for (let z = 0; z < d; z++) {
-      for (let x = 0; x < w; x++) {
-        let aboveMasks = null
-        for (let y = h - 1; y >= 0; y--) {
-          const i = (z * h + y) * w + x
-          const state = states[cellState[i]]
-          if (state && state.damp !== 0) break
-          const masks = state?.masks
-          if ((aboveMasks || masks) && unionCovers(aboveMasks?.down, masks?.up)) break
-          skyLight[i] = 15
-          aboveMasks = masks
-        }
-      }
+
+  // the rust kernel does this whole numeric pass, and this is the fallback
+  async function volumeJs() {
+    const strideY = w, strideZ = w * h
+
+    const sliceMs = opts.sliceMs ?? 0
+    let sliceT = performance.now()
+    async function breathe() {
+      if (!sliceMs || performance.now() - sliceT < sliceMs) return
+      await new Promise(resolve => setTimeout(resolve))
+      sliceT = performance.now()
     }
-  }
 
-  for (let i = 0; i < n; i++) {
-    const emit = states[cellState[i]]?.emit
-    if (emit) blockLight[i] = emit
-  }
-
-  await spread(blockLight)
-  await spread(skyLight)
-
-  const sampleBlock = new Uint8Array(blockLight)
-  const sampleSky = new Uint8Array(skyLight)
-  for (let i = 0; i < n; i++) {
-    if (states[cellState[i]]?.damp !== 15) continue
-    const x = i % w, r = (i / w) | 0, y = r % h, z = (r / h) | 0
-    let bl = blockLight[i], sl = skyLight[i]
-    if (x > 0) { bl = Math.max(bl, blockLight[i - 1]); sl = Math.max(sl, skyLight[i - 1]) }
-    if (x < w - 1) { bl = Math.max(bl, blockLight[i + 1]); sl = Math.max(sl, skyLight[i + 1]) }
-    if (y > 0) { bl = Math.max(bl, blockLight[i - strideY]); sl = Math.max(sl, skyLight[i - strideY]) }
-    if (y < h - 1) { bl = Math.max(bl, blockLight[i + strideY]); sl = Math.max(sl, skyLight[i + strideY]) }
-    if (z > 0) { bl = Math.max(bl, blockLight[i - strideZ]); sl = Math.max(sl, skyLight[i - strideZ]) }
-    if (z < d - 1) { bl = Math.max(bl, blockLight[i + strideZ]); sl = Math.max(sl, skyLight[i + strideZ]) }
-    sampleBlock[i] = bl
-    sampleSky[i] = sl
-  }
-
-  const solidCell = new Uint8Array(n)
-  const aoCell = new Uint8Array(n)
-  for (let i = 0; i < n; i++) {
-    const st = states[cellState[i]]
-    if (st?.damp === 15) solidCell[i] = 1
-    if (st?.damp === 15 || st?.ao) aoCell[i] = 1
-  }
-
-  const W2 = w + 1, H2 = h + 1, D2 = d + 1
-  const cols = Math.ceil(Math.sqrt(H2))
-  const rows = Math.ceil(H2 / cols)
-  const texW = cols * W2, texH = rows * D2
-  const bytes = new Uint8Array(texW * texH * 4)
-  const clampIdx = (x, y, z) => ((z < 0 ? 0 : z >= d ? d - 1 : z) * h + (y < 0 ? 0 : y >= h ? h - 1 : y)) * w + (x < 0 ? 0 : x >= w ? w - 1 : x)
-  for (let y = 0; y <= h; y++) {
-    await breathe()
-    const tx = (y % cols) * W2, ty = ((y / cols) | 0) * D2
-    for (let z = 0; z <= d; z++) {
-      let ti = ((ty + z) * texW + tx) * 4
-      for (let x = 0; x <= w; x++, ti += 4) {
-        let bl = 0, sl = 0, open = 0, blf = 0, slf = 0
-        for (let dy = -1; dy <= 0; dy++) for (let dz = -1; dz <= 0; dz++) for (let dx = -1; dx <= 0; dx++) {
-          const ci = clampIdx(x + dx, y + dy, z + dz)
-          if (solidCell[ci]) {
-            blf += sampleBlock[ci]
-            slf += sampleSky[ci]
-          } else {
-            bl += blockLight[ci]
-            sl += skyLight[ci]
-            open++
+    async function spread(light) {
+      const buckets = []
+      for (let l = 0; l <= 15; l++) buckets[l] = []
+      for (let i = 0; i < n; i++) if (light[i] > 1) buckets[light[i]].push(i)
+      for (let lvl = 15; lvl >= 2; lvl--) {
+        const bucket = buckets[lvl]
+        for (let bi = 0; bi < bucket.length; bi++) {
+          if (sliceMs && (bi & 2047) === 2047) await breathe()
+          const i = bucket[bi]
+          if (light[i] !== lvl) continue
+          const x = i % w, r = (i / w) | 0, y = r % h, z = (r / h) | 0
+          const fromMasks = states[cellState[i]]?.masks
+          for (let di = 0; di < 6; di++) {
+            const dir = DIR[di]
+            if (dir.dx === -1 && x === 0) continue
+            if (dir.dx === 1 && x === w - 1) continue
+            if (dir.dy === -1 && y === 0) continue
+            if (dir.dy === 1 && y === h - 1) continue
+            if (dir.dz === -1 && z === 0) continue
+            if (dir.dz === 1 && z === d - 1) continue
+            const j = i + dir.dx + dir.dy * strideY + dir.dz * strideZ
+            const to = states[cellState[j]]
+            const nl = lvl - Math.max(1, to?.damp ?? 0)
+            if (nl <= light[j]) continue
+            const toMasks = to?.masks
+            if ((fromMasks || toMasks) && unionCovers(fromMasks?.[dir.face], toMasks?.[dir.opposite])) continue
+            light[j] = nl
+            if (nl > 1) buckets[nl].push(j)
           }
         }
-        bytes[ti] = Math.round((open ? bl / open : blf / 8) * 17)
-        bytes[ti + 1] = Math.round((open ? sl / open : slf / 8) * 17)
-        if (x < w && y < h && z < d && aoCell[(z * h + y) * w + x]) bytes[ti + 2] = 255
-        bytes[ti + 3] = 255
+      }
+    }
+
+    if (hasSkyLight) {
+      for (let z = 0; z < d; z++) {
+        for (let x = 0; x < w; x++) {
+          let aboveMasks = null
+          for (let y = h - 1; y >= 0; y--) {
+            const i = (z * h + y) * w + x
+            const state = states[cellState[i]]
+            if (state && state.damp !== 0) break
+            const masks = state?.masks
+            if ((aboveMasks || masks) && unionCovers(aboveMasks?.down, masks?.up)) break
+            skyLight[i] = 15
+            aboveMasks = masks
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < n; i++) {
+      const emit = states[cellState[i]]?.emit
+      if (emit) blockLight[i] = emit
+    }
+
+    await spread(blockLight)
+    await spread(skyLight)
+
+    const sampleBlock = new Uint8Array(blockLight)
+    const sampleSky = new Uint8Array(skyLight)
+    for (let i = 0; i < n; i++) {
+      if (states[cellState[i]]?.damp !== 15) continue
+      const x = i % w, r = (i / w) | 0, y = r % h, z = (r / h) | 0
+      let bl = blockLight[i], sl = skyLight[i]
+      if (x > 0) { bl = Math.max(bl, blockLight[i - 1]); sl = Math.max(sl, skyLight[i - 1]) }
+      if (x < w - 1) { bl = Math.max(bl, blockLight[i + 1]); sl = Math.max(sl, skyLight[i + 1]) }
+      if (y > 0) { bl = Math.max(bl, blockLight[i - strideY]); sl = Math.max(sl, skyLight[i - strideY]) }
+      if (y < h - 1) { bl = Math.max(bl, blockLight[i + strideY]); sl = Math.max(sl, skyLight[i + strideY]) }
+      if (z > 0) { bl = Math.max(bl, blockLight[i - strideZ]); sl = Math.max(sl, skyLight[i - strideZ]) }
+      if (z < d - 1) { bl = Math.max(bl, blockLight[i + strideZ]); sl = Math.max(sl, skyLight[i + strideZ]) }
+      sampleBlock[i] = bl
+      sampleSky[i] = sl
+    }
+
+    const solidCell = new Uint8Array(n)
+    const aoCell = new Uint8Array(n)
+    for (let i = 0; i < n; i++) {
+      const st = states[cellState[i]]
+      if (st?.damp === 15) solidCell[i] = 1
+      if (st?.damp === 15 || st?.ao) aoCell[i] = 1
+    }
+
+    const W2 = w + 1, H2 = h + 1, D2 = d + 1
+    const cols = Math.ceil(Math.sqrt(H2))
+    const rows = Math.ceil(H2 / cols)
+    const texW = cols * W2, texH = rows * D2
+    const bytes = new Uint8Array(texW * texH * 4)
+    const clampIdx = (x, y, z) => ((z < 0 ? 0 : z >= d ? d - 1 : z) * h + (y < 0 ? 0 : y >= h ? h - 1 : y)) * w + (x < 0 ? 0 : x >= w ? w - 1 : x)
+    for (let y = 0; y <= h; y++) {
+      await breathe()
+      const tx = (y % cols) * W2, ty = ((y / cols) | 0) * D2
+      for (let z = 0; z <= d; z++) {
+        let ti = ((ty + z) * texW + tx) * 4
+        for (let x = 0; x <= w; x++, ti += 4) {
+          let bl = 0, sl = 0, open = 0, blf = 0, slf = 0
+          for (let dy = -1; dy <= 0; dy++) for (let dz = -1; dz <= 0; dz++) for (let dx = -1; dx <= 0; dx++) {
+            const ci = clampIdx(x + dx, y + dy, z + dz)
+            if (solidCell[ci]) {
+              blf += sampleBlock[ci]
+              slf += sampleSky[ci]
+            } else {
+              bl += blockLight[ci]
+              sl += skyLight[ci]
+              open++
+            }
+          }
+          bytes[ti] = Math.round((open ? bl / open : blf / 8) * 17)
+          bytes[ti + 1] = Math.round((open ? sl / open : slf / 8) * 17)
+          if (x < w && y < h && z < d && aoCell[(z * h + y) * w + x]) bytes[ti + 2] = 255
+          bytes[ti + 3] = 255
+        }
+      }
+    }
+    return { bytes, texW, texH, cols }
+  }
+
+  // the state table flattened for the kernel: -1 damp marks an empty cell and
+  // the six faces are packed west, east, down, up, north, south
+  const FACE_ORDER = ["west", "east", "down", "up", "north", "south"]
+  const stDamp = new Int32Array(states.length).fill(-1)
+  const stEmit = new Uint8Array(states.length)
+  const stAo = new Uint8Array(states.length)
+  const stMaskOff = new Int32Array(states.length).fill(-1)
+  const maskRows = []
+  for (let si = 1; si < states.length; si++) {
+    const st = states[si]
+    stDamp[si] = st.damp | 0
+    stEmit[si] = st.emit || 0
+    stAo[si] = st.ao ? 1 : 0
+    if (st.masks) {
+      stMaskOff[si] = maskRows.length
+      for (const face of FACE_ORDER) {
+        const m = st.masks[face]
+        for (let v = 0; v < 16; v++) maskRows.push(m ? m[v] : 0)
       }
     }
   }
+
+  let bytes, texW, texH, cols
+  const vol = computeLightVolumeFast(w, h, d, cellState, stDamp, stEmit, stAo, stMaskOff, Uint16Array.from(maskRows), hasSkyLight)
+  if (vol) {
+    try {
+      blockLight.set(vol.blockLight())
+      skyLight.set(vol.skyLight())
+      bytes = vol.bytes()
+    } finally {
+      vol.free()
+    }
+    const H2 = h + 1
+    cols = Math.ceil(Math.sqrt(H2))
+    texW = cols * (w + 1)
+    texH = Math.ceil(H2 / cols) * (d + 1)
+  } else {
+    ({ bytes, texW, texH, cols } = await volumeJs())
+  }
+
   const texture = new THREE.DataTexture(bytes, texW, texH)
   texture.minFilter = texture.magFilter = THREE.LinearFilter
   texture.generateMipmaps = false

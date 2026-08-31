@@ -13,6 +13,21 @@ export class Emitted {
     readonly count: number;
 }
 
+export class LightVolume {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    blockLight(): Uint8Array;
+    bytes(): Uint8Array;
+    skyLight(): Uint8Array;
+}
+
+/**
+ * `damp` uses -1 for "no state", and `mask_off` indexes `masks` in six-face
+ * blocks of 16 rows each.
+ */
+export function computeLightVolume(w: number, h: number, d: number, cell_state: Uint16Array, damp: Int32Array, emit: Uint8Array, ao: Uint8Array, mask_off: Int32Array, masks: Uint16Array, has_sky_light: boolean): LightVolume;
+
 /**
  * Layouts are at `emit::QUAD_STRIDE` and `emit::FACE_STRIDE`.
  */
@@ -28,6 +43,8 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_emitted_free: (a: number, b: number) => void;
+    readonly __wbg_lightvolume_free: (a: number, b: number) => void;
+    readonly computeLightVolume: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => number;
     readonly emitQuads: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly emitted_color: (a: number, b: number) => [number, number];
     readonly emitted_count: (a: number) => number;
@@ -36,6 +53,9 @@ export interface InitOutput {
     readonly emitted_position: (a: number, b: number) => [number, number];
     readonly emitted_uv: (a: number, b: number) => [number, number];
     readonly greedyMesh: (a: number, b: number, c: number) => [number, number];
+    readonly lightvolume_blockLight: (a: number) => [number, number];
+    readonly lightvolume_bytes: (a: number) => [number, number];
+    readonly lightvolume_skyLight: (a: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
