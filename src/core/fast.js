@@ -5,6 +5,7 @@ let broken = false
 
 // built rather than written out, so a browser bundler does not resolve them
 const NODE_FS = "node:fs/promises"
+const NODE_WASM = "../../wasm/block_model_renderer_bg" + ".wasm"
 
 const off = () => !!globalThis.__BMR_NO_WASM
 
@@ -14,7 +15,7 @@ export function wasmReady() {
     // node's fetch refuses file: urls, so there the bytes are handed over
     if (globalThis.process?.versions?.node) {
       const { readFile } = await import(NODE_FS)
-      return init({ module_or_path: await readFile(new URL("../../wasm/block_model_renderer_bg.wasm", import.meta.url)) })
+      return init({ module_or_path: await readFile(new URL(NODE_WASM, import.meta.url)) })
     }
     return init()
   })().catch(() => {
