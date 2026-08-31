@@ -1,6 +1,7 @@
 {
-  "parent": "block-model-renderer:block/_template_particle",
-  "textures": {
-    "particle": "item/structure_void"
+  "outline": {
+    "from": [7.2, 7.2, 7.2],
+    "to": [8.8, 8.8, 8.8],
+    "color": "#ffbfbf"
   }
 }
