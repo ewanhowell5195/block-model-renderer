@@ -176,8 +176,8 @@ Running the standard render functions themselves across a worker pool, and keepi
 ## Wasm kernels
 
 Greedy meshing, greedy quad vertex emission and the scene light volume run as
-wasm compiled from `rust/`. The module is carried inside the bundle, so workers
-and Node get it without a second fetch.
+wasm compiled from `rust/`. The module ships as `block_model_renderer_bg.wasm`
+next to the bundle and is fetched on first use.
 
 `wasmStatus()` resolves `true` when the kernels are in use and `false` when the
 JavaScript fallbacks are. Both paths produce identical output; setting

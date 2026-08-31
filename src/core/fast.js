@@ -1,21 +1,23 @@
 import init, { greedyMesh as rsGreedyMesh, emitQuads as rsEmitQuads, computeLightVolume as rsLightVolume } from "../../wasm/block_model_renderer.js"
-import { WASM_BASE64 } from "../../wasm/inline.js"
 
 let ready = null
 let broken = false
 
-function bytes() {
-  const bin = atob(WASM_BASE64)
-  const out = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
-  return out
-}
+// built rather than written out, so a browser bundler does not resolve them
+const NODE_FS = "node:fs/promises"
 
 const off = () => !!globalThis.__BMR_NO_WASM
 
 export function wasmReady() {
   if (broken) return null
-  ready ??= init({ module_or_path: bytes() }).catch(() => {
+  ready ??= (async () => {
+    // node's fetch refuses file: urls, so there the bytes are handed over
+    if (globalThis.process?.versions?.node) {
+      const { readFile } = await import(NODE_FS)
+      return init({ module_or_path: await readFile(new URL("../../wasm/block_model_renderer_bg.wasm", import.meta.url)) })
+    }
+    return init()
+  })().catch(() => {
     broken = true
     return null
   })

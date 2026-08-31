@@ -83,4 +83,7 @@ await esbuild.build({
   outfile: "dist/block-model-renderer.min.js"
 })
 
+// the glue resolves the module next to itself, which after bundling is dist/
+fs.copyFileSync("wasm/block_model_renderer_bg.wasm", "dist/block_model_renderer_bg.wasm")
+
 console.log("Built block-model-renderer v" + version)
