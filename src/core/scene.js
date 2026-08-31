@@ -291,6 +291,12 @@ export async function createScene(assets, blocks, args = {}) {
   // the cull key is the cell's own state plus its six neighbours, packed into
   // two integers rather than built as a string. -1 is "nothing there" and -2 is
   // "occluded from outside", which sit just past the palette
+  // one object of a fixed shape, refilled per fluid cell. fluidHeights is
+  // awaited before the next cell touches it
+  const HOOD_KEYS = [...new Set(CK3.filter(Boolean))].concat("self")
+  const HOOD = {}
+  for (const k of HOOD_KEYS) HOOD[k] = null
+
   const cullCache = (assets.cache.cullFaces ??= new Map())
   const cullEnv = (version ?? "") + "\u0000" + (defaults ?? "") + "\u0001"
   const cullMemo = new Map()
@@ -356,7 +362,8 @@ export async function createScene(assets, blocks, args = {}) {
 
     let fh = null
     if (entry.fluid) {
-      const hood = {}
+      const hood = HOOD
+      for (let k = 0; k < HOOD_KEYS.length; k++) hood[HOOD_KEYS[k]] = null
       const hx = cell.pos[0], hy = cell.pos[1], hz = cell.pos[2]
       for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy && !dz) continue

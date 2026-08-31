@@ -44,7 +44,21 @@ function ownHeight(id, properties) {
   return (level >= 1 && level <= 7 ? 8 - level : 8) / 9
 }
 
+const CK = (() => {
+  const t = new Array(27)
+  for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) for (let x = -1; x <= 1; x++) {
+    t[(y + 1) * 9 + (z + 1) * 3 + (x + 1)] = cellKeyOf(x, y, z)
+  }
+  return t
+})()
+
 function cellKey(x, y, z) {
+  return x >= -1 && x <= 1 && y >= -1 && y <= 1 && z >= -1 && z <= 1
+    ? CK[(y + 1) * 9 + (z + 1) * 3 + (x + 1)]
+    : cellKeyOf(x, y, z)
+}
+
+function cellKeyOf(x, y, z) {
   if (!x && !y && !z) return "self"
   let k = y === 1 ? "up" : y === -1 ? "down" : ""
   if (z === -1) k += (k ? "_" : "") + "north"
