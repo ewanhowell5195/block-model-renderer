@@ -193,6 +193,7 @@ export async function createScene(assets, blocks, args = {}) {
     return j === undefined ? undefined : (cellArr[j] ?? undefined)
   }
   const putCell = (x, y, z, cell) => {
+    cellList = null
     if (cellIdx) {
       const i = CI(x, y, z)
       if (i < 0) return
@@ -211,12 +212,15 @@ export async function createScene(assets, blocks, args = {}) {
     liveCells++
   }
   const dropCell = (x, y, z) => {
-    const j = cellIdx ? (CI(x, y, z) < 0 ? -1 : cellIdx[CI(x, y, z)]) : (cellMap.get(PK(x, y, z)) ?? -1)
-    if (j >= 0 && cellArr[j]) { cellArr[j] = null; liveCells-- }
+    let j = -1
+    if (cellIdx) {
+      const i = CI(x, y, z)
+      if (i >= 0) j = cellIdx[i]
+    } else j = cellMap.get(PK(x, y, z)) ?? -1
+    if (j >= 0 && cellArr[j]) { cellArr[j] = null; liveCells--; cellList = null }
   }
-  function* cellValues() {
-    for (let i = 0; i < cellArr.length; i++) if (cellArr[i]) yield cellArr[i]
-  }
+  let cellList = null
+  const cellValues = () => cellList ??= liveCells === cellArr.length ? cellArr : cellArr.filter(Boolean)
   const overlays = []
   const paletteIndex = new Map()
   const palette = []
@@ -398,7 +402,7 @@ export async function createScene(assets, blocks, args = {}) {
   if (computeLight) {
     enter("light")
     if (liveCells) {
-      light = await computeSceneLight(Array.from(cellValues(), c => ({
+      light = await computeSceneLight(cellValues().map(c => ({
         id: palette[c.palette].id, properties: palette[c.palette].properties ?? undefined, pos: c.pos
       })), { assets, version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs })
     }
