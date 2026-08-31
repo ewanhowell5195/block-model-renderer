@@ -2627,6 +2627,22 @@ export async function loadModel(scene, assets, model, args) {
     bakeMirroredScale(displayGroup, model.version && isBefore(model.version, "1.15"))
   }
 
+  if (model.outline) {
+    const from = model.outline.from ?? [7.2, 7.2, 7.2]
+    const to = model.outline.to ?? [8.8, 8.8, 8.8]
+    const box = new THREE.BoxGeometry(to[0] - from[0], to[1] - from[1], to[2] - from[2])
+    const edges = new THREE.EdgesGeometry(box)
+    box.dispose()
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({
+      color: new THREE.Color(model.outline.color ?? "#ffffff"),
+      transparent: (model.outline.opacity ?? 1) < 1,
+      opacity: model.outline.opacity ?? 1
+    }))
+    line.position.set((from[0] + to[0]) / 2 - 8, (from[1] + to[1]) / 2 - 8, (from[2] + to[2]) / 2 - 8)
+    line.userData.outline = true
+    containerGroup.add(line)
+  }
+
   if (model.billboard) {
     rootGroup.traverse(o => {
       if (!o.isMesh) return

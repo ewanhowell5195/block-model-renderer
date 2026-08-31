@@ -769,7 +769,8 @@ export async function optimizeScene(placements, opts = {}) {
       const merge = cachedScan.merge.map(m => ({ ...m.f, mat: nodeMats(m.ni)[m.mi], cid: undefined }))
       const billboards = cachedScan.billboards.map(b => ({ geo: nodes[b.ni].geometry, material: nodes[b.ni].material, matrix: b.matrix }))
       const dynamics = cachedScan.dynamics.map(d => ({ node: nodes[d.ni], parentMatrix: d.parentMatrix }))
-      tdata.set(tmpl, { merge, meshes, billboards, dynamics })
+      const lines = (cachedScan.lines ?? []).map(l => ({ geo: nodes[l.ni].geometry, material: nodes[l.ni].material, matrix: l.matrix }))
+      tdata.set(tmpl, { merge, meshes, billboards, dynamics, lines })
       report(ti / placements.length)
       await breathe()
       if (shouldCancel?.()) return null
@@ -779,9 +780,9 @@ export async function optimizeScene(placements, opts = {}) {
     const nodes = []
     tmpl.traverse(o => nodes.push(o))
     const nodeIdx = new Map(nodes.map((n, i) => [n, i]))
-    const rec = { meshes: [], merge: [], billboards: [], dynamics: [], regs: [] }
+    const rec = { meshes: [], merge: [], billboards: [], dynamics: [], lines: [], regs: [] }
     const recMesh = new Map()
-    const flats = [], meshMap = new Map(), billboards = [], dynamics = []
+    const flats = [], meshMap = new Map(), billboards = [], dynamics = [], lines = []
     for (const o of nodes) {
       if (o.userData?.dynamic) {
         const parentMatrix = (o.parent?.matrixWorld ?? o.matrixWorld).clone()
@@ -814,6 +815,12 @@ export async function optimizeScene(placements, opts = {}) {
       return { ...face, sig, fd: faceDataOf(mat), translucent }
     }
     for (const o of nodes) {
+      if (o.isLineSegments) {
+        const matrix = o.matrixWorld.clone()
+        lines.push({ geo: o.geometry, material: o.material, matrix })
+        rec.lines.push({ ni: nodeIdx.get(o), matrix })
+        continue
+      }
       if (!o.isMesh || inPart(o)) continue
       if (o.userData.billboard) {
         const matrix = o.matrixWorld.clone()
@@ -880,7 +887,7 @@ export async function optimizeScene(placements, opts = {}) {
     }
     for (const m of meshMap.values()) rec.meshes.push(m.rec)
     ;(tmpl.__scanCache ??= new Map()).set(scanKey, rec)
-    tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards, dynamics })
+    tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards, dynamics, lines })
     report(ti / placements.length)
     await breathe()
     if (shouldCancel?.()) return null
@@ -1019,7 +1026,7 @@ export async function optimizeScene(placements, opts = {}) {
 
   stage(3000)
   const blockT = new THREE.Matrix4(), full = new THREE.Matrix4(), nmat = new THREE.Matrix3()
-  const dynamicInstances = [], dynBuckets = new Map(), bbBuckets = new Map()
+  const dynamicInstances = [], dynBuckets = new Map(), bbBuckets = new Map(), lineBuckets = new Map()
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
     const td = tdata.get(p.group)
@@ -1035,6 +1042,18 @@ export async function optimizeScene(placements, opts = {}) {
           const at = atlases.get(f.sig), rect = at.rects.get(f.tex), s = at.sizes[rect.ai]
           appendGroup(m.geo, f.start, f.count, full, nmat, rect, s.w, s.h, at.accs[rect.ai], f.fd)
         }
+      }
+    }
+    for (const l of td.lines ?? []) {
+      const key = matSignature(l.material) + "|" + (l.material?.color?.getHexString?.() ?? "")
+      let bucket = lineBuckets.get(key)
+      if (!bucket) lineBuckets.set(key, bucket = { material: l.material, positions: [] })
+      full.multiplyMatrices(blockT, l.matrix)
+      const src = l.geo.attributes.position
+      const v = new THREE.Vector3()
+      for (let i = 0; i < src.count; i++) {
+        v.fromBufferAttribute(src, i).applyMatrix4(full)
+        bucket.positions.push(v.x, v.y, v.z)
       }
     }
     for (const b of td.billboards) {
@@ -1149,6 +1168,16 @@ export async function optimizeScene(placements, opts = {}) {
     report(++mi / meshCount)
     await breathe()
   }
+  for (const bucket of lineBuckets.values()) {
+    if (!bucket.positions.length) continue
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(bucket.positions), 3))
+    const seg = new THREE.LineSegments(geo, bucket.material)
+    seg.userData.outline = true
+    group.add(seg)
+    drawCalls++
+  }
+
   const primers = []
   const _bbPos = new THREE.Vector3(), _bbQuat = new THREE.Quaternion(), _bbFlip = new THREE.Quaternion(0, 1, 0, 0), _bbM = new THREE.Matrix4(), _bbInv = new THREE.Matrix4()
   for (const bucket of bbBuckets.values()) {

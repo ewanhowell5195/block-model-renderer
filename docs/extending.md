@@ -15,6 +15,7 @@ In a few places the renderer accepts fields that aren't part of vanilla Minecraf
 | `transformation` | `{ translation: [0,0,0], scale: [1,1,1], left_rotation: [0,0,0,1], right_rotation: [0,0,0,1] }` | Translation, rotation, and scale applied to the whole model before rendering. Accepts the vanilla item-definition transformation form (translation/rotations/scale) or a flat 16-element matrix array |
 | `billboard` | `true` | Billboard the model: it always faces the camera, ignoring [display](models.md#display-transforms) and blockstate rotations. Works in [`createScene`](scenes.md#createsceneassets-blocks-args) too. Pair with `shade_direction_override: "up"` on the elements so world-mode shading stays constant as it turns |
 | `double_sided` | `true` | Render all faces from both sides |
+| `outline` | `{ "from": [7.2, 7.2, 7.2], "to": [8.8, 8.8, 8.8], "color": "#ffbfbf" }` | Draw a stroked box in place of geometry. `from` and `to` are in voxel units, `color` and `opacity` are optional |
 | `dynamic` | `"chest"` | Mark the model as one of the built-in [dynamic model kinds](#dynamic-models), animating its `part`-tagged elements |
 | `pose` | `{ "openness": 1 }` | Initial [`poseSpecial`](scenes.md#posespecialroot-pose) pose applied when a `dynamic` model loads |
 | `tints` | `["#FF0000", "#00FF00"]` | Array of hex color strings. Faces with a `tintindex` look up their tint from this array |

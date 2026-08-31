@@ -32,7 +32,7 @@ const TEMPLATE_CACHE_MAX = 4096
 
 function disposeTemplateGroup(g) {
   g.traverse(o => {
-    if (!o.isMesh) return
+    if (!o.isMesh && !o.isLineSegments) return
     try { o.geometry?.dispose() } catch {}
     for (const m of [].concat(o.material)) { try { m?.dispose?.() } catch {} }
   })
@@ -70,7 +70,9 @@ function cloneTemplate(src, rebind) {
     return c
   }
   const walk = (s, root) => {
-    const d = s.isMesh ? new THREE.Mesh(s.geometry, cloneMat(s.material)) : new THREE.Group()
+    const d = s.isMesh ? new THREE.Mesh(s.geometry, cloneMat(s.material))
+      : s.isLineSegments ? new THREE.LineSegments(s.geometry, cloneMat(s.material))
+      : new THREE.Group()
     if (root) d.__templateSource = src
     d.name = s.name
     d.userData = root ? { ...s.userData } : s.userData
