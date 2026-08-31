@@ -816,6 +816,7 @@ export async function optimizeScene(placements, opts = {}) {
     }
     for (const o of nodes) {
       if (o.isLineSegments) {
+        if (inPart(o)) continue
         const matrix = o.matrixWorld.clone()
         lines.push({ geo: o.geometry, material: o.material, matrix })
         rec.lines.push({ ni: nodeIdx.get(o), matrix })
@@ -951,7 +952,7 @@ export async function optimizeScene(placements, opts = {}) {
   }
 
   const atlases = new Map()
-  const created = { textures: [], materials: [], atlasEntries: [] }
+  const created = { textures: [], materials: [], atlasEntries: [], geometries: [] }
   stage(800)
   let ai = 0
   for (const [sig, grp] of atlasGroups) {
@@ -1072,10 +1073,14 @@ export async function optimizeScene(placements, opts = {}) {
       holder.matrixWorldNeedsUpdate = true
       const inst = d.node.clone()
       const meshes = []
-      inst.traverse(o => { if (o.isMesh) meshes.push(o) })
+      inst.traverse(o => { if (o.isMesh || o.isLineSegments) meshes.push(o) })
       for (const m of meshes) {
         let inPart = false
         for (let n = m; n && n !== inst; n = n.parent) if (n.name?.startsWith("part:")) { inPart = true; break }
+        if (m.isLineSegments) {
+          if (!inPart) m.removeFromParent()
+          continue
+        }
         if (inPart) {
           const key = geoHash(m.geometry) + "|" + [].concat(m.material).map(x => matSignature(x) + (matMap(x)?.uuid ?? "")).join(",")
           let bucket = dynBuckets.get(key)
@@ -1172,6 +1177,7 @@ export async function optimizeScene(placements, opts = {}) {
     if (!bucket.positions.length) continue
     const geo = new THREE.BufferGeometry()
     geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(bucket.positions), 3))
+    created.geometries.push(geo)
     const seg = new THREE.LineSegments(geo, bucket.material)
     seg.userData.outline = true
     group.add(seg)
@@ -1304,7 +1310,8 @@ export async function optimizeScene(placements, opts = {}) {
       if (this.__disposed) return
       this.__disposed = true
       sorter.detach()
-      group.traverse(o => { if (o.isMesh || o.isLineSegments) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh || o.isBatchedMesh) { try { o.dispose() } catch {} } } })
+      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh || o.isBatchedMesh) { try { o.dispose() } catch {} } } })
+      for (const g of created.geometries) { try { g.dispose() } catch {} }
       for (const m of created.materials) { try { m.dispose() } catch {} }
       for (const e of created.atlasEntries) { try { releaseAtlas(e) } catch {} }
       group.removeFromParent()
