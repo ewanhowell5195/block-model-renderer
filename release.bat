@@ -6,6 +6,14 @@ echo Current version: %prevVersion%
 set /p "version=Enter new version number: "
 if "%version%"=="" set "version=patch"
 
+rem before the dirty check, so a rebuilt wasm goes into the commit that gets tagged
+call npm run build:wasm
+if errorlevel 1 (
+  echo wasm build failed, stopping.
+  pause
+  exit /b 1
+)
+
 set "dirty="
 for /f "delims=" %%i in ('git status --porcelain') do set "dirty=1"
 
