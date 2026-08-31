@@ -219,6 +219,12 @@ export async function createScene(assets, blocks, args = {}) {
     } else j = cellMap.get(PK(x, y, z)) ?? -1
     if (j >= 0 && cellArr[j]) { cellArr[j] = null; liveCells--; cellList = null }
   }
+  const NOFF = cellIdx ? DIR_VECS.map(v => v[0] + v[1] * cW + v[2] * cW * cH) : null
+  const HOFF = new Int32Array(27)
+  if (cellIdx) for (let k = 0; k < 27; k++) {
+    const dy = ((k / 9) | 0) - 1, dz = (((k % 9) / 3) | 0) - 1, dx = (k % 3) - 1
+    HOFF[k] = dx + dy * cW + dz * cW * cH
+  }
   let cellList = null
   const cellValues = () => cellList ??= liveCells === cellArr.length ? cellArr : cellArr.filter(Boolean)
   const overlays = []
@@ -304,6 +310,7 @@ export async function createScene(assets, blocks, args = {}) {
   const cullCache = (assets.cache.cullFaces ??= new Map())
   const cullEnv = (version ?? "") + "\u0000" + (defaults ?? "") + "\u0001"
   const cullMemo = new Map()
+  const extOcc = args.externalOcclusion
   const CB = palette.length + 2
   const CB3 = CB * CB * CB
   const cullNumeric = CB <= 2000
@@ -319,14 +326,19 @@ export async function createScene(assets, blocks, args = {}) {
     }
 
     const px = cell.pos[0], py = cell.pos[1], pz = cell.pos[2]
+    const bi = cellIdx ? CI(px, py, pz) : -1
     for (let di = 0; di < 6; di++) {
+      let nc
+      if (bi >= 0) {
+        const j = cellIdx[bi + NOFF[di]]
+        nc = j >= 0 ? cellArr[j] : null
+      } else {
+        const v = DIR_VECS[di]
+        nc = cellAt(px + v[0], py + v[1], pz + v[2])
+      }
+      if (nc) { _nbr[di] = nc.palette; continue }
       const v = DIR_VECS[di]
-      const nx = px + v[0], ny = py + v[1], nz = pz + v[2]
-      const nc = cellAt(nx, ny, nz)
-      const pal = nc ? nc.palette : -1
-      if (pal >= 0) _nbr[di] = pal
-      else if (args.externalOcclusion?.(nx, ny, nz)) _nbr[di] = -2
-      else _nbr[di] = -1
+      _nbr[di] = extOcc?.(px + v[0], py + v[1], pz + v[2]) ? -2 : -1
     }
     let hi, lo, bucket
     if (cullNumeric) {
@@ -369,7 +381,15 @@ export async function createScene(assets, blocks, args = {}) {
       const hood = HOOD
       for (let k = 0; k < HOOD_KEYS.length; k++) hood[HOOD_KEYS[k]] = null
       const hx = cell.pos[0], hy = cell.pos[1], hz = cell.pos[2]
-      for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+      if (bi >= 0) {
+        for (let k = 0; k < 27; k++) {
+          if (k === 13) continue
+          const j = cellIdx[bi + HOFF[k]]
+          if (j < 0) continue
+          const nc = cellArr[j]
+          if (nc) hood[CK3[k]] = palette[nc.palette].flat
+        }
+      } else for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy && !dz) continue
         const nc = cellAt(hx + dx, hy + dy, hz + dz)
         if (nc) hood[CK3[(dy + 1) * 9 + (dz + 1) * 3 + (dx + 1)]] = palette[nc.palette].flat
