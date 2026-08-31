@@ -47,7 +47,7 @@
     "resource-pack"
   ],
   "scripts": {
-    "prepublishOnly": "node tools/build-assets.js && node tools/build.js",
+    "prepublishOnly": "node tools/build-wasm.js && node tools/build-assets.js && node tools/build.js",
     "build": "node tools/build.js",
     "build:assets": "node tools/build-assets.js",
     "generate": "node tools/generate/generate.js",
