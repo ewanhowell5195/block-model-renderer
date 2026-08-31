@@ -1116,16 +1116,50 @@ export async function optimizeScene(placements, opts = {}) {
   stage(3000)
   const blockT = new THREE.Matrix4(), full = new THREE.Matrix4(), nmat = new THREE.Matrix3()
   const dynKeys = new WeakMap()
-  function dynKeyFor(geo, mat) {
-    if (Array.isArray(mat)) return geoHash(geo) + "|" + mat.map(x => matSignature(x) + (matMap(x)?.uuid ?? "")).join(",")
+  function dynBucketFor(geo, mat) {
     let byMat = dynKeys.get(geo)
-    if (!byMat) dynKeys.set(geo, byMat = new WeakMap())
-    let k = byMat.get(mat)
-    if (k === undefined) byMat.set(mat, k = geoHash(geo) + "|" + matSignature(mat) + (matMap(mat)?.uuid ?? ""))
-    return k
+    if (!byMat) dynKeys.set(geo, byMat = new Map())
+    let bucket = byMat.get(mat)
+    if (bucket) return bucket
+    const key = geoHash(geo) + "|" + [].concat(mat).map(x => matSignature(x) + (matMap(x)?.uuid ?? "")).join(",")
+    bucket = dynBuckets.get(key)
+    if (!bucket) dynBuckets.set(key, bucket = { geometry: geo, material: mat, entries: [] })
+    byMat.set(mat, bucket)
+    return bucket
   }
 
   const dynamicInstances = [], dynBuckets = new Map(), bbBuckets = new Map(), lineBuckets = new Map()
+  const dynPlans = new WeakMap()
+  function dynPlanFor(node) {
+    let plan = dynPlans.get(node)
+    if (plan) return plan
+    const proto = cloneInstance(node, true)
+    const found = []
+    proto.traverse(o => { if (o.isMesh || o.isLineSegments) found.push(o) })
+    const parts = []
+    for (const m of found) {
+      let inPart = false
+      for (let n = m; n && n !== proto; n = n.parent) if (n.name?.startsWith("part:")) { inPart = true; break }
+      if (m.isLineSegments) {
+        if (!inPart) m.removeFromParent()
+        continue
+      }
+      if (inPart) parts.push({ parent: m.parent, local: m.matrix.clone(), bucket: dynBucketFor(m.geometry, m.material) })
+      m.removeFromParent()
+    }
+    const paths = new Map()
+    const index = (o, path) => {
+      paths.set(o, path)
+      for (let i = 0; i < o.children.length; i++) index(o.children[i], path.concat(i))
+    }
+    index(proto, [])
+    for (const pt of parts) {
+      pt.path = paths.get(pt.parent)
+      pt.parent = null
+    }
+    dynPlans.set(node, plan = { proto, parts })
+    return plan
+  }
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
     const td = tdata.get(p.group)
@@ -1169,23 +1203,13 @@ export async function optimizeScene(placements, opts = {}) {
       holder.matrixAutoUpdate = false
       holder.matrix.multiplyMatrices(blockT, d.parentMatrix)
       holder.matrixWorldNeedsUpdate = true
-      const inst = cloneInstance(d.node, true)
-      const meshes = []
-      inst.traverse(o => { if (o.isMesh || o.isLineSegments) meshes.push(o) })
-      for (const m of meshes) {
-        let inPart = false
-        for (let n = m; n && n !== inst; n = n.parent) if (n.name?.startsWith("part:")) { inPart = true; break }
-        if (m.isLineSegments) {
-          if (!inPart) m.removeFromParent()
-          continue
-        }
-        if (inPart) {
-          const key = dynKeyFor(m.geometry, m.material)
-          let bucket = dynBuckets.get(key)
-          if (!bucket) dynBuckets.set(key, bucket = { geometry: m.geometry, material: m.material, entries: [] })
-          bucket.entries.push({ parent: m.parent, local: m.matrix.clone(), root: inst })
-        }
-        m.removeFromParent()
+      const plan = dynPlanFor(d.node)
+      const inst = cloneInstance(plan.proto, true)
+      for (const pt of plan.parts) {
+        let n = inst
+        const path = pt.path
+        for (let i = 0; i < path.length; i++) n = n.children[path[i]]
+        pt.bucket.entries.push({ parent: n, local: pt.local, root: inst })
       }
       initDynamic(inst)
       holder.add(inst)
