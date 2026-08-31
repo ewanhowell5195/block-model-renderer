@@ -78,6 +78,11 @@ export async function packScene(handle, opts = {}) {
         defines: { ...(mat.defines ?? {}) }, clipping: !!mat.clipping,
         uniforms: await packUniforms(mat.uniforms)
       }
+    } else if (mat.isLineBasicMaterial) {
+      spec = {
+        kind: "line", ...common,
+        color: mat.color ? [mat.color.r, mat.color.g, mat.color.b] : null
+      }
     } else {
       spec = {
         kind: "basic", ...common,
@@ -93,7 +98,7 @@ export async function packScene(handle, opts = {}) {
 
   handle.group.updateMatrixWorld(true)
   const list = []
-  handle.group.traverse(o => { if (o.isMesh) list.push(o) })
+  handle.group.traverse(o => { if (o.isMesh || o.isLineSegments) list.push(o) })
   for (const o of list) {
     const geo = o.geometry
     const attrs = {}
@@ -122,6 +127,7 @@ export async function packScene(handle, opts = {}) {
       frustumCulled: o.frustumCulled !== false,
       bounds: [bb.min.x, bb.min.y, bb.min.z, bb.max.x, bb.max.y, bb.max.z, bs.center.x, bs.center.y, bs.center.z, bs.radius]
     }
+    if (o.isLineSegments) spec.line = true
     if (o.isInstancedMesh) {
       spec.instanced = o.count
       const im = o.instanceMatrix.array.slice()
@@ -184,6 +190,9 @@ export function reviveScene(payload, opts = {}) {
         vertexShader: spec.vertexShader, fragmentShader: spec.fragmentShader,
         defines: { ...spec.defines }, uniforms, clipping: spec.clipping
       })
+    } else if (spec.kind === "line") {
+      mat = new THREE.LineBasicMaterial()
+      if (spec.color) mat.color.setRGB(...spec.color)
     } else {
       mat = new THREE.MeshBasicMaterial({ map: spec.map != null ? textures[spec.map] : null })
       if (spec.color) mat.color.setRGB(...spec.color)
@@ -245,6 +254,9 @@ export function reviveScene(payload, opts = {}) {
           this.instanceMatrix.needsUpdate = true
         }
       }
+    } else if (spec.line) {
+      mesh = new THREE.LineSegments(geo, material)
+      mesh.userData.outline = true
     } else {
       mesh = new THREE.Mesh(geo, material)
     }
