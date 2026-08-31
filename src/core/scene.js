@@ -113,6 +113,14 @@ const posHash = (x, y, z) => {
   return (Math.imul(Math.imul(h, h), 42317861) + Math.imul(h, 11) | 0) >>> 16
 }
 
+const CK3 = (() => {
+  const t = new Array(27)
+  for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+    t[(dy + 1) * 9 + (dz + 1) * 3 + (dx + 1)] = cellKey3(dx, dy, dz)
+  }
+  return t
+})()
+
 function cellKey3(dx, dy, dz) {
   let k = dy === 1 ? "up" : dy === -1 ? "down" : ""
   if (dz === -1) k += (k ? "_" : "") + "north"
@@ -216,15 +224,20 @@ export async function createScene(assets, blocks, args = {}) {
   const PK = (x, y, z) => ((x + 1048576) * 2048 + (y + 1024)) * 2097152 + (z + 1048576)
   const NO_PROPS = {}
   const piMemo = new WeakMap()
+  const idInfo = new Map()
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i]
     if (!b?.id || !b.pos) continue
-    const id = normalize(b.id)
-    const posKey = PK(b.pos[0], b.pos[1], b.pos[2])
-    if (AIR_BLOCKS.test(id)) {
+    let info = idInfo.get(b.id)
+    if (info === undefined) {
+      const nid = normalize(b.id)
+      idInfo.set(b.id, info = { id: nid, air: AIR_BLOCKS.test(nid) })
+    }
+    if (info.air) {
       dropCell(b.pos[0], b.pos[1], b.pos[2])
       continue
     }
+    const id = info.id
     const biome = b.biome ?? args.biome ?? null
     let pi
     const po = b.nbt ? null : (b.properties ?? NO_PROPS)
@@ -333,10 +346,11 @@ export async function createScene(assets, blocks, args = {}) {
     let fh = null
     if (entry.fluid) {
       const hood = {}
+      const hx = cell.pos[0], hy = cell.pos[1], hz = cell.pos[2]
       for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy && !dz) continue
-        const n = neighborAt(cell.pos, dx, dy, dz)
-        if (n) hood[cellKey3(dx, dy, dz)] = n.flat
+        const nc = cellAt(hx + dx, hy + dy, hz + dz)
+        if (nc) hood[CK3[(dy + 1) * 9 + (dz + 1) * 3 + (dx + 1)]] = palette[nc.palette].flat
       }
       hood.self = entry.flat
       fh = await fluidHeights(assets, entry.fluid, hood)
