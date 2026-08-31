@@ -117,6 +117,7 @@ import {
 | `LIGHT_DIMENSIONS` | The per-dimension world lighting presets, for spreading into overrides. [Details](rendering.md#world-lighting) |
 | `SKIP_BLOCKS` | The `Set` of block ids that resolve to no models (the airs, `moving_piston`); skip these when iterating every block. [Details](models.md#skip_blocks-and-technical_blocks) |
 | `TECHNICAL_BLOCKS` | The `Set` of invisible-in-game ids rendered here as placeholder icons (`barrier`, `light`, `structure_void`). [Details](models.md#skip_blocks-and-technical_blocks) |
+| `wasmStatus()` | Resolves `true` when the wasm geometry kernels are in use and `false` when the JavaScript fallbacks are. [Details](optimization.md#wasm-kernels) |
 
 ## Extending
 

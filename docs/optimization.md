@@ -172,3 +172,16 @@ To drive animation yourself instead, the schedule helpers work on any animated t
 The game runs at 20Hz and interpolated textures look right up to 60Hz. Regions only re-blend and re-upload when their evaluated frame actually changes.
 
 Running the standard render functions themselves across a worker pool, and keeping the animation clock in sync between contexts, are covered in the [Advanced API](advanced-api.md#batch-rendering-from-workers).
+
+## Wasm kernels
+
+Greedy meshing, greedy quad vertex emission and the scene light volume run as
+wasm compiled from `rust/`. The module is carried inside the bundle, so workers
+and Node get it without a second fetch.
+
+`wasmStatus()` resolves `true` when the kernels are in use and `false` when the
+JavaScript fallbacks are. Both paths produce identical output; setting
+`globalThis.__BMR_NO_WASM = true` forces the JavaScript ones.
+
+Rebuild the module with `npm run build:wasm`, which needs the Rust toolchain and
+`wasm-pack`. The build output is committed, so publishing does not need either.
