@@ -1,6 +1,6 @@
 import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { prepareAssets, scopedCache, readFile } from "./assets.js"
-import { parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS } from "./models.js"
+import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -467,7 +467,7 @@ export async function createScene(assets, blocks, args = {}) {
         }
         tmpl = culled
       }
-      const inst = tmpl.clone()
+      const inst = cloneInstance(tmpl, true)
       inst.position.set(cell.pos[0] * 16, cell.pos[1] * 16, cell.pos[2] * 16)
       group.add(inst)
       inst.traverse(o => {
@@ -481,7 +481,7 @@ export async function createScene(assets, blocks, args = {}) {
       if (shouldCancel?.()) return null
     }
     for (const o of overlays) {
-      const inst = templateOf.get(o.template).clone()
+      const inst = cloneInstance(templateOf.get(o.template), true)
       inst.position.set(o.pos[0] * 16, o.pos[1] * 16, o.pos[2] * 16)
       group.add(inst)
       inst.traverse(m => {

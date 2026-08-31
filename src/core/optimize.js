@@ -1,6 +1,6 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
 import { subUpload, subFlush } from "./subtex.js"
-import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS, loadSpriteTexture } from "./models.js"
+import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS, loadSpriteTexture, cloneInstance } from "./models.js"
 import { wasmReady, wasmLoaded, greedyMeshFast, emitQuadsFast } from "./fast.js"
 import { buildSchedules, evaluateAnimation } from "./animation.js"
 import { listAtlasSprites } from "./assets.js"
@@ -1125,25 +1125,6 @@ export async function optimizeScene(placements, opts = {}) {
     return k
   }
 
-  const cloneNode = (s, root) => {
-    const d = s.isMesh ? new THREE.Mesh(s.geometry, s.material)
-      : s.isLineSegments ? new THREE.LineSegments(s.geometry, s.material)
-      : new THREE.Group()
-    d.name = s.name
-    d.userData = root ? { ...s.userData } : s.userData
-    d.visible = s.visible
-    d.renderOrder = s.renderOrder
-    d.matrixAutoUpdate = s.matrixAutoUpdate
-    d.position.copy(s.position)
-    d.quaternion.copy(s.quaternion)
-    d.scale.copy(s.scale)
-    d.matrix.copy(s.matrix)
-    d.matrixWorldNeedsUpdate = true
-    d.onBeforeRender = s.onBeforeRender
-    for (const ch of s.children) d.add(cloneNode(ch, false))
-    return d
-  }
-
   const dynamicInstances = [], dynBuckets = new Map(), bbBuckets = new Map(), lineBuckets = new Map()
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i]
@@ -1188,7 +1169,7 @@ export async function optimizeScene(placements, opts = {}) {
       holder.matrixAutoUpdate = false
       holder.matrix.multiplyMatrices(blockT, d.parentMatrix)
       holder.matrixWorldNeedsUpdate = true
-      const inst = cloneNode(d.node, true)
+      const inst = cloneInstance(d.node, true)
       const meshes = []
       inst.traverse(o => { if (o.isMesh || o.isLineSegments) meshes.push(o) })
       for (const m of meshes) {

@@ -72,6 +72,28 @@ export function poseSpecial(root, data = {}) {
   applyDynamicPose(root, data)
 }
 
+// three's Object3D.copy json round trips userData for every object, which
+// dominates instancing. per instance state lives in WeakMaps keyed by the
+// root, so children can share theirs
+export function cloneInstance(s, root) {
+  const d = s.isMesh ? new THREE.Mesh(s.geometry, s.material)
+    : s.isLineSegments ? new THREE.LineSegments(s.geometry, s.material)
+    : new THREE.Group()
+  d.name = s.name
+  d.userData = root ? { ...s.userData } : s.userData
+  d.visible = s.visible
+  d.renderOrder = s.renderOrder
+  d.matrixAutoUpdate = s.matrixAutoUpdate
+  d.position.copy(s.position)
+  d.quaternion.copy(s.quaternion)
+  d.scale.copy(s.scale)
+  d.matrix.copy(s.matrix)
+  d.matrixWorldNeedsUpdate = true
+  d.onBeforeRender = s.onBeforeRender
+  for (const ch of s.children) d.add(cloneInstance(ch, false))
+  return d
+}
+
 export function initDynamic(root) {
   const kind = root.userData?.dynamic
   if (!kind) return
