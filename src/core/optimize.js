@@ -1,6 +1,7 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
 import { subUpload, subFlush } from "./subtex.js"
 import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS, loadSpriteTexture } from "./models.js"
+import { wasmReady, wasmLoaded, greedyMeshFast, emitQuadsFast } from "./fast.js"
 import { buildSchedules, evaluateAnimation } from "./animation.js"
 import { listAtlasSprites } from "./assets.js"
 import { sortTranslucent } from "./sorting.js"
@@ -76,7 +77,14 @@ function atlasSignature(m) {
     u.skyLightFactor?.value, u.brightness?.value, u.shadePos?.value?.toArray().join(","), u.shadeNeg?.value?.toArray().join(","), u.shadeMat?.value?.elements?.join(","), u.worldShade?.value].join("|")
 }
 
+const fdCache = new WeakMap()
 function faceDataOf(m) {
+  let hit = fdCache.get(m)
+  if (hit === undefined) fdCache.set(m, hit = computeFaceData(m))
+  return hit
+}
+
+function computeFaceData(m) {
   const u = m.uniforms
   if (!u) return null
   const so = u.shadeOverride?.value
@@ -92,7 +100,14 @@ function faceDataOf(m) {
   return [u.emission?.value ?? 0, dir + (u.shadeEnabled?.value !== false ? 8 : 0) + (u.aoEnabled?.value !== false ? 16 : 0)]
 }
 
+const sigCache = new WeakMap()
 function matSignature(m) {
+  let hit = sigCache.get(m)
+  if (hit === undefined) sigCache.set(m, hit = computeSignature(m))
+  return hit
+}
+
+function computeSignature(m) {
   if (m.uniforms) {
     const u = m.uniforms
     return ["shader", m.side, u.shadeEnabled?.value, u.shadeOverride?.value?.toArray().join(","), u.d0?.value, u.d1?.value, u.ambient?.value,
@@ -329,6 +344,22 @@ async function buildAtlas(textures, maxAtlas, breathe) {
 
 const GR_M = 1 << 25, GR_W = 67108864
 const packCell = (i, j) => (j + GR_M) * GR_W + (i + GR_M)
+function greedyMeshJs(triples, gridCount) {
+  const per = []
+  for (let g = 0; g < gridCount; g++) per.push(null)
+  for (let i = 0; i < triples.length; i += 3) {
+    const g = triples[i]
+    if (g < 0 || g >= gridCount) continue
+    ;(per[g] ??= new Set()).add(packCell(triples[i + 1], triples[i + 2]))
+  }
+  const out = []
+  for (let g = 0; g < gridCount; g++) {
+    if (!per[g]) continue
+    for (const [i0, i1, j0, j1] of greedyRects(per[g])) out.push(g, i0, i1, j0, j1)
+  }
+  return Int32Array.from(out)
+}
+
 function greedyRects(cellSet) {
   const done = new Set(), rects = []
   const coords = Float64Array.from(cellSet).sort()
@@ -349,6 +380,21 @@ function greedyRects(cellSet) {
   return rects
 }
 
+class GrowI32 {
+  constructor() { this.a = new Int32Array(4096); this.length = 0 }
+  push3(x, y, z) {
+    if (this.length + 3 > this.a.length) {
+      const b = new Int32Array(this.a.length * 2)
+      b.set(this.a)
+      this.a = b
+    }
+    const a = this.a, l = this.length
+    a[l] = x; a[l + 1] = y; a[l + 2] = z
+    this.length = l + 3
+  }
+  data() { return this.a.length === this.length ? this.a : this.a.subarray(0, this.length) }
+}
+
 class GrowU8 {
   constructor() { this.a = new Uint8Array(4096); this.length = 0 }
   ensure(n) {
@@ -360,6 +406,7 @@ class GrowU8 {
     this.a = b
   }
   push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
+  append(v) { if (!v.length) return; this.ensure(v.length); this.a.set(v, this.length); this.length += v.length }
   data() { return this.a.length === this.length ? this.a : this.a.slice(0, this.length) }
 }
 
@@ -374,6 +421,7 @@ class GrowF32 {
     this.a = b
   }
   push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
+  append(v) { if (!v.length) return; this.ensure(v.length); this.a.set(v, this.length); this.length += v.length }
   push2(x, y) { this.ensure(2); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; this.length = l + 2 }
   data() { return this.a.length === this.length ? this.a : this.a.slice(0, this.length) }
 }
@@ -669,6 +717,7 @@ function tiledSub(srcImg, key, sub, ur, vr) {
 
 export async function optimizeScene(placements, opts = {}) {
   if (!Array.isArray(placements)) throw new Error("optimizeScene requires an array of placements")
+  await wasmReady()
   const shared = opts.sharedAtlas ?? null
   const maxAtlas = opts.maxAtlas ?? detectMaxAtlas()
   const maxTile = Math.max(64, maxAtlas >> 5)
@@ -895,7 +944,9 @@ export async function optimizeScene(placements, opts = {}) {
   }
 
   const _primeCam = new THREE.Object3D()
-  const grids = new Map()
+  const grids = []
+  const cellRuns = new GrowI32()
+  const gridIndex = new Map()
   const cellIds = new Map()
   stage(800)
   let scanned = 0
@@ -918,17 +969,31 @@ export async function optimizeScene(placements, opts = {}) {
       const wpc = f.pc + p.pos[f.na] * 16
       const wa0 = f.a0 + p.pos[f.pa] * 16, wb0 = f.b0 + p.pos[f.pb] * 16
       const phaseA = ((wa0 % f.wa) + f.wa) % f.wa, phaseB = ((wb0 % f.wb) + f.wb) % f.wb
-      const key = cid + "|" + f.na + "|" + Math.round(wpc * 100) + "|" + f.ns + "|" + Math.round(phaseA * 100) + "|" + Math.round(phaseB * 100)
-      let grid = grids.get(key)
-      if (!grid) grids.set(key, grid = { f, wpc, phaseA, phaseB, cells: new Set() })
-      grid.cells.add(packCell(Math.round((wa0 - phaseA) / f.wa), Math.round((wb0 - phaseB) / f.wb)))
+      const wq = Math.round(wpc * 100), pa = Math.round(phaseA * 100), pb = Math.round(phaseB * 100)
+      const key = pa >= 0 && pa < 2048 && pb >= 0 && pb < 2048 && wq > -1e7 && wq < 1e7
+        ? ((wq * 2048 + pa) * 2048 + pb) * 8 + f.na * 2 + (f.ns > 0 ? 1 : 0)
+        : f.na + "|" + wq + "|" + f.ns + "|" + pa + "|" + pb
+      let byCid = gridIndex.get(cid)
+      if (!byCid) gridIndex.set(cid, byCid = new Map())
+      let grid = byCid.get(key)
+      if (!grid) { byCid.set(key, grid = { f, wpc, phaseA, phaseB, index: grids.length }); grids.push(grid) }
+      cellRuns.push3(grid.index, Math.round((wa0 - phaseA) / f.wa), Math.round((wb0 - phaseB) / f.wb))
     }
   }
+  const cellData = cellRuns.data()
+  let rectRun = grids.length ? greedyMeshFast(cellData, grids.length) : new Int32Array(0)
+  if (!rectRun) rectRun = greedyMeshJs(cellData, grids.length)
+  // where each grid's rectangles start, the run is grouped and ascending
+  const rectAt = new Int32Array(grids.length + 1).fill(rectRun.length)
+  for (let i = rectRun.length - 5; i >= 0; i -= 5) rectAt[rectRun[i]] = i
+  for (let g = grids.length - 1; g >= 0; g--) if (rectAt[g] === rectRun.length) rectAt[g] = rectAt[g + 1]
+
   const greedyQuads = []
+  const pseudoCache = new Map()
   stage(2500)
   let gi = 0
-  for (const grid of grids.values()) {
-    report(++gi / grids.size)
+  for (const grid of grids) {
+    report(++gi / grids.length)
     await breathe()
     if (shouldCancel?.()) return null
     const f = grid.f
@@ -937,14 +1002,17 @@ export async function optimizeScene(placements, opts = {}) {
     let grp = atlasGroups.get(sig)
     if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: f.mat, translucent })
     const maxA = Math.max(1, Math.floor(maxTile / f.sub.sw)), maxB = Math.max(1, Math.floor(maxTile / f.sub.sh))
-    for (const [i0, i1, j0, j1] of greedyRects(grid.cells)) {
+    for (let ri = rectAt[grid.index], rEnd = rectAt[grid.index + 1]; ri < rEnd; ri += 5) {
+      const i0 = rectRun[ri + 1], i1 = rectRun[ri + 2], j0 = rectRun[ri + 3], j1 = rectRun[ri + 4]
       for (let ci = i0; ci <= i1; ci += maxA) for (let cj = j0; cj <= j1; cj += maxB) {
         const ei = Math.min(ci + maxA - 1, i1), ej = Math.min(cj + maxB - 1, j1)
         const Na = ei - ci + 1, Nb = ej - cj + 1
         const wALo = grid.phaseA + ci * f.wa, wAHi = grid.phaseA + (ei + 1) * f.wa
         const wBLo = grid.phaseB + cj * f.wb, wBHi = grid.phaseB + (ej + 1) * f.wb
         const ur = f.uAxisIsPa ? Na : Nb, vr = f.uAxisIsPa ? Nb : Na
-        const pseudo = { image: tiledSub(f.tex.image, f.cellKey, f.sub, ur, vr), colorSpace: f.tex.colorSpace }
+        const pk = f.cellKey + "|" + ur + "x" + vr
+        let pseudo = pseudoCache.get(pk)
+        if (!pseudo) pseudoCache.set(pk, pseudo = { image: tiledSub(f.tex.image, f.cellKey, f.sub, ur, vr), colorSpace: f.tex.colorSpace })
         grp.textures.add(pseudo)
         greedyQuads.push({ sig, pseudo, f, wpc: grid.wpc, wALo, wAHi, wBLo, wBHi })
       }
@@ -1101,28 +1169,120 @@ export async function optimizeScene(placements, opts = {}) {
   }
 
   stage(1500)
-  let appended = 0
-  for (const q of greedyQuads) {
-    if (++appended % 512 === 0) {
-      report(appended / greedyQuads.length)
-      await breathe()
-      if (shouldCancel?.()) return null
-    }
-    const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo), s = at.sizes[rect.ai], acc = at.accs[rect.ai], f = q.f
+  const QUAD_STRIDE = 16, FACE_STRIDE = 31, BATCH = 16384
+
+  // rust wants the quads flat, so accumulators and faces get an index each and
+  // a batch is handed over at a time to keep the frame budget
+  const accList = []
+  const accId = new Map()
+  for (const at of atlases.values()) for (const acc of at.accs) {
+    if (!accId.has(acc)) { accId.set(acc, accList.length); accList.push(acc) }
+  }
+  const faceRows = []
+  const faceId = new Map()
+  function faceIndex(f) {
+    let id = faceId.get(f)
+    if (id !== undefined) return id
     const fd = faceDataOf(f.mat)
-    const ft = f.tint
-    for (const vert of f.verts) {
-      const p = [0, 0, 0], nn = [0, 0, 0]
-      p[f.na] = q.wpc
-      p[f.pa] = vert.ha ? q.wAHi : q.wALo
-      p[f.pb] = vert.hb ? q.wBHi : q.wBLo
-      nn[f.na] = f.ns
-      acc.P.push3(p[0], p[1], p[2])
-      acc.N.push3(nn[0], nn[1], nn[2])
-      acc.U.push2((rect.x + vert.u * rect.w) / s.w, 1 - (rect.y + (1 - vert.v) * rect.h) / s.h)
-      if (ft) acc.T.push3(ft[0], ft[1], ft[2])
-      else acc.T.push3(255, 255, 255)
-      if (fd) acc.F.push2(fd[0], fd[1])
+    const row = [f.na, f.pa, f.pb, f.ns, fd ? 1 : -1, fd ? fd[0] : 0, fd ? fd[1] : 0]
+    for (let v = 0; v < 6; v++) {
+      const vert = f.verts[v]
+      row.push(vert.ha ? 1 : 0, vert.hb ? 1 : 0, vert.u, vert.v)
+    }
+    faceId.set(f, id = faceRows.length)
+    faceRows.push(row)
+    return id
+  }
+
+  let faceFlat = null, faceFlatRows = -1
+  function faceTable() {
+    if (faceFlatRows !== faceRows.length) {
+      faceFlat = new Float64Array(faceRows.length * FACE_STRIDE)
+      for (let i = 0; i < faceRows.length; i++) faceFlat.set(faceRows[i], i * FACE_STRIDE)
+      faceFlatRows = faceRows.length
+    }
+    return faceFlat
+  }
+
+  async function flush(quadBuf, used) {
+    if (!used) return true
+    const emitted = emitQuadsFast(quadBuf.subarray(0, used * QUAD_STRIDE), faceTable(), accList.length)
+    if (!emitted) return false
+    try {
+      for (let i = 0; i < accList.length; i++) {
+        const acc = accList[i]
+        acc.P.append(emitted.position(i))
+        acc.N.append(emitted.normal(i))
+        acc.U.append(emitted.uv(i))
+        acc.T.append(emitted.color(i))
+        acc.F.append(emitted.faceData(i))
+      }
+    } finally {
+      emitted.free()
+    }
+    return true
+  }
+
+  let wasmEmit = accList.length > 0 && wasmLoaded()
+  const mark = accList.map(a => [a.P.length, a.N.length, a.U.length, a.F.length, a.T.length])
+  if (wasmEmit) {
+    const quadBuf = new Float64Array(BATCH * QUAD_STRIDE)
+    let used = 0, done = 0
+    for (const q of greedyQuads) {
+      const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo), s = at.sizes[rect.ai], f = q.f
+      const o = used * QUAD_STRIDE
+      quadBuf[o] = accId.get(at.accs[rect.ai])
+      quadBuf[o + 1] = faceIndex(f)
+      quadBuf[o + 2] = q.wpc
+      quadBuf[o + 3] = q.wALo; quadBuf[o + 4] = q.wAHi
+      quadBuf[o + 5] = q.wBLo; quadBuf[o + 6] = q.wBHi
+      quadBuf[o + 7] = rect.x; quadBuf[o + 8] = rect.y
+      quadBuf[o + 9] = rect.w; quadBuf[o + 10] = rect.h
+      quadBuf[o + 11] = s.w; quadBuf[o + 12] = s.h
+      const ft = f.tint
+      quadBuf[o + 13] = ft ? ft[0] : -1
+      quadBuf[o + 14] = ft ? ft[1] : 0
+      quadBuf[o + 15] = ft ? ft[2] : 0
+      if (++used === BATCH) {
+        if (!await flush(quadBuf, used)) { wasmEmit = false; break }
+        used = 0
+        done += BATCH
+        report(done / greedyQuads.length)
+        await breathe()
+        if (shouldCancel?.()) return null
+      }
+    }
+    if (wasmEmit && !await flush(quadBuf, used)) wasmEmit = false
+  }
+
+  if (!wasmEmit) {
+    for (let i = 0; i < accList.length; i++) {
+      const a = accList[i], m = mark[i]
+      a.P.length = m[0]; a.N.length = m[1]; a.U.length = m[2]; a.F.length = m[3]; a.T.length = m[4]
+    }
+    let appended = 0
+    for (const q of greedyQuads) {
+      if (++appended % 512 === 0) {
+        report(appended / greedyQuads.length)
+        await breathe()
+        if (shouldCancel?.()) return null
+      }
+      const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo), s = at.sizes[rect.ai], acc = at.accs[rect.ai], f = q.f
+      const fd = faceDataOf(f.mat)
+      const ft = f.tint
+      for (const vert of f.verts) {
+        const p = [0, 0, 0], nn = [0, 0, 0]
+        p[f.na] = q.wpc
+        p[f.pa] = vert.ha ? q.wAHi : q.wALo
+        p[f.pb] = vert.hb ? q.wBHi : q.wBLo
+        nn[f.na] = f.ns
+        acc.P.push3(p[0], p[1], p[2])
+        acc.N.push3(nn[0], nn[1], nn[2])
+        acc.U.push2((rect.x + vert.u * rect.w) / s.w, 1 - (rect.y + (1 - vert.v) * rect.h) / s.h)
+        if (ft) acc.T.push3(ft[0], ft[1], ft[2])
+        else acc.T.push3(255, 255, 255)
+        if (fd) acc.F.push2(fd[0], fd[1])
+      }
     }
   }
 

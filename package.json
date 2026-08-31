@@ -24,6 +24,7 @@
     "index.js",
     "src/",
     "dist/",
+    "wasm/",
     "types/",
     "!types/tsconfig.json",
     "assets/",
@@ -51,7 +52,7 @@
     "build:assets": "node tools/build-assets.js",
     "generate": "node tools/generate/generate.js",
     "types": "tsc -p types/tsconfig.json",
-    "test": "node tools/generate/test.js",
+    "test": "node --test \"test/**/*.test.mjs\"",
     "example": "node examples/node/example.js",
     "all": "node examples/node/render_all.js",
     "animated": "node examples/node/render_animated.js",
@@ -62,7 +63,8 @@
     "simple": "node examples/node/render_simple.js",
     "textures": "node examples/node/render_textures.js",
     "full": "npm run example && npm run all && npm run animated && npm run banners && npm run fixed && npm run overrides && npm run scene && npm run simple && npm run textures && npm run loader",
-    "loader": "node examples/node/render_loader.js"
+    "loader": "node examples/node/render_loader.js",
+    "build:wasm": "node tools/build-wasm.js"
   },
   "dependencies": {
     "gl": "^8.1.6",

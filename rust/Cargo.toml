@@ -1,0 +1,24 @@
+[package]
+name = "block-model-renderer"
+version = "2.16.1"
+edition = "2021"
+description = "Geometry kernels for block-model-renderer"
+license = "MPL-2.0"
+repository = "https://github.com/ewanhowell5195/block-model-renderer"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = { version = "0.2", optional = true }
+
+[features]
+default = []
+wasm = ["dep:wasm-bindgen"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

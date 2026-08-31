@@ -221,7 +221,13 @@ export async function createScene(assets, blocks, args = {}) {
     if (!c) return null
     return { c, flat: palette[c.palette].flat }
   }
+  // the cull key is the cell's own state plus its six neighbours, packed into
+  // two integers rather than built as a string. -1 is "nothing there" and -2 is
+  // "occluded from outside", which sit just past the palette
   const cullMemo = new Map()
+  const CB = palette.length + 2
+  const CB3 = CB * CB * CB
+  const cullNumeric = CB <= 2000
   const templateOf = new Map()
   const templateSpecs = new Map()
   let parsed = 0
@@ -234,15 +240,30 @@ export async function createScene(assets, blocks, args = {}) {
     }
 
     const px = cell.pos[0], py = cell.pos[1], pz = cell.pos[2]
-    let cullKey = String(cell.palette)
     for (let di = 0; di < 6; di++) {
       const [dx, dy, dz] = DIR_VECS[di]
       const c = cells.get(PK(px + dx, py + dy, pz + dz))
-      if (c) { _nbr[di] = c.palette; cullKey += "|" + c.palette }
-      else if (args.externalOcclusion?.(px + dx, py + dy, pz + dz)) { _nbr[di] = -2; cullKey += "|X" }
-      else { _nbr[di] = -1; cullKey += "|" }
+      if (c) _nbr[di] = c.palette
+      else if (args.externalOcclusion?.(px + dx, py + dy, pz + dz)) _nbr[di] = -2
+      else _nbr[di] = -1
     }
-    let cull = cullMemo.get(cullKey)
+    let hi, lo, bucket
+    if (cullNumeric) {
+      const s0 = _nbr[0] < 0 ? palette.length - _nbr[0] - 1 : _nbr[0]
+      const s1 = _nbr[1] < 0 ? palette.length - _nbr[1] - 1 : _nbr[1]
+      const s2 = _nbr[2] < 0 ? palette.length - _nbr[2] - 1 : _nbr[2]
+      const s3 = _nbr[3] < 0 ? palette.length - _nbr[3] - 1 : _nbr[3]
+      const s4 = _nbr[4] < 0 ? palette.length - _nbr[4] - 1 : _nbr[4]
+      const s5 = _nbr[5] < 0 ? palette.length - _nbr[5] - 1 : _nbr[5]
+      hi = ((cell.palette * CB + s0) * CB + s1) * CB + s2
+      lo = (s3 * CB + s4) * CB + s5
+    } else {
+      hi = String(cell.palette) + "|" + _nbr[0] + "|" + _nbr[1] + "|" + _nbr[2]
+      lo = _nbr[3] + "|" + _nbr[4] + "|" + _nbr[5]
+    }
+    bucket = cullMemo.get(hi)
+    if (bucket === undefined) cullMemo.set(hi, bucket = new Map())
+    let cull = bucket.get(lo)
     if (cull === undefined) {
       const neighbors = {}
       for (let di = 0; di < 6; di++) {
@@ -250,7 +271,7 @@ export async function createScene(assets, blocks, args = {}) {
         else if (_nbr[di] === -2) neighbors[DIR_NAMES[di]] = true
       }
       cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults })
-      cullMemo.set(cullKey, cull)
+      bucket.set(lo, cull)
     }
     cell.cull = cull.size ? cull : null
 
