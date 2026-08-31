@@ -27,15 +27,15 @@ pub struct LightVolume {
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl LightVolume {
     #[cfg_attr(feature = "wasm", wasm_bindgen(js_name = blockLight))]
-    pub fn block_light(&self) -> Vec<u8> {
-        self.block.clone()
+    pub fn block_light(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.block)
     }
     #[cfg_attr(feature = "wasm", wasm_bindgen(js_name = skyLight))]
-    pub fn sky_light(&self) -> Vec<u8> {
-        self.sky.clone()
+    pub fn sky_light(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.sky)
     }
-    pub fn bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
+    pub fn bytes(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.bytes)
     }
 }
 

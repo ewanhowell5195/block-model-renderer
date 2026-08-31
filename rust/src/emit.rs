@@ -28,21 +28,21 @@ impl Emitted {
     pub fn count(&self) -> usize {
         self.bufs.len()
     }
-    pub fn position(&self, i: usize) -> Vec<f32> {
-        self.bufs[i].p.clone()
+    pub fn position(&mut self, i: usize) -> Vec<f32> {
+        std::mem::take(&mut self.bufs[i].p)
     }
-    pub fn normal(&self, i: usize) -> Vec<f32> {
-        self.bufs[i].n.clone()
+    pub fn normal(&mut self, i: usize) -> Vec<f32> {
+        std::mem::take(&mut self.bufs[i].n)
     }
-    pub fn uv(&self, i: usize) -> Vec<f32> {
-        self.bufs[i].u.clone()
+    pub fn uv(&mut self, i: usize) -> Vec<f32> {
+        std::mem::take(&mut self.bufs[i].u)
     }
     #[cfg_attr(feature = "wasm", wasm_bindgen(js_name = faceData))]
-    pub fn face_data(&self, i: usize) -> Vec<f32> {
-        self.bufs[i].f.clone()
+    pub fn face_data(&mut self, i: usize) -> Vec<f32> {
+        std::mem::take(&mut self.bufs[i].f)
     }
-    pub fn color(&self, i: usize) -> Vec<u8> {
-        self.bufs[i].t.clone()
+    pub fn color(&mut self, i: usize) -> Vec<u8> {
+        std::mem::take(&mut self.bufs[i].t)
     }
 }
 
