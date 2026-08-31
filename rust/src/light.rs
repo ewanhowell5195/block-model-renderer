@@ -256,6 +256,9 @@ pub fn compute_volume(
     let tex_h = rows * d2;
     let mut bytes = vec![0u8; tex_w * tex_h * 4];
 
+    let hw = h * w;
+    let off = [0usize, 1, w, w + 1, hw, hw + 1, hw + w, hw + w + 1];
+
     let clamp_idx = |x: i32, y: i32, z: i32| -> usize {
         let cz = z.clamp(0, d as i32 - 1) as usize;
         let cy = y.clamp(0, h as i32 - 1) as usize;
@@ -270,17 +273,32 @@ pub fn compute_volume(
             let mut ti = ((ty + z) * tex_w + tx) * 4;
             for x in 0..=w {
                 let (mut bl, mut sl, mut open, mut blf, mut slf) = (0u32, 0u32, 0u32, 0u32, 0u32);
-                for dy in -1..=0 {
-                    for dz in -1..=0 {
-                        for dx in -1..=0 {
-                            let ci = clamp_idx(x as i32 + dx, y as i32 + dy, z as i32 + dz);
-                            if solid[ci] != 0 {
-                                blf += sample_block[ci] as u32;
-                                slf += sample_sky[ci] as u32;
-                            } else {
-                                bl += block_light[ci] as u32;
-                                sl += sky_light[ci] as u32;
-                                open += 1;
+                if x >= 1 && x < w && y >= 1 && y < h && z >= 1 && z < d {
+                    let base = ((z - 1) * h + (y - 1)) * w + (x - 1);
+                    for k in 0..8 {
+                        let ci = base + off[k];
+                        if solid[ci] != 0 {
+                            blf += sample_block[ci] as u32;
+                            slf += sample_sky[ci] as u32;
+                        } else {
+                            bl += block_light[ci] as u32;
+                            sl += sky_light[ci] as u32;
+                            open += 1;
+                        }
+                    }
+                } else {
+                    for dy in -1..=0 {
+                        for dz in -1..=0 {
+                            for dx in -1..=0 {
+                                let ci = clamp_idx(x as i32 + dx, y as i32 + dy, z as i32 + dz);
+                                if solid[ci] != 0 {
+                                    blf += sample_block[ci] as u32;
+                                    slf += sample_sky[ci] as u32;
+                                } else {
+                                    bl += block_light[ci] as u32;
+                                    sl += sky_light[ci] as u32;
+                                    open += 1;
+                                }
                             }
                         }
                     }
