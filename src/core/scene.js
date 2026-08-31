@@ -280,6 +280,7 @@ export async function createScene(assets, blocks, args = {}) {
     else putCell(b.pos[0], b.pos[1], b.pos[2], { pos: b.pos, palette: pi, context: b.context === true })
   }
 
+  const sigIds = (assets.cache.sigIds ??= new Map())
   enter("parse")
   for (const entry of palette) {
     entry.models = await parseBlockstate(assets, entry.id, {
@@ -288,6 +289,9 @@ export async function createScene(assets, blocks, args = {}) {
     })
     entry.flat = { id: entry.id, ...(entry.properties ?? {}) }
     entry.sig = entry.id + "\u0000" + JSON.stringify(entry.properties ?? null)
+    let sid = sigIds.get(entry.sig)
+    if (sid === undefined) sigIds.set(entry.sig, sid = sigIds.size)
+    entry.sigId = sid
     entry.fluid = fluidTypeOf(entry.id, entry.properties, rules)
     entry.random = await hasRandomModels(assets, entry.id)
     await breathe()
@@ -363,9 +367,9 @@ export async function createScene(assets, blocks, args = {}) {
         if (_nbr[di] >= 0) neighbors[DIR_NAMES[di]] = palette[_nbr[di]].flat
         else if (_nbr[di] === -2) neighbors[DIR_NAMES[di]] = true
       }
-      let ck = cullEnv + entry.sig
+      let ck = cullEnv + entry.sigId
       for (let di = 0; di < 6; di++) {
-        ck += "\u0001" + (_nbr[di] >= 0 ? palette[_nbr[di]].sig : _nbr[di] === -2 ? "\u0002" : "")
+        ck += "," + (_nbr[di] >= 0 ? palette[_nbr[di]].sigId : _nbr[di])
       }
       cull = cullCache.get(ck)
       if (cull === undefined) {
@@ -402,7 +406,9 @@ export async function createScene(assets, blocks, args = {}) {
     if (entry.random) {
       seed = Math.imul((posHash(cell.pos[0], cell.pos[1], cell.pos[2]) & 15) + 1, 0x9E3779B1) >>> 0
     }
-    const templateKey = cell.palette + "|" + (seed ?? "") + "|" + (fh ? JSON.stringify(fh) : "")
+    const templateKey = seed === null && fh === null
+      ? cell.palette
+      : cell.palette + "|" + (seed ?? "") + "|" + (fh ? JSON.stringify(fh) : "")
     cell.template = templateKey
     if (!templateSpecs.has(templateKey)) templateSpecs.set(templateKey, { entry, palette: cell.palette, seed, fh })
 
@@ -413,7 +419,7 @@ export async function createScene(assets, blocks, args = {}) {
     }
   }
   for (const o of overlays) {
-    o.template = o.palette + "||"
+    o.template = o.palette
     if (!templateSpecs.has(o.template)) templateSpecs.set(o.template, { entry: palette[o.palette], palette: o.palette, seed: null, fh: null })
   }
   report(1, 1)
@@ -499,7 +505,7 @@ export async function createScene(assets, blocks, args = {}) {
     enter("optimize")
     const placements = []
     for (const cell of cellValues()) {
-      if (!cell.template) continue
+      if (cell.template === null) continue
       placements.push({ group: templateOf.get(cell.template), pos: cell.pos, cull: cell.cull })
     }
     for (const o of overlays) {
@@ -519,7 +525,7 @@ export async function createScene(assets, blocks, args = {}) {
   } else {
     const cullVariants = new Map()
     for (const cell of cellValues()) {
-      if (!cell.template) continue
+      if (cell.template === null) continue
       let tmpl = templateOf.get(cell.template)
       if (cell.cull) {
         const key = cell.template + "|" + Array.from(cell.cull).sort().join(",")
@@ -591,7 +597,7 @@ export async function createScene(assets, blocks, args = {}) {
       const b = blocks[i]
       if (!b?.pos) continue
       const cell = cellAt(b.pos[0], b.pos[1], b.pos[2])
-      if (cell?.template) blockTemplate[i] = templateIdx.get(cell.template)
+      if (cell != null && cell.template !== null) blockTemplate[i] = templateIdx.get(cell.template)
     }
   }
 
