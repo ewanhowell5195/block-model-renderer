@@ -155,7 +155,60 @@ export async function createScene(assets, blocks, args = {}) {
     sliceT = performance.now()
   }
 
-  const cells = new Map()
+  const cellArr = []
+  let liveCells = 0
+  let cx0 = Infinity, cy0 = Infinity, cz0 = Infinity, cx1 = -Infinity, cy1 = -Infinity, cz1 = -Infinity
+  for (let i = 0; i < blocks.length; i++) {
+    const p = blocks[i]?.pos
+    if (!p) continue
+    if (p[0] < cx0) cx0 = p[0]
+    if (p[0] > cx1) cx1 = p[0]
+    if (p[1] < cy0) cy0 = p[1]
+    if (p[1] > cy1) cy1 = p[1]
+    if (p[2] < cz0) cz0 = p[2]
+    if (p[2] > cz1) cz1 = p[2]
+  }
+  const cW = cx1 - cx0 + 3, cH = cy1 - cy0 + 3, cD = cz1 - cz0 + 3
+  const cVol = cx0 === Infinity ? 0 : cW * cH * cD
+  const cellIdx = cVol > 0 && cVol <= 24e6 ? new Int32Array(cVol).fill(-1) : null
+  const cellMap = cellIdx ? null : new Map()
+  const CI = (x, y, z) => {
+    const ix = x - cx0 + 1, iy = y - cy0 + 1, iz = z - cz0 + 1
+    return ix >= 0 && iy >= 0 && iz >= 0 && ix < cW && iy < cH && iz < cD ? (iz * cH + iy) * cW + ix : -1
+  }
+  const cellAt = (x, y, z) => {
+    if (cellIdx) {
+      const i = CI(x, y, z)
+      return i < 0 ? undefined : (cellArr[cellIdx[i]] ?? undefined)
+    }
+    const j = cellMap.get(PK(x, y, z))
+    return j === undefined ? undefined : (cellArr[j] ?? undefined)
+  }
+  const putCell = (x, y, z, cell) => {
+    if (cellIdx) {
+      const i = CI(x, y, z)
+      if (i < 0) return
+      const j = cellIdx[i]
+      if (j >= 0 && cellArr[j]) { cellArr[j] = cell; return }
+      cellIdx[i] = cellArr.length
+      cellArr.push(cell)
+      liveCells++
+      return
+    }
+    const k = PK(x, y, z)
+    const j = cellMap.get(k)
+    if (j !== undefined && cellArr[j]) { cellArr[j] = cell; return }
+    cellMap.set(k, cellArr.length)
+    cellArr.push(cell)
+    liveCells++
+  }
+  const dropCell = (x, y, z) => {
+    const j = cellIdx ? (CI(x, y, z) < 0 ? -1 : cellIdx[CI(x, y, z)]) : (cellMap.get(PK(x, y, z)) ?? -1)
+    if (j >= 0 && cellArr[j]) { cellArr[j] = null; liveCells-- }
+  }
+  function* cellValues() {
+    for (let i = 0; i < cellArr.length; i++) if (cellArr[i]) yield cellArr[i]
+  }
   const overlays = []
   const paletteIndex = new Map()
   const palette = []
@@ -169,7 +222,7 @@ export async function createScene(assets, blocks, args = {}) {
     const id = normalize(b.id)
     const posKey = PK(b.pos[0], b.pos[1], b.pos[2])
     if (AIR_BLOCKS.test(id)) {
-      cells.delete(posKey)
+      dropCell(b.pos[0], b.pos[1], b.pos[2])
       continue
     }
     const biome = b.biome ?? args.biome ?? null
@@ -201,7 +254,7 @@ export async function createScene(assets, blocks, args = {}) {
     }
     blockPalette[i] = pi
     if (b.overlay) overlays.push({ pos: b.pos, palette: pi })
-    else cells.set(posKey, { pos: b.pos, palette: pi, context: b.context === true })
+    else putCell(b.pos[0], b.pos[1], b.pos[2], { pos: b.pos, palette: pi, context: b.context === true })
   }
 
   enter("parse")
@@ -217,34 +270,13 @@ export async function createScene(assets, blocks, args = {}) {
     if (shouldCancel?.()) return null
   }
   const neighborAt = (pos, dx, dy, dz) => {
-    const c = cells.get(PK(pos[0] + dx, pos[1] + dy, pos[2] + dz))
+    const c = cellAt(pos[0] + dx, pos[1] + dy, pos[2] + dz)
     if (!c) return null
     return { c, flat: palette[c.palette].flat }
   }
   // the cull key is the cell's own state plus its six neighbours, packed into
   // two integers rather than built as a string. -1 is "nothing there" and -2 is
   // "occluded from outside", which sit just past the palette
-  let dx0 = Infinity, dy0 = Infinity, dz0 = Infinity, dx1 = -Infinity, dy1 = -Infinity, dz1 = -Infinity
-  for (const c of cells.values()) {
-    const p = c.pos
-    if (p[0] < dx0) dx0 = p[0]
-    if (p[0] > dx1) dx1 = p[0]
-    if (p[1] < dy0) dy0 = p[1]
-    if (p[1] > dy1) dy1 = p[1]
-    if (p[2] < dz0) dz0 = p[2]
-    if (p[2] > dz1) dz1 = p[2]
-  }
-  const dW = dx1 - dx0 + 3, dH = dy1 - dy0 + 3, dD = dz1 - dz0 + 3
-  const dVol = cells.size ? dW * dH * dD : 0
-  let dense = null
-  if (dVol > 0 && dVol <= 12e6) {
-    dense = new Int32Array(dVol).fill(-1)
-    for (const c of cells.values()) {
-      const p = c.pos
-      dense[((p[2] - dz0 + 1) * dH + (p[1] - dy0 + 1)) * dW + (p[0] - dx0 + 1)] = c.palette
-    }
-  }
-
   const cullMemo = new Map()
   const CB = palette.length + 2
   const CB3 = CB * CB * CB
@@ -252,7 +284,7 @@ export async function createScene(assets, blocks, args = {}) {
   const templateOf = new Map()
   const templateSpecs = new Map()
   let parsed = 0
-  for (const cell of cells.values()) {
+  for (const cell of cellValues()) {
     const entry = palette[cell.palette]
 
     if (cell.context || (!args.technical && TECHNICAL_BLOCKS.has(entry.id))) {
@@ -264,14 +296,8 @@ export async function createScene(assets, blocks, args = {}) {
     for (let di = 0; di < 6; di++) {
       const v = DIR_VECS[di]
       const nx = px + v[0], ny = py + v[1], nz = pz + v[2]
-      let pal = -1
-      if (dense) {
-        const ix = nx - dx0 + 1, iy = ny - dy0 + 1, iz = nz - dz0 + 1
-        if (ix >= 0 && iy >= 0 && iz >= 0 && ix < dW && iy < dH && iz < dD) pal = dense[(iz * dH + iy) * dW + ix]
-      } else {
-        const c = cells.get(PK(nx, ny, nz))
-        if (c) pal = c.palette
-      }
+      const nc = cellAt(nx, ny, nz)
+      const pal = nc ? nc.palette : -1
       if (pal >= 0) _nbr[di] = pal
       else if (args.externalOcclusion?.(nx, ny, nz)) _nbr[di] = -2
       else _nbr[di] = -1
@@ -325,7 +351,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (!templateSpecs.has(templateKey)) templateSpecs.set(templateKey, { entry, palette: cell.palette, seed, fh })
 
     if (++parsed % 256 === 0) {
-      report(parsed, cells.size)
+      report(parsed, liveCells)
       await breathe()
       if (shouldCancel?.()) return null
     }
@@ -339,8 +365,8 @@ export async function createScene(assets, blocks, args = {}) {
   let light = givenLight
   if (computeLight) {
     enter("light")
-    if (cells.size) {
-      light = await computeSceneLight(Array.from(cells.values(), c => ({
+    if (liveCells) {
+      light = await computeSceneLight(Array.from(cellValues(), c => ({
         id: palette[c.palette].id, properties: palette[c.palette].properties ?? undefined, pos: c.pos
       })), { assets, version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs })
     }
@@ -416,7 +442,7 @@ export async function createScene(assets, blocks, args = {}) {
   if (optimize) {
     enter("optimize")
     const placements = []
-    for (const cell of cells.values()) {
+    for (const cell of cellValues()) {
       if (!cell.template) continue
       placements.push({ group: templateOf.get(cell.template), pos: cell.pos, cull: cell.cull })
     }
@@ -436,7 +462,7 @@ export async function createScene(assets, blocks, args = {}) {
     tris = optimized.tris
   } else {
     const cullVariants = new Map()
-    for (const cell of cells.values()) {
+    for (const cell of cellValues()) {
       if (!cell.template) continue
       let tmpl = templateOf.get(cell.template)
       if (cell.cull) {
@@ -508,7 +534,7 @@ export async function createScene(assets, blocks, args = {}) {
     for (let i = 0; i < blocks.length; i++) {
       const b = blocks[i]
       if (!b?.pos) continue
-      const cell = cells.get(PK(b.pos[0], b.pos[1], b.pos[2]))
+      const cell = cellAt(b.pos[0], b.pos[1], b.pos[2])
       if (cell?.template) blockTemplate[i] = templateIdx.get(cell.template)
     }
   }
