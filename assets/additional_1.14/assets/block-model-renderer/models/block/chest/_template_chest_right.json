@@ -1,4 +1,5 @@
 {
+  "ambientocclusion": false,
   "dynamic": "chest",
   "texture_size": [128, 64],
   "elements": [

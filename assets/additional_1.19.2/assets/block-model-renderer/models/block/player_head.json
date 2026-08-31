@@ -1,4 +1,5 @@
 {
+  "ambientocclusion": false,
   "parent": "block-model-renderer:block/_template_head_large",
   "textures": {
     "head": "entity/steve"

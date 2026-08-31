@@ -1,4 +1,5 @@
 {
+  "ambientocclusion": false,
   "ignore_atlas_restrictions": true,
   "double_sided": true,
   "dynamic": "shulker_box",

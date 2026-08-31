@@ -1,4 +1,5 @@
 {
+  "ambientocclusion": false,
   "texture_size": [32, 16],
   "textures": {
     "conduit": "entity/conduit/base",
