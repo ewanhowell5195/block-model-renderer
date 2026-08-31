@@ -77,7 +77,38 @@ fn union_covers(a: Option<&[u16]>, b: Option<&[u16]>) -> bool {
     true
 }
 
-fn spread(light: &mut [u8], cell_state: &[u16], st: &States, w: usize, h: usize, d: usize) {
+struct FaceBits {
+    has: Vec<u8>,
+    full: Vec<u8>,
+}
+
+fn face_bits(st: &States) -> FaceBits {
+    let n = st.mask_off.len();
+    let mut has = vec![0u8; n];
+    let mut full = vec![0u8; n];
+    for si in 0..n {
+        for dir in 0..6 {
+            if let Some(m) = st.face(si, dir) {
+                has[si] |= 1 << dir;
+                if m.iter().all(|&v| v == 0xffff) {
+                    full[si] |= 1 << dir;
+                }
+            }
+        }
+    }
+    FaceBits { has, full }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spread(
+    light: &mut [u8],
+    cell_state: &[u16],
+    st: &States,
+    fb: &FaceBits,
+    w: usize,
+    h: usize,
+    d: usize,
+) {
     let stride_y = w;
     let stride_z = w * h;
     let mut buckets: Vec<Vec<usize>> = (0..16).map(|_| Vec::new()).collect();
@@ -99,25 +130,30 @@ fn spread(light: &mut [u8], cell_state: &[u16], st: &States, w: usize, h: usize,
             let y = r % h;
             let z = r / h;
             let from = cell_state[i] as usize;
+            let from_has = fb.has.get(from).copied().unwrap_or(0);
+            let from_full = fb.full.get(from).copied().unwrap_or(0);
+            let interior = x > 0 && x < w - 1 && y > 0 && y < h - 1 && z > 0 && z < d - 1;
             for di in 0..6 {
                 let (dx, dy, dz) = DIR[di];
-                if dx == -1 && x == 0 {
-                    continue;
-                }
-                if dx == 1 && x == w - 1 {
-                    continue;
-                }
-                if dy == -1 && y == 0 {
-                    continue;
-                }
-                if dy == 1 && y == h - 1 {
-                    continue;
-                }
-                if dz == -1 && z == 0 {
-                    continue;
-                }
-                if dz == 1 && z == d - 1 {
-                    continue;
+                if !interior {
+                    if dx == -1 && x == 0 {
+                        continue;
+                    }
+                    if dx == 1 && x == w - 1 {
+                        continue;
+                    }
+                    if dy == -1 && y == 0 {
+                        continue;
+                    }
+                    if dy == 1 && y == h - 1 {
+                        continue;
+                    }
+                    if dz == -1 && z == 0 {
+                        continue;
+                    }
+                    if dz == 1 && z == d - 1 {
+                        continue;
+                    }
                 }
                 let j = (i as i32 + dx + dy * stride_y as i32 + dz * stride_z as i32) as usize;
                 let to = cell_state[j] as usize;
@@ -126,10 +162,20 @@ fn spread(light: &mut [u8], cell_state: &[u16], st: &States, w: usize, h: usize,
                 if nl <= light[j] as i32 {
                     continue;
                 }
-                let from_face = st.face(from, di);
-                let to_face = st.face(to, di ^ 1);
-                if (from_face.is_some() || to_face.is_some()) && union_covers(from_face, to_face) {
-                    continue;
+                let od = di ^ 1;
+                let f_bit = from_has & (1 << di);
+                let t_bit = fb.has.get(to).copied().unwrap_or(0) & (1 << od);
+                if f_bit != 0 || t_bit != 0 {
+                    if from_full & (1 << di) != 0
+                        || fb.full.get(to).copied().unwrap_or(0) & (1 << od) != 0
+                    {
+                        continue;
+                    }
+                    let from_face = if f_bit != 0 { st.face(from, di) } else { None };
+                    let to_face = if t_bit != 0 { st.face(to, od) } else { None };
+                    if union_covers(from_face, to_face) {
+                        continue;
+                    }
                 }
                 light[j] = nl as u8;
                 if nl > 1 {
@@ -188,8 +234,9 @@ pub fn compute_volume(
         }
     }
 
-    spread(&mut block_light, cell_state, st, w, h, d);
-    spread(&mut sky_light, cell_state, st, w, h, d);
+    let fb = face_bits(st);
+    spread(&mut block_light, cell_state, st, &fb, w, h, d);
+    spread(&mut sky_light, cell_state, st, &fb, w, h, d);
 
     let mut sample_block = block_light.clone();
     let mut sample_sky = sky_light.clone();
