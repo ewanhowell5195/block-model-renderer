@@ -1,6 +1,5 @@
 node_modules/
 *.sublime-*
-dist/
 examples/node/assets.jar
 rust/target/
 rust/pkg/
