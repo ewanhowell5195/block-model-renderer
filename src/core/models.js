@@ -817,6 +817,7 @@ function itemHasFoil(item, rules) {
 async function blockEntityItemModels(assets, block, data, args) {
   const nbt = args.nbt
   const out = []
+  const version = args.version ?? assets.version
   const context = block.endsWith("shelf") ? "on_shelf" : "fixed"
   const glintRules = await itemRules(assets)
   const itemArgs = id => ({
