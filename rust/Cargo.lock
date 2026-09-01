@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "block-model-renderer"
-version = "2.16.1"
+version = "2.17.0"
 dependencies = [
  "wasm-bindgen",
 ]
