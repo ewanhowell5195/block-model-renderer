@@ -2375,7 +2375,7 @@ export async function loadModel(scene, assets, model, args) {
         }
         const side = back ? "back" : false
         const emission = Math.max(blockEmission, !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0)
-        const ao = model.ambientocclusion !== false
+        const ao = model.ambientocclusion !== false && blockEmission === 0
         const mkey = `${texRef ?? ""}\0${shadeDir ?? ""}\0${side}\0${emission}\0${ao}`
         let material = materialCache.get(mkey)
         if (!material) {
@@ -2603,10 +2603,11 @@ export async function loadModel(scene, assets, model, args) {
           createMaterial: async (id, opts = {}) => {
             const shadeDir = SHADE_DIR_VECS[opts.shade_direction] ? opts.shade_direction : null
             const emission = Math.max(0, blockEmission, Math.min(15, opts.light_emission ?? 0))
-            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}\0${opts.ao !== false}`
+            const ao = opts.ao !== false && blockEmission === 0
+            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}\0${ao}`
             let material = materialCache.get(key)
             if (!material) {
-              material = await makeMaterial(await loadModelTexture(id, opts.tint), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, opts.ao)
+              material = await makeMaterial(await loadModelTexture(id, opts.tint), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, ao)
               materialCache.set(key, material)
             }
             return material
@@ -3176,7 +3177,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             vec2 lv = sampleLightVol(lp);
             float blockLevel = max(lv.x, emissionV);
             float skyLevel = lv.y;
-            if (aoOn && emissionV < 0.001) {
+            if (aoOn) {
               vec3 an = abs(sn);
               vec3 axis; vec3 t1; vec3 t2;
               if (an.y >= an.x && an.y >= an.z) { axis = vec3(0.0, sign(sn.y), 0.0); t1 = vec3(1.0, 0.0, 0.0); t2 = vec3(0.0, 0.0, 1.0); }
