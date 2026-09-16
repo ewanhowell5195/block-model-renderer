@@ -603,6 +603,8 @@ export async function parseBlockstate(assets, blockstate, args) {
 
   const models = []
   let invalid = false
+  let multipartFirst = null
+  let multipartGroup = null
   if (buf) collectStateModels(parseJson(buf))
   if (overlayBuf) collectStateModels(parseJson(overlayBuf))
   if (invalid) return ["block-model-renderer:missing.json"]
@@ -689,10 +691,11 @@ export async function parseBlockstate(assets, blockstate, args) {
       }).filter(p => p.match)
 
       const usedKeyValues = {}
+      let firstIndex = Infinity
 
       scoredParts
         .sort((a, b) => b.score - a.score || a.index - b.index)
-        .forEach(({ values, part }) => {
+        .forEach(({ values, part, index }) => {
           if (values.some(([k, v]) => usedKeyValues[k] && usedKeyValues[k] !== v)) return
           for (const [key, value] of values) {
             if (ranges.has(key)) {
@@ -700,8 +703,14 @@ export async function parseBlockstate(assets, blockstate, args) {
             }
           }
           const apply = pickWeighted(part.apply, rand)
-          if (apply?.model) models.push(apply)
+          if (!apply?.model) return
+          models.push(apply)
+          if (index < firstIndex) {
+            firstIndex = index
+            multipartFirst = apply
+          }
         })
+      if (models.length - start > 1) multipartGroup = models.slice(start)
     }
 
     for (const model of models.slice(start)) {
@@ -747,6 +756,11 @@ export async function parseBlockstate(assets, blockstate, args) {
 
     if (block === "water" || block === "flowing_water") model.fluid = "water"
     else if (block === "lava" || block === "flowing_lava") model.fluid = "lava"
+  }
+
+  if (multipartGroup) {
+    const ao = (await resolveModelData(assets, multipartFirst)).ambientocclusion !== false
+    for (const model of multipartGroup) model.ambientocclusion = ao
   }
 
   const waterlogged = stateValue("waterlogged")
@@ -1503,6 +1517,8 @@ export async function resolveModelData(assets, model) {
           }
         }
       }
+    } else if (key === "ambientocclusion") {
+      merged.ambientocclusion ??= values.find(v => v != null)
     } else if (key === "display") {
       if (modelType === "block") continue
       merged.display ??= {}
