@@ -116,6 +116,7 @@ scene.add(new THREE.DirectionalLight(0xffffff, 1))
 | `options.version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `options.defaults` | | Which [default blockstates](extending.md#default-blockstates) fill properties a block doesn't set, as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `options.dimension` | `"overworld"` | The dimension, as in [world lighting](#world-lighting): dimensions without sky light (the nether) skip the sky seeding, so their volumes carry block light only |
+| `options.externalOcclusion` | | `(x, y, z) => boolean` over cell coordinates, as on [`createScene`](scenes.md#createsceneassets-blocks-args). Empty cells it reports as occluded count as full opaque blocks in the volume, so dropped buried blocks don't read as dark air at the corners around them |
 | `options.onProgress` | | `(done, total)` while the scene's blocks are processed, for progress bars. The flood fill after the last call is quick |
 
 Pass the result to every [`loadModel`](scenes.md#loadmodelscene-assets-model-args) call in the scene through the world lighting config:

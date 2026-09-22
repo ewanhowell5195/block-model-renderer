@@ -150,6 +150,21 @@ export async function computeSceneLight(blocks, opts = {}) {
   }
   opts.onProgress?.(blocks.length, blocks.length)
 
+  const extOcc = opts.externalOcclusion
+  if (extOcc) {
+    states.push({ emit: 0, damp: 15, ao: true, masks: null })
+    const solidIdx = states.length - 1
+    for (let i = 0; i < n; i++) {
+      if (cellState[i]) continue
+      const x = i % w, r = (i / w) | 0, y = r % h, z = (r / h) | 0
+      if (extOcc(x + ox, y + oy, z + oz)) cellState[i] = solidIdx
+      if ((i & 65535) === 65535 && performance.now() - yieldT > 15) {
+        await new Promise(resolve => setTimeout(resolve))
+        yieldT = performance.now()
+      }
+    }
+  }
+
   const dimOpt = opts.dimension
   const hasSkyLight = (typeof dimOpt === "object" && dimOpt
     ? dimOpt.hasSkyLight

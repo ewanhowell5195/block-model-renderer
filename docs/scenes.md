@@ -87,7 +87,7 @@ The build itself:
 | `shouldCancel` | | Checked between work slices; return `true` to abort. A cancelled `createScene` resolves `null` |
 | `animate` | `true` | Browser: auto-play texture animations, like [`loadModel`](#loadmodelscene-assets-model-args). On Node, animated output goes through [`renderModelScene`](#rendermodelscenescene-camera-args) as usual |
 | `keepTemplates` | `false` | Retain the internal per-state template groups and return them on the handle, for tooling that needs per-block geometry (collision, hit-testing). Holds their memory for the scene's lifetime |
-| `externalOcclusion` | | `(x, y, z) => boolean` over cell coordinates outside `blocks`. Return `true` to treat that absent cell as a full occluder, so faces pressed against it cull. For building a chunk of a larger world where the surroundings exist but aren't in this scene (the culled faces stay culled; nothing re-lights) |
+| `externalOcclusion` | | `(x, y, z) => boolean` over cell coordinates outside `blocks`. Return `true` to treat that absent cell as a full occluder: faces pressed against it cull, and the automatic light volume counts it as a full opaque block, so a thinned scene (buried blocks dropped) lights its corners as if they were still there. For building a chunk of a larger world where the surroundings exist but aren't in this scene |
 
 Weighted blockstate variants pick deterministically per position (the position seeds the pick), so a field of grass blocks gets a natural rotation spread like in game, though not the game's exact per-position picks. Block entity contents and sign text are out of scope.
 
