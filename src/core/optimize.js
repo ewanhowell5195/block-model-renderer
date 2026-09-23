@@ -893,6 +893,29 @@ function optimizedHandle({ group, drawCalls, tris, created, sorter }) {
 
 export async function optimizeScene(placements, opts = {}) {
   if (!Array.isArray(placements)) throw new Error("optimizeScene requires an array of placements")
+  const n = placements.length
+  const groups = [], gi = new Int32Array(n), pos = new Float64Array(n * 3), culls = [], ci = new Int32Array(n)
+  const groupIds = new Map(), cullIds = new Map()
+  for (let i = 0; i < n; i++) {
+    const p = placements[i]
+    gi[i] = ci[i] = -1
+    if (!p.group) continue
+    let g = groupIds.get(p.group)
+    if (g === undefined) groupIds.set(p.group, g = groups.push(p.group) - 1)
+    gi[i] = g
+    pos[i * 3] = p.pos[0]
+    pos[i * 3 + 1] = p.pos[1]
+    pos[i * 3 + 2] = p.pos[2]
+    if (p.cull) {
+      let c = cullIds.get(p.cull)
+      if (c === undefined) cullIds.set(p.cull, c = culls.push(p.cull) - 1)
+      ci[i] = c
+    }
+  }
+  return optimizePlacements({ n, groups, gi, pos, culls, ci }, opts)
+}
+
+export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup, pos: P, culls, ci: placeCull }, opts = {}) {
   await wasmReady()
   const shared = opts.sharedAtlas ?? null
   const maxAtlas = opts.maxAtlas ?? detectMaxAtlas()
@@ -940,8 +963,8 @@ export async function optimizeScene(placements, opts = {}) {
     const sheet = shared.sheets.get("*")
     if (sheet) {
       const miss = new Map()
-      for (const p of placements) {
-        p.group?.traverse(o => {
+      for (const g of groups) {
+        g.traverse(o => {
           if (!o.isMesh) return
           for (const mat of [].concat(o.material)) {
             const tex = mat && matMap(mat)
@@ -967,10 +990,10 @@ export async function optimizeScene(placements, opts = {}) {
 
   stage(500)
   let ti = 0
-  for (const p of placements) {
+  for (let i = 0; i < placeCount; i++) {
     ti++
-    if (!p.group || tdata.has(p.group)) continue
-    const tmpl = p.group
+    const tmpl = placeGroup[i] < 0 ? null : groups[placeGroup[i]]
+    if (!tmpl || tdata.has(tmpl)) continue
     const source = tmpl.__templateSource
     const cachedScan = source?.__scanCache?.get(scanKey)
     if (cachedScan) {
@@ -996,7 +1019,7 @@ export async function optimizeScene(placements, opts = {}) {
       const dynamics = cachedScan.dynamics.map(d => ({ node: nodes[d.ni], parentMatrix: d.parentMatrix }))
       const lines = (cachedScan.lines ?? []).map(l => ({ geo: nodes[l.ni].geometry, material: nodes[l.ni].material, matrix: l.matrix }))
       tdata.set(tmpl, { merge, meshes, billboards, dynamics, lines })
-      report(ti / placements.length)
+      report(ti / placeCount)
       await breathe()
       if (shouldCancel?.()) return null
       continue
@@ -1114,7 +1137,7 @@ export async function optimizeScene(placements, opts = {}) {
     for (const m of meshMap.values()) rec.meshes.push(m.rec)
     ;(tmpl.__scanCache ??= new Map()).set(scanKey, rec)
     tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards, dynamics, lines })
-    report(ti / placements.length)
+    report(ti / placeCount)
     await breathe()
     if (shouldCancel?.()) return null
   }
@@ -1126,24 +1149,26 @@ export async function optimizeScene(placements, opts = {}) {
   const cellIds = new Map()
   stage(800)
   let scanned = 0
-  for (const p of placements) {
+  for (let i = 0; i < placeCount; i++) {
     if (++scanned % 4096 === 0) {
-      report(scanned / placements.length)
+      report(scanned / placeCount)
       await breathe()
       if (shouldCancel?.()) return null
     }
-    const td = tdata.get(p.group)
+    const td = placeGroup[i] < 0 ? undefined : tdata.get(groups[placeGroup[i]])
     if (!td) continue
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]]
+    const o3 = i * 3
     for (const f of td.merge) {
-      if (f.cull && p.cull?.has(f.cull)) continue
+      if (f.cull && cull?.has(f.cull)) continue
       let cid = f.cid
       if (cid === undefined) {
         cid = cellIds.get(f.cellKey)
         if (cid === undefined) cellIds.set(f.cellKey, cid = cellIds.size)
         f.cid = cid
       }
-      const wpc = f.pc + p.pos[f.na] * 16
-      const wa0 = f.a0 + p.pos[f.pa] * 16, wb0 = f.b0 + p.pos[f.pb] * 16
+      const wpc = f.pc + P[o3 + f.na] * 16
+      const wa0 = f.a0 + P[o3 + f.pa] * 16, wb0 = f.b0 + P[o3 + f.pb] * 16
       const phaseA = ((wa0 % f.wa) + f.wa) % f.wa, phaseB = ((wb0 % f.wb) + f.wb) % f.wb
       const wq = Math.round(wpc * 100), pa = Math.round(phaseA * 100), pb = Math.round(phaseB * 100)
       const key = pa >= 0 && pa < 2048 && pb >= 0 && pb < 2048 && wq > -1e7 && wq < 1e7
@@ -1320,13 +1345,13 @@ export async function optimizeScene(placements, opts = {}) {
     return plan
   }
   const touched = []
-  for (let i = 0; i < placements.length; i++) {
-    const p = placements[i]
-    const td = tdata.get(p.group)
+  for (let i = 0; i < placeCount; i++) {
+    const td = placeGroup[i] < 0 ? undefined : tdata.get(groups[placeGroup[i]])
     if (!td) continue
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]]
     for (const m of td.meshes) {
       for (const f of m.faces) {
-        if (f.cull && p.cull?.has(f.cull)) continue
+        if (f.cull && cull?.has(f.cull)) continue
         let acc = f.acc
         if (acc === undefined) {
           if (f.animKey) { acc = anims.get(f.animKey).acc; f.rect = null; f.sw = 0; f.sh = 0 }
@@ -1352,16 +1377,17 @@ export async function optimizeScene(placements, opts = {}) {
     acc.need = 0
     acc.needF = 0
   }
-  for (let i = 0; i < placements.length; i++) {
-    const p = placements[i]
-    const td = tdata.get(p.group)
+  for (let i = 0; i < placeCount; i++) {
+    const td = placeGroup[i] < 0 ? undefined : tdata.get(groups[placeGroup[i]])
     if (!td) continue
-    blockT.makeTranslation(p.pos[0] * 16, p.pos[1] * 16, p.pos[2] * 16)
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]]
+    const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2]
+    blockT.makeTranslation(px * 16, py * 16, pz * 16)
     for (const m of td.meshes) {
       full.multiplyMatrices(blockT, m.matrix)
       nmat.getNormalMatrix(full)
       for (const f of m.faces) {
-        if (f.cull && p.cull?.has(f.cull)) continue
+        if (f.cull && cull?.has(f.cull)) continue
         appendGroup(m.geo, f.start, f.count, full, nmat, f.rect, f.sw, f.sh, f.acc, f.fd)
       }
     }
@@ -1401,10 +1427,10 @@ export async function optimizeScene(placements, opts = {}) {
       }
       initDynamic(inst)
       holder.add(inst)
-      dynamicInstances.push({ holder, object: inst, pos: p.pos })
+      dynamicInstances.push({ holder, object: inst, pos: [px, py, pz] })
     }
     if (i % 2000 === 1999) {
-      report((i + 1) / placements.length)
+      report((i + 1) / placeCount)
       await nextTask()
       if (shouldCancel?.()) return null
     }
