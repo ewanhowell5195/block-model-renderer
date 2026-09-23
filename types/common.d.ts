@@ -181,6 +181,8 @@ export interface Biome {
   combine?: boolean
   /** This biome's share of a blended array, any scale. Default `1`. */
   weight?: number
+  /** The biome's water color, used by water, water cauldrons, bubble columns and waterlogged blocks instead of the fixed water tint. */
+  water?: string | number
 }
 
 /** One biome, or an array of them averaged the way the game blends biome borders. */
@@ -275,6 +277,10 @@ export interface LightDimension {
   cardinalLight?: CardinalLight
   /** Whether {@link computeSceneLight} seeds sky light from above. */
   hasSkyLight?: boolean
+  /** The base fog color, before the day/night curve and sunrise glow. */
+  fogColor?: ColorInput
+  /** The base sky color, mixed into the fog color at short render distances. */
+  skyColor?: ColorInput
 }
 
 /** A time of day: a tick `0`-`23999`, or one of the game's named moments. */
@@ -296,6 +302,50 @@ export interface WorldLighting {
   light?: SceneLight | false
   /** Rotate the shade along with the model, so each face keeps its own axis shade under the display transform. `false` leaves the shade field fixed, blending across faces the display turns between axes. Default `true`. */
   rotateShade?: boolean
+  /** The game's fog, off unless set: a render distance in chunks, a {@link FogConfig}, or a {@link FogHandle} to share. */
+  fog?: FogOption
+}
+
+/** A position in world units, or an object whose position is followed as it moves. */
+export type AnchorInput = THREE.Object3D | THREE.Vector3 | [number, number, number] | { x?: number, y?: number, z?: number }
+
+/**
+ * Fog settings.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#fog
+ */
+export interface FogConfig {
+  /** The render distance in chunks. `0` turns the fog off. */
+  distance?: number
+  /** The base fog color. Default the dimension's `fogColor`. */
+  color?: ColorInput
+  /** Where distances are measured from. Default the rendering camera. */
+  anchor?: AnchorInput | null
+  /** A fixed `0` to `1` strength for the sunrise and sunset glow in the fog color. Default `null`, which follows how directly the camera faces the sun. */
+  sunriseGlow?: number | null
+}
+
+/** A render distance in chunks, a {@link FogConfig}, or a {@link FogHandle} to share. */
+export type FogOption = number | FogConfig | FogHandle
+
+/**
+ * A live fog, as {@link createFog} returns and scenes keep at `userData.fog`. Every setting is assignable with no rebuild.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#fog
+ */
+export interface FogHandle {
+  /** The shader uniforms the fog is drawn through. */
+  uniforms: Record<string, { value: any }>
+  /** The render distance in chunks. */
+  distance: number
+  /** The base fog color. */
+  color: THREE.Vector3 | ColorInput
+  /** Where distances are measured from, or `null` for the rendering camera. */
+  anchor: THREE.Object3D | THREE.Vector3 | null
+  /** The fixed sunrise glow strength, or `null` to follow the camera. */
+  sunriseGlow: number | null
+  /** Re-read an object anchor's position after it moves. */
+  update(): void
 }
 
 /** A lighting mode name, or a world lighting config object. */
@@ -327,6 +377,8 @@ export interface ComputeSceneLightOptions {
   defaults?: "preferred" | "game"
   /** Drop `blockLight` and `skyLight`, and the texture's CPU copy once it's uploaded. `lightAt` then throws. Default `false`. */
   release?: boolean
+  /** Treat absent cells as full occluders, for a volume covering part of a larger world. */
+  externalOcclusion?(x: number, y: number, z: number): boolean
 }
 
 /**
@@ -659,6 +711,10 @@ export interface CreateSkyOptions {
   version?: string
   /** The horizon's share of the sunrise glow, `0` to `1`, instead of taking it from the camera's direction. With a fog, the sky follows the fog's setting. */
   sunriseGlow?: number | null
+  /** Advance the day/night clock in real time, 20 ticks a second. Default `false`. */
+  tick?: boolean
+  /** The fog the sky fades into: a scene's {@link FogHandle}, or the same value world lighting takes. */
+  fog?: FogOption
 }
 
 /**
@@ -677,6 +733,10 @@ export interface SkyHandle {
   angle: number
   /** The fixed sunrise glow amount, or `null` to follow the camera. Assignable. */
   sunriseGlow: number | null
+  /** Whether the clock advances on its own. Assignable. */
+  tick: boolean
+  /** The fog handle, or `null`. Pass it to scenes as `lighting.fog` so the blocks share it. */
+  fog: FogHandle | null
   /** Free the geometry, materials, and textures, and remove the group from its parent. */
   dispose(): void
 }
@@ -1355,6 +1415,91 @@ export function importOcclusionCache(assets: AssetsInput, entries: OcclusionCach
 export function computeSceneLight(blocks: SceneLightBlock[] | FlatBlocks, options: ComputeSceneLightOptions): Promise<SceneLight>
 
 /**
+ * Make a fog handle on its own, to share between scenes built elsewhere and a sky.
+ *
+ * @example
+ * const fog = createFog({ distance: 12 })
+ * const sky = await createSky(assets, { fog })
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#fog
+ */
+export function createFog(config?: FogOption, dimension?: LightDimensionName | LightDimension): FogHandle
+
+/**
+ * Cloud settings.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#createcloudsassets-args
+ */
+export interface CreateCloudsOptions {
+  /** The time of day, for the color only, or a uniform to share with a scene's `userData.daytime`. Default `"noon"`. */
+  daytime?: Daytime | DaytimeUniform
+  /** What the layer is centred on. Default the rendering camera. */
+  anchor?: AnchorInput | null
+  /** The bottom of the layer in blocks. Default `192.33`. */
+  height?: number
+  /** The world block `[x, z]` the scene's origin stands for. Default `[0, 0]`. */
+  offset?: [number, number]
+  /** The cloud clock in ticks. Default `0`. */
+  time?: number
+  /** Advance the cloud clock in real time, 20 ticks a second. Default `true`. */
+  tick?: boolean
+  /** The game's Fancy clouds; `false` draws Fast clouds. Default `true`. */
+  fancy?: boolean
+  /** The game's cloud range option, in chunks. Default `128`. */
+  range?: number
+  /** The base cloud color. Default `#FFFFFF`. */
+  color?: ColorInput
+  /** The layer's opacity. Default `0.8`. */
+  alpha?: number
+}
+
+/**
+ * A built cloud layer, as {@link createClouds} resolves to.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#createcloudsassets-args
+ */
+export interface CloudsHandle {
+  /** The cloud group; add it to your scene. */
+  group: THREE.Group
+  /** The time-of-day uniform the color follows. */
+  daytime: DaytimeUniform
+  /** Re-centre the layer now, on the given camera or position, or on the current anchor. */
+  update(anchor?: AnchorInput | null): void
+  /** What the layer is centred on. Assignable. */
+  anchor: THREE.Object3D | THREE.Vector3 | null
+  /** The bottom of the layer in blocks. Assignable. */
+  height: number
+  /** The world `[x, z]` of the scene origin. Assignable. */
+  offset: [number, number]
+  /** The cloud clock in ticks. Assignable. */
+  time: number
+  /** Whether the clock advances on its own. Assignable. */
+  tick: boolean
+  /** Fancy or Fast clouds. Assignable. */
+  fancy: boolean
+  /** Free the geometry and material, and remove the group from its parent. */
+  dispose(): void
+}
+
+/**
+ * Build the game's cloud layer from the pack's `environment/clouds.png`, drifting on its own clock.
+ *
+ * @example
+ * const clouds = await createClouds(assets, { daytime: "day" })
+ * scene.add(clouds.group)
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#createcloudsassets-args
+ */
+export function createClouds(assets: AssetsInput, args?: CreateCloudsOptions): Promise<CloudsHandle>
+
+/**
+ * Resolves `true` when the wasm geometry kernels are in use and `false` when the JavaScript fallbacks are.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#wasm-kernels
+ */
+export function wasmStatus(): Promise<boolean>
+
+/**
  * The tint a colormap-tinted block would get, as a hex string. Omit `biome` for
  * the default climate sample (temperature `0.5`, downfall `1`).
  *
@@ -1363,7 +1508,7 @@ export function computeSceneLight(blocks: SceneLightBlock[] | FlatBlocks, option
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/models.md#getbiometintassets-map-biome
  */
-export function getBiomeTint(assets: AssetsInput, map: ColormapName, biome?: BiomeInput): Promise<string>
+export function getBiomeTint(assets: AssetsInput, map: ColormapName | "water", biome?: BiomeInput): Promise<string>
 
 /**
  * Merge a whole scene into a handful of draw calls with far fewer polygons.
