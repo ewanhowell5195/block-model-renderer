@@ -424,7 +424,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     texture = aoTexture = lightTexture(bytes, texW, texH)
     aoMask = new THREE.Vector4(0, 0, 1, 0)
   }
-  if (opts.releaseArrays) {
+  if (opts.release) {
     texture.onUpdate = aoTexture.onUpdate = releaseTextureData
     blockLight = skyLight = null
   }
@@ -449,7 +449,7 @@ function lightHandle({ origin, w, h, d, blockLight, skyLight, uniforms, texture,
     skyLight,
     uniforms,
     lightAt(x, y, z) {
-      if (!blockLight) throw new Error("lightAt isn't available on a light volume built with releaseArrays")
+      if (!blockLight) throw new Error("lightAt isn't available on a light volume built with release")
       const lx = x - origin[0], ly = y - origin[1], lz = z - origin[2]
       if (lx < 0 || ly < 0 || lz < 0 || lx >= w || ly >= h || lz >= d) return { block: 0, sky: 15 }
       const i = (lz * h + ly) * w + lx

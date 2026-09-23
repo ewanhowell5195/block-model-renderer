@@ -61,7 +61,7 @@ Share one `group` reference across placements of the same block state, as `group
 
 You *can* cull the other way, pre-culling a separate group per placement and passing those with no `cull` field, and it renders the same. But then no two placements share a build, so you're back to one build per block instead of one per block state. Passing `cull` per placement keeps the single shared build and drops each instance's hidden faces as it merges, which is far cheaper for anything bigger than a handful of blocks.
 
-Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), `batchDynamics: false` forces dynamic parts to `InstancedMesh` instead of `BatchedMesh` (what [worker builds](#packing-scenes-across-workers) need, since a revived `BatchedMesh` draws garbage), `releaseArrays: true` drops the CPU copies of what has been uploaded to the GPU (see [Releasing CPU copies](#releasing-cpu-copies)), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). [`createScene`](scenes.md#createsceneassets-blocks-args) passes all of these through. `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
+Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), `batchDynamics: false` forces dynamic parts to `InstancedMesh` instead of `BatchedMesh` (what [worker builds](#packing-scenes-across-workers) need, since a revived `BatchedMesh` draws garbage), `release: true` drops the CPU copies of what has been uploaded to the GPU (see [Releasing CPU copies](#releasing-cpu-copies)), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). [`createScene`](scenes.md#createsceneassets-blocks-args) passes all of these through. `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
 
 The result:
 
@@ -79,13 +79,13 @@ Every material the library creates (merged or per-model) compiles with clipping 
 
 ### Releasing CPU copies
 
-A built scene keeps a CPU copy of what it uploads to the GPU. A scene that is only ever drawn doesn't need them, and `releaseArrays: true` drops them on first upload:
+A built scene keeps a CPU copy of what it uploads to the GPU. A scene that is only ever drawn doesn't need them, and `release: true` drops them on first upload:
 
 | Dropped | Kept |
 |---|---|
 | Opaque merged geometry | Translucent geometry, which the [sorter](#translucent-sorting) rewrites |
 | Atlas pages the scene built | [Shared atlas](#shared-atlases) pages, which belong to the handle |
-| The light volume `createScene` computes, as with [`computeSceneLight`'s](rendering.md#computescenelightblocks-options) own `releaseArrays` | A light volume passed in as `lighting: { light }` |
+| The light volume `createScene` computes, as with [`computeSceneLight`'s](rendering.md#computescenelightblocks-options) own `release` | A light volume passed in as `lighting: { light }` |
 
 Released atlas pages aren't cached for reuse by later scenes. Their animated textures keep playing only through [`setAnimationRenderer`](#atlas-animation)'s subimage uploads, and hold still without it.
 
@@ -126,7 +126,7 @@ For streaming-scale apps, scenes build in web workers and ship to the main threa
 | Export | Description |
 |---|---|
 | `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references |
-| `reviveScene(payload, { atlas?, releaseArrays? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `releaseArrays` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
+| `reviveScene(payload, { atlas?, release? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap. The older `releaseArrays` name still works |
 
 The whole flow:
 
@@ -146,7 +146,7 @@ postMessage({ scene: scene.payload }, scene.transfers)
 handle.dispose()
 
 // main, per scene: revive against the stitched atlas, add
-const tile = reviveScene(msg.scene, { atlas: shared, releaseArrays: true })
+const tile = reviveScene(msg.scene, { atlas: shared, release: true })
 world.add(tile.group)
 ```
 

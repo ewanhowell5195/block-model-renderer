@@ -486,7 +486,7 @@ export async function createScene(assets, blocks, args = {}) {
         lightRaw[q++] = cellZ[c]
       }
       const lightPalette = palette.map(e => ({ id: e.id, properties: e.properties ?? undefined }))
-      light = await computeSceneLight({ palette: lightPalette, raw: lightRaw }, { assets, version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs, externalOcclusion: extOcc, releaseArrays: args.releaseArrays })
+      light = await computeSceneLight({ palette: lightPalette, raw: lightRaw }, { assets, version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs, externalOcclusion: extOcc, release: args.release })
     }
     report(1, 1)
     if (shouldCancel?.()) return null
@@ -584,7 +584,7 @@ export async function createScene(assets, blocks, args = {}) {
       maxAtlas: args.maxAtlas, translucency: args.translucency, resortDistance: args.resortDistance, sliceMs,
       sharedAtlas: args.sharedAtlas,
       batchDynamics: args.batchDynamics,
-      releaseArrays: args.releaseArrays,
+      release: args.release,
       onProgress: relayProgress(onProgress, stage),
       shouldCancel
     })

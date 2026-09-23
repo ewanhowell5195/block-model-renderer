@@ -326,7 +326,7 @@ export interface ComputeSceneLightOptions {
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
   defaults?: "preferred" | "game"
   /** Drop `blockLight` and `skyLight`, and the texture's CPU copy once it's uploaded. `lightAt` then throws. Default `false`. */
-  releaseArrays?: boolean
+  release?: boolean
 }
 
 /**
@@ -339,9 +339,9 @@ export interface SceneLight {
   origin: [number, number, number]
   /** The volume's dimensions in cells (the scene bounds plus a one-cell border). */
   size: [number, number, number]
-  /** Raw block light levels (0-15), one cell each, x fastest then y then z. `null` with `releaseArrays`. */
+  /** Raw block light levels (0-15), one cell each, x fastest then y then z. `null` with `release`. */
   blockLight: Uint8Array | null
-  /** Raw sky light levels (0-15), laid out the same way. `null` with `releaseArrays`. */
+  /** Raw sky light levels (0-15), laid out the same way. `null` with `release`. */
   skyLight: Uint8Array | null
   /** The shader uniforms the volume is sampled through. */
   uniforms: Record<string, { value: any }>
@@ -450,7 +450,7 @@ export interface CreateSceneOptions {
   /** Passed through to the optimize pass. Workers must set `false`. */
   batchDynamics?: boolean
   /** Passed through to the optimize pass and to the light volume the scene computes. */
-  releaseArrays?: boolean
+  release?: boolean
   /** Per-stage progress. An overall bar can use `(stage.index + done / total) / stage.count`. */
   onProgress?(stage: ProgressStage, done: number, total: number): void
   /** Checked between work slices; return `true` to abort, resolving `null`. */
@@ -758,7 +758,7 @@ export interface OptimizeSceneOptions {
   /** Force `InstancedMesh` for dynamic parts. Workers must set this: `BatchedMesh` doesn't survive revival. */
   batchDynamics?: boolean
   /** Drop the CPU copies of opaque geometry and the scene's own atlas pages once they're on the GPU. For render-only scenes: nothing can read them afterwards. Default `false`. */
-  releaseArrays?: boolean
+  release?: boolean
   /** Progress on a fixed scale: use `done / total`, not the numbers themselves. */
   onProgress?(done: number, total: number): void
   /** Checked between work slices; return `true` to abort, resolving `null`. */
@@ -895,6 +895,8 @@ export interface ReviveSceneOptions {
   /** The handle page references resolve against: the main thread's stitched atlas. */
   atlas?: SharedAtlas
   /** Drop CPU-side geometry arrays after GPU upload, roughly a third of a big scene's heap. */
+  release?: boolean
+  /** @deprecated Use `release`. */
   releaseArrays?: boolean
 }
 

@@ -1261,7 +1261,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       atlases.set(sig, { rects, sizes, materials, accs: sheet.pages.map(makeAcc) })
       continue
     }
-    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe, !!opts.releaseArrays)
+    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe, !!opts.release)
     const regionLists = ats.map(() => [])
     const claimed = new Set()
     for (const t of grp.textures) {
@@ -1275,7 +1275,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     regionLists.forEach((regions, i) => {
       if (regions.length) ats[i].userData.regions = regions
       else delete ats[i].userData.regions
-      if (opts.releaseArrays) ats[i].onUpdate = releaseImage
+      if (opts.release) ats[i].onUpdate = releaseImage
     })
     created.textures.push(...ats)
     created.atlasEntries.push(entry)
@@ -1602,7 +1602,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       new THREE.Vector3((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2),
       Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2 + (maxZ - minZ) ** 2) / 2
     )
-    if (opts.releaseArrays && !material.transparent) {
+    if (opts.release && !material.transparent) {
       for (const a of Object.values(geo.attributes)) a.onUpload(releaseArray)
       geo.index.onUpload(releaseArray)
     }
