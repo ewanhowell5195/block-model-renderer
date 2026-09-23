@@ -453,9 +453,10 @@ class GrowF32 {
     return this.a.slice(0, this.length)
   }
 }
-function nearAxis(v) {
-  const a = Math.abs(v)
-  return a < 1e-6 || Math.abs(a - 1) < 1e-6
+function byteNormal(N, i) {
+  const x = Math.round(N[i] * 127), y = Math.round(N[i + 1] * 127), z = Math.round(N[i + 2] * 127)
+  const len = Math.sqrt(x * x + y * y + z * z)
+  return len > 0 && Math.abs(x / len - N[i]) < 1e-6 && Math.abs(y / len - N[i + 1]) < 1e-6 && Math.abs(z / len - N[i + 2]) < 1e-6
 }
 
 function packMesh(P, N, U, T, F) {
@@ -493,12 +494,12 @@ function packMesh(P, N, U, T, F) {
     }
     p0 = c0; p1 = c1; p2 = c2
   }
-  let axis = true
-  for (let i = 0; i < w * 3 && axis; i++) axis = nearAxis(N[i])
+  let byteNormals = true
+  for (let i = 0; i < w * 3 && byteNormals; i += 3) byteNormals = byteNormal(N, i)
   let normal
-  if (axis) {
+  if (byteNormals) {
     normal = new Int8Array(w * 3)
-    for (let i = 0; i < w * 3; i++) normal[i] = Math.round(N[i]) * 127
+    for (let i = 0; i < w * 3; i++) normal[i] = Math.round(N[i] * 127)
   } else normal = N.slice(0, w * 3)
   let faceData = null
   if (F) {
