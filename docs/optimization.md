@@ -126,7 +126,7 @@ For streaming-scale apps, scenes build in web workers and ship to the main threa
 | Export | Description |
 |---|---|
 | `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references |
-| `reviveScene(payload, { atlas?, release? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap. The older `releaseArrays` name still works |
+| `reviveScene(payload, { atlas?, release? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
 
 The whole flow:
 

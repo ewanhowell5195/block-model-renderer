@@ -896,8 +896,6 @@ export interface ReviveSceneOptions {
   atlas?: SharedAtlas
   /** Drop CPU-side geometry arrays after GPU upload, roughly a third of a big scene's heap. */
   release?: boolean
-  /** @deprecated Use `release`. */
-  releaseArrays?: boolean
 }
 
 /** A revived scene: inert live meshes, not a {@link SceneHandle}. */

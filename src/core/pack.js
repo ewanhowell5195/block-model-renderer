@@ -144,7 +144,7 @@ export async function packScene(handle, opts = {}) {
 
 export function reviveScene(payload, opts = {}) {
   const mirror = opts.atlas ?? null
-  const release = opts.release ?? opts.releaseArrays ? function () { this.array = null } : null
+  const release = opts.release ? function () { this.array = null } : null
   const owned = { textures: [], materials: [], geometries: [] }
 
   const textures = payload.textures.map(spec => {
