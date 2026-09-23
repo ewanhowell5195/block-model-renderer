@@ -155,6 +155,7 @@ export async function createClouds(assets, args = {}) {
   const tint = new THREE.Vector3()
 
   let height = Number(args.height ?? DEFAULT_HEIGHT)
+  let offsetX = Number(args.offset?.[0]) || 0, offsetZ = Number(args.offset?.[1]) || 0
   let time = Number(args.time) || 0
   let ticking = args.tick !== false
   let fancy = args.fancy !== false
@@ -217,8 +218,8 @@ export async function createClouds(assets, args = {}) {
     if (group.parent) group.parent.worldToLocal(cameraPos)
     const camX = cameraPos.x / UNIT, camZ = cameraPos.z / UNIT
     const period = cells.width * TICKS_PER_CELL
-    const cloudX = camX + floorMod(time, period) * BLOCKS_PER_TICK
-    const cloudZ = camZ + Z_OFFSET
+    const cloudX = camX + offsetX + floorMod(time, period) * BLOCKS_PER_TICK
+    const cloudZ = camZ + offsetZ + Z_OFFSET
     const cellX = Math.floor(cloudX / CELL), cellZ = Math.floor(cloudZ / CELL)
     const stale = builtX === null || Math.abs(cellX - builtX) > REBUILD_CELLS || Math.abs(cellZ - builtZ) > REBUILD_CELLS || fancy !== builtFancy
     if (stale && !pending) pending = { x: cellX, z: cellZ, fancy, geometry: buildGeometry(cells, cellX, cellZ, radius, fancy, REBUILD_CELLS + 1) }
@@ -246,6 +247,13 @@ export async function createClouds(assets, args = {}) {
     },
     set height(value) {
       height = Number(value) || 0
+    },
+    get offset() {
+      return [offsetX, offsetZ]
+    },
+    set offset(value) {
+      offsetX = Number(value?.[0]) || 0
+      offsetZ = Number(value?.[1]) || 0
     },
     get time() {
       return time

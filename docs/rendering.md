@@ -246,6 +246,7 @@ clouds.height = 200
 | `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting), for the colour only. Pass a scene's `userData.daytime` to share one uniform with the blocks and sky |
 | `args.anchor` | the rendering camera | What the layer is centred on: a camera or any object, followed as it moves, or a fixed position in world units (`[x, y, z]`, `{ x, y, z }` or a `Vector3`). Also settable on the handle |
 | `args.height` | `192.33` | The bottom of the layer in blocks (world units divided by 16). Also settable on the handle |
+| `args.offset` | `[0, 0]` | The world block `[x, z]` your scene's origin stands for, so a scene built around `0, 0` still gets the clouds that sit over its real coordinates. Also settable on the handle |
 | `args.time` | `0` | The cloud clock, in ticks. A save's `Time` reproduces that world's cloud positions. Also settable on the handle |
 | `args.tick` | `true` | Advance the cloud clock in real time, 20 ticks a second. Also settable on the handle |
 | `args.fancy` | `true` | The game's Fancy clouds. `false` draws Fast clouds, the flat sheet. Also settable on the handle |
@@ -263,6 +264,7 @@ The handle:
 | `update(anchor?)` | Re-centre the layer now, on the given camera or position, or on the current anchor. Only needed before a single `renderer.render` call when following a camera; a render loop and a position anchor don't need it, and [`renderModelScene`](scenes.md#rendermodelscenescene-camera-args) calls it for you |
 | `time` | The cloud clock in ticks, assignable |
 | `height` | The bottom of the layer in blocks, assignable |
+| `offset` | The world `[x, z]` of the scene origin, assignable |
 | `tick` | Whether the clock advances on its own, assignable |
 | `fancy` | Fancy or Fast clouds, assignable |
 | `dispose()` | Frees the geometry and material, and removes the group from its parent |
