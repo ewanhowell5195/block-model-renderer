@@ -94,8 +94,6 @@ export async function computeSceneLight(blocks, opts = {}) {
   const origin = [minX - 1, minY - 1, minZ - 1]
   const w = maxX - minX + 3, h = maxY - minY + 3, d = maxZ - minZ + 3
   const n = w * h * d
-  const blockLight = new Uint8Array(n)
-  const skyLight = new Uint8Array(n)
 
   const states = [null]
   const stateIds = new Map()
@@ -173,6 +171,8 @@ export async function computeSceneLight(blocks, opts = {}) {
   // the rust kernel does this whole numeric pass, and this is the fallback
   async function volumeJs() {
     const strideY = w, strideZ = w * h
+    const blockLight = new Uint8Array(n)
+    const skyLight = new Uint8Array(n)
 
     const sliceMs = opts.sliceMs ?? 0
     let sliceT = performance.now()
@@ -185,7 +185,17 @@ export async function computeSceneLight(blocks, opts = {}) {
     async function spread(light) {
       const buckets = []
       for (let l = 0; l <= 15; l++) buckets[l] = []
-      for (let i = 0; i < n; i++) if (light[i] > 1) buckets[light[i]].push(i)
+      for (let i = 0; i < n; i++) {
+        const l = light[i]
+        if (l <= 1) continue
+        if (l === 15) {
+          const x = i % w, r = (i / w) | 0, y = r % h, z = (r / h) | 0
+          if ((x === 0 || light[i - 1] === 15) && (x === w - 1 || light[i + 1] === 15)
+            && (y === 0 || light[i - strideY] === 15) && (y === h - 1 || light[i + strideY] === 15)
+            && (z === 0 || light[i - strideZ] === 15) && (z === d - 1 || light[i + strideZ] === 15)) continue
+        }
+        buckets[l].push(i)
+      }
       for (let lvl = 15; lvl >= 2; lvl--) {
         const bucket = buckets[lvl]
         for (let bi = 0; bi < bucket.length; bi++) {
@@ -240,28 +250,29 @@ export async function computeSceneLight(blocks, opts = {}) {
     await spread(blockLight)
     await spread(skyLight)
 
-    const sampleBlock = new Uint8Array(blockLight)
-    const sampleSky = new Uint8Array(skyLight)
+    const stSolid = states.map(st => st?.damp === 15)
+    const stAo = states.map(st => st?.damp === 15 || !!st?.ao)
+    const stEmit = states.map(st => st?.emit || 0)
+    const solid = i => stSolid[cellState[i]]
     for (let i = 0; i < n; i++) {
-      if (states[cellState[i]]?.damp !== 15) continue
+      if (!solid(i)) continue
       const x = i % w, r = (i / w) | 0, y = r % h, z = (r / h) | 0
-      let bl = blockLight[i], sl = skyLight[i]
-      if (x > 0) { bl = Math.max(bl, blockLight[i - 1]); sl = Math.max(sl, skyLight[i - 1]) }
-      if (x < w - 1) { bl = Math.max(bl, blockLight[i + 1]); sl = Math.max(sl, skyLight[i + 1]) }
-      if (y > 0) { bl = Math.max(bl, blockLight[i - strideY]); sl = Math.max(sl, skyLight[i - strideY]) }
-      if (y < h - 1) { bl = Math.max(bl, blockLight[i + strideY]); sl = Math.max(sl, skyLight[i + strideY]) }
-      if (z > 0) { bl = Math.max(bl, blockLight[i - strideZ]); sl = Math.max(sl, skyLight[i - strideZ]) }
-      if (z < d - 1) { bl = Math.max(bl, blockLight[i + strideZ]); sl = Math.max(sl, skyLight[i + strideZ]) }
-      sampleBlock[i] = bl
-      sampleSky[i] = sl
-    }
-
-    const solidCell = new Uint8Array(n)
-    const aoCell = new Uint8Array(n)
-    for (let i = 0; i < n; i++) {
-      const st = states[cellState[i]]
-      if (st?.damp === 15) solidCell[i] = 1
-      if (st?.damp === 15 || st?.ao) aoCell[i] = 1
+      let bl = stEmit[cellState[i]], sl = 0
+      const take = j => {
+        if (solid(j)) bl = Math.max(bl, stEmit[cellState[j]])
+        else {
+          bl = Math.max(bl, blockLight[j])
+          sl = Math.max(sl, skyLight[j])
+        }
+      }
+      if (x > 0) take(i - 1)
+      if (x < w - 1) take(i + 1)
+      if (y > 0) take(i - strideY)
+      if (y < h - 1) take(i + strideY)
+      if (z > 0) take(i - strideZ)
+      if (z < d - 1) take(i + strideZ)
+      blockLight[i] = bl
+      skyLight[i] = sl
     }
 
     const W2 = w + 1, H2 = h + 1, D2 = d + 1
@@ -279,9 +290,9 @@ export async function computeSceneLight(blocks, opts = {}) {
           let bl = 0, sl = 0, open = 0, blf = 0, slf = 0
           for (let dy = -1; dy <= 0; dy++) for (let dz = -1; dz <= 0; dz++) for (let dx = -1; dx <= 0; dx++) {
             const ci = clampIdx(x + dx, y + dy, z + dz)
-            if (solidCell[ci]) {
-              blf += sampleBlock[ci]
-              slf += sampleSky[ci]
+            if (solid(ci)) {
+              blf += blockLight[ci]
+              slf += skyLight[ci]
             } else {
               bl += blockLight[ci]
               sl += skyLight[ci]
@@ -290,12 +301,17 @@ export async function computeSceneLight(blocks, opts = {}) {
           }
           bytes[ti] = Math.round((open ? bl / open : blf / 8) * 17)
           bytes[ti + 1] = Math.round((open ? sl / open : slf / 8) * 17)
-          if (x < w && y < h && z < d && aoCell[(z * h + y) * w + x]) bytes[ti + 2] = 255
+          if (x < w && y < h && z < d && stAo[cellState[(z * h + y) * w + x]]) bytes[ti + 2] = 255
           bytes[ti + 3] = 255
         }
       }
     }
-    return { bytes, texW, texH, cols }
+    for (let i = 0; i < n; i++) {
+      if (!solid(i)) continue
+      blockLight[i] = stEmit[cellState[i]]
+      skyLight[i] = 0
+    }
+    return { bytes, texW, texH, cols, blockLight, skyLight }
   }
 
   // the state table flattened for the kernel: -1 damp marks an empty cell and
@@ -320,12 +336,12 @@ export async function computeSceneLight(blocks, opts = {}) {
     }
   }
 
-  let bytes, texW, texH, cols
+  let bytes, texW, texH, cols, blockLight, skyLight
   const vol = computeLightVolumeFast(w, h, d, cellState, stDamp, stEmit, stAo, stMaskOff, Uint16Array.from(maskRows), hasSkyLight)
   if (vol) {
     try {
-      blockLight.set(vol.blockLight())
-      skyLight.set(vol.skyLight())
+      blockLight = vol.blockLight()
+      skyLight = vol.skyLight()
       bytes = vol.bytes()
     } finally {
       vol.free()
@@ -335,7 +351,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     texW = cols * (w + 1)
     texH = Math.ceil(H2 / cols) * (d + 1)
   } else {
-    ({ bytes, texW, texH, cols } = await volumeJs())
+    ({ bytes, texW, texH, cols, blockLight, skyLight } = await volumeJs())
   }
 
   const texture = new THREE.DataTexture(bytes, texW, texH)

@@ -111,16 +111,33 @@ fn spread(
 ) {
     let stride_y = w;
     let stride_z = w * h;
-    let mut buckets: Vec<Vec<usize>> = (0..16).map(|_| Vec::new()).collect();
+    let mut buckets: Vec<Vec<u32>> = (0..16).map(|_| Vec::new()).collect();
     for (i, &l) in light.iter().enumerate() {
-        if l > 1 {
-            buckets[l as usize].push(i);
+        if l <= 1 {
+            continue;
         }
+        if l == 15 {
+            let x = i % w;
+            let r = i / w;
+            let y = r % h;
+            let z = r / h;
+            let lit = |j: usize| light[j] == 15;
+            if (x == 0 || lit(i - 1))
+                && (x == w - 1 || lit(i + 1))
+                && (y == 0 || lit(i - stride_y))
+                && (y == h - 1 || lit(i + stride_y))
+                && (z == 0 || lit(i - stride_z))
+                && (z == d - 1 || lit(i + stride_z))
+            {
+                continue;
+            }
+        }
+        buckets[l as usize].push(i as u32);
     }
     for lvl in (2..=15i32).rev() {
         let mut bi = 0;
         while bi < buckets[lvl as usize].len() {
-            let i = buckets[lvl as usize][bi];
+            let i = buckets[lvl as usize][bi] as usize;
             bi += 1;
             if light[i] as i32 != lvl {
                 continue;
@@ -179,7 +196,7 @@ fn spread(
                 }
                 light[j] = nl as u8;
                 if nl > 1 {
-                    buckets[nl as usize].push(j);
+                    buckets[nl as usize].push(j as u32);
                 }
             }
         }
@@ -238,59 +255,61 @@ pub fn compute_volume(
     spread(&mut block_light, cell_state, st, &fb, w, h, d);
     spread(&mut sky_light, cell_state, st, &fb, w, h, d);
 
-    let mut sample_block = block_light.clone();
-    let mut sample_sky = sky_light.clone();
+    let states = st.damp.len().max(st.emit.len());
+    let mut state_solid = vec![false; states];
+    let mut state_ao = vec![false; states];
+    let mut state_emit = vec![0u8; states];
+    for si in 0..states {
+        let damp = st.damp_of(si);
+        state_solid[si] = damp == 15;
+        state_ao[si] = damp == 15 || (damp >= 0 && st.ao.get(si).copied().unwrap_or(0) != 0);
+        if damp >= 0 {
+            state_emit[si] = st.emit.get(si).copied().unwrap_or(0);
+        }
+    }
+    let solid = |i: usize| state_solid.get(cell_state[i] as usize).copied().unwrap_or(false);
+    let ao_cell = |i: usize| state_ao.get(cell_state[i] as usize).copied().unwrap_or(false);
+    let own_block = |i: usize| state_emit.get(cell_state[i] as usize).copied().unwrap_or(0);
+
     for i in 0..n {
-        if st.damp_of(cell_state[i] as usize) != 15 {
+        if !solid(i) {
             continue;
         }
         let x = i % w;
         let r = i / w;
         let y = r % h;
         let z = r / h;
-        let mut bl = block_light[i];
-        let mut sl = sky_light[i];
-        let take = |j: usize, bl: &mut u8, sl: &mut u8| {
-            if block_light[j] > *bl {
-                *bl = block_light[j]
+        let mut bl = own_block(i);
+        let mut sl = 0u8;
+        let mut take = |j: usize| {
+            let (jb, js) = if solid(j) { (own_block(j), 0) } else { (block_light[j], sky_light[j]) };
+            if jb > bl {
+                bl = jb
             }
-            if sky_light[j] > *sl {
-                *sl = sky_light[j]
+            if js > sl {
+                sl = js
             }
         };
         if x > 0 {
-            take(i - 1, &mut bl, &mut sl)
+            take(i - 1)
         }
         if x < w - 1 {
-            take(i + 1, &mut bl, &mut sl)
+            take(i + 1)
         }
         if y > 0 {
-            take(i - stride_y, &mut bl, &mut sl)
+            take(i - stride_y)
         }
         if y < h - 1 {
-            take(i + stride_y, &mut bl, &mut sl)
+            take(i + stride_y)
         }
         if z > 0 {
-            take(i - stride_z, &mut bl, &mut sl)
+            take(i - stride_z)
         }
         if z < d - 1 {
-            take(i + stride_z, &mut bl, &mut sl)
+            take(i + stride_z)
         }
-        sample_block[i] = bl;
-        sample_sky[i] = sl;
-    }
-
-    let mut solid = vec![0u8; n];
-    let mut ao_cell = vec![0u8; n];
-    for i in 0..n {
-        let si = cell_state[i] as usize;
-        let damp = st.damp_of(si);
-        if damp == 15 {
-            solid[i] = 1;
-        }
-        if damp == 15 || (damp >= 0 && st.ao.get(si).copied().unwrap_or(0) != 0) {
-            ao_cell[i] = 1;
-        }
+        block_light[i] = bl;
+        sky_light[i] = sl;
     }
 
     // y slices tiled into one texture
@@ -324,9 +343,9 @@ pub fn compute_volume(
                     let base = ((z - 1) * h + (y - 1)) * w + (x - 1);
                     for k in 0..8 {
                         let ci = base + off[k];
-                        if solid[ci] != 0 {
-                            blf += sample_block[ci] as u32;
-                            slf += sample_sky[ci] as u32;
+                        if solid(ci) {
+                            blf += block_light[ci] as u32;
+                            slf += sky_light[ci] as u32;
                         } else {
                             bl += block_light[ci] as u32;
                             sl += sky_light[ci] as u32;
@@ -338,9 +357,9 @@ pub fn compute_volume(
                         for dz in -1..=0 {
                             for dx in -1..=0 {
                                 let ci = clamp_idx(x as i32 + dx, y as i32 + dy, z as i32 + dz);
-                                if solid[ci] != 0 {
-                                    blf += sample_block[ci] as u32;
-                                    slf += sample_sky[ci] as u32;
+                                if solid(ci) {
+                                    blf += block_light[ci] as u32;
+                                    slf += sky_light[ci] as u32;
                                 } else {
                                     bl += block_light[ci] as u32;
                                     sl += sky_light[ci] as u32;
@@ -362,12 +381,19 @@ pub fn compute_volume(
                 };
                 bytes[ti] = js_round(bv * 17.0);
                 bytes[ti + 1] = js_round(sv * 17.0);
-                if x < w && y < h && z < d && ao_cell[(z * h + y) * w + x] != 0 {
+                if x < w && y < h && z < d && ao_cell((z * h + y) * w + x) {
                     bytes[ti + 2] = 255;
                 }
                 bytes[ti + 3] = 255;
                 ti += 4;
             }
+        }
+    }
+
+    for i in 0..n {
+        if solid(i) {
+            block_light[i] = own_block(i);
+            sky_light[i] = 0;
         }
     }
 
