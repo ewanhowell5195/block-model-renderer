@@ -3157,7 +3157,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         varying vec2 vFaceData;
       #endif
       #ifdef LIGHT_VOLUME
-        varying vec3 vWorldPos;
+        uniform vec3 lightVolOrigin;
+        varying vec3 vLightPos;
       #endif
       #include <clipping_planes_pars_vertex>
       void main() {
@@ -3181,7 +3182,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         vWorldNormal = normalize(mat3(modelMatrix) * nrm);
         vFogPos = (modelMatrix * pos).xyz;
         #ifdef LIGHT_VOLUME
-          vWorldPos = (modelMatrix * pos).xyz;
+          vLightPos = (modelMatrix * pos).xyz / 16.0 + 0.5 - lightVolOrigin;
         #endif
         vec4 mvPosition = modelViewMatrix * pos;
         #include <clipping_planes_vertex>
@@ -3228,7 +3229,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         varying vec2 vFaceData;
       #endif
       #ifdef LIGHT_VOLUME
-        varying vec3 vWorldPos;
+        varying vec3 vLightPos;
         uniform vec3 lightVolOrigin;
         uniform vec3 lightVolSize;
         uniform sampler2D lightVol;
@@ -3326,7 +3327,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           float ao = 1.0;
           #ifdef LIGHT_VOLUME
             vec3 sn = gl_FrontFacing ? vWorldNormal : -vWorldNormal;
-            vec3 lp = vWorldPos / 16.0 + 0.5 + sn * 0.5 - lightVolOrigin;
+            vec3 lp = vLightPos + sn * 0.5;
             vec2 lv = sampleLightVol(lp);
             float blockLevel = max(lv.x, emissionV);
             float skyLevel = lv.y;
@@ -3336,7 +3337,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
               if (an.y >= an.x && an.y >= an.z) { axis = vec3(0.0, sign(sn.y), 0.0); t1 = vec3(1.0, 0.0, 0.0); t2 = vec3(0.0, 0.0, 1.0); }
               else if (an.x >= an.z) { axis = vec3(sign(sn.x), 0.0, 0.0); t1 = vec3(0.0, 1.0, 0.0); t2 = vec3(0.0, 0.0, 1.0); }
               else { axis = vec3(0.0, 0.0, sign(sn.z)); t1 = vec3(1.0, 0.0, 0.0); t2 = vec3(0.0, 1.0, 0.0); }
-              vec3 P = vWorldPos / 16.0 + 0.5 - lightVolOrigin;
+              vec3 P = vLightPos;
               vec3 base = floor(P - axis * 0.0117);
               float edge = fract(dot(P, abs(axis)));
               if (edge < 0.0117 || edge > 0.9883) base += axis;
