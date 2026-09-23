@@ -3267,7 +3267,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         vec4 texColor = texture2D(map, vUv);
         if (texColor.a < 0.01) discard;
         #ifdef FACE_ATTRS
-          float emissionV = vFaceData.x;
+          float emissionV = vFaceData.x / 15.0;
           float faceFlags = vFaceData.y;
           bool aoOn = faceFlags >= 15.5;
           float faceDir = faceFlags - (aoOn ? 16.0 : 0.0);

@@ -28,14 +28,14 @@ function translucentRanges(mesh) {
 
 function makeSorter(mesh) {
   const geo = mesh.geometry
+  const ranges = translucentRanges(mesh)
+  if (!ranges.length) return null
   if (!geo.index) {
     const count = geo.attributes.position.count
     const seq = new Uint32Array(count)
     for (let i = 0; i < count; i++) seq[i] = i
     geo.setIndex(new THREE.BufferAttribute(seq, 1))
   }
-  const ranges = translucentRanges(mesh)
-  if (!ranges.length) return null
   const pos = geo.attributes.position
   let maxTris = 0
   for (const r of ranges) {

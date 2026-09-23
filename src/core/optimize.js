@@ -453,6 +453,76 @@ class GrowF32 {
     return this.a.slice(0, this.length)
   }
 }
+function nearAxis(v) {
+  const a = Math.abs(v)
+  return a < 1e-6 || Math.abs(a - 1) < 1e-6
+}
+
+function packMesh(P, N, U, T, F) {
+  const n = P.length / 3
+  const index = new Uint32Array(n)
+  function same(o, i) {
+    const o3 = o * 3, i3 = i * 3, o2 = o * 2, i2 = i * 2
+    return P[o3] === P[i3] && P[o3 + 1] === P[i3 + 1] && P[o3 + 2] === P[i3 + 2]
+      && N[o3] === N[i3] && N[o3 + 1] === N[i3 + 1] && N[o3 + 2] === N[i3 + 2]
+      && U[o2] === U[i2] && U[o2 + 1] === U[i2 + 1]
+      && T[o3] === T[i3] && T[o3 + 1] === T[i3 + 1] && T[o3 + 2] === T[i3 + 2]
+      && (!F || (F[o2] === F[i2] && F[o2 + 1] === F[i2 + 1]))
+  }
+  let w = 0, p0 = -1, p1 = -1, p2 = -1
+  for (let t = 0; t < n; t += 3) {
+    let c0 = -1, c1 = -1, c2 = -1
+    for (let k = 0; k < 3; k++) {
+      const i = t + k
+      let o = p0 >= 0 && same(p0, i) ? p0 : p1 >= 0 && same(p1, i) ? p1 : p2 >= 0 && same(p2, i) ? p2 : -1
+      if (o < 0) {
+        o = w++
+        if (o !== i) {
+          const o3 = o * 3, i3 = i * 3, o2 = o * 2, i2 = i * 2
+          P[o3] = P[i3]; P[o3 + 1] = P[i3 + 1]; P[o3 + 2] = P[i3 + 2]
+          N[o3] = N[i3]; N[o3 + 1] = N[i3 + 1]; N[o3 + 2] = N[i3 + 2]
+          U[o2] = U[i2]; U[o2 + 1] = U[i2 + 1]
+          T[o3] = T[i3]; T[o3 + 1] = T[i3 + 1]; T[o3 + 2] = T[i3 + 2]
+          if (F) { F[o2] = F[i2]; F[o2 + 1] = F[i2 + 1] }
+        }
+      }
+      index[i] = o
+      if (k === 0) c0 = o
+      else if (k === 1) c1 = o
+      else c2 = o
+    }
+    p0 = c0; p1 = c1; p2 = c2
+  }
+  let axis = true
+  for (let i = 0; i < w * 3 && axis; i++) axis = nearAxis(N[i])
+  let normal
+  if (axis) {
+    normal = new Int8Array(w * 3)
+    for (let i = 0; i < w * 3; i++) normal[i] = Math.round(N[i]) * 127
+  } else normal = N.slice(0, w * 3)
+  let faceData = null
+  if (F) {
+    let bytes = true
+    for (let i = 0; i < w * 2 && bytes; i += 2) {
+      const k = F[i] * 15, flags = F[i + 1]
+      bytes = Math.abs(k - Math.round(k)) < 1e-4 && k >= 0 && k <= 255 && Number.isInteger(flags) && flags >= 0 && flags <= 255
+    }
+    faceData = bytes ? new Uint8Array(w * 2) : new Float32Array(w * 2)
+    for (let i = 0; i < w * 2; i += 2) {
+      faceData[i] = bytes ? Math.round(F[i] * 15) : F[i] * 15
+      faceData[i + 1] = F[i + 1]
+    }
+  }
+  return {
+    position: P.slice(0, w * 3),
+    normal,
+    uv: U.slice(0, w * 2),
+    color: T.slice(0, w * 3),
+    faceData,
+    index: w <= 65536 ? Uint16Array.from(index) : index
+  }
+}
+
 const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0 })
 
 let _v = null, _n = null
@@ -1401,12 +1471,14 @@ export async function optimizeScene(placements, opts = {}) {
   function addMesh(acc, material) {
     if (!acc.P.length) return
     const geo = new THREE.BufferGeometry()
-    const pd = acc.P.data()
+    const packed = packMesh(acc.P.data(), acc.N.data(), acc.U.data(), acc.T.data(), acc.F?.length ? acc.F.data() : null)
+    const pd = packed.position
     geo.setAttribute("position", new THREE.BufferAttribute(pd, 3))
-    geo.setAttribute("normal", new THREE.BufferAttribute(acc.N.data(), 3))
-    geo.setAttribute("uv", new THREE.BufferAttribute(acc.U.data(), 2))
-    geo.setAttribute("color", new THREE.BufferAttribute(acc.T.data(), 3, true))
-    if (acc.F?.length) geo.setAttribute("faceData", new THREE.BufferAttribute(acc.F.data(), 2))
+    geo.setAttribute("normal", new THREE.BufferAttribute(packed.normal, 3, packed.normal instanceof Int8Array))
+    geo.setAttribute("uv", new THREE.BufferAttribute(packed.uv, 2))
+    geo.setAttribute("color", new THREE.BufferAttribute(packed.color, 3, true))
+    if (packed.faceData) geo.setAttribute("faceData", new THREE.BufferAttribute(packed.faceData, 2))
+    geo.setIndex(new THREE.BufferAttribute(packed.index, 1))
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
     for (let i = 0; i < pd.length; i += 3) {
       const x = pd[i], y = pd[i + 1], z = pd[i + 2]
