@@ -183,7 +183,7 @@ The result:
 | `setOffset(position)` | Call with the world offset you move the built scene by (a `Vector3`, array, or `x, y, z` numbers), e.g. the centering translation on [`optimizeScene`](optimization.md#scene-optimization)'s group, so the shader keeps sampling the right cells. Rotation and scaling aren't supported |
 | `dispose()` | Frees the light texture. Call it when you discard the scene |
 
-The volume uploads as a single 2D texture of stacked slices with trilinear filtering done in the shader, so it behaves identically on the web and on Node's WebGL1 context. Lighting is static: it's computed once from the block list, so moving or removing emitters means computing a fresh volume and rebuilding the scene.
+The volume uploads as 2D textures of stacked slices with trilinear filtering done in the shader, so it behaves identically on the web and on Node's WebGL1 context. In browsers with WebGL2 it takes 3 bytes a cell, as a two-channel light texture and a one-channel ambient occlusion texture, so the renderer there must be WebGL2 too. Node packs both into one 4 byte texture. Lighting is static: it's computed once from the block list, so moving or removing emitters means computing a fresh volume and rebuilding the scene.
 
 ## Sky
 

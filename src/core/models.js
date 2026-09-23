@@ -2970,7 +2970,7 @@ function makeGlintMaterial(glintTexture, baseTexture, side) {
   return material
 }
 
-export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise"]
+export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightAo", "lightAoMask", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise"]
 
 export function occlusionStateKey(id, props, defaults) {
   let key = defaults === "game" ? id + "\0game" : id
@@ -3232,6 +3232,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         uniform vec3 lightVolOrigin;
         uniform vec3 lightVolSize;
         uniform sampler2D lightVol;
+        uniform sampler2D lightAo;
+        uniform vec4 lightAoMask;
         uniform vec2 lightVolTex;
         uniform float lightVolCols;
         vec2 sampleLightVol(vec3 p) {
@@ -3251,7 +3253,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           c = clamp(c, vec3(0.0), lightVolSize - 1.0);
           vec2 tile = lightVolSize.xz + 1.0;
           vec2 uv = vec2(mod(c.y, lightVolCols) * tile.x, floor(c.y / lightVolCols) * tile.y) + c.xz + 0.5;
-          return texture2D(lightVol, uv / lightVolTex).b > 0.5 ? 0.2 : 1.0;
+          return dot(texture2D(lightAo, uv / lightVolTex), lightAoMask) > 0.5 ? 0.2 : 1.0;
         }
         float aoCorner(vec3 base, vec3 da, vec3 db, vec3 axis, float sa, float sb, float sc) {
           bool blockedA = aoShade(base + da + axis) < 0.5;

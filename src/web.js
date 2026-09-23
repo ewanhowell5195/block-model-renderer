@@ -501,6 +501,7 @@ async function encodePng(canvas) {
 }
 
 let maxTexSize = null
+let hasWebGL2 = null
 function makePlatform() {
   return {
     THREE,
@@ -515,6 +516,18 @@ function makePlatform() {
       maxTexSize = gl ? gl.getParameter(gl.MAX_TEXTURE_SIZE) : 8192
       gl?.getExtension("WEBGL_lose_context")?.loseContext()
       return maxTexSize
+    },
+
+    webgl2() {
+      if (hasWebGL2 !== null) return hasWebGL2
+      try {
+        const gl = new OffscreenCanvas(1, 1).getContext("webgl2")
+        hasWebGL2 = !!gl
+        gl?.getExtension("WEBGL_lose_context")?.loseContext()
+      } catch {
+        hasWebGL2 = false
+      }
+      return hasWebGL2
     },
 
 

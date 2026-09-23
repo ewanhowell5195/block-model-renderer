@@ -26,7 +26,7 @@ export async function packScene(handle, opts = {}) {
       const img = tex.image
       const data = img.data.slice()
       transfers.push(data.buffer)
-      spec = { kind: "data", data, w: img.width, h: img.height, linear: tex.magFilter === THREE.LinearFilter }
+      spec = { kind: "data", data, w: img.width, h: img.height, format: tex.format, linear: tex.magFilter === THREE.LinearFilter }
     } else {
       const img = tex.image
       const bitmap = await createImageBitmap(img)
@@ -150,7 +150,7 @@ export function reviveScene(payload, opts = {}) {
   const textures = payload.textures.map(spec => {
     if (spec.kind === "page") return mirror?.texture(spec.sig, spec.page)
     if (spec.kind === "data") {
-      const tex = new THREE.DataTexture(spec.data, spec.w, spec.h)
+      const tex = new THREE.DataTexture(spec.data, spec.w, spec.h, spec.format)
       tex.minFilter = tex.magFilter = spec.linear ? THREE.LinearFilter : THREE.NearestFilter
       tex.generateMipmaps = false
       tex.needsUpdate = true

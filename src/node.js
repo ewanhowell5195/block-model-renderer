@@ -86,6 +86,7 @@ setPlatform({
   },
   maxAnimationPixels: 268402689,
   batchedMesh: false,
+  webgl2: () => false,
 
   maxTextureSize() {
     if (maxTexSize) return maxTexSize

@@ -1,4 +1,4 @@
-import { THREE, normalize } from "./platform.js"
+import { THREE, normalize, platform } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { blockRules } from "./data.js"
 import { defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS, buildOcclusionModel, occlusionStateKey } from "./models.js"
@@ -41,6 +41,25 @@ function unionCovers(a, b) {
 
 export function isFlatBlocks(blocks) {
   return !!blocks && !Array.isArray(blocks) && ArrayBuffer.isView(blocks.raw) && Array.isArray(blocks.palette)
+}
+
+function lightTexture(data, w, h, format) {
+  const texture = new THREE.DataTexture(data, w, h, format)
+  texture.minFilter = texture.magFilter = THREE.LinearFilter
+  texture.generateMipmaps = false
+  texture.needsUpdate = true
+  return texture
+}
+
+function splitChannels(bytes) {
+  const n = bytes.length >> 2
+  const rg = new Uint8Array(n * 2), ao = new Uint8Array(n)
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    rg[i * 2] = bytes[j]
+    rg[i * 2 + 1] = bytes[j + 1]
+    ao[i] = bytes[j + 2]
+  }
+  return { rg, ao }
 }
 
 function releaseTextureData(texture) {
@@ -394,16 +413,25 @@ export async function computeSceneLight(blocks, opts = {}) {
     ({ bytes, texW, texH, cols, blockLight, skyLight } = await volumeJs())
   }
 
-  const texture = new THREE.DataTexture(bytes, texW, texH)
-  texture.minFilter = texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = false
-  texture.needsUpdate = true
+  let texture, aoTexture, aoMask
+  if (platform.webgl2?.()) {
+    const { rg, ao } = splitChannels(bytes)
+    bytes = null
+    texture = lightTexture(rg, texW, texH, THREE.RGFormat)
+    aoTexture = lightTexture(ao, texW, texH, THREE.RedFormat)
+    aoMask = new THREE.Vector4(1, 0, 0, 0)
+  } else {
+    texture = aoTexture = lightTexture(bytes, texW, texH)
+    aoMask = new THREE.Vector4(0, 0, 1, 0)
+  }
   if (opts.releaseArrays) {
-    texture.onUpdate = releaseTextureData
+    texture.onUpdate = aoTexture.onUpdate = releaseTextureData
     blockLight = skyLight = null
   }
   const uniforms = {
     lightVol: { value: texture },
+    lightAo: { value: aoTexture },
+    lightAoMask: { value: aoMask },
     lightVolOrigin: { value: new THREE.Vector3(...origin) },
     lightVolSize: { value: new THREE.Vector3(w, h, d) },
     lightVolTex: { value: new THREE.Vector2(texW, texH) },
@@ -429,6 +457,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     },
     dispose() {
       texture.dispose()
+      aoTexture.dispose()
     }
   }
 }
