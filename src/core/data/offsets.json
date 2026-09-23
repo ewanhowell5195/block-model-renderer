@@ -1,0 +1,75 @@
+{
+  "_generated": "from minecraft 26.3-snapshot-3 by tools/generate/generate.js",
+  "horizontalOffset": [
+    {
+      "value": 0.25,
+      "suffix": [
+        "_grass",
+        "fern"
+      ],
+      "exact": [
+        "allium",
+        "azure_bluet",
+        "bamboo",
+        "bamboo_sapling",
+        "blue_orchid",
+        "closed_eyeblossom",
+        "cornflower",
+        "crimson_roots",
+        "dandelion",
+        "golden_dandelion",
+        "hanging_roots",
+        "lilac",
+        "lily_of_the_valley",
+        "mangrove_propagule",
+        "nether_sprouts",
+        "open_eyeblossom",
+        "orange_tulip",
+        "oxeye_daisy",
+        "peony",
+        "pink_tulip",
+        "pitcher_plant",
+        "poppy",
+        "red_tulip",
+        "rose_bush",
+        "small_dripleaf",
+        "sunflower",
+        "tall_seagrass",
+        "torchflower",
+        "warped_roots",
+        "white_tulip",
+        "wither_rose"
+      ],
+      "except": [
+        "potted_fern"
+      ]
+    },
+    {
+      "value": 0.125,
+      "suffix": [],
+      "exact": [
+        "pointed_dripstone",
+        "sulfur_spike"
+      ]
+    }
+  ],
+  "verticalOffset": [
+    {
+      "value": 0.2,
+      "suffix": [
+        "_dry_grass"
+      ],
+      "exact": [
+        "fern",
+        "short_grass"
+      ]
+    },
+    {
+      "value": 0.1,
+      "suffix": [],
+      "exact": [
+        "small_dripleaf"
+      ]
+    }
+  ]
+}

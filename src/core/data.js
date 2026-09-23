@@ -3,6 +3,7 @@ import { readFileAll } from "./assets.js"
 import baseWaterlogging from "./data/waterlogging.json" with { type: "json" }
 import baseCulling from "./data/culling.json" with { type: "json" }
 import baseLighting from "./data/lighting.json" with { type: "json" }
+import baseOffsets from "./data/offsets.json" with { type: "json" }
 import baseColors from "./data/colors.json" with { type: "json" }
 import baseItems from "./data/items.json" with { type: "json" }
 
@@ -28,7 +29,7 @@ function ruleValue(rules, block, properties, resolveDefault) {
   return entry.default
 }
 
-export function buildBlockRules({ waterlogging = [], culling = [], lighting = [] }) {
+export function buildBlockRules({ waterlogging = [], culling = [], lighting = [], offsets = [] }) {
   const sources = { waterloggable: waterlogging, waterlogged: waterlogging, nonOccluding: culling, selfCullAll: culling, selfCullY: culling }
   const lists = {}
   for (const [key, layers] of Object.entries(sources)) {
@@ -37,6 +38,9 @@ export function buildBlockRules({ waterlogging = [], culling = [], lighting = []
   const valued = {}
   for (const key of ["lightEmission", "shapeLightOcclusion", "lightDampening", "aoBlocking"]) {
     valued[key] = lighting.flatMap(l => (l?.[key] ?? []).map(r => ({ value: r.value, ...ruleSet(r) })))
+  }
+  for (const key of ["horizontalOffset", "verticalOffset"]) {
+    valued[key] = offsets.flatMap(l => (l?.[key] ?? []).map(r => ({ value: r.value, ...ruleSet(r) })))
   }
   const matches = (key, id) => lists[key].some(r => matchId(id, r))
   return {
@@ -75,6 +79,11 @@ export function buildBlockRules({ waterlogging = [], culling = [], lighting = []
     },
     shapeOcclusion(block, properties, resolveDefault) {
       return ruleValue(valued.shapeLightOcclusion, block, properties, resolveDefault) === 1
+    },
+    offset(block) {
+      const horizontal = ruleValue(valued.horizontalOffset, block)
+      if (!horizontal) return null
+      return [horizontal, ruleValue(valued.verticalOffset, block) ?? 0]
     }
   }
 }
@@ -155,19 +164,20 @@ async function readLayers(file, assets, base) {
   return layers
 }
 
-export const builtinRules = buildBlockRules({ waterlogging: [baseWaterlogging], culling: [baseCulling], lighting: [baseLighting] })
+export const builtinRules = buildBlockRules({ waterlogging: [baseWaterlogging], culling: [baseCulling], lighting: [baseLighting], offsets: [baseOffsets] })
 export const builtinColors = buildColorTables([baseColors])
 export const builtinItemRules = buildItemRules([baseItems])
 
 export async function blockRules(assets) {
   return assets.blockRules ??= (async () => {
-    const [waterlogging, culling, lighting] = await Promise.all([
+    const [waterlogging, culling, lighting, offsets] = await Promise.all([
       readLayers("assets/block-model-renderer/waterlogging.json", assets, baseWaterlogging),
       readLayers("assets/block-model-renderer/culling.json", assets, baseCulling),
-      readLayers("assets/block-model-renderer/lighting.json", assets, baseLighting)
+      readLayers("assets/block-model-renderer/lighting.json", assets, baseLighting),
+      readLayers("assets/block-model-renderer/offsets.json", assets, baseOffsets)
     ])
-    if (waterlogging.length === 1 && culling.length === 1 && lighting.length === 1) return builtinRules
-    return buildBlockRules({ waterlogging, culling, lighting })
+    if (waterlogging.length === 1 && culling.length === 1 && lighting.length === 1 && offsets.length === 1) return builtinRules
+    return buildBlockRules({ waterlogging, culling, lighting, offsets })
   })()
 }
 

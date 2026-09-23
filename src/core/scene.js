@@ -113,6 +113,20 @@ const posHash = (x, y, z) => {
   return (Math.imul(Math.imul(h, h), 42317861) + Math.imul(h, 11) | 0) >>> 16
 }
 
+export function randomOffset(x, z, horizontal, vertical) {
+  const h = posHash(x, 0, z)
+  const step = bits => Math.fround(bits / 15)
+  const spread = bits => Math.max(-horizontal, Math.min(horizontal, (step(bits) - 0.5) * 0.5))
+  return [spread(h & 15), vertical ? (step((h >> 4) & 15) - 1) * Math.fround(vertical) : 0, spread((h >> 8) & 15)]
+}
+
+function offsetTemplate(group, offset) {
+  const shift = new THREE.Group()
+  shift.position.set(offset[0] * 16, offset[1] * 16, offset[2] * 16)
+  for (const child of Array.from(group.children)) shift.add(child)
+  group.add(shift)
+}
+
 const CK3 = (() => {
   const t = new Array(27)
   for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
@@ -146,6 +160,7 @@ export async function createScene(assets, blocks, args = {}) {
   const version = args.version ?? assets.version
   const onProgress = args.onProgress
   const shouldCancel = args.shouldCancel
+  const offsetOrigin = args.randomOffset ? (Array.isArray(args.randomOffset.origin) ? args.randomOffset.origin : [0, 0]) : null
 
   const givenLight = worldCfg?.light && typeof worldCfg.light === "object" ? worldCfg.light : null
   const computeLight = worldCfg != null && !givenLight && worldCfg.light !== false
@@ -451,13 +466,18 @@ export async function createScene(assets, blocks, args = {}) {
     if (entry.random) {
       seed = Math.imul((posHash(px, py, pz) & 15) + 1, 0x9E3779B1) >>> 0
     }
-    const templateKey = seed === null && fh === null
+    let offset = null
+    if (offsetOrigin) {
+      const limits = rules.offset(entry.id)
+      if (limits) offset = randomOffset(px + offsetOrigin[0], pz + offsetOrigin[1], limits[0], limits[1])
+    }
+    const templateKey = seed === null && fh === null && offset === null
       ? cellPi
-      : cellPi + "|" + (seed ?? "") + "|" + (fh ? JSON.stringify(fh) : "")
+      : cellPi + "|" + (seed ?? "") + "|" + (fh ? JSON.stringify(fh) : "") + "|" + (offset ? offset.join(",") : "")
     let ti = templateIds.get(templateKey)
     if (ti === undefined) {
       templateIds.set(templateKey, ti = templateKeys.push(templateKey) - 1)
-      templateSpecs.set(templateKey, { entry, palette: cellPi, seed, fh })
+      templateSpecs.set(templateKey, { entry, palette: cellPi, seed, fh, offset })
     }
     cellTmpl[c] = ti
 
@@ -508,7 +528,7 @@ export async function createScene(assets, blocks, args = {}) {
     const cacheable = !spec.entry.nbt && !spec.entry.pos
     const cacheKey = cacheable
       ? spec.entry.id + "\0" + JSON.stringify(spec.entry.properties) + "\0" + JSON.stringify(spec.entry.biome)
-        + "\0" + (spec.seed ?? "") + "\0" + (spec.fh ? JSON.stringify(spec.fh) : "") + "\0" + envSig
+        + "\0" + (spec.seed ?? "") + "\0" + (spec.fh ? JSON.stringify(spec.fh) : "") + "\0" + (spec.offset ? spec.offset.join(",") : "") + "\0" + envSig
       : null
     let tmpl
     const hit = cacheKey ? tcache.get(cacheKey) : undefined
@@ -540,6 +560,7 @@ export async function createScene(assets, blocks, args = {}) {
           })
         } catch {}
       }
+      if (spec.offset) offsetTemplate(tmpl, spec.offset)
       daytimeUniform ??= tmpl.userData.daytime
       templateOf.set(key, tmpl)
       if (cacheKey) {
@@ -622,6 +643,7 @@ export async function createScene(assets, blocks, args = {}) {
               })
             } catch {}
           }
+          if (spec.offset) offsetTemplate(culled, spec.offset)
           cullVariants.set(key, culled)
           templateOf.set(key, culled)
         }

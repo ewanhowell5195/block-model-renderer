@@ -28,6 +28,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.lighting.LevelLightEngine;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -183,6 +184,8 @@ public class Extract {
     TreeMap<String, String> shapeLightOcclusion = new TreeMap<>();
     TreeMap<String, String> lightDampening = new TreeMap<>();
     TreeMap<String, String> aoBlocking = new TreeMap<>();
+    TreeMap<String, String> horizontalOffset = new TreeMap<>();
+    TreeMap<String, String> verticalOffset = new TreeMap<>();
     TreeMap<String, String> defaultStates = new TreeMap<>();
     for (Block block : BuiltInRegistries.BLOCK) {
       String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
@@ -263,6 +266,17 @@ public class Extract {
       boolean oddShade = false;
       for (BlockState s2 : states) { if (!s2.isSolidRender() && s2.getShadeBrightness(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) == 0.2F) { oddShade = true; break; } }
       if (oddShade) aoBlocking.put(id, caseValue(block, s2 -> !s2.isSolidRender() && s2.getShadeBrightness(EmptyBlockGetter.INSTANCE, BlockPos.ZERO) == 0.2F ? 1 : 0));
+
+      if (st.hasOffsetFunction()) {
+        double maxH = 0, maxV = 0;
+        for (int x = -32; x < 32; x++) for (int z = -32; z < 32; z++) {
+          Vec3 o = st.getOffset(new BlockPos(x, 0, z));
+          maxH = Math.max(maxH, Math.max(Math.abs(o.x), Math.abs(o.z)));
+          maxV = Math.max(maxV, -o.y);
+        }
+        horizontalOffset.put(id, String.valueOf(Math.round(maxH * 10000) / 10000.0));
+        if (maxV > 0) verticalOffset.put(id, String.valueOf(Math.round(maxV * 10000) / 10000.0));
+      }
 
       // Blocks whose occlusion shape also blocks light face-to-face (stairs,
       // slabs, snow layers): useShapeForLightOcclusion is an explicit opt-in
@@ -355,6 +369,12 @@ public class Extract {
     sb.append("},\n\"aoBlocking\":{");
     fe = true;
     for (var e : aoBlocking.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
+    sb.append("},\n\"horizontalOffset\":{");
+    fe = true;
+    for (var e : horizontalOffset.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
+    sb.append("},\n\"verticalOffset\":{");
+    fe = true;
+    for (var e : verticalOffset.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }
     sb.append("},\n\"defaultStates\":{");
     fe = true;
     for (var e : defaultStates.entrySet()) { if (!fe) sb.append(","); fe = false; sb.append("\"").append(e.getKey()).append("\":").append(e.getValue()); }

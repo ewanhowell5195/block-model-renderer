@@ -75,6 +75,7 @@ Options, grouped by what they affect. How the scene looks:
 | `shaderScale` | `1` | Screen-space shader density (the end portal), as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `technical` | `false` | Build the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void) with their placeholder icons. Off, they're invisible like in game, but still feed the light volume, so a light block lights its area either way |
 | `mapArt` | | Map art callback for framed maps, as on [`renderBlock`](standard-api.md#renderblockargs). See [Map art](#map-art) |
+| `randomOffset` | `false` | Shift the blocks the game offsets by position (grass, ferns, flowers, bamboo, pointed dripstone) the same way it does. `true` treats block positions as world coordinates; `{ origin: [x, z] }` gives the world coordinates of position `0, 0` for a scene built away from them |
 
 Asset interpretation:
 

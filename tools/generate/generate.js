@@ -328,6 +328,11 @@ async function main() {
     lightDampening: compressEmission(dampening, d.allBlocks),
     aoBlocking: compressEmission(d.aoBlocking, d.allBlocks)
   }
+  const offsets = {
+    _generated: stamp,
+    horizontalOffset: compressEmission(d.horizontalOffset, d.allBlocks),
+    verticalOffset: compressEmission(d.verticalOffset, d.allBlocks)
+  }
   const items = {
     _generated: stamp,
     alwaysGlint: compress(d.glintItems, d.allItems)
@@ -361,6 +366,7 @@ async function main() {
   write("waterlogging.json", waterlogging)
   write("culling.json", culling)
   write("lighting.json", lighting)
+  write("offsets.json", offsets)
   write("colors.json", colors)
   write("items.json", items)
 

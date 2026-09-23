@@ -516,6 +516,8 @@ export interface CreateSceneOptions {
   animate?: boolean
   /** Retain the internal per-state template groups and return them on the handle. Default `false`. */
   keepTemplates?: boolean
+  /** Shift the blocks the game offsets by position (grass, flowers, bamboo) as it does. `true` treats positions as world coordinates; `origin` gives the world `[x, z]` of position `0, 0`. Default `false`. */
+  randomOffset?: boolean | { origin?: [number, number] }
   /** Treat absent cells as full occluders, for building a chunk of a larger world. */
   externalOcclusion?(x: number, y: number, z: number): boolean
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
