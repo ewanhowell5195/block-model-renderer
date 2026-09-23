@@ -103,7 +103,7 @@ await createScene(assets, blocks, { lighting: { fog: { distance: 12, color: "#c0
 | `distance` | | The render distance in chunks. `0` turns the fog off |
 | `color` | the dimension's `fogColor` | The base fog colour. It follows the day/night curve and the sunrise glow like the sky's, and takes on the sky colour at short distances as in the game |
 | `anchor` | the rendering camera | Where distances are measured from: a fixed position in world units (`[x, y, z]`, `{ x, y, z }` or a `Vector3`), or an object to follow |
-| `sunriseGlow` | the camera's direction | How much of the sunrise and sunset glow the fog colour takes, `0` to `1`. The game takes it from how directly the camera faces the sun, so each view of a panorama gets a different fog colour; a fixed value gives every view the same one. The time of day still scales it, so there's none at noon |
+| `sunriseGlow` | the camera's direction | A fixed `0` to `1` strength for the sunrise and sunset glow in the fog colour, in place of the game's, which depends on how directly the camera faces the sun |
 
 Terrain fades into the fog colour over the last stretch before the render distance, with the overworld's faint distance haze on top, matching the game's two fog terms.
 
