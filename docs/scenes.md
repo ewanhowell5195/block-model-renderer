@@ -89,7 +89,7 @@ The optimize pass:
 | Option | Default | Description |
 |---|---|---|
 | `optimize` | `true` | Merge the built scene with [`optimizeScene`](optimization.md#scene-optimization). `false` keeps one group clone per block, which renders far slower on big scenes but leaves every block individually addressable |
-| `resortDistance`, `maxAtlas`, `translucency`, `batchDynamics` | | Passed through to the [optimize pass](optimization.md#scene-optimization) |
+| `resortDistance`, `maxAtlas`, `translucency`, `batchDynamics`, `releaseArrays` | | Passed through to the [optimize pass](optimization.md#scene-optimization) |
 | `sharedAtlas` | | A [`createSharedAtlas`](optimization.md#shared-atlases) handle. Textures resolve against its pages (shared across every scene using the handle) instead of per-scene atlases; the handle owns the pages and outlives each scene. [Prestitch it](optimization.md#shared-atlases) and scene builds become pure coordinate lookups |
 
 The build itself:

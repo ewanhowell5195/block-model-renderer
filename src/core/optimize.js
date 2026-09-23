@@ -459,6 +459,10 @@ function byteNormal(N, i) {
   return len > 0 && Math.abs(x / len - N[i]) < 1e-6 && Math.abs(y / len - N[i + 1]) < 1e-6 && Math.abs(z / len - N[i + 2]) < 1e-6
 }
 
+function releaseArray() {
+  this.array = null
+}
+
 function packMesh(P, N, U, T, F) {
   const n = P.length / 3
   const index = new Uint32Array(n)
@@ -1561,6 +1565,10 @@ export async function optimizeScene(placements, opts = {}) {
       new THREE.Vector3((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2),
       Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2 + (maxZ - minZ) ** 2) / 2
     )
+    if (opts.releaseArrays && !material.transparent) {
+      for (const a of Object.values(geo.attributes)) a.onUpload(releaseArray)
+      geo.index.onUpload(releaseArray)
+    }
     const mesh = new THREE.Mesh(geo, material)
     if (material.transparent) mesh.renderOrder = material.side === THREE.BackSide ? 0 : 1
     group.add(mesh)

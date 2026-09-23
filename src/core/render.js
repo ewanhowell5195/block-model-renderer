@@ -303,9 +303,17 @@ export async function renderModelScene(scene, camera, args) {
     if ((obj.isMesh || obj.isLineSegments) && !obj.userData.sky) {
       const positions = obj.geometry.attributes.position
       let maxZ = -Infinity
-      for (let i = 0; i < positions.count; i++) {
-        v.fromBufferAttribute(positions, i).applyMatrix4(obj.matrixWorld)
-        if (v.z > maxZ) maxZ = v.z
+      if (positions.array) {
+        for (let i = 0; i < positions.count; i++) {
+          v.fromBufferAttribute(positions, i).applyMatrix4(obj.matrixWorld)
+          if (v.z > maxZ) maxZ = v.z
+        }
+      } else {
+        const b = obj.geometry.boundingBox
+        for (let i = 0; i < 8; i++) {
+          v.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).applyMatrix4(obj.matrixWorld)
+          if (v.z > maxZ) maxZ = v.z
+        }
       }
       obj.renderOrder = maxZ
     }

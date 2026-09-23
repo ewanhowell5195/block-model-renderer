@@ -561,6 +561,7 @@ export async function createScene(assets, blocks, args = {}) {
       maxAtlas: args.maxAtlas, translucency: args.translucency, resortDistance: args.resortDistance, sliceMs,
       sharedAtlas: args.sharedAtlas,
       batchDynamics: args.batchDynamics,
+      releaseArrays: args.releaseArrays,
       onProgress: relayProgress(onProgress, stage),
       shouldCancel
     })

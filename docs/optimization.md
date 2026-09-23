@@ -61,7 +61,7 @@ Share one `group` reference across placements of the same block state, as `group
 
 You *can* cull the other way, pre-culling a separate group per placement and passing those with no `cull` field, and it renders the same. But then no two placements share a build, so you're back to one build per block instead of one per block state. Passing `cull` per placement keeps the single shared build and drops each instance's hidden faces as it merges, which is far cheaper for anything bigger than a handful of blocks.
 
-Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), `batchDynamics: false` forces dynamic parts to `InstancedMesh` instead of `BatchedMesh` (what [worker builds](#packing-scenes-across-workers) need, since a revived `BatchedMesh` draws garbage), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). [`createScene`](scenes.md#createsceneassets-blocks-args) passes all of these through. `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
+Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), `batchDynamics: false` forces dynamic parts to `InstancedMesh` instead of `BatchedMesh` (what [worker builds](#packing-scenes-across-workers) need, since a revived `BatchedMesh` draws garbage), `releaseArrays: true` drops the CPU copies of what has been uploaded to the GPU (see [Releasing CPU copies](#releasing-cpu-copies)), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). [`createScene`](scenes.md#createsceneassets-blocks-args) passes all of these through. `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
 
 The result:
 
@@ -76,6 +76,16 @@ The result:
 Animated textures (water, lava, fire) stay live in the merged output and keep playing through [`createAnimator`](scenes.md#animation-browser) or the automatic animator. [Dynamic models](scenes.md#dynamic-models) keep their moving pieces live: static cubes (a chest's base) merge like any other geometry, while `part` elements render as instanced meshes, one draw per unique part geometry and material no matter how many placements share it (a hundred chests cost the same two lid draws as one). Every placement still has its own pose rig in the output group, so books keep animating and each placement's `.open()`/`.close()` and [`poseSpecial`](scenes.md#posespecialroot-pose) keep working independently.
 
 Every material the library creates (merged or per-model) compiles with clipping support, so three.js clipping planes work as with any standard material: assign `renderer.clippingPlanes` globally, or enable `renderer.localClippingEnabled` and set `clippingPlanes` per material.
+
+### Releasing CPU copies
+
+A built scene keeps a CPU copy of what it uploads to the GPU. A scene that is only ever drawn doesn't need them, and `releaseArrays: true` drops them on first upload:
+
+| Dropped | Kept |
+|---|---|
+| Opaque merged geometry | Translucent geometry, which the [sorter](#translucent-sorting) rewrites |
+
+A released scene can't be raycast, packed with [`packScene`](#packing-scenes-across-workers) or exported, and doesn't survive a lost WebGL context. It only draws in the renderer that first uploaded it, so in node, where every static `renderModelScene` call gets a fresh context, it renders once.
 
 ## Translucent sorting
 

@@ -447,6 +447,8 @@ export interface CreateSceneOptions {
   sharedAtlas?: SharedAtlas
   /** Passed through to the optimize pass. Workers must set `false`. */
   batchDynamics?: boolean
+  /** Passed through to the optimize pass. */
+  releaseArrays?: boolean
   /** Per-stage progress. An overall bar can use `(stage.index + done / total) / stage.count`. */
   onProgress?(stage: ProgressStage, done: number, total: number): void
   /** Checked between work slices; return `true` to abort, resolving `null`. */
@@ -753,6 +755,8 @@ export interface OptimizeSceneOptions {
   sharedAtlas?: SharedAtlas
   /** Force `InstancedMesh` for dynamic parts. Workers must set this: `BatchedMesh` doesn't survive revival. */
   batchDynamics?: boolean
+  /** Drop the CPU copies of opaque geometry once it's on the GPU. For render-only scenes: nothing can read those arrays afterwards. Default `false`. */
+  releaseArrays?: boolean
   /** Progress on a fixed scale: use `done / total`, not the numbers themselves. */
   onProgress?(done: number, total: number): void
   /** Checked between work slices; return `true` to abort, resolving `null`. */
