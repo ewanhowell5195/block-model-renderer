@@ -657,6 +657,8 @@ export interface CreateSkyOptions {
   horizonFade?: boolean
   /** The Minecraft version the assets are for, which picks the sun and moon texture layout. */
   version?: string
+  /** The horizon's share of the sunrise glow, `0` to `1`, instead of taking it from the camera's direction. With a fog, the sky follows the fog's setting. */
+  sunriseGlow?: number | null
 }
 
 /**
@@ -673,6 +675,8 @@ export interface SkyHandle {
   moonPhase: number
   /** The tilt of the sun and moon's path, in degrees off overhead. Assignable. */
   angle: number
+  /** The fixed sunrise glow amount, or `null` to follow the camera. Assignable. */
+  sunriseGlow: number | null
   /** Free the geometry, materials, and textures, and remove the group from its parent. */
   dispose(): void
 }

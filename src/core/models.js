@@ -475,7 +475,7 @@ const FOG_GLSL = (() => {
           float a = 1.0 - (1.0 - sin(f * 3.14159265)) * 0.99;
           a *= a;
           vec3 glow = vec3(f * 0.3 + 0.7, f * f * 0.7 + 0.2, 0.2);
-          float facing = -viewMatrix[0][2] * (sin(angle) > 0.0 ? -1.0 : 1.0);
+          float facing = fogGlow >= 0.0 ? fogGlow : -viewMatrix[0][2] * (sin(angle) > 0.0 ? -1.0 : 1.0);
           if (facing > 0.0) c = mix(c, glow, clamp(facing * a, 0.0, 1.0));
         }
         return mix(c, skyBase * clamp(cs * 2.0 + 0.5, 0.0, 1.0), fogSkyMix);
@@ -500,7 +500,8 @@ export function makeFog(config, dim) {
     fogSkyMix: { value: 0 },
     fogCenter: { value: new THREE.Vector3() },
     fogFromCamera: { value: true },
-    fogSunrise: { value: dim?.skyLightFactor === "overworld" }
+    fogSunrise: { value: dim?.skyLightFactor === "overworld" },
+    fogGlow: { value: -1 }
   }
   let distance = 0
   let anchor = null
@@ -522,6 +523,12 @@ export function makeFog(config, dim) {
     set color(value) {
       uniforms.fogBase.value.copy(tintVec(value, 0xC0D8FF))
     },
+    get sunriseGlow() {
+      return uniforms.fogGlow.value < 0 ? null : uniforms.fogGlow.value
+    },
+    set sunriseGlow(value) {
+      uniforms.fogGlow.value = value == null ? -1 : Math.max(0, Math.min(1, Number(value) || 0))
+    },
     get anchor() {
       return anchor
     },
@@ -541,6 +548,7 @@ export function makeFog(config, dim) {
     }
   }
   fog.distance = cfg.distance
+  fog.sunriseGlow = cfg.sunriseGlow
   if (cfg.anchor != null) fog.anchor = cfg.anchor
   return fog
 }
@@ -2970,7 +2978,7 @@ function makeGlintMaterial(glintTexture, baseTexture, side) {
   return material
 }
 
-export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightAo", "lightAoMask", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise"]
+export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightAo", "lightAoMask", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise", "fogGlow"]
 
 export function occlusionStateKey(id, props, defaults) {
   let key = defaults === "game" ? id + "\0game" : id
@@ -3219,6 +3227,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform vec3 fogCenter;
       uniform bool fogFromCamera;
       uniform bool fogSunrise;
+      uniform float fogGlow;
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;

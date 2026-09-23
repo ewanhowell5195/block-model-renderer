@@ -384,6 +384,8 @@ export async function createSky(assets, args = {}) {
   const fading = args.horizonFade === true
   const skyEnd = { value: SKY_RADIUS }
   let ticking = args.tick === true
+  let ownGlow = args.sunriseGlow == null ? null : clamp(Number(args.sunriseGlow) || 0, 0, 1)
+  if (fog && fog !== args.fog && ownGlow != null) fog.sunriseGlow = ownGlow
   let last = -1
   const sunFade = { value: 1 }
   const moonFade = { value: 1 }
@@ -505,7 +507,8 @@ export async function createSky(assets, args = {}) {
 
       const alpha = sunriseColor(angle, glowRgb)
       if (alpha > 0) {
-        const facing = view.getWorldDirection(cameraDir).x * (Math.sin(angle) > 0 ? -1 : 1)
+        const fixed = fog ? fog.sunriseGlow : ownGlow
+        const facing = fixed ?? view.getWorldDirection(cameraDir).x * (Math.sin(angle) > 0 ? -1 : 1)
         if (facing > 0) fogColor.lerp(glowRgb, clamp(facing * alpha, 0, 1))
       }
       const distance = fog?.distance ?? 0
@@ -560,6 +563,13 @@ export async function createSky(assets, args = {}) {
     },
     set tick(value) {
       ticking = !!value
+    },
+    get sunriseGlow() {
+      return fog ? fog.sunriseGlow : ownGlow
+    },
+    set sunriseGlow(value) {
+      if (fog) fog.sunriseGlow = value
+      else ownGlow = value == null ? null : clamp(Number(value) || 0, 0, 1)
     },
     dispose() {
       for (const mesh of meshes) {
