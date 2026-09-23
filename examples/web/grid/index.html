@@ -235,7 +235,7 @@
 
   document.getElementById("shuffle").addEventListener("click", () => {
     const items = Array.from(container.children)
-    const slots = items.map(o => [o.userData.col, o.userData.row])
+    const slots = items.map(o => [o.userData.col, o.userData.row, o.userData.phase])
     for (let i = slots.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[slots[i], slots[j]] = [slots[j], slots[i]]
@@ -243,6 +243,7 @@
     items.forEach((o, i) => {
       o.userData.col = slots[i][0]
       o.userData.row = slots[i][1]
+      o.userData.phase = slots[i][2]
     })
   })
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
@@ -364,6 +365,7 @@
       const pos = geo.attributes.position
       const nrm = geo.attributes.normal
       const uv = geo.attributes.uv
+      const color = geo.attributes.color
       if (!pos) return
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
       const groups = geo.groups.length ? geo.groups : [{ start: 0, count: geo.index ? geo.index.count : pos.count, materialIndex: 0 }]
@@ -372,7 +374,7 @@
         const mat = mats[g.materialIndex]
         if (!mat || mat.visible === false) continue
         let acc = accs.get(mat)
-        if (!acc) accs.set(mat, acc = { P: [], N: [], U: [] })
+        if (!acc) accs.set(mat, acc = { P: [], N: [], U: [], C: [] })
         for (let i = g.start; i < g.start + g.count; i++) {
           const a = geo.index ? geo.index.getX(i) : i
           mv.fromBufferAttribute(pos, a).applyMatrix4(obj.matrixWorld)
@@ -384,6 +386,7 @@
             acc.N.push(0, 1, 0)
           }
           acc.U.push(uv ? uv.getX(a) : 0, uv ? uv.getY(a) : 0)
+          acc.C.push(color ? color.getX(a) : 1, color ? color.getY(a) : 1, color ? color.getZ(a) : 1)
         }
       }
     })
@@ -393,6 +396,7 @@
       geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.P, 3))
       geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.N, 3))
       geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.U, 2))
+      geo.setAttribute("color", new THREE.Float32BufferAttribute(acc.C, 3))
       merged.add(new THREE.Mesh(geo, mat))
     }
     return merged
@@ -545,7 +549,7 @@
         return
       }
       if (cell) {
-        cell.outer.userData = { col, row, inner: cell.inner, id: cell.id }
+        cell.outer.userData = { col, row, phase: (col + row) * Math.PI / 4, inner: cell.inner, id: cell.id }
         container.add(cell.outer)
       }
       done++
@@ -601,7 +605,7 @@
         return
       }
       if (cell) {
-        cell.outer.userData = { col, row, inner: cell.inner, id: cell.id }
+        cell.outer.userData = { col, row, phase: (col + row) * Math.PI / 4, inner: cell.inner, id: cell.id }
         container.add(cell.outer)
       }
     }))
@@ -795,7 +799,7 @@
       while (y > yLimit) { y -= spanH; u.row += rows }
       item.position.x = x
       item.position.y = y
-      u.inner.rotation.y = elapsed + (offsetsCtl.checked ? (canon(u.col, cols) + canon(u.row, rows)) * Math.PI / 4 : 0)
+      u.inner.rotation.y = elapsed + (offsetsCtl.checked ? u.phase : 0)
     }
     renderer.render(scene, camera)
   }
