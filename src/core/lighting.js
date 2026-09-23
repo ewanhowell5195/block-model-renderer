@@ -438,6 +438,10 @@ export async function computeSceneLight(blocks, opts = {}) {
     lightVolCols: { value: cols }
   }
 
+  return lightHandle({ origin, w, h, d, blockLight, skyLight, uniforms, texture, aoTexture })
+}
+
+function lightHandle({ origin, w, h, d, blockLight, skyLight, uniforms, texture, aoTexture }) {
   return {
     origin,
     size: [w, h, d],
