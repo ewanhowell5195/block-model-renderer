@@ -126,7 +126,7 @@ For streaming-scale apps, scenes build in web workers and ship to the main threa
 | Export | Description |
 |---|---|
 | `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references |
-| `reviveScene(payload, { atlas?, release? })` | Rebuild a packed payload into `{ group, dispose() }` of live meshes. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
+| `reviveScene(payload, { atlas?, release? })` | Rebuild a packed payload into `{ group, light, dispose() }` of live meshes. `light` is the scene's light volume as `{ uniforms }`, or `null`, which world lighting takes as `lighting: { light }`. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
 
 The whole flow:
 
@@ -151,6 +151,13 @@ world.add(tile.group)
 ```
 
 Revived groups are inert data, not `createScene` handles: no palette, no light handle, no [dynamic model](scenes.md#dynamic-models) rigs (dynamic parts can't cross the thread boundary as live objects; build those separately on the main thread; the main thread's own scenes can keep stitching into the same live atlas). Billboards re-attach their camera-facing behavior on revive.
+
+Pieces built separately on the main thread draw with the revived scene's light volume, time of day and fog through `rebindUniforms(target, source)`. `target` is a group or material, and `source` is a scene group, a material, or anything with `uniforms`, such as `tile.light` or a fog handle:
+
+```js
+const dynamics = await createScene(assets, chests, { lighting: { light: tile.light } })
+rebindUniforms(doorMesh, tile.group)
+```
 
 ### Requesting atlas space from workers
 

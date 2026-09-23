@@ -298,8 +298,8 @@ export interface WorldLighting {
   daytime?: Daytime
   /** The in-game brightness slider, `0` (Moody) to `1` (Bright). Default `0.5`. */
   brightness?: number
-  /** A {@link computeSceneLight} volume for per-block light, or `false` for none. */
-  light?: SceneLight | false
+  /** A {@link computeSceneLight} volume for per-block light, a revived scene's `light`, or `false` for none. */
+  light?: SceneLight | LightUniforms | false
   /** Rotate the shade along with the model, so each face keeps its own axis shade under the display transform. `false` leaves the shade field fixed, blending across faces the display turns between axes. Default `true`. */
   rotateShade?: boolean
   /** The game's fog, off unless set: a render distance in chunks, a {@link FogConfig}, or a {@link FogHandle} to share. */
@@ -346,6 +346,11 @@ export interface FogHandle {
   sunriseGlow: number | null
   /** Re-read an object anchor's position after it moves. */
   update(): void
+}
+
+/** A light volume's shader uniforms alone, as {@link reviveScene} returns. */
+export interface LightUniforms {
+  uniforms: Record<string, { value: any }>
 }
 
 /** A lighting mode name, or a world lighting config object. */
@@ -965,6 +970,8 @@ export interface ReviveSceneOptions {
 /** A revived scene: inert live meshes, not a {@link SceneHandle}. */
 export interface RevivedScene {
   group: THREE.Group
+  /** The scene's light volume, to pass as `lighting: { light }`, or `null` without one. */
+  light: LightUniforms | null
   dispose(): void
 }
 
@@ -1592,6 +1599,18 @@ export function packScene(handle: SceneHandle | { group: THREE.Group }, opts?: P
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#packing-scenes-across-workers
  */
 export function reviveScene(payload: PackedScene["payload"], opts?: ReviveSceneOptions): RevivedScene
+
+/**
+ * Bind a scene's shared light volume, time of day and fog uniforms onto meshes
+ * built separately, so they draw lit like the scene. Adds the light volume to
+ * materials built without one.
+ *
+ * @example
+ * rebindUniforms(doorGroup, tile.group)
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#packing-scenes-across-workers
+ */
+export function rebindUniforms<T extends THREE.Object3D | THREE.Material | THREE.Material[]>(target: T, source: THREE.Object3D | THREE.Material | { uniforms: Record<string, { value: any }> }): T
 
 /**
  * Register the renderer once so animation frame updates upload as GPU subimages

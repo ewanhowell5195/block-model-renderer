@@ -1,5 +1,7 @@
 import { THREE, Canvas } from "./platform.js"
 
+const LIGHT_UNIFORM = /^light(Vol|Ao)/
+
 export async function packScene(handle, opts = {}) {
   const shared = opts.sharedAtlas ?? null
   const transfers = []
@@ -212,6 +214,15 @@ export function reviveScene(payload, opts = {}) {
     return mat
   })
 
+  let light = null
+  for (const mat of materials) {
+    if (!mat.uniforms?.lightVol) continue
+    if (!light) {
+      light = { uniforms: {} }
+      for (const [k, u] of Object.entries(mat.uniforms)) if (LIGHT_UNIFORM.test(k)) light.uniforms[k] = u
+    } else for (const k of Object.keys(light.uniforms)) mat.uniforms[k] = light.uniforms[k]
+  }
+
   const group = new THREE.Group()
   for (const spec of payload.meshes) {
     const geo = new THREE.BufferGeometry()
@@ -269,6 +280,7 @@ export function reviveScene(payload, opts = {}) {
 
   return {
     group,
+    light,
     dispose() {
       group.removeFromParent()
       for (const g of owned.geometries) { try { g.dispose() } catch {} }

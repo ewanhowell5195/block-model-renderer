@@ -2978,6 +2978,37 @@ function makeGlintMaterial(glintTexture, baseTexture, side) {
   return material
 }
 
+function sharedUniformsOf(source) {
+  if (!source?.isObject3D) return source?.uniforms ?? null
+  let found = null
+  source.traverse(o => {
+    if (found || !o.material) return
+    for (const m of [].concat(o.material)) {
+      if (m?.uniforms?.worldShade) {
+        found = m.uniforms
+        break
+      }
+    }
+  })
+  return found
+}
+
+export function rebindUniforms(target, source) {
+  const shared = sharedUniformsOf(source)
+  if (!shared) return target
+  function bind(m) {
+    if (!m?.uniforms?.worldShade) return
+    for (const k of REBIND_UNIFORMS) if (shared[k]) m.uniforms[k] = shared[k]
+    if (shared.lightVol && m.defines?.LIGHT_VOLUME === undefined) {
+      m.defines = { ...m.defines, LIGHT_VOLUME: "" }
+      m.needsUpdate = true
+    }
+  }
+  if (target?.isObject3D) target.traverse(o => { if (o.material) for (const m of [].concat(o.material)) bind(m) })
+  else for (const m of [].concat(target ?? [])) bind(m)
+  return target
+}
+
 export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightAo", "lightAoMask", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise", "fogGlow"]
 
 export function occlusionStateKey(id, props, defaults) {
