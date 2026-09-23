@@ -561,7 +561,7 @@ export async function createScene(assets, blocks, args = {}) {
       maxAtlas: args.maxAtlas, translucency: args.translucency, resortDistance: args.resortDistance, sliceMs,
       sharedAtlas: args.sharedAtlas,
       batchDynamics: args.batchDynamics,
-      onProgress: (done, total) => report(done, total),
+      onProgress: relayProgress(onProgress, stage),
       shouldCancel
     })
     if (!optimized) return null
@@ -653,6 +653,14 @@ export async function createScene(assets, blocks, args = {}) {
     }
   }
 
+  return sceneHandle({ group, palette, blockPalette, templates, blockTemplate, bounds, light, drawCalls, tris, optimized, ownsLight: computeLight, usedEntries, tcache })
+}
+
+function relayProgress(onProgress, stage) {
+  return onProgress ? (done, total) => onProgress(stage, done, total) : undefined
+}
+
+function sceneHandle({ group, palette, blockPalette, templates, blockTemplate, bounds, light, drawCalls, tris, optimized, ownsLight, usedEntries, tcache }) {
   return {
     group,
     palette,
@@ -666,7 +674,7 @@ export async function createScene(assets, blocks, args = {}) {
     sortTranslucent: camera => optimized?.sortTranslucent(camera),
     dispose() {
       optimized?.dispose()
-      if (computeLight) light?.dispose?.()
+      if (ownsLight) light?.dispose?.()
       const cachedGeos = new Set()
       for (const e of usedEntries) e.group.traverse(o => { if (o.isMesh || o.isLineSegments) cachedGeos.add(o.geometry) })
       if (!this.__released) {

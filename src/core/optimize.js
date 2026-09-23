@@ -811,6 +811,71 @@ function tiledSub(srcImg, key, sub, ur, vr) {
   return c
 }
 
+function billboardHook(entries) {
+  const pos = new THREE.Vector3(), quat = new THREE.Quaternion(), flip = new THREE.Quaternion(0, 1, 0, 0), m = new THREE.Matrix4(), inv = new THREE.Matrix4()
+  return function (renderer, scene, camera) {
+    inv.copy(this.matrixWorld).invert()
+    camera.getWorldQuaternion(quat).multiply(flip)
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i]
+      pos.copy(e.pos).applyMatrix4(this.matrixWorld)
+      this.setMatrixAt(i, m.compose(pos, quat, e.scale).premultiply(inv))
+    }
+    this.instanceMatrix.needsUpdate = true
+  }
+}
+
+function dynamicHook(entries) {
+  const m = new THREE.Matrix4(), inv = new THREE.Matrix4()
+  let inited = false
+  return function (renderer, scene, camera) {
+    inv.copy(this.matrixWorld).invert()
+    let any = !inited
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i]
+      if (!dynamicFrame(e.root, renderer, camera) && inited) continue
+      this.setMatrixAt(i, m.multiplyMatrices(e.parent.matrixWorld, e.local).premultiply(inv))
+      any = true
+    }
+    if (any) this.instanceMatrix.needsUpdate = true
+    inited = true
+  }
+}
+
+function batchedHook(slots, baseBeforeRender) {
+  const m = new THREE.Matrix4(), inv = new THREE.Matrix4()
+  let inited = false
+  return function (renderer, scene, camera, geometry, material, grp) {
+    inv.copy(this.matrixWorld).invert()
+    for (const s of slots) {
+      if (!dynamicFrame(s.e.root, renderer, camera) && inited) continue
+      this.setMatrixAt(s.id, m.multiplyMatrices(s.e.parent.matrixWorld, s.e.local).premultiply(inv))
+    }
+    inited = true
+    baseBeforeRender.call(this, renderer, scene, camera, geometry, material, grp)
+  }
+}
+
+function optimizedHandle({ group, drawCalls, tris, created, sorter }) {
+  return {
+    group,
+    drawCalls,
+    tris,
+    atlasTextures: created.textures,
+    sortTranslucent: camera => sorter.sort(camera),
+    dispose() {
+      if (this.__disposed) return
+      this.__disposed = true
+      sorter.detach()
+      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh || o.isBatchedMesh) { try { o.dispose() } catch {} } } })
+      for (const g of created.geometries) { try { g.dispose() } catch {} }
+      for (const m of created.materials) { try { m.dispose() } catch {} }
+      for (const e of created.atlasEntries) { try { releaseAtlas(e) } catch {} }
+      group.removeFromParent()
+    }
+  }
+}
+
 export async function optimizeScene(placements, opts = {}) {
   if (!Array.isArray(placements)) throw new Error("optimizeScene requires an array of placements")
   await wasmReady()
@@ -1527,7 +1592,6 @@ export async function optimizeScene(placements, opts = {}) {
   }
 
   const primers = []
-  const _bbPos = new THREE.Vector3(), _bbQuat = new THREE.Quaternion(), _bbFlip = new THREE.Quaternion(0, 1, 0, 0), _bbM = new THREE.Matrix4(), _bbInv = new THREE.Matrix4()
   for (const bucket of bbBuckets.values()) {
     const entries = bucket.entries
     const merged = mergeInstanceSource(bucket.geometry, bucket.material)
@@ -1536,16 +1600,7 @@ export async function optimizeScene(placements, opts = {}) {
     im.frustumCulled = false
     im.userData.billboard = true
     im.userData.billboardEntries = entries
-    im.onBeforeRender = function (renderer, scene, camera) {
-      _bbInv.copy(this.matrixWorld).invert()
-      camera.getWorldQuaternion(_bbQuat).multiply(_bbFlip)
-      for (let i = 0; i < entries.length; i++) {
-        const e = entries[i]
-        _bbPos.copy(e.pos).applyMatrix4(this.matrixWorld)
-        this.setMatrixAt(i, _bbM.compose(_bbPos, _bbQuat, e.scale).premultiply(_bbInv))
-      }
-      this.instanceMatrix.needsUpdate = true
-    }
+    im.onBeforeRender = billboardHook(entries)
     primers.push(() => im.onBeforeRender(null, null, _primeCam))
     group.add(im)
     drawCalls++
@@ -1568,19 +1623,7 @@ export async function optimizeScene(placements, opts = {}) {
     }
     const im = new THREE.InstancedMesh(merged.geometry, merged.material, entries.length)
     im.frustumCulled = false
-    let inited = false
-    im.onBeforeRender = function (renderer, scene, camera) {
-      _dynInv.copy(this.matrixWorld).invert()
-      let any = !inited
-      for (let i = 0; i < entries.length; i++) {
-        const e = entries[i]
-        if (!dynamicFrame(e.root, renderer, camera) && inited) continue
-        this.setMatrixAt(i, _dynM.multiplyMatrices(e.parent.matrixWorld, e.local).premultiply(_dynInv))
-        any = true
-      }
-      if (any) this.instanceMatrix.needsUpdate = true
-      inited = true
-    }
+    im.onBeforeRender = dynamicHook(entries)
     primers.push(() => {
       _dynInv.copy(im.matrixWorld).invert()
       for (let i = 0; i < entries.length; i++) {
@@ -1612,17 +1655,7 @@ export async function optimizeScene(placements, opts = {}) {
       for (const e of p.entries) slots.push({ id: bm.addInstance ? bm.addInstance(gid) : bm.addGeometry(p.geometry), e, geometry: p.geometry })
     }
     bm.userData.batchSlots = slots
-    let inited = false
-    const baseBeforeRender = bm.onBeforeRender
-    bm.onBeforeRender = function (renderer, scene, camera, geometry, material, grp) {
-      _dynInv.copy(this.matrixWorld).invert()
-      for (const s of slots) {
-        if (!dynamicFrame(s.e.root, renderer, camera) && inited) continue
-        this.setMatrixAt(s.id, _dynM.multiplyMatrices(s.e.parent.matrixWorld, s.e.local).premultiply(_dynInv))
-      }
-      inited = true
-      baseBeforeRender.call(this, renderer, scene, camera, geometry, material, grp)
-    }
+    bm.onBeforeRender = batchedHook(slots, bm.onBeforeRender)
     primers.push(() => {
       _dynInv.copy(bm.matrixWorld).invert()
       for (const s of slots) {
@@ -1642,21 +1675,5 @@ export async function optimizeScene(placements, opts = {}) {
 
   const sorter = sortTranslucent(group, { resortDistance: opts.resortDistance })
 
-  return {
-    group,
-    drawCalls,
-    tris,
-    atlasTextures: created.textures,
-    sortTranslucent: camera => sorter.sort(camera),
-    dispose() {
-      if (this.__disposed) return
-      this.__disposed = true
-      sorter.detach()
-      group.traverse(o => { if (o.isMesh) { try { o.geometry.dispose() } catch {} if (o.isInstancedMesh || o.isBatchedMesh) { try { o.dispose() } catch {} } } })
-      for (const g of created.geometries) { try { g.dispose() } catch {} }
-      for (const m of created.materials) { try { m.dispose() } catch {} }
-      for (const e of created.atlasEntries) { try { releaseAtlas(e) } catch {} }
-      group.removeFromParent()
-    }
-  }
+  return optimizedHandle({ group, drawCalls, tris, created, sorter })
 }
