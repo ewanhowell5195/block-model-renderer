@@ -179,6 +179,7 @@ scene.add(sky.group)
 | `args.distance` | `camera.far * 0.9` | How far out the sky sits in world units. The default stays inside the far plane of whichever camera renders it |
 | `args.horizonFade` | `false` | Fade the sun and moon out below the horizon, over the game's 13500-14000 nightfall window and the matching angles at their other crossings. Off by default: the game keeps drawing them and lets terrain do the hiding |
 | `args.version` | | The Minecraft version, which picks the sun and moon texture layout: `environment/celestial/` from 1.21.11, `environment/` before it, each falling back to the other |
+| `args.tick` | `false` | Advance the day/night clock in real time, 20 ticks a second like the game, wrapping at 24000. Off, `daytime` only moves when you set it. Also settable on the handle |
 
 The handle:
 
@@ -188,5 +189,44 @@ The handle:
 | `daytime` | The time uniform, `{ value }`. The same object when you passed one in |
 | `moonPhase` | The moon phase, assignable |
 | `angle` | The path tilt in degrees, assignable |
+| `tick` | Whether the clock advances on its own, assignable |
 | `dispose()` | Frees the geometry, materials, and textures, and removes the group from its parent |
 
+## Clouds
+
+`createClouds` builds the game's cloud layer from the pack's `environment/clouds.png`. It runs on its own clock and takes its colour from the sky's day/night curve.
+
+```js
+const clouds = await createClouds(assets, { daytime: handle.group.userData.daytime })
+scene.add(clouds.group)
+clouds.height = 200
+```
+
+### `createClouds(assets, args)`
+
+| Option | Default | Description |
+|---|---|---|
+| `assets` | required | The assets source, as in [`renderBlock`](standard-api.md#renderblockargs). The cloud texture comes from the pack stack; without one the group draws nothing |
+| `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting), for the colour only. Pass a scene's `userData.daytime` to share one uniform with the blocks and sky |
+| `args.anchor` | the rendering camera | What the layer is centred on: a camera or any object, followed as it moves, or a fixed position in world units (`[x, y, z]`, `{ x, y, z }` or a `Vector3`). Also settable on the handle |
+| `args.height` | `192.33` | The bottom of the layer in blocks (world units divided by 16). Also settable on the handle |
+| `args.time` | `0` | The cloud clock, in ticks. A save's `Time` reproduces that world's cloud positions. Also settable on the handle |
+| `args.tick` | `true` | Advance the cloud clock in real time, 20 ticks a second. Also settable on the handle |
+| `args.fancy` | `true` | The game's Fancy clouds. `false` draws Fast clouds, the flat sheet. Also settable on the handle |
+| `args.range` | `128` | The game's cloud range option, in chunks |
+| `args.color` | `#FFFFFF` | The base cloud colour, the overworld's in game. The day/night curve scales it |
+| `args.alpha` | `0.8` | The layer's opacity |
+
+The handle:
+
+| Field | Description |
+|---|---|
+| `group` | The cloud group; add it to your scene. It follows the camera |
+| `daytime` | The time uniform, `{ value }`. The same object when you passed one in |
+| `anchor` | The camera, object or position the layer is centred on, assignable |
+| `update(anchor?)` | Re-centre the layer now, on the given camera or position, or on the current anchor. Only needed before a single `renderer.render` call when following a camera; a render loop and a position anchor don't need it, and [`renderModelScene`](scenes.md#rendermodelscenescene-camera-args) calls it for you |
+| `time` | The cloud clock in ticks, assignable |
+| `height` | The bottom of the layer in blocks, assignable |
+| `tick` | Whether the clock advances on its own, assignable |
+| `fancy` | Fancy or Fast clouds, assignable |
+| `dispose()` | Frees the geometry and material, and removes the group from its parent |

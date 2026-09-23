@@ -58,7 +58,7 @@ function horizonFade(height) {
   return t * t * (3 - 2 * t)
 }
 
-function curveAt(curve, tick, out) {
+export function curveAt(curve, tick, out) {
   const t = ((tick % DAY) + DAY) % DAY
   let i = curve.length - 1
   if (t >= curve[0][0]) {
@@ -382,6 +382,8 @@ export async function createSky(assets, args = {}) {
   const glowTint = new THREE.Vector4(1, 1, 1, 0)
   const brightness = { value: 0 }
   const fading = args.horizonFade === true
+  let ticking = args.tick === true
+  let last = -1
   const sunFade = { value: 1 }
   const moonFade = { value: 1 }
 
@@ -480,6 +482,9 @@ export async function createSky(assets, args = {}) {
   }
 
   function sync(view) {
+    const now = performance.now()
+    if (ticking && last >= 0) daytime.value = (daytime.value + (now - last) / 50) % DAY
+    last = now
     const distance = args.distance ?? (Number.isFinite(view.far) ? view.far * 0.9 : BACKDROP_RADIUS)
     let scale = distance / BACKDROP_RADIUS
     cameraPos.setFromMatrixPosition(view.matrixWorld)
@@ -543,6 +548,12 @@ export async function createSky(assets, args = {}) {
     set angle(value) {
       skyAngle = Number(value) || 0
       if (celestial) celestial.rotation.x = skyAngle * Math.PI / 180
+    },
+    get tick() {
+      return ticking
+    },
+    set tick(value) {
+      ticking = !!value
     },
     dispose() {
       for (const mesh of meshes) {
