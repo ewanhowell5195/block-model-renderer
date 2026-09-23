@@ -2,7 +2,7 @@ import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { prepareAssets, scopedCache, readFile } from "./assets.js"
 import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog } from "./models.js"
 import { getCullFaces } from "./render.js"
-import { computeSceneLight } from "./lighting.js"
+import { computeSceneLight, isFlatBlocks } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
 import { blockRules } from "./data.js"
 import { optimizeScene } from "./optimize.js"
@@ -132,7 +132,10 @@ function cellKey3(dx, dy, dz) {
 
 export async function createScene(assets, blocks, args = {}) {
   if (assets == null || assets.length === 0) throw new Error("createScene requires assets")
-  if (!Array.isArray(blocks)) throw new Error("createScene requires an array of blocks")
+  const flat = isFlatBlocks(blocks)
+  if (!flat && !Array.isArray(blocks)) throw new Error("createScene requires an array of blocks, or a { palette, raw } run")
+  const raw = flat ? blocks.raw : null
+  const count = flat ? raw.length >> 2 : blocks.length
   assets = scopedCache(await prepareAssets(assets))
   const defaults = args.defaults ?? assets.defaults
   const rules = await blockRules(assets)
@@ -166,15 +169,21 @@ export async function createScene(assets, blocks, args = {}) {
   const cellArr = []
   let liveCells = 0
   let cx0 = Infinity, cy0 = Infinity, cz0 = Infinity, cx1 = -Infinity, cy1 = -Infinity, cz1 = -Infinity
-  for (let i = 0; i < blocks.length; i++) {
-    const p = blocks[i]?.pos
-    if (!p) continue
-    if (p[0] < cx0) cx0 = p[0]
-    if (p[0] > cx1) cx1 = p[0]
-    if (p[1] < cy0) cy0 = p[1]
-    if (p[1] > cy1) cy1 = p[1]
-    if (p[2] < cz0) cz0 = p[2]
-    if (p[2] > cz1) cz1 = p[2]
+  function grow(x, y, z) {
+    if (x < cx0) cx0 = x
+    if (x > cx1) cx1 = x
+    if (y < cy0) cy0 = y
+    if (y > cy1) cy1 = y
+    if (z < cz0) cz0 = z
+    if (z > cz1) cz1 = z
+  }
+  if (flat) {
+    for (let j = 0; j < raw.length; j += 4) if (blocks.palette[raw[j]]) grow(raw[j + 1], raw[j + 2], raw[j + 3])
+  } else {
+    for (let i = 0; i < blocks.length; i++) {
+      const p = blocks[i]?.pos
+      if (p) grow(p[0], p[1], p[2])
+    }
   }
   const cW = cx1 - cx0 + 3, cH = cy1 - cy0 + 3, cD = cz1 - cz0 + 3
   const cVol = cx0 === Infinity ? 0 : cW * cH * cD
@@ -230,54 +239,89 @@ export async function createScene(assets, blocks, args = {}) {
   const overlays = []
   const paletteIndex = new Map()
   const palette = []
-  const blockPalette = new Uint32Array(blocks.length).fill(0xFFFFFFFF)
+  const blockPalette = new Uint32Array(count).fill(0xFFFFFFFF)
   const PK = (x, y, z) => ((x + 1048576) * 2048 + (y + 1024)) * 2097152 + (z + 1048576)
   const NO_PROPS = {}
   const piMemo = new WeakMap()
   const idInfo = new Map()
-  for (let i = 0; i < blocks.length; i++) {
-    const b = blocks[i]
-    if (!b?.id || !b.pos) continue
-    let info = idInfo.get(b.id)
+  const infoOf = rawId => {
+    let info = idInfo.get(rawId)
     if (info === undefined) {
-      const nid = normalize(b.id)
-      idInfo.set(b.id, info = { id: nid, air: AIR_BLOCKS.test(nid) })
+      const nid = normalize(rawId)
+      idInfo.set(rawId, info = { id: nid, air: AIR_BLOCKS.test(nid) })
     }
-    if (info.air) {
-      dropCell(b.pos[0], b.pos[1], b.pos[2])
-      continue
+    return info
+  }
+  function stateIndex(id, properties, biome) {
+    const stateKey = id + "\0" + JSON.stringify(properties ?? null) + "\0" + JSON.stringify(biome)
+    let pi = paletteIndex.get(stateKey)
+    if (pi === undefined) {
+      pi = palette.length
+      paletteIndex.set(stateKey, pi)
+      palette.push({ id, properties: properties ?? null, biome, nbt: null, pos: null, models: null })
     }
-    const id = info.id
-    const biome = b.biome ?? args.biome ?? null
-    let pi
-    const po = b.nbt ? null : (b.properties ?? NO_PROPS)
-    let byId = po ? piMemo.get(po) : null
-    if (po) {
-      if (!byId) piMemo.set(po, byId = new Map())
-      const bk = biome == null ? id : id + "\0" + JSON.stringify(biome)
-      pi = byId.get(bk)
-      if (pi === undefined) {
-        const stateKey = id + "\0" + JSON.stringify(b.properties ?? null) + "\0" + JSON.stringify(biome)
-        pi = paletteIndex.get(stateKey)
-        if (pi === undefined) {
-          pi = palette.length
-          paletteIndex.set(stateKey, pi)
-          palette.push({ id, properties: b.properties ?? null, biome, nbt: null, pos: null, models: null })
-        }
-        byId.set(bk, pi)
-      }
-    } else {
-      const stateKey = id + "\0" + JSON.stringify(b.properties ?? null) + "\0" + JSON.stringify(biome) + "\0" + JSON.stringify(b.nbt)
-      pi = paletteIndex.get(stateKey)
-      if (pi === undefined) {
-        pi = palette.length
-        paletteIndex.set(stateKey, pi)
-        palette.push({ id, properties: b.properties ?? null, biome, nbt: b.nbt, pos: b.pos, models: null })
-      }
+    return pi
+  }
+  function nbtIndex(id, properties, biome, nbt, pos) {
+    const stateKey = id + "\0" + JSON.stringify(properties ?? null) + "\0" + JSON.stringify(biome) + "\0" + JSON.stringify(nbt)
+    let pi = paletteIndex.get(stateKey)
+    if (pi === undefined) {
+      pi = palette.length
+      paletteIndex.set(stateKey, pi)
+      palette.push({ id, properties: properties ?? null, biome, nbt, pos, models: null })
     }
+    return pi
+  }
+  function place(i, pi, pos, overlay, context) {
     blockPalette[i] = pi
-    if (b.overlay) overlays.push({ pos: b.pos, palette: pi })
-    else putCell(b.pos[0], b.pos[1], b.pos[2], { pos: b.pos, palette: pi, context: b.context === true })
+    if (overlay) overlays.push({ pos, palette: pi })
+    else putCell(pos[0], pos[1], pos[2], { pos, palette: pi, context })
+  }
+  if (flat) {
+    const fpal = blocks.palette, blockNbt = blocks.blockNbt
+    const flatPi = new Int32Array(fpal.length).fill(-1)
+    for (let i = 0, j = 0; i < count; i++, j += 4) {
+      const s = raw[j], e = fpal[s]
+      if (!e?.id) continue
+      const info = infoOf(e.id)
+      if (info.air) {
+        dropCell(raw[j + 1], raw[j + 2], raw[j + 3])
+        continue
+      }
+      const pos = [raw[j + 1], raw[j + 2], raw[j + 3]]
+      const nbt = blockNbt?.get(i)
+      const biome = e.biome ?? args.biome ?? null
+      let pi
+      if (nbt) pi = nbtIndex(info.id, e.properties, biome, nbt, pos)
+      else {
+        pi = flatPi[s]
+        if (pi < 0) pi = flatPi[s] = stateIndex(info.id, e.properties, biome)
+      }
+      place(i, pi, pos, e.overlay, e.context === true)
+    }
+  } else {
+    for (let i = 0; i < count; i++) {
+      const b = blocks[i]
+      if (!b?.id || !b.pos) continue
+      const info = infoOf(b.id)
+      if (info.air) {
+        dropCell(b.pos[0], b.pos[1], b.pos[2])
+        continue
+      }
+      const id = info.id
+      const biome = b.biome ?? args.biome ?? null
+      let pi
+      if (b.nbt) pi = nbtIndex(id, b.properties, biome, b.nbt, b.pos)
+      else {
+        const po = b.properties ?? NO_PROPS
+        let byId = piMemo.get(po)
+        if (!byId) piMemo.set(po, byId = new Map())
+        const bk = biome == null ? id : id + "\0" + JSON.stringify(biome)
+        pi = byId.get(bk)
+        if (pi === undefined) byId.set(bk, pi = stateIndex(id, b.properties, biome))
+      }
+      place(i, pi, b.pos, b.overlay, b.context === true)
+    }
   }
 
   const sigIds = (assets.cache.sigIds ??= new Map())
@@ -594,11 +638,17 @@ export async function createScene(assets, blocks, args = {}) {
       templateIdx.set(key, templates.length)
       templates.push({ palette: spec.palette, group: templateOf.get(key) })
     }
-    blockTemplate = new Uint32Array(blocks.length).fill(0xFFFFFFFF)
-    for (let i = 0; i < blocks.length; i++) {
-      const b = blocks[i]
-      if (!b?.pos) continue
-      const cell = cellAt(b.pos[0], b.pos[1], b.pos[2])
+    blockTemplate = new Uint32Array(count).fill(0xFFFFFFFF)
+    for (let i = 0; i < count; i++) {
+      let cell
+      if (flat) {
+        if (!blocks.palette[raw[i * 4]]) continue
+        cell = cellAt(raw[i * 4 + 1], raw[i * 4 + 2], raw[i * 4 + 3])
+      } else {
+        const b = blocks[i]
+        if (!b?.pos) continue
+        cell = cellAt(b.pos[0], b.pos[1], b.pos[2])
+      }
       if (cell != null && cell.template !== null) blockTemplate[i] = templateIdx.get(cell.template)
     }
   }

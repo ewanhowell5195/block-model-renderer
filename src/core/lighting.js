@@ -39,8 +39,14 @@ function unionCovers(a, b) {
   return true
 }
 
+export function isFlatBlocks(blocks) {
+  return !!blocks && !Array.isArray(blocks) && ArrayBuffer.isView(blocks.raw) && Array.isArray(blocks.palette)
+}
+
 export async function computeSceneLight(blocks, opts = {}) {
-  if (!Array.isArray(blocks) || blocks.length === 0) throw new Error("computeSceneLight requires an array of blocks")
+  const flat = isFlatBlocks(blocks)
+  const count = flat ? blocks.raw.length >> 2 : Array.isArray(blocks) ? blocks.length : 0
+  if (!count) throw new Error("computeSceneLight requires an array of blocks, or a { palette, raw } run")
   if (opts.assets == null || opts.assets.length === 0) throw new Error("computeSceneLight requires the assets option")
   const assets = scopedCache(await prepareAssets(opts.assets))
   const version = opts.version
@@ -77,10 +83,7 @@ export async function computeSceneLight(blocks, opts = {}) {
 
   let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
   let any = false
-  for (const b of blocks) {
-    if (!b?.id || normId(b.id) === null) continue
-    const p = b.pos
-    const x = p ? p[0] : b.x, y = p ? p[1] : b.y, z = p ? p[2] : b.z
+  function grow(x, y, z) {
     any = true
     if (x < minX) minX = x
     if (y < minY) minY = y
@@ -88,6 +91,17 @@ export async function computeSceneLight(blocks, opts = {}) {
     if (x > maxX) maxX = x
     if (y > maxY) maxY = y
     if (z > maxZ) maxZ = z
+  }
+  const flatIds = flat ? blocks.palette.map(e => e?.id ? normId(e.id) : null) : null
+  if (flat) {
+    const raw = blocks.raw
+    for (let i = 0; i < raw.length; i += 4) if (flatIds[raw[i]] != null) grow(raw[i + 1], raw[i + 2], raw[i + 3])
+  } else {
+    for (const b of blocks) {
+      if (!b?.id || normId(b.id) === null) continue
+      const p = b.pos
+      grow(p ? p[0] : b.x, p ? p[1] : b.y, p ? p[2] : b.z)
+    }
   }
   if (!any) throw new Error("computeSceneLight requires at least one non-air block")
 
@@ -101,52 +115,72 @@ export async function computeSceneLight(blocks, opts = {}) {
   const NO_PROPS = {}
   const siMemo = new WeakMap()
   const ox = origin[0], oy = origin[1], oz = origin[2]
-  let processed = 0
-  let yieldT = performance.now()
-  for (const b of blocks) {
-    processed++
-    if (!b?.id) continue
-    const id = normId(b.id)
-    if (id === null) continue
-    const po = b.properties ?? NO_PROPS
-    let byId = siMemo.get(po)
-    if (!byId) siMemo.set(po, byId = new Map())
-    let si = byId.get(id)
+  async function stateFor(id, properties) {
+    const key = occlusionStateKey(id, properties, defaultsMode)
+    let si = stateIds.get(key)
     if (si === undefined) {
-      const key = occlusionStateKey(id, b.properties, defaultsMode)
-      si = stateIds.get(key)
-      if (si === undefined) {
-        const resolveDefault = k => {
-          const raw = defaults.unique(id)[k] ?? defaults.properties[k]
-          return Array.isArray(raw) ? raw[0] : raw
-        }
-        const masks = await masksFor(id, b.properties)
-        const useShape = rules.shapeOcclusion(id, b.properties, resolveDefault) && !maskEmpty(masks)
-        const partial = rules.dampening(id, b.properties, resolveDefault)
-        states.push({
-          emit: rules.emission(id, b.properties, resolveDefault),
-          damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(id, b.properties, rules) ? 1 : 0),
-          ao: rules.aoBlocking(id, b.properties, resolveDefault),
-          masks: useShape ? masks : null
-        })
-        si = states.length - 1
-        stateIds.set(key, si)
+      const resolveDefault = k => {
+        const raw = defaults.unique(id)[k] ?? defaults.properties[k]
+        return Array.isArray(raw) ? raw[0] : raw
       }
-      byId.set(id, si)
+      const masks = await masksFor(id, properties)
+      const useShape = rules.shapeOcclusion(id, properties, resolveDefault) && !maskEmpty(masks)
+      const partial = rules.dampening(id, properties, resolveDefault)
+      states.push({
+        emit: rules.emission(id, properties, resolveDefault),
+        damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(id, properties, rules) ? 1 : 0),
+        ao: rules.aoBlocking(id, properties, resolveDefault),
+        masks: useShape ? masks : null
+      })
+      si = states.length - 1
+      stateIds.set(key, si)
     }
-    const p = b.pos
-    const x = p ? p[0] : b.x, y = p ? p[1] : b.y, z = p ? p[2] : b.z
+    return si
+  }
+  function place(si, x, y, z) {
     const i = ((z - oz) * h + (y - oy)) * w + (x - ox)
     const prev = states[cellState[i]]
     const next = states[si]
     if (!prev || next.damp > prev.damp || (next.damp === prev.damp && next.emit > prev.emit)) cellState[i] = si
-    if ((processed & 8191) === 0 && performance.now() - yieldT > 15) {
-      opts.onProgress?.(processed, blocks.length)
-      await new Promise(resolve => setTimeout(resolve))
-      yieldT = performance.now()
+  }
+  let processed = 0
+  let yieldT = performance.now()
+  async function breathe() {
+    if (performance.now() - yieldT <= 15) return
+    opts.onProgress?.(processed, count)
+    await new Promise(resolve => setTimeout(resolve))
+    yieldT = performance.now()
+  }
+  if (flat) {
+    const raw = blocks.raw
+    const flatStates = new Int32Array(blocks.palette.length).fill(-1)
+    for (let i = 0; i < raw.length; i += 4) {
+      processed++
+      const s = raw[i], id = flatIds[s]
+      if (id != null) {
+        let si = flatStates[s]
+        if (si < 0) si = flatStates[s] = await stateFor(id, blocks.palette[s].properties)
+        place(si, raw[i + 1], raw[i + 2], raw[i + 3])
+      }
+      if ((processed & 8191) === 0) await breathe()
+    }
+  } else {
+    for (const b of blocks) {
+      processed++
+      if (!b?.id) continue
+      const id = normId(b.id)
+      if (id === null) continue
+      const po = b.properties ?? NO_PROPS
+      let byId = siMemo.get(po)
+      if (!byId) siMemo.set(po, byId = new Map())
+      let si = byId.get(id)
+      if (si === undefined) byId.set(id, si = await stateFor(id, b.properties))
+      const p = b.pos
+      place(si, p ? p[0] : b.x, p ? p[1] : b.y, p ? p[2] : b.z)
+      if ((processed & 8191) === 0) await breathe()
     }
   }
-  opts.onProgress?.(blocks.length, blocks.length)
+  opts.onProgress?.(count, count)
 
   const extOcc = opts.externalOcclusion
   if (extOcc) {

@@ -144,7 +144,7 @@ scene.add(new THREE.DirectionalLight(0xffffff, 1))
 
 | Option | Default | Description |
 |---|---|---|
-| `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too). Cell coordinates, as in [`optimizeScene`](optimization.md#scene-optimization) placements |
+| `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too), or a flat `{ palette, raw }` run as [`createScene`](scenes.md#createsceneassets-blocks-args) takes. Cell coordinates, as in [`optimizeScene`](optimization.md#scene-optimization) placements |
 | `options.assets` | required | The assets source |
 | `options.version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `options.defaults` | | Which [default blockstates](extending.md#default-blockstates) fill properties a block doesn't set, as in [`renderBlock`](standard-api.md#renderblockargs) |

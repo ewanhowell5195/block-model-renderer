@@ -53,6 +53,19 @@ Each block entry:
 | `overlay` | `true` renders the entry without occupying its cell: no face culling in either direction and no light volume contribution, and other blocks (or more overlays) can share the position. Item frames are the intended use, matching their entity nature in game |
 | `context` | `true` makes the entry participate without rendering: it culls neighbor faces, shapes fluid surfaces, and feeds the light volume, but emits no geometry. Use it to border a partial build (a chunk tile) with its surroundings so the edges come out right |
 
+For large builds, `blocks` can instead be a flat run, which skips allocating an object per block. It's the shape [minecraft-block-reader](https://github.com/ewanhowell5195/minecraft-block-reader) returns, so a read can be passed straight in:
+
+```js
+const { palette, raw, blockNbt } = await world.blocks(box)
+const handle = await createScene(assets, { palette, raw, blockNbt })
+```
+
+| Field | Description |
+|---|---|
+| `palette` | The states, each `{ id, properties?, biome?, overlay?, context? }` with the same meaning as the block entry fields above |
+| `raw` | An `Int32Array` of `[state, x, y, z, state, x, y, z, …]`, where `state` indexes `palette`. Block `i` in the run is block `i` in the handle's `blockPalette` and `blockTemplate` |
+| `blockNbt` | Optional `Map` from block index to that block's `nbt` |
+
 Options, grouped by what they affect. How the scene looks:
 
 | Option | Default | Description |

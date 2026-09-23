@@ -2,7 +2,7 @@ import type * as THREE from "three"
 import type {
   AssetsInput, AnimatedOption, BlockRenderInput, ItemRenderInput, ModelRenderInput, TextureRenderInput,
   CreateSceneOptions, CreateSkyOptions, FitAspect, LoadModelArgs, NodeOutputOptions, ReadTextureOptions, RenderOptionsCommon,
-  ResolvedModel, SceneBlock, SceneHandle, SkyHandle, TextureData
+  ResolvedModel, SceneBlock, FlatBlocks, SceneHandle, SkyHandle, TextureData
 } from "./common.js"
 
 export * from "./common.js"
@@ -156,7 +156,7 @@ export function loadModel(scene: THREE.Object3D | null, assets: AssetsInput, mod
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#createsceneassets-blocks-args
  */
-export function createScene(assets: AssetsInput, blocks: SceneBlock[], args?: CreateSceneOptions): Promise<SceneHandle | null>
+export function createScene(assets: AssetsInput, blocks: SceneBlock[] | FlatBlocks, args?: CreateSceneOptions): Promise<SceneHandle | null>
 
 /**
  * Build the game's sky: the day/night gradient, the sun and moon from the pack,

@@ -400,6 +400,16 @@ export interface SceneBlock {
   context?: boolean
 }
 
+/** Blocks as a flat run, the shape minecraft-block-reader returns, skipping an object per block. */
+export interface FlatBlocks {
+  /** The states: every {@link SceneBlock} field except `pos` and `nbt`. */
+  palette: Omit<SceneBlock, "pos" | "nbt">[]
+  /** `[state, x, y, z, …]`, where `state` indexes `palette`. */
+  raw: Int32Array
+  /** Block entity data by block index in `raw`. */
+  blockNbt?: Map<number, BlockNbt>
+}
+
 /** Which stage a {@link createScene} progress callback is reporting. */
 export interface ProgressStage {
   /** Counts from 0. */
@@ -1332,7 +1342,7 @@ export function importOcclusionCache(assets: AssetsInput, entries: OcclusionCach
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#scene-lighting
  */
-export function computeSceneLight(blocks: SceneLightBlock[], options: ComputeSceneLightOptions): Promise<SceneLight>
+export function computeSceneLight(blocks: SceneLightBlock[] | FlatBlocks, options: ComputeSceneLightOptions): Promise<SceneLight>
 
 /**
  * The tint a colormap-tinted block would get, as a hex string. Omit `biome` for
