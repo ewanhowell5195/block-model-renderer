@@ -325,6 +325,8 @@ export interface ComputeSceneLightOptions {
   onProgress?(done: number, total: number): void
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
   defaults?: "preferred" | "game"
+  /** Drop `blockLight` and `skyLight`, and the texture's CPU copy once it's uploaded. `lightAt` then throws. Default `false`. */
+  releaseArrays?: boolean
 }
 
 /**
@@ -337,10 +339,10 @@ export interface SceneLight {
   origin: [number, number, number]
   /** The volume's dimensions in cells (the scene bounds plus a one-cell border). */
   size: [number, number, number]
-  /** Raw block light levels (0-15), one cell each, x fastest then y then z. */
-  blockLight: Uint8Array
-  /** Raw sky light levels (0-15), laid out the same way. */
-  skyLight: Uint8Array
+  /** Raw block light levels (0-15), one cell each, x fastest then y then z. `null` with `releaseArrays`. */
+  blockLight: Uint8Array | null
+  /** Raw sky light levels (0-15), laid out the same way. `null` with `releaseArrays`. */
+  skyLight: Uint8Array | null
   /** The shader uniforms the volume is sampled through. */
   uniforms: Record<string, { value: any }>
   /** The light levels at a cell. */
@@ -447,7 +449,7 @@ export interface CreateSceneOptions {
   sharedAtlas?: SharedAtlas
   /** Passed through to the optimize pass. Workers must set `false`. */
   batchDynamics?: boolean
-  /** Passed through to the optimize pass. */
+  /** Passed through to the optimize pass and to the light volume the scene computes. */
   releaseArrays?: boolean
   /** Per-stage progress. An overall bar can use `(stage.index + done / total) / stage.count`. */
   onProgress?(stage: ProgressStage, done: number, total: number): void

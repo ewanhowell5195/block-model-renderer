@@ -85,6 +85,7 @@ A built scene keeps a CPU copy of what it uploads to the GPU. A scene that is on
 |---|---|
 | Opaque merged geometry | Translucent geometry, which the [sorter](#translucent-sorting) rewrites |
 | Atlas pages the scene built | [Shared atlas](#shared-atlases) pages, which belong to the handle |
+| The light volume `createScene` computes, as with [`computeSceneLight`'s](rendering.md#computescenelightblocks-options) own `releaseArrays` | A light volume passed in as `lighting: { light }` |
 
 Released atlas pages aren't cached for reuse by later scenes. Their animated textures keep playing only through [`setAnimationRenderer`](#atlas-animation)'s subimage uploads, and hold still without it.
 

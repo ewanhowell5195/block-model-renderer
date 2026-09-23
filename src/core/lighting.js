@@ -43,6 +43,11 @@ export function isFlatBlocks(blocks) {
   return !!blocks && !Array.isArray(blocks) && ArrayBuffer.isView(blocks.raw) && Array.isArray(blocks.palette)
 }
 
+function releaseTextureData(texture) {
+  const { width, height } = texture.image
+  texture.image = { data: null, width, height }
+}
+
 export async function computeSceneLight(blocks, opts = {}) {
   const flat = isFlatBlocks(blocks)
   const count = flat ? blocks.raw.length >> 2 : Array.isArray(blocks) ? blocks.length : 0
@@ -393,6 +398,10 @@ export async function computeSceneLight(blocks, opts = {}) {
   texture.minFilter = texture.magFilter = THREE.LinearFilter
   texture.generateMipmaps = false
   texture.needsUpdate = true
+  if (opts.releaseArrays) {
+    texture.onUpdate = releaseTextureData
+    blockLight = skyLight = null
+  }
   const uniforms = {
     lightVol: { value: texture },
     lightVolOrigin: { value: new THREE.Vector3(...origin) },
@@ -408,6 +417,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     skyLight,
     uniforms,
     lightAt(x, y, z) {
+      if (!blockLight) throw new Error("lightAt isn't available on a light volume built with releaseArrays")
       const lx = x - origin[0], ly = y - origin[1], lz = z - origin[2]
       if (lx < 0 || ly < 0 || lz < 0 || lx >= w || ly >= h || lz >= d) return { block: 0, sky: 15 }
       const i = (lz * h + ly) * w + lx

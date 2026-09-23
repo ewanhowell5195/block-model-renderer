@@ -474,7 +474,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (liveCells) {
       light = await computeSceneLight(cellValues().map(c => ({
         id: palette[c.palette].id, properties: palette[c.palette].properties ?? undefined, pos: c.pos
-      })), { assets, version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs, externalOcclusion: extOcc })
+      })), { assets, version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs, externalOcclusion: extOcc, releaseArrays: args.releaseArrays })
     }
     report(1, 1)
     if (shouldCancel?.()) return null
