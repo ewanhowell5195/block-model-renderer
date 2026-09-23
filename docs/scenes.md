@@ -48,7 +48,7 @@ Each block entry:
 | `id` | The block id. Namespace optional |
 | `properties` | Blockstate property values (e.g. `{ axis: "y", waterlogged: "true" }`) |
 | `pos` | Block grid position `[x, y, z]`, integers. Geometry comes out at 16 world units per block, block centres at `pos * 16`. When two entries share a position, the last one wins |
-| `biome` | Biome tinting for this block's colormap tints, same value as the `biome` render option. Overrides `args.biome` |
+| `biome` | Biome tinting for this block's colormap and water tints, same value as the `biome` render option. Overrides `args.biome` |
 | `nbt` | Block entity data rendered into the scene: an item frame's held item, a shelf's contents, or a banner's patterns, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Entries with the same id, properties, and nbt share one template |
 | `overlay` | `true` renders the entry without occupying its cell: no face culling in either direction and no light volume contribution, and other blocks (or more overlays) can share the position. Item frames are the intended use, matching their entity nature in game |
 | `context` | `true` makes the entry participate without rendering: it culls neighbor faces, shapes fluid surfaces, and feeds the light volume, but emits no geometry. Use it to border a partial build (a chunk tile) with its surroundings so the edges come out right |
@@ -129,7 +129,7 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `id` | The blockstate id |
 | `args.data` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `args.seed` | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. Omit to always take the first variant. The picks don't match the game's per-position randomness |
-| `args.biome` | Biome tinting for the colormap tints: one `{ temperature, downfall, tint, combine, weight }` biome, or an array of them for a weighted blend. Same as [`renderBlock`](standard-api.md#renderblockargs) |
+| `args.biome` | Biome tinting for the colormap tints and water: one `{ temperature, downfall, tint, combine, weight, water }` biome, or an array of them for a weighted blend. Same as [`renderBlock`](standard-api.md#renderblockargs) |
 | `args.nbt` | Block entity data rendered with the block, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Its models come back appended to the list |
 | `args.mapArt` | Map art callback for framed maps, as on [`renderBlock`](standard-api.md#renderblockargs). See [Map art](#map-art) |
 | `args.pos` | The block's grid position, passed through to the `mapArt` callback |

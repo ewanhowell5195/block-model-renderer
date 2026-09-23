@@ -705,7 +705,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   if (buf && assets[buf.hintIndex]?.overrideRole === "additional") buf = null
 
   if (!buf && !overlayBuf) {
-    if (rules.waterlogged(block)) return [waterPart(colors)]
+    if (rules.waterlogged(block)) return [waterPart(colors, args?.biome)]
     const m = { type: "block", model: "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
     if (version) m.version = version
@@ -852,7 +852,7 @@ export async function parseBlockstate(assets, blockstate, args) {
       model.tints = []
       for (let t = 0; t <= index; t++) model.tints.push(t === index ? tint : "#FFFFFF")
     } else if (colors.tables.fixed[block]) {
-      model.tints = [colors.tables.fixed[block]]
+      model.tints = [WATER_BLOCKS.has(block) ? waterTint(args?.biome, colors.tables.fixed[block]) : colors.tables.fixed[block]]
     } else if (colors.tables.indexed[block]) {
       const entry = colors.tables.indexed[block]
       model.tints = [entry.colors[stateValue(entry.property)] ?? entry.colors[entry.default]]
@@ -877,7 +877,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   const waterlogged = stateValue("waterlogged")
   if (((waterlogged === true || waterlogged === "true") && rules.waterloggable(block)) || rules.waterlogged(block)) {
     for (const m of models) if (m && typeof m === "object") m.waterlogged = true
-    models.push(waterPart(colors))
+    models.push(waterPart(colors, args?.biome))
   }
 
   if (args?.nbt) {
@@ -1039,20 +1039,42 @@ async function blockEntityItemModels(assets, block, data, args) {
   return out
 }
 
-function waterPart(colors) {
+const WATER_BLOCKS = new Set(["water", "water_cauldron", "bubble_column"])
+
+function waterPart(colors, biome) {
   return {
     model: "block-model-renderer:block/water",
     type: "block",
     fluid: "water",
-    tints: [colors?.tables.fixed.water ?? "#3F76E4"],
+    tints: [waterTint(biome, colors?.tables.fixed.water ?? "#3F76E4")],
     scale: [0.999, 0.999, 0.999]
   }
 }
 
+const tintInt = t => typeof t === "number" ? t : parseInt(String(t).replace("#", ""), 16)
+
+function waterTint(biome, fallback) {
+  const entries = biome == null ? [] : Array.isArray(biome) ? biome : [biome]
+  let r = 0, g = 0, b = 0, total = 0
+  for (const entry of entries) {
+    if (entry.water === undefined) continue
+    const v = tintInt(entry.water)
+    const w = entry.weight ?? 1
+    r += ((v >> 16) & 255) * w
+    g += ((v >> 8) & 255) * w
+    b += (v & 255) * w
+    total += w
+  }
+  if (!total) return fallback
+  const c = (Math.round(r / total) << 16 | Math.round(g / total) << 8 | Math.round(b / total)) >>> 0
+  return "#" + c.toString(16).padStart(6, "0").toUpperCase()
+}
+
 export async function getBiomeTint(assets, mapName, biome) {
+  if (mapName === "water") return waterTint(biome, (await colorTables(assets)).tables.fixed.water ?? "#3F76E4")
   const entries = biome == null ? [{}] : Array.isArray(biome) ? biome : [biome]
   if (!entries.length) entries.push({})
-  const toInt = t => typeof t === "number" ? t : parseInt(String(t).replace("#", ""), 16)
+  const toInt = tintInt
   let r = 0, g = 0, b = 0, total = 0
   for (const entry of entries) {
     let v
