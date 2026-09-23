@@ -123,7 +123,7 @@ Resolves to a handle, or `null` when cancelled:
 |---|---|
 | `group` | The built `THREE.Group`; add it to your scene (or any parent) yourself |
 | `palette` | The unique states used: `{ id, properties, biome, models }` per entry, with the parsed model references. For tooling like hover info or collision, without re-parsing |
-| `blockPalette` | `Uint32Array` mapping each input block index to its `palette` index |
+| `blockPalette` | Maps each input block index to its `palette` index (the type's maximum where nothing was placed). A `Uint16Array`, or a `Uint32Array` once the palette passes 65,535 states |
 | `templates` | With `keepTemplates`: the built template list, `{ palette, group }` per entry. `group` is the block-local geometry stamped at every position using it (a state can own several: one per variant pick, one per fluid shape); merged element meshes carry `userData.collision` boxes. `null` otherwise |
 | `blockTemplate` | With `keepTemplates`: `Uint32Array` mapping each input block index to its `templates` index (`0xFFFFFFFF` where nothing was placed). `null` otherwise |
 | `bounds` | `THREE.Box3` of the built geometry, for camera fitting |

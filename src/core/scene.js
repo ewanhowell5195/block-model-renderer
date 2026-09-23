@@ -239,7 +239,12 @@ export async function createScene(assets, blocks, args = {}) {
   const overlays = []
   const paletteIndex = new Map()
   const palette = []
-  const blockPalette = new Uint32Array(count).fill(0xFFFFFFFF)
+  let blockPalette = new Uint16Array(count).fill(0xFFFF)
+  function widenPalette() {
+    const wide = new Uint32Array(count)
+    for (let i = 0; i < count; i++) wide[i] = blockPalette[i] === 0xFFFF ? 0xFFFFFFFF : blockPalette[i]
+    blockPalette = wide
+  }
   const PK = (x, y, z) => ((x + 1048576) * 2048 + (y + 1024)) * 2097152 + (z + 1048576)
   const NO_PROPS = {}
   const piMemo = new WeakMap()
@@ -257,6 +262,7 @@ export async function createScene(assets, blocks, args = {}) {
     let pi = paletteIndex.get(stateKey)
     if (pi === undefined) {
       pi = palette.length
+      if (pi === 0xFFFF) widenPalette()
       paletteIndex.set(stateKey, pi)
       palette.push({ id, properties: properties ?? null, biome, nbt: null, pos: null, models: null })
     }
@@ -267,6 +273,7 @@ export async function createScene(assets, blocks, args = {}) {
     let pi = paletteIndex.get(stateKey)
     if (pi === undefined) {
       pi = palette.length
+      if (pi === 0xFFFF) widenPalette()
       paletteIndex.set(stateKey, pi)
       palette.push({ id, properties: properties ?? null, biome, nbt, pos, models: null })
     }

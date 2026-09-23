@@ -492,8 +492,8 @@ export interface SceneHandle {
   group: THREE.Group
   /** The unique states used, with their parsed model references. */
   palette: ScenePaletteEntry[]
-  /** Maps each input block index to its `palette` index. */
-  blockPalette: Uint32Array
+  /** Maps each input block index to its `palette` index. 16-bit until the palette passes 65,535 states. */
+  blockPalette: Uint16Array | Uint32Array
   /** The built templates with `keepTemplates`, else `null`. */
   templates: SceneTemplate[] | null
   /** Maps each input block index to its `templates` index (`0xFFFFFFFF` where nothing was placed), else `null`. */
