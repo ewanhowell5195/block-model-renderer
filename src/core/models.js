@@ -429,9 +429,120 @@ const CARDINAL_LIGHTS = {
 }
 
 export const LIGHT_DIMENSIONS = {
-  overworld: { skyLightFactor: "overworld", skyLightColor: 0x7A7AFF, ambientColor: 0x0A0A0A, blockLightTint: 0xFFD88C, cardinalLight: "default", hasSkyLight: true },
-  the_nether: { skyLightFactor: 0, skyLightColor: 0x7A7AFF, ambientColor: 0x302821, blockLightTint: 0xFFD88C, cardinalLight: "nether", hasSkyLight: false },
-  the_end: { skyLightFactor: 0, skyLightColor: 0xAC60CD, ambientColor: 0x3F473F, blockLightTint: 0xFFD88C, cardinalLight: "default", hasSkyLight: true }
+  overworld: { skyLightFactor: "overworld", skyLightColor: 0x7A7AFF, ambientColor: 0x0A0A0A, blockLightTint: 0xFFD88C, cardinalLight: "default", hasSkyLight: true, fogColor: 0xC0D8FF, skyColor: 0x78A7FF },
+  the_nether: { skyLightFactor: 0, skyLightColor: 0x7A7AFF, ambientColor: 0x302821, blockLightTint: 0xFFD88C, cardinalLight: "nether", hasSkyLight: false, fogColor: 0x330808, skyColor: 0x000000 },
+  the_end: { skyLightFactor: 0, skyLightColor: 0xAC60CD, ambientColor: 0x3F473F, blockLightTint: 0xFFD88C, cardinalLight: "default", hasSkyLight: true, fogColor: 0x181318, skyColor: 0x000000 }
+}
+
+export const FOG_CURVE = [[133, 0xFFFFFF], [11867, 0xFFFFFF], [13670, 0x0C0C16], [22330, 0x161616]]
+
+export function fogSkyMix(renderDistance) {
+  if (!(renderDistance > 0)) return 0
+  const factor = 0.25 + 0.75 * Math.max(0, Math.min(1, Math.min(32, renderDistance) / 32))
+  return 1 - Math.pow(factor, 0.25)
+}
+
+const glslColor = hex => `vec3(${(((hex >> 16) & 255) / 255).toFixed(4)}, ${(((hex >> 8) & 255) / 255).toFixed(4)}, ${((hex & 255) / 255).toFixed(4)})`
+
+const FOG_GLSL = (() => {
+  const [[t0], [t1], [t2, c2], [t3, c3]] = FOG_CURVE
+  return `
+      vec3 fogCurve(float t) {
+        if (t >= ${t0.toFixed(1)} && t < ${t1.toFixed(1)}) return vec3(1.0);
+        if (t >= ${t1.toFixed(1)} && t < ${t2.toFixed(1)}) return mix(vec3(1.0), ${glslColor(c2)}, (t - ${t1.toFixed(1)}) / ${(t2 - t1).toFixed(1)});
+        if (t >= ${t2.toFixed(1)} && t < ${t3.toFixed(1)}) return mix(${glslColor(c2)}, ${glslColor(c3)}, (t - ${t2.toFixed(1)}) / ${(t3 - t2).toFixed(1)});
+        float at = t >= ${t3.toFixed(1)} ? t - ${t3.toFixed(1)} : t + ${(24000 - t3).toFixed(1)};
+        return mix(${glslColor(c3)}, vec3(1.0), at / ${(24000 - t3 + t0).toFixed(1)});
+      }
+      float celestialAngle(float tick) {
+        float d = tick / 24000.0 - 0.25;
+        d -= floor(d);
+        return (d * 2.0 + (0.5 - cos(d * 3.14159265) / 2.0)) / 3.0;
+      }
+      float fogValue(float dist, float start, float end) {
+        if (dist <= start) return 0.0;
+        if (dist >= end) return 1.0;
+        return (dist - start) / (end - start);
+      }
+      vec3 fogColorAt() {
+        if (!fogSunrise) return mix(fogBase, skyBase, fogSkyMix);
+        float tick = mod(daytime, 24000.0);
+        vec3 c = fogBase * fogCurve(tick);
+        float angle = celestialAngle(tick) * 6.28318531;
+        float cs = cos(angle);
+        if (cs >= -0.4 && cs <= 0.4) {
+          float f = cs / 0.4 * 0.5 + 0.5;
+          float a = 1.0 - (1.0 - sin(f * 3.14159265)) * 0.99;
+          a *= a;
+          vec3 glow = vec3(f * 0.3 + 0.7, f * f * 0.7 + 0.2, 0.2);
+          float facing = -viewMatrix[0][2] * (sin(angle) > 0.0 ? -1.0 : 1.0);
+          if (facing > 0.0) c = mix(c, glow, clamp(facing * a, 0.0, 1.0));
+        }
+        return mix(c, skyBase * clamp(cs * 2.0 + 0.5, 0.0, 1.0), fogSkyMix);
+      }`
+})()
+
+export function createFog(config, dimension) {
+  const d = dimension && typeof dimension === "object" ? { ...LIGHT_DIMENSIONS.overworld, ...dimension } : LIGHT_DIMENSIONS[normalize(dimension ?? "overworld")] ?? LIGHT_DIMENSIONS.overworld
+  return makeFog(config, d)
+}
+
+export function makeFog(config, dim) {
+  if (config?.uniforms) return config
+  const cfg = config && typeof config === "object" ? config : { distance: config }
+  const uniforms = {
+    fogStart: { value: 0 },
+    fogEnd: { value: 1024 },
+    fogNear: { value: 0 },
+    fogFar: { value: 0 },
+    fogBase: { value: tintVec(cfg.color ?? dim?.fogColor, 0xC0D8FF) },
+    skyBase: { value: tintVec(dim?.skyColor, 0x78A7FF) },
+    fogSkyMix: { value: 0 },
+    fogCenter: { value: new THREE.Vector3() },
+    fogFromCamera: { value: true },
+    fogSunrise: { value: dim?.skyLightFactor === "overworld" }
+  }
+  let distance = 0
+  let anchor = null
+  const fog = {
+    uniforms,
+    get distance() {
+      return distance
+    },
+    set distance(chunks) {
+      distance = Number(chunks) > 0 ? Number(chunks) : 0
+      const blocks = distance * 16
+      uniforms.fogNear.value = blocks - Math.max(4, Math.min(64, blocks / 10))
+      uniforms.fogFar.value = distance > 0 ? blocks : 0
+      uniforms.fogSkyMix.value = fogSkyMix(distance)
+    },
+    get color() {
+      return uniforms.fogBase.value
+    },
+    set color(value) {
+      uniforms.fogBase.value.copy(tintVec(value, 0xC0D8FF))
+    },
+    get anchor() {
+      return anchor
+    },
+    set anchor(value) {
+      if (value == null) anchor = null
+      else if (value.isObject3D || value.isVector3) anchor = value
+      else anchor = Array.isArray(value) ? new THREE.Vector3(value[0], value[1], value[2]) : new THREE.Vector3(value.x ?? 0, value.y ?? 0, value.z ?? 0)
+      uniforms.fogFromCamera.value = !anchor
+      fog.update()
+    },
+    update() {
+      if (!anchor) return
+      if (anchor.isObject3D) {
+        anchor.updateMatrixWorld(true)
+        uniforms.fogCenter.value.setFromMatrixPosition(anchor.matrixWorld)
+      } else uniforms.fogCenter.value.copy(anchor)
+    }
+  }
+  fog.distance = cfg.distance
+  if (cfg.anchor != null) fog.anchor = cfg.anchor
+  return fog
 }
 
 export function resolveWorldLighting(param) {
@@ -442,7 +553,7 @@ export function resolveWorldLighting(param) {
     : LIGHT_DIMENSIONS[d] ?? LIGHT_DIMENSIONS.overworld
   const c = dim.cardinalLight
   const cardinal = typeof c === "object" && c ? { ...CARDINAL_LIGHTS.default, ...c } : CARDINAL_LIGHTS[c] ?? CARDINAL_LIGHTS.default
-  return { dim, cardinal, daytime: o.daytime, brightness: Math.max(0, Math.min(1, o.brightness ?? 0.5)), light: o.light, rotateShade: o.rotateShade !== false }
+  return { dim, cardinal, daytime: o.daytime, brightness: Math.max(0, Math.min(1, o.brightness ?? 0.5)), light: o.light, rotateShade: o.rotateShade !== false, fog: o.fog }
 }
 
 export function parseDaytime(v) {
@@ -1970,6 +2081,8 @@ export async function loadModel(scene, assets, model, args) {
   const light = world?.light && typeof world.light === "object" ? world.light : null
   const daytime = scene?.userData?.daytime ?? { value: parseDaytime(world?.daytime) }
   if (scene) scene.userData.daytime = daytime
+  const fog = scene?.userData?.fog ?? (world?.fog?.uniforms ? world.fog : makeFog(world?.fog, world?.dim))
+  if (scene) scene.userData.fog = fog
   const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   if (!model.version && (args?.version ?? assets.version)) model.version = args?.version ?? assets.version
@@ -2113,6 +2226,7 @@ export async function loadModel(scene, assets, model, args) {
   lightConfig.skyLightFactor = typeof world?.dim.skyLightFactor === "number" ? world.dim.skyLightFactor : -1
   lightConfig.brightness = world?.brightness ?? 0.5
   lightConfig.cardinal = world?.cardinal
+  lightConfig.fog = fog
   if (world && world.rotateShade && settings?.rotation) {
     const [x, y, z] = settings.rotation
     const euler = new THREE.Euler(THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z))
@@ -2834,7 +2948,7 @@ function makeGlintMaterial(glintTexture, baseTexture, side) {
   return material
 }
 
-export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols"]
+export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise"]
 
 export function occlusionStateKey(id, props, defaults) {
   let key = defaults === "game" ? id + "\0game" : id
@@ -3005,6 +3119,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       shadeNeg: { value: new THREE.Vector3(lightConfig?.cardinal?.down ?? 0.5, lightConfig?.cardinal?.north ?? 0.8, lightConfig?.cardinal?.west ?? 0.6) },
       shadeMat: { value: lightConfig?.shadeMat ?? new THREE.Matrix3() },
       aoEnabled: { value: ao !== false },
+      ...(lightConfig?.fog?.uniforms ?? makeFog(0).uniforms),
       ...(volume ? volume.uniforms : {}),
     },
     vertexShader: `
@@ -3012,6 +3127,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      varying vec3 vFogPos;
       attribute vec3 color;
       varying vec3 vTint;
       #ifdef FACE_ATTRS
@@ -3041,6 +3157,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         #endif
         vNormal = normalize(normalMatrix * nrm);
         vWorldNormal = normalize(mat3(modelMatrix) * nrm);
+        vFogPos = (modelMatrix * pos).xyz;
         #ifdef LIGHT_VOLUME
           vWorldPos = (modelMatrix * pos).xyz;
         #endif
@@ -3069,10 +3186,22 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform vec3 shadePos;
       uniform vec3 shadeNeg;
       uniform mat3 shadeMat;
+      uniform float fogStart;
+      uniform float fogEnd;
+      uniform float fogNear;
+      uniform float fogFar;
+      uniform vec3 fogBase;
+      uniform vec3 skyBase;
+      uniform float fogSkyMix;
+      uniform vec3 fogCenter;
+      uniform bool fogFromCamera;
+      uniform bool fogSunrise;
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vWorldNormal;
+      varying vec3 vFogPos;
       varying vec3 vTint;
+      ${FOG_GLSL}
       #ifdef FACE_ATTRS
         varying vec2 vFaceData;
       #endif
@@ -3221,7 +3350,15 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           vec3 n = hasOverride ? v * shadeDirV : vNormal;
           shade = min(1.0, ambient + d0 * max(0.0, dot(n, v * light0)) + d1 * max(0.0, dot(n, v * light1)));
         }
-        gl_FragColor = vec4(texColor.rgb * vTint * shade * light, texColor.a);
+        vec3 rgb = texColor.rgb * vTint * shade * light;
+        if (worldShade && fogFar > 0.0) {
+          vec3 rel = vFogPos - (fogFromCamera ? cameraPosition : fogCenter);
+          float sph = length(rel) / 16.0;
+          float cyl = max(length(rel.xz), abs(rel.y)) / 16.0;
+          float f = max(fogValue(sph, fogStart, fogEnd), fogValue(cyl, fogNear, fogFar));
+          if (f > 0.0) rgb = mix(rgb, fogColorAt(), f);
+        }
+        gl_FragColor = vec4(rgb, texColor.a);
       }
       //salt:${shaderSalt}`,
     transparent: texture?.userData?.translucent === true,

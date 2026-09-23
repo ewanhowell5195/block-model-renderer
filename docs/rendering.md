@@ -66,6 +66,7 @@ lighting: {
 | `daytime` | `"noon"` | Sky brightness through the day/night cycle: a tick `0`-`23999`, or a name (`"day"` 1000, `"noon"` 6000, `"sunset"` 12000, `"night"` 13000, `"midnight"` 18000, `"sunrise"` 23000). Only the overworld cycles; the nether and end have fixed time, so it has no effect there |
 | `brightness` | `0.5` | The in-game brightness setting, `0` (Moody) to `1` (Bright), applied with the game's exact curve. `0.5` is the game's default |
 | `light` | | A [`computeSceneLight`](#scene-lighting) volume for per-block light levels, or `false` for none. Without one, faces get full sky light and only `emission` feeds block light |
+| `fog` | | The game's fog, off unless set: a render distance in chunks, or `{ distance, color, anchor }`. See [Fog](#fog) |
 | `rotateShade` | `true` | The shade rotates along with the model: each face keeps its own axis shade under any [display transform](models.md#display-transforms) rotation, so a rotated single-block render shades like the block does in the world, north and south brighter than east and west. `false` leaves the shade field fixed in place instead, blending the constants across faces the display turns between axes |
 
 Each dimension carries the game's lightmap attributes; pass an object as `dimension` to override any of them, with missing fields defaulting to the overworld's. To tweak another dimension instead, spread its preset: `dimension: { ...LIGHT_DIMENSIONS.the_nether, ambientColor: 0x000000 }`.
@@ -78,8 +79,40 @@ Each dimension carries the game's lightmap attributes; pass an object as `dimens
 | `blockLightTint` | `#FFD88C` | `#FFD88C` | `#FFD88C` | The warm torchlight tint on block light |
 | `cardinalLight` | `"default"` | `"nether"` | `"default"` | The per-face shade constants. `"default"` is down 0.5, up 1.0, n/s 0.8, w/e 0.6; `"nether"` raises down/up to 0.9. An object with any of `down`/`up`/`north`/`south`/`west`/`east` customizes them |
 | `hasSkyLight` | `true` | `false` | `true` | Whether [`computeSceneLight`](#scene-lighting) seeds sky light from above (it takes the same `dimension` option) |
+| `fogColor` | `#C0D8FF` | `#330808` | `#181318` | The base fog colour, what `fog` fades terrain into. The overworld's follows the day/night curve and the sunrise glow, like the sky's |
+| `skyColor` | `#78A7FF` | `#000000` | `#000000` | The base sky colour, mixed into the fog colour at short render distances as the game does |
 
 Colors can be a hex number, a `"#rrggbb"` string, an `[r, g, b]` array of `0`-`1` floats, or a `THREE.Color`. The presets are exported as `LIGHT_DIMENSIONS` if you need the values. The day/night curve runs in the shader from a shared uniform exposed as `scene.userData.daytime`, so a live cycle is just `scene.userData.daytime.value = tick` per frame, with no rebuild.
+
+### Fog
+
+Set `fog` on the world lighting config to turn on the game's fog. A number is the render distance in chunks:
+
+```js
+await createScene(assets, blocks, { lighting: { fog: 12 } })
+```
+
+An object also picks the colour and where distances are measured from:
+
+```js
+await createScene(assets, blocks, { lighting: { fog: { distance: 12, color: "#c0d8ff", anchor: [0, 64, 0] } } })
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `distance` | | The render distance in chunks. `0` turns the fog off |
+| `color` | the dimension's `fogColor` | The base fog colour. It follows the day/night curve and the sunrise glow like the sky's, and takes on the sky colour at short distances as in the game |
+| `anchor` | the rendering camera | Where distances are measured from: a fixed position in world units (`[x, y, z]`, `{ x, y, z }` or a `Vector3`), or an object to follow |
+
+Terrain fades into the fog colour over the last stretch before the render distance, with the overworld's faint distance haze on top, matching the game's two fog terms.
+
+The built scene keeps a fog handle, at `group.userData.fog` on a `createScene` result and `scene.userData.fog` after `loadModel`. The same three settings are assignable on it at any time with no rebuild, and `update()` re-reads an object anchor's position after it moves. `fog` also accepts a handle, so one made by [`createSky`](#createskyassets-args) can be shared with the blocks, and `createFog(config, dimension?)` makes one on its own for scenes built elsewhere (a worker's scene rebinds to it by uniform name, like `daytime`):
+
+```js
+const fog = handle.group.userData.fog
+fog.distance = 8
+fog.anchor = camera
+```
 
 An element's `light_emission` (0-15) is the light level it emits: the element feeds the lightmap's block-light channel, holding bright while the rest of the model darkens, with vanilla's warm torchlight tint at partial levels. It shows wherever the model can be darker than full: in `"world"` mode at a dim `daytime` (a `light_emission: 15` face stays lit at midnight while its neighbours fall to moonlight), and in `"scene"` mode as self-illumination even with no scene lights. In the full-bright `"item"` and `"off"` modes there is nothing to stand out against, like the game's inventory, so it has no visible effect.
 
@@ -180,6 +213,7 @@ scene.add(sky.group)
 | `args.horizonFade` | `false` | Fade the sun and moon out below the horizon, over the game's 13500-14000 nightfall window and the matching angles at their other crossings. Off by default: the game keeps drawing them and lets terrain do the hiding |
 | `args.version` | | The Minecraft version, which picks the sun and moon texture layout: `environment/celestial/` from 1.21.11, `environment/` before it, each falling back to the other |
 | `args.tick` | `false` | Advance the day/night clock in real time, 20 ticks a second like the game, wrapping at 24000. Off, `daytime` only moves when you set it. Also settable on the handle |
+| `args.fog` | | The [fog](#fog): a scene's fog handle, or the same number or object `createScene` takes. The sky fades to the fog colour within the render distance, and the fog colour takes on the sky colour at short distances, as in the game |
 
 The handle:
 
@@ -187,6 +221,7 @@ The handle:
 |---|---|
 | `group` | The sky group; add it to your scene. It re-centers on the camera every frame and draws before everything else |
 | `daytime` | The time uniform, `{ value }`. The same object when you passed one in |
+| `fog` | The fog handle, or `null`. Pass it to `createScene` as `lighting.fog` so the blocks share it |
 | `moonPhase` | The moon phase, assignable |
 | `angle` | The path tilt in degrees, assignable |
 | `tick` | Whether the clock advances on its own, assignable |

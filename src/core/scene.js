@@ -1,6 +1,6 @@
 import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { prepareAssets, scopedCache, readFile } from "./assets.js"
-import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS } from "./models.js"
+import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -435,7 +435,8 @@ export async function createScene(assets, blocks, args = {}) {
     report(1, 1)
     if (shouldCancel?.()) return null
   }
-  const lightingOpt = worldCfg ? { ...worldCfg, light } : lighting
+  const fog = worldCfg ? makeFog(worldCfg.fog, resolveWorldLighting(worldCfg).dim) : null
+  const lightingOpt = worldCfg ? { ...worldCfg, light, fog } : lighting
 
   enter("build")
   const group = new THREE.Group()
@@ -443,9 +444,9 @@ export async function createScene(assets, blocks, args = {}) {
   let tcache = templateCaches.get(assets.cache)
   if (!tcache) templateCaches.set(assets.cache, tcache = new Map())
   const usedEntries = []
-  const envSig = (worldCfg ? JSON.stringify({ ...worldCfg, light: !!light, daytime: 0 }) : String(lighting))
+  const envSig = (worldCfg ? JSON.stringify({ ...worldCfg, light: !!light, daytime: 0, fog: 0 }) : String(lighting))
     + "\0" + (args.shaderScale ?? "") + "\0" + (args.ignoreAtlases ? 1 : 0) + "\0" + (version ?? "") + "\0" + (defaults ?? "") + "\0" + shaderSaltNow()
-  const rebind = { daytime: daytimeUniform, ...(light?.uniforms ?? {}) }
+  const rebind = { daytime: daytimeUniform, ...(light?.uniforms ?? {}), ...(fog?.uniforms ?? {}) }
   let built = 0
   for (const [key, spec] of templateSpecs) {
     const cacheable = !spec.entry.nbt && !spec.entry.pos
@@ -498,6 +499,7 @@ export async function createScene(assets, blocks, args = {}) {
   }
   report(1, 1)
   if (daytimeUniform) group.userData.daytime = daytimeUniform
+  if (fog) group.userData.fog = fog
 
   let drawCalls = 0, tris = 0
   let optimized = null

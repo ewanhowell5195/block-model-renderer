@@ -1,6 +1,6 @@
 import { THREE, Canvas, loadImage, normalize, isBefore } from "./platform.js"
 import { prepareAssets, readFile } from "./assets.js"
-import { parseDaytime, makeThreeTexture, tintVec } from "./models.js"
+import { parseDaytime, makeThreeTexture, tintVec, FOG_CURVE, fogSkyMix, makeFog, LIGHT_DIMENSIONS } from "./models.js"
 
 const DAY = 24000
 const SKY_RADIUS = 512
@@ -21,8 +21,6 @@ const END_SKY_TILES = 16
 const END_SKY_TINT = 0x282828
 
 const MOON_PHASES = ["full_moon", "waning_gibbous", "third_quarter", "waning_crescent", "new_moon", "waxing_crescent", "first_quarter", "waxing_gibbous"]
-
-const FOG_CURVE = [[133, 0xFFFFFF], [11867, 0xFFFFFF], [13670, 0x0C0C16], [22330, 0x161616]]
 
 const DIMENSIONS = {
   overworld: { skybox: "overworld", skyColor: 0x78A7FF, fogColor: 0xC0D8FF },
@@ -133,9 +131,9 @@ function flatMaterial(tint) {
   })
 }
 
-function discMaterial(skyColor, fogColor) {
+function discMaterial(skyColor, fogColor, skyEnd) {
   return skyMaterial({
-    uniforms: { skyColor: { value: skyColor }, fogColor: { value: fogColor } },
+    uniforms: { skyColor: { value: skyColor }, fogColor: { value: fogColor }, skyEnd },
     vertexShader: `
       varying float vDist;
       void main() {
@@ -146,9 +144,10 @@ function discMaterial(skyColor, fogColor) {
     fragmentShader: `
       uniform vec3 skyColor;
       uniform vec3 fogColor;
+      uniform float skyEnd;
       varying float vDist;
       void main() {
-        gl_FragColor = vec4(mix(skyColor, fogColor, clamp(vDist / ${SKY_RADIUS.toFixed(1)}, 0.0, 1.0)), 1.0);
+        gl_FragColor = vec4(mix(skyColor, fogColor, clamp(vDist / skyEnd, 0.0, 1.0)), 1.0);
       }
     `
   })
@@ -376,12 +375,14 @@ export async function createSky(assets, args = {}) {
     : { value: parseDaytime(args.daytime) }
 
   const baseSky = tintVec(args.skyColor ?? dimension.skyColor)
-  const baseFog = tintVec(args.fogColor ?? dimension.fogColor)
+  const fog = args.fog == null ? null : makeFog(args.fog, LIGHT_DIMENSIONS[normalize(args.dimension ?? "overworld")] ?? LIGHT_DIMENSIONS.overworld)
+  const baseFog = args.fogColor != null ? tintVec(args.fogColor) : fog ? fog.uniforms.fogBase.value : tintVec(dimension.fogColor)
   const skyColor = baseSky.clone()
   const fogColor = baseFog.clone()
   const glowTint = new THREE.Vector4(1, 1, 1, 0)
   const brightness = { value: 0 }
   const fading = args.horizonFade === true
+  const skyEnd = { value: SKY_RADIUS }
   let ticking = args.tick === true
   let last = -1
   const sunFade = { value: 1 }
@@ -432,7 +433,7 @@ export async function createSky(assets, args = {}) {
   }
 
   if (dimension.skybox === "overworld") {
-    place(group, discGeometry(), discMaterial(skyColor, fogColor), -999)
+    place(group, discGeometry(), discMaterial(skyColor, fogColor, skyEnd), -999)
 
     glow = new THREE.Group()
     glow.rotation.x = Math.PI / 2
@@ -507,6 +508,10 @@ export async function createSky(assets, args = {}) {
         const facing = view.getWorldDirection(cameraDir).x * (Math.sin(angle) > 0 ? -1 : 1)
         if (facing > 0) fogColor.lerp(glowRgb, clamp(facing * alpha, 0, 1))
       }
+      const distance = fog?.distance ?? 0
+      skyEnd.value = distance > 0 ? Math.min(distance * 16, SKY_RADIUS) : SKY_RADIUS
+      const skyMix = fogSkyMix(distance)
+      if (skyMix > 0) fogColor.lerp(skyColor, skyMix)
       glow.visible = alpha > 0.001
       if (glow.visible) {
         glowSpin.rotation.z = (Math.sin(angle) < 0 ? Math.PI : 0) + Math.PI / 2
@@ -533,6 +538,7 @@ export async function createSky(assets, args = {}) {
   return {
     group,
     daytime,
+    fog,
     get moonPhase() {
       return phase
     },
