@@ -427,3 +427,14 @@ async function __wbg_init(module_or_path) {
 }
 
 export { initSync, __wbg_init as default };
+
+export function memoryBytes() {
+    return wasm ? wasm.memory.buffer.byteLength : 0;
+}
+
+export function reinstantiate() {
+    if (!wasmModule) return;
+    const module = wasmModule;
+    wasm = undefined;
+    initSync({ module });
+}

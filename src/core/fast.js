@@ -1,7 +1,8 @@
-import init, { greedyMesh as rsGreedyMesh, emitQuads as rsEmitQuads, computeLightVolume as rsLightVolume } from "../../wasm/block_model_renderer.js"
+import init, { greedyMesh as rsGreedyMesh, emitQuads as rsEmitQuads, computeLightVolume as rsLightVolume, memoryBytes as rsMemoryBytes, reinstantiate as rsReinstantiate } from "../../wasm/block_model_renderer.js"
 
 let ready = null
 let broken = false
+const KEEP_BYTES = 32 * 1048576
 
 // built rather than written out, so a browser bundler does not resolve them
 const NODE_FS = "node:fs/promises"
@@ -15,9 +16,9 @@ export function wasmReady() {
     // node's fetch refuses file: urls, so there the bytes are handed over
     if (globalThis.process?.versions?.node) {
       const { readFile } = await import(NODE_FS)
-      return init({ module_or_path: await readFile(new URL(NODE_WASM, import.meta.url)) })
-    }
-    return init()
+      await init({ module_or_path: await readFile(new URL(NODE_WASM, import.meta.url)) })
+    } else await init()
+    return true
   })().catch(() => {
     broken = true
     return null
@@ -32,6 +33,15 @@ export function wasmLoaded() {
 export async function wasmStatus() {
   await wasmReady()
   return wasmLoaded()
+}
+
+export function settleWasm() {
+  if (broken || !ready) return
+  try {
+    if (rsMemoryBytes() > KEEP_BYTES) rsReinstantiate()
+  } catch {
+    broken = true
+  }
 }
 
 export function greedyMeshFast(triples, gridCount) {

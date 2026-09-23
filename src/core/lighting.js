@@ -4,7 +4,7 @@ import { blockRules } from "./data.js"
 import { defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS, buildOcclusionModel, occlusionStateKey } from "./models.js"
 import { occludingFaces } from "./occlusion.js"
 import { fluidTypeOf } from "./fluids.js"
-import { wasmReady, computeLightVolumeFast } from "./fast.js"
+import { wasmReady, computeLightVolumeFast, settleWasm } from "./fast.js"
 
 const DIR = [
   { dx: -1, dy: 0, dz: 0, face: "west", opposite: "east" },
@@ -379,6 +379,7 @@ export async function computeSceneLight(blocks, opts = {}) {
       bytes = vol.bytes()
     } finally {
       vol.free()
+      settleWasm()
     }
     const H2 = h + 1
     cols = Math.ceil(Math.sqrt(H2))

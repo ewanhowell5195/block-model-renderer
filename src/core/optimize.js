@@ -1,7 +1,7 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
 import { subUpload, subFlush } from "./subtex.js"
 import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS, loadSpriteTexture, cloneInstance } from "./models.js"
-import { wasmReady, wasmLoaded, greedyMeshFast, emitQuadsFast } from "./fast.js"
+import { wasmReady, wasmLoaded, greedyMeshFast, emitQuadsFast, settleWasm } from "./fast.js"
 import { buildSchedules, evaluateAnimation } from "./animation.js"
 import { listAtlasSprites } from "./assets.js"
 import { sortTranslucent } from "./sorting.js"
@@ -1499,6 +1499,7 @@ export async function optimizeScene(placements, opts = {}) {
       }
     }
     if (wasmEmit && !await flush(quadBuf, used)) wasmEmit = false
+    settleWasm()
   }
 
   if (!wasmEmit) {
