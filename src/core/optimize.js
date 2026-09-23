@@ -281,16 +281,25 @@ function sweepAtlasCache() {
 }
 function releaseAtlas(entry) {
   entry.users--
+  if (entry.owned) {
+    for (const a of entry.atlases) { try { a.dispose() } catch {} }
+    return
+  }
   sweepAtlasCache()
 }
 
-async function buildAtlas(textures, maxAtlas, breathe) {
+function releaseImage(texture) {
+  const { width, height } = texture.image
+  texture.image = { width, height }
+}
+
+async function buildAtlas(textures, maxAtlas, breathe, owned) {
   const pad = 1
   const rep = new Map()
   for (const t of textures) { const h = hashTexture(t); if (!rep.has(h)) rep.set(h, t) }
   const colorSpace = textures[0].colorSpace ?? THREE.NoColorSpace
   const cacheKey = Array.from(rep.keys()).sort().join("|") + "\0" + maxAtlas + "\0" + colorSpace
-  let entry = atlasCache.get(cacheKey)
+  let entry = owned ? null : atlasCache.get(cacheKey)
   if (entry) {
     atlasCache.delete(cacheKey)
     atlasCache.set(cacheKey, entry)
@@ -336,7 +345,8 @@ async function buildAtlas(textures, maxAtlas, breathe) {
   }
   const rects = new Map()
   for (const t of textures) rects.set(t, byHash.get(hashTexture(t)))
-  entry = { atlases, sizes, byHash, users: 1, bytes: sizes.reduce((n, s) => n + s.w * s.h * 4, 0) }
+  entry = { atlases, sizes, byHash, users: 1, owned, bytes: sizes.reduce((n, s) => n + s.w * s.h * 4, 0) }
+  if (owned) return { atlases, rects, sizes, entry }
   atlasCache.set(cacheKey, entry)
   sweepAtlasCache()
   return { atlases, rects, sizes, entry }
@@ -1226,7 +1236,7 @@ export async function optimizeScene(placements, opts = {}) {
       atlases.set(sig, { rects, sizes, materials, accs: sheet.pages.map(makeAcc) })
       continue
     }
-    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe)
+    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe, !!opts.releaseArrays)
     const regionLists = ats.map(() => [])
     const claimed = new Set()
     for (const t of grp.textures) {
@@ -1240,6 +1250,7 @@ export async function optimizeScene(placements, opts = {}) {
     regionLists.forEach((regions, i) => {
       if (regions.length) ats[i].userData.regions = regions
       else delete ats[i].userData.regions
+      if (opts.releaseArrays) ats[i].onUpdate = releaseImage
     })
     created.textures.push(...ats)
     created.atlasEntries.push(entry)

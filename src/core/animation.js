@@ -13,23 +13,33 @@ function textureChannels(tex) {
   return regions.map(r => ({ tex, name: r.name ?? tex.userData.name, order: r.order, frames: r.frames, times: r.times, interpolate: !!r.interpolate, region: r }))
 }
 
+function drawPadded(ctx, image, x, y, w, h) {
+  ctx.drawImage(image, x, y)
+  ctx.drawImage(image, 0, 0, w, 1, x, y - 1, w, 1)
+  ctx.drawImage(image, 0, h - 1, w, 1, x, y + h, w, 1)
+  ctx.drawImage(image, 0, 0, 1, h, x - 1, y, 1, h)
+  ctx.drawImage(image, w - 1, 0, 1, h, x + w, y, 1, h)
+}
+
 export function applyFrame(s, image) {
   if (s.region) {
     const { x, y, w, h } = s.region
-    const ctx = s.tex.image.getContext("2d")
-    ctx.clearRect(x - 1, y - 1, w + 2, h + 2)
-    ctx.drawImage(image, x, y)
-    ctx.drawImage(image, 0, 0, w, 1, x, y - 1, w, 1)
-    ctx.drawImage(image, 0, h - 1, w, 1, x, y + h, w, 1)
-    ctx.drawImage(image, 0, 0, 1, h, x - 1, y, 1, h)
-    ctx.drawImage(image, w - 1, 0, 1, h, x + w, y, 1, h)
+    const atlas = s.tex.image
+    const drawn = typeof atlas.getContext === "function"
+    if (drawn) {
+      const ctx = atlas.getContext("2d")
+      ctx.clearRect(x - 1, y - 1, w + 2, h + 2)
+      drawPadded(ctx, image, x, y, w, h)
+    }
     if (_animRenderer) {
       try {
         const sub = new Canvas(w + 2, h + 2)
-        sub.getContext("2d").drawImage(s.tex.image, x - 1, y - 1, w + 2, h + 2, 0, 0, w + 2, h + 2)
+        if (drawn) sub.getContext("2d").drawImage(atlas, x - 1, y - 1, w + 2, h + 2, 0, 0, w + 2, h + 2)
+        else drawPadded(sub.getContext("2d"), image, 1, 1, w, h)
         if (subUpload(_animRenderer, s.tex, sub, x - 1, y - 1)) return
       } catch {}
     }
+    if (!drawn) return
   } else {
     s.tex.image = image
   }

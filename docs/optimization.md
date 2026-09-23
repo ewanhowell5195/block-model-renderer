@@ -84,6 +84,9 @@ A built scene keeps a CPU copy of what it uploads to the GPU. A scene that is on
 | Dropped | Kept |
 |---|---|
 | Opaque merged geometry | Translucent geometry, which the [sorter](#translucent-sorting) rewrites |
+| Atlas pages the scene built | [Shared atlas](#shared-atlases) pages, which belong to the handle |
+
+Released atlas pages aren't cached for reuse by later scenes. Their animated textures keep playing only through [`setAnimationRenderer`](#atlas-animation)'s subimage uploads, and hold still without it.
 
 A released scene can't be raycast, packed with [`packScene`](#packing-scenes-across-workers) or exported, and doesn't survive a lost WebGL context. It only draws in the renderer that first uploaded it, so in node, where every static `renderModelScene` call gets a fresh context, it renders once.
 

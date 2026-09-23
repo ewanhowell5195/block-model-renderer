@@ -755,7 +755,7 @@ export interface OptimizeSceneOptions {
   sharedAtlas?: SharedAtlas
   /** Force `InstancedMesh` for dynamic parts. Workers must set this: `BatchedMesh` doesn't survive revival. */
   batchDynamics?: boolean
-  /** Drop the CPU copies of opaque geometry once it's on the GPU. For render-only scenes: nothing can read those arrays afterwards. Default `false`. */
+  /** Drop the CPU copies of opaque geometry and the scene's own atlas pages once they're on the GPU. For render-only scenes: nothing can read them afterwards. Default `false`. */
   releaseArrays?: boolean
   /** Progress on a fixed scale: use `done / total`, not the numbers themselves. */
   onProgress?(done: number, total: number): void
