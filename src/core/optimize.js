@@ -770,6 +770,21 @@ export function createSharedAtlas(opts = {}) {
   return shared
 }
 
+function paddedSprite(src, w, h) {
+  const cw = w + 2, ch = h + 2
+  const out = new ImageData(cw, ch)
+  const d = out.data
+  for (let y = 0; y < ch; y++) {
+    const sy = Math.min(h - 1, Math.max(0, y - 1))
+    const row = y * cw * 4
+    d.set(src.subarray(sy * w * 4, (sy + 1) * w * 4), row + 4)
+    if (y === 0 || y === ch - 1) continue
+    d.set(src.subarray(sy * w * 4, sy * w * 4 + 4), row)
+    d.set(src.subarray((sy + 1) * w * 4 - 4, (sy + 1) * w * 4), row + (cw - 1) * 4)
+  }
+  return out
+}
+
 async function sharedLocate(shared, sheet, tex) {
   const key = hashTexture(tex)
   let r = sheet.rects.get(key)
@@ -790,24 +805,32 @@ async function sharedLocate(shared, sheet, tex) {
   }
   const dx = page.x + 1, dy = page.y + 1
   const img = tex.image
-  page.ctx.drawImage(img, dx, dy)
-  page.ctx.drawImage(img, 0, 0, iw, 1, dx, dy - 1, iw, 1)
-  page.ctx.drawImage(img, 0, ih - 1, iw, 1, dx, dy + ih, iw, 1)
-  page.ctx.drawImage(img, 0, 0, 1, ih, dx - 1, dy, 1, ih)
-  page.ctx.drawImage(img, iw - 1, 0, 1, ih, dx + iw, dy, 1, ih)
+  const pixels = platform.imagePixels?.(img)
+  const padded = pixels ? paddedSprite(pixels, iw, ih) : null
+  if (padded) page.ctx.putImageData(padded, dx - 1, dy - 1)
+  else {
+    page.ctx.drawImage(img, dx, dy)
+    page.ctx.drawImage(img, 0, 0, iw, 1, dx, dy - 1, iw, 1)
+    page.ctx.drawImage(img, 0, ih - 1, iw, 1, dx, dy + ih, iw, 1)
+    page.ctx.drawImage(img, 0, 0, 1, ih, dx - 1, dy, 1, ih)
+    page.ctx.drawImage(img, iw - 1, 0, 1, ih, dx + iw, dy, 1, ih)
+  }
   if (tex.userData?.frames) {
     ;(page.texture.userData.regions ??= []).push({ x: dx, y: dy, w: iw, h: ih, name: tex.userData.name, order: tex.userData.order, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate })
   }
   let subbed = false
   if (shared.renderer) {
     try {
-      const sub = new Canvas(cw, ch)
-      const sctx = sub.getContext("2d")
-      sctx.drawImage(img, 1, 1)
-      sctx.drawImage(img, 0, 0, iw, 1, 1, 0, iw, 1)
-      sctx.drawImage(img, 0, ih - 1, iw, 1, 1, ih + 1, iw, 1)
-      sctx.drawImage(img, 0, 0, 1, ih, 0, 1, 1, ih)
-      sctx.drawImage(img, iw - 1, 0, 1, ih, iw + 1, 1, 1, ih)
+      let sub = padded
+      if (!sub) {
+        sub = new Canvas(cw, ch)
+        const sctx = sub.getContext("2d")
+        sctx.drawImage(img, 1, 1)
+        sctx.drawImage(img, 0, 0, iw, 1, 1, 0, iw, 1)
+        sctx.drawImage(img, 0, ih - 1, iw, 1, 1, ih + 1, iw, 1)
+        sctx.drawImage(img, 0, 0, 1, ih, 0, 1, 1, ih)
+        sctx.drawImage(img, iw - 1, 0, 1, ih, iw + 1, 1, 1, ih)
+      }
       subbed = subUpload(shared.renderer, page.texture, sub, dx - 1, dy - 1)
     } catch {}
   }

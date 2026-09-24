@@ -1,6 +1,7 @@
 import * as core from "./core.js"
 import { setPlatform, zipEntryFromFiles, overridesRole, computeAnimationTimeline, collectAnimated, buildSchedules, evaluateAnimation, setDynamicClock } from "./core.js"
 import { parseZip } from "./zip.js"
+import { pngInfo, decodePng, encodeStoredPng } from "./core/png.js"
 
 const config = {}
 
@@ -39,9 +40,20 @@ function init() {
   })()
 }
 
+const decodedPixels = new WeakMap()
+
 async function loadImage(data) {
   if (data != null && typeof data === "object" && typeof data.width === "number" && typeof data.height === "number") {
     return createImageBitmap(data, { premultiplyAlpha: "none", colorSpaceConversion: "none" })
+  }
+  if (!(data instanceof Blob)) {
+    const png = await decodePng(data).catch(() => null)
+    if (png) {
+      const canvas = new OffscreenCanvas(png.width, png.height)
+      canvas.getContext("2d", { willReadFrequently: true }).putImageData(new ImageData(png.data, png.width, png.height), 0, 0)
+      decodedPixels.set(canvas, png.data)
+      return canvas
+    }
   }
   const blob = data instanceof Blob ? data : new Blob([data])
   return createImageBitmap(blob, { premultiplyAlpha: "none", colorSpaceConversion: "none" })
@@ -615,6 +627,8 @@ function makePlatform() {
     },
 
     async getImageSize(data) {
+      const info = data instanceof Uint8Array ? pngInfo(data) : null
+      if (info) return { width: info.width, height: info.height }
       const img = await loadImage(data)
       const size = { width: img.width, height: img.height }
       img.close?.()
@@ -630,6 +644,8 @@ function makePlatform() {
     },
 
     async decodeToRaw(data) {
+      const png = data instanceof Blob ? null : await decodePng(data).catch(() => null)
+      if (png) return { data: new Uint8Array(png.data.buffer), width: png.width, height: png.height }
       const img = await loadImage(data)
       const canvas = new OffscreenCanvas(img.width, img.height)
       const ctx = canvas.getContext("2d", { willReadFrequently: true })
@@ -640,10 +656,11 @@ function makePlatform() {
     },
 
     async encodeRawToPng({ data, width, height }) {
-      const canvas = new OffscreenCanvas(width, height)
-      const ctx = canvas.getContext("2d")
-      ctx.putImageData(new ImageData(new Uint8ClampedArray(data.buffer ?? data, data.byteOffset ?? 0, data.byteLength ?? data.length), width, height), 0, 0)
-      return encodePng(canvas)
+      return encodeStoredPng(data, width, height)
+    },
+
+    imagePixels(image) {
+      return decodedPixels.get(image) ?? null
     },
 
     writeFile() {
