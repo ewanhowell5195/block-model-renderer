@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { wasmReady, greedyMeshFast } from "../src/core/fast.js"
+import { wasmReady, wasmLoaded, greedyMeshFast, computeLightVolumeFast } from "../src/core/fast.js"
+import { greedyMeshJs as libGreedyMeshJs } from "../src/core/optimize.js"
 
 await wasmReady()
 
@@ -87,4 +88,41 @@ test("greedy meshing matches when the cells are too far apart to sit in a dense 
   for (let a = 0; a < 8; a++) trip.push(0, a, a)
   const arr = Int32Array.from(trip)
   assert.deepEqual(Array.from(greedyMeshFast(arr, 1)), Array.from(greedyMeshJs(arr, 1)))
+})
+
+test("the library's js fallback matches the reference walk", () => {
+  for (let t = 0; t < 200; t++) {
+    const grids = 1 + ((rnd() * 6) | 0)
+    const span = 1 + ((rnd() * 14) | 0)
+    const off = ((rnd() * 200) | 0) - 100
+    const trip = []
+    for (let g = 0; g < grids; g++) {
+      for (let a = 0; a < span; a++) for (let b = 0; b < span; b++) if (rnd() < 0.6) trip.push(g, a + off, b - off)
+      if (trip.length) { const i = ((rnd() * (trip.length / 3)) | 0) * 3; trip.push(trip[i], trip[i + 1], trip[i + 2]) }
+    }
+    trip.push(-1, 0, 0, grids, 0, 0)
+    const arr = Int32Array.from(trip)
+    assert.deepEqual(Array.from(libGreedyMeshJs(arr, grids)), Array.from(greedyMeshJs(arr, grids)), `case ${t}`)
+  }
+  for (const [trip, n] of [[[], 0], [[], 3], [[0, 0, 0], 1], [[2, 5, 5], 3]]) {
+    const arr = Int32Array.from(trip)
+    assert.deepEqual(Array.from(libGreedyMeshJs(arr, n)), Array.from(greedyMeshJs(arr, n)))
+  }
+})
+
+test("the js fallback meshes a grid past the Set size limit", () => {
+  const side = 4100
+  const trip = new Int32Array(side * side * 3)
+  for (let a = 0, i = 0; a < side; a++) for (let b = 0; b < side; b++, i += 3) {
+    trip[i + 1] = a
+    trip[i + 2] = b
+  }
+  assert.deepEqual(Array.from(libGreedyMeshJs(trip, 1)), [0, 0, side - 1, 0, side - 1])
+})
+
+test("a kernel that traps leaves wasm usable for the next one", () => {
+  const cells = Int32Array.from([0, 0, 0, 0, 1, 0])
+  assert.equal(computeLightVolumeFast(64, 64, 64, new Uint16Array(10), new Uint8Array(1), new Uint8Array(1), new Uint8Array(1), new Int32Array(1), new Uint16Array(1), true), null)
+  assert.ok(wasmLoaded())
+  assert.deepEqual(Array.from(greedyMeshFast(cells, 1)), [0, 0, 1, 0, 0])
 })

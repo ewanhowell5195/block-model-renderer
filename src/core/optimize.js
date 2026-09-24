@@ -356,40 +356,61 @@ async function buildAtlas(textures, maxAtlas, breathe, owned) {
 
 const GR_M = 1 << 25, GR_W = 67108864
 const packCell = (i, j) => (j + GR_M) * GR_W + (i + GR_M)
-function greedyMeshJs(triples, gridCount) {
-  const per = []
-  for (let g = 0; g < gridCount; g++) per.push(null)
+export function greedyMeshJs(triples, gridCount) {
+  const starts = new Int32Array(gridCount + 1)
   for (let i = 0; i < triples.length; i += 3) {
     const g = triples[i]
-    if (g < 0 || g >= gridCount) continue
-    ;(per[g] ??= new Set()).add(packCell(triples[i + 1], triples[i + 2]))
+    if (g >= 0 && g < gridCount) starts[g + 1]++
+  }
+  for (let g = 0; g < gridCount; g++) starts[g + 1] += starts[g]
+  const cells = new Float64Array(starts[gridCount])
+  const fill = starts.slice(0, gridCount)
+  for (let i = 0; i < triples.length; i += 3) {
+    const g = triples[i]
+    if (g >= 0 && g < gridCount) cells[fill[g]++] = packCell(triples[i + 1], triples[i + 2])
   }
   const out = []
   for (let g = 0; g < gridCount; g++) {
-    if (!per[g]) continue
-    for (const [i0, i1, j0, j1] of greedyRects(per[g])) out.push(g, i0, i1, j0, j1)
+    if (starts[g] === starts[g + 1]) continue
+    greedyRects(cells.subarray(starts[g], starts[g + 1]), g, out)
   }
   return Int32Array.from(out)
 }
 
-function greedyRects(cellSet) {
-  const done = new Set(), rects = []
-  const coords = Float64Array.from(cellSet).sort()
-  for (const v of coords) {
-    if (done.has(v)) continue
+function greedyRects(coords, g, out) {
+  coords.sort()
+  let n = 0
+  for (let k = 0; k < coords.length; k++) if (k === 0 || coords[k] !== coords[n - 1]) coords[n++] = coords[k]
+  const done = new Uint8Array(n)
+  function indexOf(v) {
+    let lo = 0, hi = n - 1
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1
+      if (coords[mid] < v) lo = mid + 1
+      else if (coords[mid] > v) hi = mid - 1
+      else return mid
+    }
+    return -1
+  }
+  const free = v => {
+    const k = indexOf(v)
+    return k >= 0 && !done[k]
+  }
+  for (let k = 0; k < n; k++) {
+    if (done[k]) continue
+    const v = coords[k]
     const im = v % GR_W, i0 = im - GR_M, j0 = (v - im) / GR_W - GR_M
     let a1 = i0
-    while (cellSet.has(v + (a1 - i0 + 1)) && !done.has(v + (a1 - i0 + 1))) a1++
+    while (free(v + (a1 - i0 + 1))) a1++
     let b1 = j0, grow = true
     while (grow) {
       const rowBase = v + (b1 + 1 - j0) * GR_W
-      for (let x = 0; x <= a1 - i0; x++) { const c = rowBase + x; if (!cellSet.has(c) || done.has(c)) { grow = false; break } }
+      for (let x = 0; x <= a1 - i0; x++) if (!free(rowBase + x)) { grow = false; break }
       if (grow) b1++
     }
-    for (let y = 0; y <= b1 - j0; y++) for (let x = 0; x <= a1 - i0; x++) done.add(v + y * GR_W + x)
-    rects.push([i0, a1, j0, b1])
+    for (let y = 0; y <= b1 - j0; y++) for (let x = 0; x <= a1 - i0; x++) done[indexOf(v + y * GR_W + x)] = 1
+    out.push(g, i0, a1, j0, b1)
   }
-  return rects
 }
 
 const GROW_IN_PLACE = typeof ArrayBuffer.prototype.transfer === "function"

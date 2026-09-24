@@ -27,6 +27,33 @@ const DIR_NAMES = Object.keys(DIRS)
 const DIR_VECS = Object.values(DIRS)
 const _nbr = new Int32Array(6)
 const NO_OFFSET = [0, 0, 0]
+const PK = (x, y, z) => ((x + 1048576) * 2048 + (y + 1024)) * 2097152 + (z + 1048576)
+
+class CellTable {
+  constructor(count) {
+    let cap = 16
+    while (cap < count * 2) cap *= 2
+    this.mask = cap - 1
+    this.keys = new Float64Array(cap).fill(-1)
+    this.vals = new Int32Array(cap)
+  }
+  slot(key, x, y, z) {
+    let s = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) & this.mask
+    while (this.keys[s] !== -1 && this.keys[s] !== key) s = (s + 1) & this.mask
+    return s
+  }
+  get(x, y, z) {
+    const key = PK(x, y, z)
+    const s = this.slot(key, x, y, z)
+    return this.keys[s] === key ? this.vals[s] : -1
+  }
+  set(x, y, z, v) {
+    const key = PK(x, y, z)
+    const s = this.slot(key, x, y, z)
+    this.keys[s] = key
+    this.vals[s] = v
+  }
+}
 
 const templateCaches = new WeakMap()
 const TEMPLATE_CACHE_MAX = 4096
@@ -170,7 +197,7 @@ export async function createScene(assets, blocks, args = {}) {
   const cW = cx1 - cx0 + 3, cH = cy1 - cy0 + 3, cD = cz1 - cz0 + 3
   const cVol = cx0 === Infinity ? 0 : cW * cH * cD
   const cellIdx = cVol > 0 && cVol <= 24e6 ? new Int32Array(cVol).fill(-1) : null
-  const cellMap = cellIdx ? null : new Map()
+  const cellMap = cellIdx ? null : new CellTable(count)
   const CI = (x, y, z) => {
     const ix = x - cx0 + 1, iy = y - cy0 + 1, iz = z - cz0 + 1
     return ix >= 0 && iy >= 0 && iz >= 0 && ix < cW && iy < cH && iz < cD ? (iz * cH + iy) * cW + ix : -1
@@ -180,7 +207,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (cellIdx) {
       const i = CI(x, y, z)
       if (i >= 0) j = cellIdx[i]
-    } else j = cellMap.get(PK(x, y, z)) ?? -1
+    } else j = cellMap.get(x, y, z)
     return j >= 0 && cellPal[j] >= 0 ? j : -1
   }
   function cellOffset(c) {
@@ -195,10 +222,9 @@ export async function createScene(assets, blocks, args = {}) {
       if (j >= 0 && cellPal[j] >= 0) { cellPal[j] = pi; cellCtx[j] = context; return }
       cellIdx[i] = cellN
     } else {
-      const k = PK(x, y, z)
-      const j = cellMap.get(k)
-      if (j !== undefined && cellPal[j] >= 0) { cellPal[j] = pi; cellCtx[j] = context; return }
-      cellMap.set(k, cellN)
+      const j = cellMap.get(x, y, z)
+      if (j >= 0 && cellPal[j] >= 0) { cellPal[j] = pi; cellCtx[j] = context; return }
+      cellMap.set(x, y, z, cellN)
     }
     cellX[cellN] = x
     cellY[cellN] = y
@@ -227,7 +253,6 @@ export async function createScene(assets, blocks, args = {}) {
     for (let i = 0; i < count; i++) wide[i] = blockPalette[i] === 0xFFFF ? 0xFFFFFFFF : blockPalette[i]
     blockPalette = wide
   }
-  const PK = (x, y, z) => ((x + 1048576) * 2048 + (y + 1024)) * 2097152 + (z + 1048576)
   const NO_PROPS = {}
   const piMemo = new WeakMap()
   const idInfo = new Map()
