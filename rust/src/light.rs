@@ -269,6 +269,13 @@ pub fn compute_volume(
     }
     let solid = |i: usize| state_solid.get(cell_state[i] as usize).copied().unwrap_or(false);
     let ao_cell = |i: usize| state_ao.get(cell_state[i] as usize).copied().unwrap_or(false);
+    let mut level = [[0u8; 121]; 9];
+    for (open, row) in level.iter_mut().enumerate() {
+        for (sum, v) in row.iter_mut().enumerate() {
+            let avg = if open != 0 { sum as f64 / open as f64 } else { sum as f64 / 8.0 };
+            *v = js_round(avg * 17.0);
+        }
+    }
     let own_block = |i: usize| state_emit.get(cell_state[i] as usize).copied().unwrap_or(0);
 
     for i in 0..n {
@@ -369,18 +376,9 @@ pub fn compute_volume(
                         }
                     }
                 }
-                let bv = if open != 0 {
-                    bl as f64 / open as f64
-                } else {
-                    blf as f64 / 8.0
-                };
-                let sv = if open != 0 {
-                    sl as f64 / open as f64
-                } else {
-                    slf as f64 / 8.0
-                };
-                bytes[ti] = js_round(bv * 17.0);
-                bytes[ti + 1] = js_round(sv * 17.0);
+                let row = &level[open as usize];
+                bytes[ti] = row[if open != 0 { bl } else { blf } as usize];
+                bytes[ti + 1] = row[if open != 0 { sl } else { slf } as usize];
                 if x < w && y < h && z < d && ao_cell((z * h + y) * w + x) {
                     bytes[ti + 2] = 255;
                 }
