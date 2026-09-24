@@ -252,9 +252,7 @@ export function disposeCache(assets) {
   const c = Array.isArray(assets) ? assets.cache : null
   if (!c) return
   for (const t of c.textures.values()) { try { t?.dispose?.() } catch {} }
-  c.textures.clear()
-  c.models.clear()
-  c.occlusion.clear()
+  for (const v of Object.values(c)) if (v instanceof Map) v.clear()
 }
 
 export async function readFileAll(file, assets) {

@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { createScene } from "../src/node.js"
+import { createScene, prepareAssets, disposeCache } from "../src/node.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
 const jar = await loadMojangJar()
@@ -65,4 +65,18 @@ test("scenes spread past the dense cell grid still cull between neighbours", asy
   a.dispose()
   b.dispose()
   both.dispose()
+})
+
+test("disposeCache empties every cross-call cache and rebuilds the same scene", async () => {
+  const assets = await prepareAssets([jar], { cache: true })
+  const blocks = [{ id: "stone", pos: [0, 0, 0] }, { id: "grass_block", pos: [1, 0, 0] }, { id: "water", properties: { level: "0" }, pos: [0, 1, 0] }, { id: "oak_stairs", pos: [1, 1, 0] }]
+  const first = await createScene(assets, blocks, { lighting: "item" })
+  const tris = first.tris
+  first.dispose()
+  assert.ok(assets.cache.cullMasks.size > 0)
+  disposeCache(assets)
+  for (const [k, v] of Object.entries(assets.cache)) if (v instanceof Map) assert.equal(v.size, 0, k)
+  const again = await createScene(assets, blocks, { lighting: "item" })
+  assert.equal(again.tris, tris)
+  again.dispose()
 })
