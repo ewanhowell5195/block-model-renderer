@@ -44,12 +44,21 @@ export function settleWasm() {
   }
 }
 
+function recover() {
+  try {
+    rsReinstantiate()
+  } catch {
+    broken = true
+  }
+  return null
+}
+
 export function greedyMeshFast(triples, gridCount) {
   if (broken || off() || !ready) return null
   try {
     return rsGreedyMesh(triples, gridCount)
   } catch {
-    return null
+    return recover()
   }
 }
 
@@ -58,7 +67,7 @@ export function emitQuadsFast(quads, faces, accCount) {
   try {
     return rsEmitQuads(quads, faces, accCount)
   } catch {
-    return null
+    return recover()
   }
 }
 
@@ -67,6 +76,6 @@ export function computeLightVolumeFast(w, h, d, cellState, damp, emit, ao, maskO
   try {
     return rsLightVolume(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight)
   } catch {
-    return null
+    return recover()
   }
 }
