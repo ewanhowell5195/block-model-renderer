@@ -25,6 +25,7 @@ const DIRS = {
 }
 const DIR_NAMES = Object.keys(DIRS)
 const DIR_VECS = Object.values(DIRS)
+const DIR_BITS = DIR_NAMES.map(d => 1 << CULL_DIRS.indexOf(d))
 const _nbr = new Int32Array(6)
 const NO_OFFSET = [0, 0, 0]
 const PK = (x, y, z) => ((x + 1048576) * 2048 + (y + 1024)) * 2097152 + (z + 1048576)
@@ -432,18 +433,18 @@ export async function createScene(assets, blocks, args = {}) {
   const cullNums = (assets.cache.cullMasks ??= new Map())
   let cullNum = cullNums.get(cullEnv)
   if (!cullNum) cullNums.set(cullEnv, cullNum = new PairTable())
-  async function cullFacesFor(entry, cached) {
+  let cullPairs = cullNums.get(cullEnv + "\0pairs")
+  if (!cullPairs) cullNums.set(cullEnv + "\0pairs", cullPairs = new PairTable())
+  async function cullFacesFor(entry) {
     const neighbors = {}
     for (let di = 0; di < 6; di++) {
       if (_nbr[di] >= 0) neighbors[DIR_NAMES[di]] = palette[_nbr[di]].flat
       else if (_nbr[di] === -2) neighbors[DIR_NAMES[di]] = true
     }
-    const faces = () => getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults })
-    if (!cached) return faces()
     let ck = cullEnv + entry.sigId
     for (let di = 0; di < 6; di++) ck += "," + (_nbr[di] >= 0 ? palette[_nbr[di]].sigId : _nbr[di])
     let cull = cullCache.get(ck)
-    if (cull === undefined) cullCache.set(ck, cull = await faces())
+    if (cull === undefined) cullCache.set(ck, cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults }))
     return cull
   }
   const cellTmpl = new Int32Array(cellN).fill(-1), cellCull = new Int32Array(cellN).fill(-1)
@@ -482,7 +483,19 @@ export async function createScene(assets, blocks, args = {}) {
       const lo = (s3 * 8192 + s4) * 8192 + s5
       mask = cullNum.get(hi, lo)
       if (mask < 0) {
-        mask = cullMaskOf(await cullFacesFor(entry, false))
+        const nbrs = Array.from(_nbr), self = palSig[cellPi] * 8192
+        mask = 0
+        for (let di = 0; di < 6; di++) {
+          const nb = nbrs[di]
+          if (nb === -2) mask |= DIR_BITS[di]
+          if (nb < 0) continue
+          let hit = cullPairs.get(self + palSig[nb], di)
+          if (hit < 0) {
+            const faces = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors: { [DIR_NAMES[di]]: palette[nb].flat }, assets, version, defaults })
+            cullPairs.set(self + palSig[nb], di, hit = faces.size ? 1 : 0)
+          }
+          if (hit) mask |= DIR_BITS[di]
+        }
         cullNum.set(hi, lo, mask)
       }
     } else {
@@ -503,7 +516,7 @@ export async function createScene(assets, blocks, args = {}) {
       let bucket = cullMemo.get(hi)
       if (bucket === undefined) cullMemo.set(hi, bucket = new Map())
       mask = bucket.get(lo)
-      if (mask === undefined) bucket.set(lo, mask = cullMaskOf(await cullFacesFor(entry, true)))
+      if (mask === undefined) bucket.set(lo, mask = cullMaskOf(await cullFacesFor(entry)))
     }
     if (mask) {
       let ci = maskCull[mask]
