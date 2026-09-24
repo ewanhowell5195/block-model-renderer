@@ -653,41 +653,41 @@
 
       <div class="section">
         <h2>Live Examples</h2>
-        <p>Everything below runs entirely in your browser: each page downloads the latest vanilla Minecraft client jar straight from Mojang's servers, and you can layer your own resource packs and mods on top. The icons on these cards are rendered live by the library too.</p>
+        <p>Everything below runs in your browser on the latest vanilla jar, downloaded from Mojang, with room for your own resource packs and mods on top.</p>
         <div class="examples">
           <a href="https://structure-viewer.ewanhowell.com/" target="_blank" class="featured">
             <div class="example-visual"><canvas data-icon="item/structure_block"></canvas></div>
             <div class="example-info">
               <h3>Structure Viewer <span class="badge">Full Website</span></h3>
-              <p>A full website built on the library. Browse every vanilla structure, open your own <code>.nbt</code> files, load mods, scrub time of day, and walk around inside builds in first person.</p>
+              <p>Browse every vanilla structure, open your own <code>.nbt</code> files, load mods, and walk around inside builds.</p>
             </div>
           </a>
           <a href="viewer/">
             <div class="example-visual"><canvas data-preview="viewer"></canvas></div>
             <div class="example-info">
               <h3>Model Viewer</h3>
-              <p>Inspect any block or item up close in an interactive viewer: blockstate properties, display transforms, lighting modes, face culling, animated textures, and wireframe view.</p>
+              <p>Inspect any block or item: blockstates, display transforms, lighting, culling, and wireframe.</p>
             </div>
           </a>
           <a href="gallery/">
             <div class="example-visual"><canvas data-preview="gallery"></canvas></div>
             <div class="example-info">
               <h3>Render Gallery</h3>
-              <p>Batch-render blocks straight to canvases with <code>renderBlock</code>, live animation players included. Filter by name or namespace, or render every block in the pack.</p>
+              <p>Batch-render every block in the pack to canvases with <code>renderBlock</code>, animations included.</p>
             </div>
           </a>
           <a href="grid/">
             <div class="example-visual"><canvas data-preview="grid"></canvas></div>
             <div class="example-info">
               <h3>Grid</h3>
-              <p>An endless scrolling wall of spinning blocks and items. Drag to pan, pinch or scroll to zoom, and tweak the motion from the controls panel.</p>
+              <p>An endless scrolling wall of spinning blocks and items. Drag to pan, scroll to zoom.</p>
             </div>
           </a>
           <a href="scene/">
             <div class="example-visual"><canvas data-preview="scene"></canvas></div>
             <div class="example-info">
               <h3>Scenes</h3>
-              <p>Voxel dioramas built with the low-level API: neighbor-aware culling, fluids that shape their own surfaces, and whole scenes merged into a handful of draw calls.</p>
+              <p>Voxel dioramas with neighbor culling, shaped fluids, and a handful of draw calls.</p>
             </div>
           </a>
         </div>
@@ -695,7 +695,7 @@
 
       <div class="section">
         <h2>Basic Usage</h2>
-        <p>Give <code>renderBlock</code> an id and an assets source and it returns a canvas, rendered with the same blockstate, model, and texture handling as the game. Everything below is rendered live on this page; try any block id yourself:</p>
+        <p><code>renderBlock</code> takes a block id and an assets source and returns a canvas. Try any block id:</p>
         <div id="loadstatus">Loading…</div>
         <div class="demo demo-row" id="demo-blocks"></div>
         <div class="controls">
@@ -712,7 +712,7 @@ const assets = await prepareAssets([resourcePackZip])
 // returns a canvas you can append
 const canvas = await renderBlock({ id: "grass_block", assets, width: 256, height: 256 })
 document.body.append(canvas)</code></pre>
-        <p>Blocks like chests, beacons, and enchanting tables don't have real models in the assets; Minecraft renders them dynamically in code. The bundled overrides fill those gaps so they render like the game shows them.</p>
+        <p>Blocks the game draws in code, like chests, beacons, and enchanting tables, render through bundled overrides.</p>
       </div>
 
       <div class="section">
@@ -741,7 +741,7 @@ document.body.append(canvas)</code></pre>
 
       <div class="section">
         <h2>Rendering Items</h2>
-        <p><code>renderItem</code> goes through the pack's item definitions, so layered textures, tints, and model selection all behave like the game. Try any item id:</p>
+        <p><code>renderItem</code> uses the pack's item definitions, so layers, tints, and model selection match the game. Try any item id:</p>
         <div class="demo demo-row" id="demo-items"></div>
         <div class="controls">
           <input type="text" id="iteminput" list="itemids" placeholder="diamond_sword" disabled>
@@ -759,7 +759,7 @@ await renderItem({ id: "bow", assets, components: { using_item: true } })</code>
 
       <div class="section">
         <h2>GUI Rendering</h2>
-        <p>Whole interfaces can be put together from nothing but the pack. <code>readFile</code> reads any file from the pack stack, so the screen texture and the bitmap font below come straight from the loaded jar, and every item is rendered into its slot with placement mode. The crafting grid is even showing a real recipe, read from the jar's data files; randomise to roll another:</p>
+        <p><code>readFile</code> reads any file in the pack stack, so the screen texture, font, and recipe below all come from the loaded jar, with each item rendered into its slot:</p>
         <div class="demo demo-gui">
           <canvas id="gui-view" width="352" height="332"></canvas>
         </div>
@@ -781,7 +781,7 @@ await renderItem({ id: "diamond_sword", assets, canvas, width: 32, height: 32, x
 
       <div class="section">
         <h2>Animated Textures</h2>
-        <p>With <code>animated: true</code> you get a live player instead of a canvas: a self-updating canvas that plays the model's texture animations, and pauses itself while scrolled offscreen:</p>
+        <p><code>animated: true</code> returns a player: a self-updating canvas that pauses while offscreen:</p>
         <div class="demo demo-row" id="demo-animated"></div>
         <div class="controls">
           <button id="animtoggle" disabled>Pause All</button>
@@ -789,12 +789,10 @@ await renderItem({ id: "diamond_sword", assets, canvas, width: 32, height: 32, x
         <pre><code>const player = await renderBlock({ id: "magma_block", assets, animated: true })
 document.body.append(player.canvas)
 
-// screen-space shaders (the end portal) size their pattern to the viewport;
-// shaderScale sets the density, like the end gateway above
+// shaderScale sets the density of the end portal pattern
 await renderBlock({ id: "end_gateway", assets, animated: true, shaderScale: 0.5 })
 
-// in your own scene, the uniforms are live on the material. the marquee at
-// the top of this page runs on a wide canvas, so it sets both per resize
+// in your own scene, set the pattern's uniforms when the canvas resizes
 scene.traverse(obj => {
   if (obj.material?.uniforms?.Aspect) {
     obj.material.uniforms.Aspect.value = canvas.clientWidth / canvas.clientHeight
@@ -805,7 +803,7 @@ scene.traverse(obj => {
 
       <div class="section">
         <h2>Custom Models</h2>
-        <p><code>renderModel</code> renders a model JSON directly, no blockstate or item definition lookup. It supports every vanilla model feature, so it works with anything a resource pack could contain. When a static image isn't enough, <code>loadModel</code> puts the same models into your own three.js scene instead, which is how the windmill under Rotation spins live:</p>
+        <p><code>renderModel</code> renders a model JSON directly, with every vanilla model feature. <code>loadModel</code> puts the same models into a three.js scene, which is how the windmill spins:</p>
         <div class="tab-bar">
           <button class="tab-bar-button active" data-tab="turtle">Entities</button>
           <button class="tab-bar-button" data-tab="chair">Furniture</button>
@@ -862,9 +860,8 @@ await renderModel({
             <div class="demo demo-model" id="demo-model-windmill"></div>
             <pre><code>import { makeModelScene, resolveModelData, loadModel } from "block-model-renderer"
 
-// elements rotate about their pivot, and can span the full -16..32 range,
-// so this windmill is three blocks tall. split the model in two and load the
-// sails separately, and you can spin them live around the axle
+// elements can span -16 to 32, so this windmill is three blocks tall.
+// loading the sails separately lets them spin
 const statics = { ...windmill, elements: windmill.elements.filter(e => e.name !== "rotate") }
 const sails = { ...windmill, elements: windmill.elements.filter(e => e.name === "rotate") }
 
@@ -872,7 +869,7 @@ const { scene, camera } = await makeModelScene()
 await loadModel(scene, assets, await resolveModelData(assets, { model: statics }), { display })
 const sailRoot = await loadModel(scene, assets, await resolveModelData(assets, { model: sails }), { display })
 
-// wrap the sails in a group pivoted on the axle (x 8, y 16 in model space)
+// pivot the sails on the axle (x 8, y 16 in model space)
 const spin = new THREE.Group()
 const inner = new THREE.Group()
 spin.position.y = 8
@@ -890,7 +887,7 @@ renderer.render(scene, camera)</code></pre>
 
       <div class="section">
         <h2>Building Scenes</h2>
-        <p>Models load straight into your own three.js scene, so you can build viewers, editors, and whole worlds around it. For whole dioramas, <code>createScene</code> takes a block list and does everything in one call: each block is culled against its neighbors, fluids shape their surfaces from the blocks around them (waterfalls, flowing rivers, waterlogged blocks), and the result merges into a handful of draw calls. World lighting runs on a live day/night clock, with light-emitting blocks keeping their in-game glow. Everything here is live; drag to rotate:</p>
+        <p><code>loadModel</code> puts a block into your own three.js scene. <code>createScene</code> builds a whole block list in one call: hidden faces culled, fluids shaped by their neighbors, world lighting on a live day/night clock, and everything merged into a handful of draw calls. Drag to rotate:</p>
         <div class="tab-bar">
           <button class="tab-bar-button active" data-tab="campfire">Single Block</button>
           <button class="tab-bar-button" data-tab="camp">Small Scene</button>
@@ -930,12 +927,7 @@ animator.update()</code></pre>
             </div>
             <pre><code>import { createScene } from "block-model-renderer"
 
-// the whole pipeline in one call: every face hidden by a neighbor gets
-// culled, fluids shape their surfaces from the blocks around them,
-// weighted variants pick per position so grass and stone vary like in
-// the game, world lighting flood-fills the way the game does (torches
-// and campfires glow, interiors darken), and the whole scene merges
-// into a handful of draw calls
+// culls, shapes fluids, lights, and merges the scene in one call
 const handle = await createScene(assets, [
   { id: "grass_block", pos: [0, 0, 0] },
   { id: "campfire", properties: { lit: "true" }, pos: [0, 1, 0] },
@@ -957,23 +949,18 @@ scene.add(handle.group)</code></pre>
               <input type="range" id="daytime" min="0" max="24000" step="50" value="6000">
               <span class="clock" id="daytimeclock">12:00</span>
             </div>
-            <pre><code>// bigger scenes work exactly the same way: the waterfall and river shape
-// themselves from their neighbors, every hidden face gets culled, and the
-// whole valley still merges down to a handful of draw calls
-const handle = await createScene(assets, blocks)
+            <pre><code>const handle = await createScene(assets, blocks)
 console.log(`${handle.drawCalls} draws, ${(handle.tris / 1000).toFixed(1)}K tris`)
 
-// world lighting runs on a shared day/night clock the entire scene follows
-// live, with light sources (the campfire, lanterns, glowing plants)
-// keeping their in-game glow
-handle.group.userData.daytime.value = 18000 // midnight, in ticks</code></pre>
+// the whole scene follows one live clock, in ticks
+handle.group.userData.daytime.value = 18000 // midnight</code></pre>
           </div>
         </div>
       </div>
 
       <div class="section">
         <h2>The Sky</h2>
-        <p><code>createSky</code> puts the game's sky behind your scene: the day/night gradient, the pack's own sun and moon, the seeded star field, and the sunrise glow, all running on the same live clock as the world lighting, so the ground darkens as the sun goes down. It follows whatever camera renders it and draws behind everything, so it drops straight into any three.js scene. A full day passes on its own; drag to look around:</p>
+        <p><code>createSky</code> draws the game's sky behind any three.js scene: the day/night gradient, the pack's sun and moon, stars, and the sunrise glow, on the same clock as the world lighting. <code>createClouds</code> adds the cloud layer. Drag to look around:</p>
         <div class="demo demo-three">
           <canvas id="three-sky"></canvas>
           <span class="overlay-clock" id="skyclock">00:00</span>
@@ -982,18 +969,19 @@ handle.group.userData.daytime.value = 18000 // midnight, in ticks</code></pre>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M16 3v3a2 2 0 0 0 2 2h3"/><path d="M8 21v-3a2 2 0 0 0-2-2H3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
           </button>
         </div>
-        <pre><code>import { createSky } from "block-model-renderer"
+        <pre><code>import { createSky, createClouds } from "block-model-renderer"
 
-// the game's sky: the day/night gradient, the pack's own sun and moon,
-// the seeded star field, and the sunrise glow. It shares the scene's
-// daytime uniform, so one clock drives the lighting and the sky together
+// sharing the scene's daytime keeps the sky and lighting in step
 const sky = await createSky(assets, { daytime: handle.group.userData.daytime })
-scene.add(sky.group)</code></pre>
+scene.add(sky.group)
+
+const clouds = await createClouds(assets, { daytime: handle.group.userData.daytime, height: 128 })
+scene.add(clouds.group)</code></pre>
       </div>
 
       <div class="section">
         <h2>Resource Packs</h2>
-        <p>Asset sources stack just like in Minecraft: pass more than one and higher packs override lower ones. Load a resource pack (or mod jar) and every render on this page rebuilds with it layered over vanilla, right down to the GUI texture, the font, and the recipes. Anything it adds in its own namespaces shows up too, so a mod's custom blocks and items appear in the pickers:</p>
+        <p>Asset sources stack like in Minecraft, with higher packs overriding lower ones. Load a resource pack or mod jar and every render on this page rebuilds with it, including a mod's own blocks and items:</p>
         <div class="controls">
           <button id="packbtn" disabled>Select Resource Pack…</button>
           <button id="packclear" class="icon" title="Remove pack" aria-label="Remove pack" hidden>×</button>
@@ -1046,7 +1034,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
     try {
       const {
         renderBlock, renderItem, renderModel, prepareAssets, disposeCache, listDirectory, readFile,
-        getThree, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, makeModelScene, createScene, createSky, createAnimator,
+        getThree, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, makeModelScene, createScene, createSky, createClouds, createAnimator,
         pauseAnimations, resumeAnimations, DISPLAYS
       } = await import(LIB)
       const windmillModel = {"textures":{"1":"block/stone","2":"block/oak_planks","3":"block/scaffolding_top","4":"block/stone_bricks","5":"block/spruce_planks","6":"block/dark_oak_log","7":"block/cobblestone"},"elements":[{"from":[1,-16,1],"to":[15,-13,15],"faces":{"north":{"uv":[0,0,14,3],"texture":"#7"},"east":{"uv":[0,0,14,3],"texture":"#7"},"south":{"uv":[0,0,14,3],"texture":"#7"},"west":{"uv":[0,0,14,3],"texture":"#7"},"up":{"uv":[0,0,14,14],"texture":"#7"},"down":{"uv":[0,0,14,14],"texture":"#7"}}},{"from":[2.5,-13,2.5],"to":[13.5,0,13.5],"faces":{"north":{"uv":[2.5,0,13.5,13],"texture":"#4"},"east":{"uv":[2.5,0,13.5,13],"texture":"#4"},"south":{"uv":[2.5,0,13.5,13],"texture":"#4"},"west":{"uv":[2.5,0,13.5,13],"texture":"#4"},"up":{"uv":[2,2.25,13,13.25],"texture":"#1"}}},{"from":[3.5,0,3.5],"to":[12.5,11,12.5],"rotation":{"angle":0,"axis":"y","origin":[0,2,0]},"faces":{"north":{"uv":[3.5,5,12.5,16],"texture":"#4"},"east":{"uv":[3.5,5,12.5,16],"texture":"#4"},"south":{"uv":[3.5,5,12.5,16],"texture":"#4"},"west":{"uv":[3.5,5,12.5,16],"texture":"#4"},"up":{"uv":[6,1,15,10],"texture":"#1"}}},{"from":[4.5,11,4.5],"to":[11.5,16,11.5],"faces":{"north":{"uv":[4.5,0,11.5,5],"texture":"#4"},"east":{"uv":[4.5,0,11.5,5],"texture":"#4"},"south":{"uv":[4.5,0,11.5,5],"texture":"#4"},"west":{"uv":[4.5,0,11.5,5],"texture":"#4"}}},{"from":[4.5,16,4.5],"to":[11.5,22,11.5],"rotation":{"angle":0,"axis":"y","origin":[0,11,0]},"faces":{"north":{"uv":[4.5,10,11.5,16],"texture":"#4"},"east":{"uv":[4.5,10,11.5,16],"texture":"#4"},"south":{"uv":[4.5,10,11.5,16],"texture":"#4"},"west":{"uv":[4.5,10,11.5,16],"texture":"#4"},"up":{"uv":[4.5,4.5,11.5,11.5],"texture":"#4"},"down":{"uv":[4.5,4.5,11.5,11.5],"texture":"#4"}}},{"from":[6.5,22,4.5],"to":[9.5,24,11.5],"rotation":{"angle":0,"axis":"y","origin":[0,11,0]},"faces":{"north":{"uv":[6.5,8,9.5,10],"texture":"#4"},"east":{"uv":[4.5,8,11.5,10],"texture":"#4"},"south":{"uv":[6.5,8,9.5,10],"texture":"#4"},"west":{"uv":[4.5,8,11.5,10],"texture":"#4"}}},{"from":[-0.5,24,3.5],"to":[8.5,26,12.5],"rotation":{"angle":45,"axis":"z","origin":[8.5,25,8]},"faces":{"north":{"uv":[0,0,9,2],"texture":"#5"},"east":{"uv":[0,1,2,10],"rotation":90,"texture":"#5"},"south":{"uv":[0,0,9,2],"texture":"#5"},"west":{"uv":[0,1,2,10],"rotation":90,"texture":"#5"},"up":{"uv":[0,1,9,10],"texture":"#5"},"down":{"uv":[0,1,9,10],"texture":"#5"}}},{"from":[6.5,17,3.5],"to":[8.5,24,12.5],"rotation":{"angle":45,"axis":"z","origin":[8.5,25,8]},"faces":{"north":{"uv":[8,0,15,2],"rotation":90,"texture":"#5"},"east":{"uv":[3.5,1,10.5,10],"rotation":90,"texture":"#5"},"south":{"uv":[6,0,13,2],"rotation":90,"texture":"#5"},"west":{"uv":[3.5,1,10.5,10],"rotation":90,"texture":"#5"},"down":{"uv":[6,1,8,10],"texture":"#5"}}},{"name":"rotate","from":[7,15,-1],"to":[9,17,5],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,0,2,2],"texture":"#6"},"east":{"uv":[0,0,6,2],"texture":"#6"},"south":{"uv":[0,0,2,2],"texture":"#6"},"west":{"uv":[0,0,6,2],"texture":"#6"},"up":{"uv":[0,0,2,6],"texture":"#6"},"down":{"uv":[0,0,2,6],"texture":"#6"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":112.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":-157.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"x":0,"y":0,"z":-67.5,"origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[14,17,-1],"to":[20,21,-1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,-1]},"faces":{"north":{"uv":[8,4,14,8],"texture":"#3"},"south":{"uv":[14,4,8,8],"texture":"#3"}}},{"name":"rotate","from":[20,17,-1],"to":[29,21,-1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,-1]},"faces":{"north":{"uv":[3,4,12,8],"texture":"#3"},"south":{"uv":[12,4,3,8],"texture":"#3"}}},{"name":"rotate","from":[9,15,-1],"to":[25,17,1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,0]},"faces":{"north":{"uv":[0,2,16,4],"texture":"#2"},"south":{"uv":[0,2,16,4],"texture":"#2"},"up":{"uv":[0,2,16,4],"texture":"#2"},"down":{"uv":[0,2,16,4],"texture":"#2"}}},{"name":"rotate","from":[25,15,-1],"to":[29,17,1],"rotation":{"angle":22.5,"axis":"z","origin":[8,16,0]},"faces":{"north":{"uv":[0,2,4,4],"texture":"#2"},"east":{"uv":[14,2,16,4],"texture":"#2"},"south":{"uv":[12,2,16,4],"texture":"#2"},"up":{"uv":[12,2,16,4],"texture":"#2"},"down":{"uv":[12,2,16,4],"texture":"#2"}}}]}
@@ -1346,6 +1334,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
 
       let skyDaytime = null
       let skyHandle = null
+      let cloudsHandle = null
 
       const SCENES = {
         campfire: {
@@ -1528,7 +1517,6 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         if (name === "campsite") campsiteDaytime = result.handle.group.userData.daytime
         if (name !== "sky") return viewers[name].setHandle(result.handle, result.span)
         skyViewer.setHandle(result.handle)
-        if (!createSky) return
         skyDaytime = result.handle.group.userData.daytime
         skyDaytime.value = 11000
         const sky = await createSky(assets, { daytime: skyDaytime })
@@ -1536,6 +1524,11 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         skyHandle?.dispose()
         skyHandle = sky
         skyViewer.scene.add(sky.group)
+        const clouds = await createClouds(assets, { daytime: skyDaytime, height: 128, tick: false })
+        if (stale()) return clouds.dispose()
+        cloudsHandle?.dispose()
+        cloudsHandle = clouds
+        skyViewer.scene.add(clouds.group)
       }
 
       function makeViewer(canvas, rotateSpeed = 2) {
@@ -1644,7 +1637,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false })
         renderer.setPixelRatio(Math.min(window.devicePixelRatio * 2, 4))
         const scene = new THREE.Scene()
-        const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 3000)
+        const camera = new THREE.PerspectiveCamera(50, 1, 1, 34000)
         camera.position.set(0, 34, 0)
         const controls = new OrbitControls(camera, canvas)
         controls.enableDamping = true
@@ -1721,8 +1714,10 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
           lastTime = now
           if (!canvas.clientWidth) return
           if (skyDaytime) {
-            const t = (skyDaytime.value + dt * daySpeed(skyDaytime.value)) % 24000
+            const ticks = dt * daySpeed(skyDaytime.value)
+            const t = (skyDaytime.value + ticks) % 24000
             skyDaytime.value = t
+            if (cloudsHandle) cloudsHandle.time += ticks
             const h = Math.floor(t / 1000 + 6) % 24
             const m = Math.floor(t % 1000 * 60 / 1000)
             const text = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
