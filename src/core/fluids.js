@@ -3,12 +3,11 @@ import { builtinRules, blockRules } from "./data.js"
 import { prepareAssets } from "./assets.js"
 
 
-const strip = id => (id ?? "").replace(/^minecraft:/, "")
+const strip = id => id == null ? "" : id.startsWith("minecraft:") ? id.slice(10) : id
 const TYPE = { water: "water", flowing_water: "water", lava: "lava", flowing_lava: "lava" }
 
-async function blockIsSolid(assets, id, properties) {
+async function blockIsSolid(assets, id, properties, key = id + "|" + JSON.stringify(properties ?? null)) {
   const cache = assets?.cache ? (assets.cache.fluidSolidity ??= new Map()) : null
-  const key = id + "|" + JSON.stringify(properties ?? null)
   if (cache?.has(key)) return cache.get(key)
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]
   let any3d = false
@@ -70,6 +69,7 @@ function cellKeyOf(x, y, z) {
 
 const FLOW_DIRS = [[0, -1], [0, 1], [-1, 0], [1, 0]]
 const rulesMemo = new WeakMap()
+const cellMemo = new WeakMap()
 
 export async function fluidHeights(assets, type, neighbors) {
   if (type == null) return null
@@ -88,10 +88,13 @@ export async function fluidHeights(assets, type, neighbors) {
     const v = neighbors?.[cellKey(x, y, z)] ?? (!x && !y && !z ? type : null)
     let c = null
     if (v) {
-      if (typeof v === "string") c = { id: v }
+      if (typeof v === "string") c = { id: v, properties: undefined, key: v + "|null" }
       else {
-        const { id, ...properties } = v
-        c = { id, properties }
+        c = cellMemo.get(v)
+        if (!c) {
+          const { id, ...properties } = v
+          cellMemo.set(v, c = { id, properties, key: id + "|" + JSON.stringify(properties) })
+        }
       }
     }
     seen[k] = c
@@ -103,7 +106,7 @@ export async function fluidHeights(assets, type, neighbors) {
   }
   async function solidAt(x, z) {
     const c = getBlock(x, 0, z)
-    return !!c && await blockIsSolid(assets, c.id, c.properties)
+    return !!c && await blockIsSolid(assets, c.id, c.properties, c.key)
   }
   async function heightAt(x, z) {
     const c = getBlock(x, 0, z)
@@ -147,7 +150,7 @@ export async function fluidHeights(assets, type, neighbors) {
     let dist = 0
     if (t === type) dist = selfOwn - ownHeight(c.id, c.properties)
     else if (t) continue
-    else if (!c || !await blockIsSolid(assets, c.id, c.properties)) {
+    else if (!c || !await blockIsSolid(assets, c.id, c.properties, c.key)) {
       const below = getBlock(dx, -1, dz)
       if (below && fluidTypeOf(below.id, below.properties, rules) === type) {
         dist = selfOwn - (ownHeight(below.id, below.properties) - 8 / 9)
@@ -163,7 +166,7 @@ export async function fluidHeights(assets, type, neighbors) {
     const c = getBlock(dx, 0, dz)
     if (!c || fluidTypeOf(c.id, c.properties, rules)) return false
     const dir = dx === 1 ? "west" : dx === -1 ? "east" : dz === 1 ? "north" : "south"
-    return faceIsFullToward(assets, c.id, c.properties, dir)
+    return faceIsFullToward(assets, c.id, c.properties, dir, c.key)
   }
   const overlay = {
     north: await overlayAt(0, -1),
@@ -183,9 +186,9 @@ export async function fluidHeights(assets, type, neighbors) {
 }
 
 const FACE_AXES = { west: [0, 0], east: [0, 16], north: [2, 0], south: [2, 16] }
-async function faceIsFullToward(assets, id, properties, dir) {
+async function faceIsFullToward(assets, id, properties, dir, stateKey = id + "|" + JSON.stringify(properties ?? null)) {
   const cache = assets?.cache ? (assets.cache.fluidFullFaces ??= new Map()) : null
-  const key = id + "|" + JSON.stringify(properties ?? null) + "|" + dir
+  const key = stateKey + "|" + dir
   if (cache?.has(key)) return cache.get(key)
   const [axis, bound] = FACE_AXES[dir]
   const [t1, t2] = [0, 1, 2].filter(a => a !== axis)
