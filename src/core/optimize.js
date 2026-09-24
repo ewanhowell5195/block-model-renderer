@@ -621,6 +621,68 @@ function packMesh(P, N, U, T, F, n) {
 
 const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0 })
 
+const BAKE_STRIDE = 13
+
+function bakeFace(bakes, mesh, f) {
+  const geo = mesh.geo, idx = geo.index, pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv
+  if (!idx?.array || pos.isInterleavedBufferAttribute || nrm.isInterleavedBufferAttribute || uv.isInterleavedBufferAttribute) return -1
+  const ia = idx.array, pa = pos.array, na = nrm.array, ua = uv.array, ca = geo.attributes.color?.array
+  const m = mesh.matrix.elements, e = (mesh.nm ??= new THREE.Matrix3().getNormalMatrix(mesh.matrix)).elements
+  const n = f.count, rect = f.rect, W = f.sw, H = f.sh, fd = f.fd
+  const off = bakes.len, need = off + 3 + n * BAKE_STRIDE
+  if (need > bakes.buf.length) {
+    let cap = bakes.buf.length * 2
+    while (cap < need) cap *= 2
+    const b = new Float64Array(cap)
+    b.set(bakes.buf.subarray(0, off))
+    bakes.buf = b
+  }
+  const B = bakes.buf
+  B[off] = m[12]; B[off + 1] = m[13]; B[off + 2] = m[14]
+  for (let k = 0, o = off + 3; k < n; k++, o += BAKE_STRIDE) {
+    const a = ia[f.start + k], a3 = a * 3, a2 = a * 2
+    const x = pa[a3], y = pa[a3 + 1], z = pa[a3 + 2]
+    B[o] = m[0] * x + m[4] * y + m[8] * z
+    B[o + 1] = m[1] * x + m[5] * y + m[9] * z
+    B[o + 2] = m[2] * x + m[6] * y + m[10] * z
+    const nx0 = na[a3], ny0 = na[a3 + 1], nz0 = na[a3 + 2]
+    let nx = e[0] * nx0 + e[3] * ny0 + e[6] * nz0
+    let ny = e[1] * nx0 + e[4] * ny0 + e[7] * nz0
+    let nz = e[2] * nx0 + e[5] * ny0 + e[8] * nz0
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz)
+    if (len > 0) { const inv = 1 / len; nx *= inv; ny *= inv; nz *= inv }
+    B[o + 3] = nx; B[o + 4] = ny; B[o + 5] = nz
+    const u = ua[a2], v = ua[a2 + 1]
+    if (rect) { B[o + 6] = (rect.x + u * rect.w) / W; B[o + 7] = 1 - (rect.y + (1 - v) * rect.h) / H }
+    else { B[o + 6] = u; B[o + 7] = v }
+    if (ca) { B[o + 8] = ca[a3]; B[o + 9] = ca[a3 + 1]; B[o + 10] = ca[a3 + 2] }
+    else { B[o + 8] = 255; B[o + 9] = 255; B[o + 10] = 255 }
+    if (fd) { B[o + 11] = fd[0]; B[o + 12] = fd[1] }
+  }
+  bakes.len = need
+  return off
+}
+
+function appendBaked(B, off, n, hasF, tx, ty, tz, acc) {
+  const ox = B[off] + tx, oy = B[off + 1] + ty, oz = B[off + 2] + tz
+  const Pa = acc.P.a, Na = acc.N.a, Ua = acc.U.a, Ta = acc.T.a
+  let pl = acc.P.length, nl = acc.N.length, ul = acc.U.length, tl = acc.T.length
+  for (let k = 0, o = off + 3; k < n; k++, o += BAKE_STRIDE) {
+    Pa[pl] = B[o] + ox; Pa[pl + 1] = B[o + 1] + oy; Pa[pl + 2] = B[o + 2] + oz
+    Na[nl] = B[o + 3]; Na[nl + 1] = B[o + 4]; Na[nl + 2] = B[o + 5]
+    Ua[ul] = B[o + 6]; Ua[ul + 1] = B[o + 7]
+    Ta[tl] = B[o + 8]; Ta[tl + 1] = B[o + 9]; Ta[tl + 2] = B[o + 10]
+    pl += 3; nl += 3; ul += 2; tl += 3
+  }
+  acc.P.length = pl; acc.N.length = nl; acc.U.length = ul; acc.T.length = tl
+  if (hasF) {
+    const Fa = acc.F.a
+    let fl = acc.F.length
+    for (let k = 0, o = off + 3; k < n; k++, o += BAKE_STRIDE, fl += 2) { Fa[fl] = B[o + 11]; Fa[fl + 1] = B[o + 12] }
+    acc.F.length = fl
+  }
+}
+
 let _v = null, _n = null
 function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
   const idx = geo.index, pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv
@@ -1469,6 +1531,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     return plan
   }
   const touched = []
+  const bakes = { buf: new Float64Array(4096), len: 0 }
   for (let i = 0; i < placeCount; i++) {
     const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
     if (!td) continue
@@ -1506,12 +1569,24 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     if (!td) continue
     const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
     const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2]
-    blockT.makeTranslation(px * 16, py * 16, pz * 16)
+    const tx = px * 16, ty = py * 16, tz = pz * 16
+    blockT.makeTranslation(tx, ty, tz)
     for (const m of td.meshes) {
-      full.multiplyMatrices(blockT, m.matrix)
-      nmat.getNormalMatrix(full)
+      let fullReady = false
       for (const f of m.faces) {
         if (cm && f.cull && faceCulled(f, cm, cull)) continue
+        let bake = f.bake
+        if (bake === -2) bake = f.bake = bakeFace(bakes, m, f)
+        else if (bake === undefined) f.bake = -2
+        if (bake >= 0) {
+          appendBaked(bakes.buf, bake, f.count, !!f.fd, tx, ty, tz, f.acc)
+          continue
+        }
+        if (!fullReady) {
+          full.multiplyMatrices(blockT, m.matrix)
+          nmat.getNormalMatrix(full)
+          fullReady = true
+        }
         appendGroup(m.geo, f.start, f.count, full, nmat, f.rect, f.sw, f.sh, f.acc, f.fd)
       }
     }
