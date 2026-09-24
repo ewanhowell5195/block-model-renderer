@@ -71,10 +71,10 @@ export function emitQuadsFast(quads, faces, accCount) {
   }
 }
 
-export function computeLightVolumeFast(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight) {
+export function computeLightVolumeFast(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight, split = false) {
   if (broken || off() || !ready) return null
   try {
-    return rsLightVolume(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight)
+    return rsLightVolume(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight, split)
   } catch {
     return recover()
   }

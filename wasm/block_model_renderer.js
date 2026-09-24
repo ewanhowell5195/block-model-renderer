@@ -97,6 +97,15 @@ export class LightVolume {
     /**
      * @returns {Uint8Array}
      */
+    ao() {
+        const ret = wasm.lightvolume_ao(this.__wbg_ptr);
+        var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        return v1;
+    }
+    /**
+     * @returns {Uint8Array}
+     */
     blockLight() {
         const ret = wasm.lightvolume_blockLight(this.__wbg_ptr);
         var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
@@ -137,9 +146,10 @@ if (Symbol.dispose) LightVolume.prototype[Symbol.dispose] = LightVolume.prototyp
  * @param {Int32Array} mask_off
  * @param {Uint16Array} masks
  * @param {boolean} has_sky_light
+ * @param {boolean} split
  * @returns {LightVolume}
  */
-export function computeLightVolume(w, h, d, cell_state, damp, emit, ao, mask_off, masks, has_sky_light) {
+export function computeLightVolume(w, h, d, cell_state, damp, emit, ao, mask_off, masks, has_sky_light, split) {
     const ptr0 = passArray16ToWasm0(cell_state, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passArray32ToWasm0(damp, wasm.__wbindgen_malloc);
@@ -152,7 +162,7 @@ export function computeLightVolume(w, h, d, cell_state, damp, emit, ao, mask_off
     const len4 = WASM_VECTOR_LEN;
     const ptr5 = passArray16ToWasm0(masks, wasm.__wbindgen_malloc);
     const len5 = WASM_VECTOR_LEN;
-    const ret = wasm.computeLightVolume(w, h, d, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, has_sky_light);
+    const ret = wasm.computeLightVolume(w, h, d, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, has_sky_light, split);
     return LightVolume.__wrap(ret);
 }
 

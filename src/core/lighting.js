@@ -394,13 +394,17 @@ export async function computeSceneLight(blocks, opts = {}) {
     }
   }
 
-  let bytes, texW, texH, cols, blockLight, skyLight
-  const vol = computeLightVolumeFast(w, h, d, cellState, stDamp, stEmit, stAo, stMaskOff, Uint16Array.from(maskRows), hasSkyLight)
+  const split = !!platform.webgl2?.()
+  let bytes, rg, ao, texW, texH, cols, blockLight, skyLight
+  const vol = computeLightVolumeFast(w, h, d, cellState, stDamp, stEmit, stAo, stMaskOff, Uint16Array.from(maskRows), hasSkyLight, split)
   if (vol) {
     try {
       blockLight = vol.blockLight()
       skyLight = vol.skyLight()
-      bytes = vol.bytes()
+      if (split) {
+        rg = vol.bytes()
+        ao = vol.ao()
+      } else bytes = vol.bytes()
     } finally {
       vol.free()
       settleWasm()
@@ -414,9 +418,11 @@ export async function computeSceneLight(blocks, opts = {}) {
   }
 
   let texture, aoTexture, aoMask
-  if (platform.webgl2?.()) {
-    const { rg, ao } = splitChannels(bytes)
-    bytes = null
+  if (split) {
+    if (bytes) {
+      ({ rg, ao } = splitChannels(bytes))
+      bytes = null
+    }
     texture = lightTexture(rg, texW, texH, THREE.RGFormat)
     aoTexture = lightTexture(ao, texW, texH, THREE.RedFormat)
     aoMask = new THREE.Vector4(1, 0, 0, 0)

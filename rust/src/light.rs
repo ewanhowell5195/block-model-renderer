@@ -22,6 +22,7 @@ pub struct LightVolume {
     block: Vec<u8>,
     sky: Vec<u8>,
     bytes: Vec<u8>,
+    ao: Vec<u8>,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -36,6 +37,9 @@ impl LightVolume {
     }
     pub fn bytes(&mut self) -> Vec<u8> {
         std::mem::take(&mut self.bytes)
+    }
+    pub fn ao(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.ao)
     }
 }
 
@@ -182,6 +186,7 @@ pub fn compute_volume(
     cell_state: &[u16],
     st: &States,
     has_sky_light: bool,
+    split: bool,
 ) -> LightVolume {
     let n = w * h * d;
     let stride_y = w;
@@ -326,7 +331,9 @@ pub fn compute_volume(
     let rows = (h2 + cols - 1) / cols;
     let tex_w = cols * w2;
     let tex_h = rows * d2;
-    let mut bytes = vec![0u8; tex_w * tex_h * 4];
+    let texels = tex_w * tex_h;
+    let mut bytes = vec![0u8; texels * if split { 2 } else { 4 }];
+    let mut ao_bytes = if split { vec![0u8; texels] } else { Vec::new() };
 
     let hw = h * w;
 
@@ -350,7 +357,7 @@ pub fn compute_volume(
         let tx = (y % cols) * w2;
         let ty = (y / cols) * d2;
         for z in 0..=d {
-            let mut ti = ((ty + z) * tex_w + tx) * 4;
+            let mut ti = (ty + z) * tex_w + tx;
             let inner = y >= 1 && y < h && z >= 1 && z < d;
             if inner {
                 let base = ((z - 1) * h + (y - 1)) * w;
@@ -376,8 +383,14 @@ pub fn compute_volume(
                 let row = &level[open];
                 let lit = if open != 0 { v } else { v >> 24 };
                 let ao = if x < w && y < h && z < d && ao_cell((z * h + y) * w + x) { 255 } else { 0 };
-                bytes[ti..ti + 4].copy_from_slice(&[row[lit as u8 as usize], row[(lit >> 8) as u8 as usize], ao, 255]);
-                ti += 4;
+                let (r, g) = (row[lit as u8 as usize], row[(lit >> 8) as u8 as usize]);
+                if split {
+                    bytes[ti * 2..ti * 2 + 2].copy_from_slice(&[r, g]);
+                    ao_bytes[ti] = ao;
+                } else {
+                    bytes[ti * 4..ti * 4 + 4].copy_from_slice(&[r, g, ao, 255]);
+                }
+                ti += 1;
             }
         }
     }
@@ -393,6 +406,7 @@ pub fn compute_volume(
         block: block_light,
         sky: sky_light,
         bytes,
+        ao: ao_bytes,
     }
 }
 
