@@ -520,11 +520,6 @@ class GrowU8 {
   }
   push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
   append(v) { if (!v.length) return; this.ensure(v.length); this.a.set(v, this.length); this.length += v.length }
-  data() {
-    if (this.a.length === this.length) return this.a
-    if (GROW_IN_PLACE) return this.a = new Uint8Array(this.a.buffer.transfer(this.length * 1))
-    return this.a.slice(0, this.length)
-  }
 }
 
 class GrowF32 {
@@ -549,11 +544,6 @@ class GrowF32 {
     if (GROW_IN_PLACE) { this.a = new Float32Array(this.a.buffer.transfer(n * 4)); return }
     const b = new Float32Array(n); b.set(this.a); this.a = b
   }
-  data() {
-    if (this.a.length === this.length) return this.a
-    if (GROW_IN_PLACE) return this.a = new Float32Array(this.a.buffer.transfer(this.length * 4))
-    return this.a.slice(0, this.length)
-  }
 }
 function byteNormal(N, i) {
   const x = Math.round(N[i] * 127), y = Math.round(N[i + 1] * 127), z = Math.round(N[i + 2] * 127)
@@ -565,8 +555,7 @@ function releaseArray() {
   this.array = null
 }
 
-function packMesh(P, N, U, T, F) {
-  const n = P.length / 3
+function packMesh(P, N, U, T, F, n) {
   const index = new Uint32Array(n)
   function same(o, i) {
     const o3 = o * 3, i3 = i * 3, o2 = o * 2, i2 = i * 2
@@ -1722,7 +1711,9 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   function addMesh(acc, material) {
     if (!acc.P.length) return
     const geo = new THREE.BufferGeometry()
-    const packed = packMesh(acc.P.data(), acc.N.data(), acc.U.data(), acc.T.data(), acc.F?.length ? acc.F.data() : null)
+    const verts = acc.P.length / 3
+    const packed = packMesh(acc.P.a, acc.N.a, acc.U.a, acc.T.a, acc.F?.length ? acc.F.a : null, verts)
+    acc.P = acc.N = acc.U = acc.T = acc.F = null
     const pd = packed.position
     geo.setAttribute("position", new THREE.BufferAttribute(pd, 3))
     geo.setAttribute("normal", new THREE.BufferAttribute(packed.normal, 3, packed.normal instanceof Int8Array))
@@ -1753,7 +1744,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     if (material.transparent) mesh.renderOrder = material.side === THREE.BackSide ? 0 : 1
     group.add(mesh)
     drawCalls++
-    tris += acc.P.length / 9
+    tris += verts / 3
   }
   stage(900)
   let meshCount = anims.size, mi = 0
