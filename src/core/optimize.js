@@ -266,6 +266,29 @@ function extractFlats(geo, grp, mw, nm, tex, mat, cull) {
   return out
 }
 
+function cullBit(dir) {
+  switch (dir) {
+    case "down": return 1
+    case "up": return 2
+    case "north": return 4
+    case "south": return 8
+    case "west": return 16
+    case "east": return 32
+    default: return 64
+  }
+}
+
+function cullMaskOf(set) {
+  let m = 0
+  for (const dir of set) m |= cullBit(dir)
+  return m
+}
+
+function faceCulled(f, cm, cull) {
+  const b = cullBit(f.cull)
+  return b < 64 ? (cm & b) !== 0 : !!cull?.has(f.cull)
+}
+
 const rectsOverlap = (f, g) => f.a0 < g.a0 + g.wa - 0.01 && g.a0 < f.a0 + f.wa - 0.01 && f.b0 < g.b0 + g.wb - 0.01 && g.b0 < f.b0 + f.wb - 0.01
 
 const atlasCache = new Map()
@@ -1194,6 +1217,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
 
   const _primeCam = new THREE.Object3D()
+  const groupTd = groups.map(g => tdata.get(g))
+  const cullMask = Int32Array.from(culls, cullMaskOf)
   const grids = []
   const cellRuns = new GrowI32()
   const gridIndex = new Map()
@@ -1212,12 +1237,12 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       await breathe()
       if (shouldCancel?.()) return null
     }
-    const td = placeGroup[i] < 0 ? undefined : tdata.get(groups[placeGroup[i]])
+    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
     if (!td) continue
-    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]]
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
     const o3 = i * 3
     for (const f of td.merge) {
-      if (f.cull && cull?.has(f.cull)) continue
+      if (cm && f.cull && faceCulled(f, cm, cull)) continue
       let cid = f.cid
       if (cid === undefined) {
         cid = cellIds.get(f.cellKey)
@@ -1403,12 +1428,12 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
   const touched = []
   for (let i = 0; i < placeCount; i++) {
-    const td = placeGroup[i] < 0 ? undefined : tdata.get(groups[placeGroup[i]])
+    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
     if (!td) continue
-    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]]
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
     for (const m of td.meshes) {
       for (const f of m.faces) {
-        if (f.cull && cull?.has(f.cull)) continue
+        if (cm && f.cull && faceCulled(f, cm, cull)) continue
         let acc = f.acc
         if (acc === undefined) {
           if (f.animKey) { acc = anims.get(f.animKey).acc; f.rect = null; f.sw = 0; f.sh = 0 }
@@ -1435,16 +1460,16 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     acc.needF = 0
   }
   for (let i = 0; i < placeCount; i++) {
-    const td = placeGroup[i] < 0 ? undefined : tdata.get(groups[placeGroup[i]])
+    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
     if (!td) continue
-    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]]
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
     const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2]
     blockT.makeTranslation(px * 16, py * 16, pz * 16)
     for (const m of td.meshes) {
       full.multiplyMatrices(blockT, m.matrix)
       nmat.getNormalMatrix(full)
       for (const f of m.faces) {
-        if (f.cull && cull?.has(f.cull)) continue
+        if (cm && f.cull && faceCulled(f, cm, cull)) continue
         appendGroup(m.geo, f.start, f.count, full, nmat, f.rect, f.sw, f.sh, f.acc, f.fd)
       }
     }
