@@ -580,14 +580,14 @@ function releaseArray() {
 }
 
 function packMesh(P, N, U, T, F, n) {
-  const index = new Uint32Array(n)
+  const index = new Uint32Array(n), src = new Int32Array(n)
   function same(o, i) {
-    const o3 = o * 3, i3 = i * 3, o2 = o * 2, i2 = i * 2
-    return P[o3] === P[i3] && P[o3 + 1] === P[i3 + 1] && P[o3 + 2] === P[i3 + 2]
-      && N[o3] === N[i3] && N[o3 + 1] === N[i3 + 1] && N[o3 + 2] === N[i3 + 2]
-      && U[o2] === U[i2] && U[o2 + 1] === U[i2 + 1]
-      && T[o3] === T[i3] && T[o3 + 1] === T[i3 + 1] && T[o3 + 2] === T[i3 + 2]
-      && (!F || (F[o2] === F[i2] && F[o2 + 1] === F[i2 + 1]))
+    const s3 = src[o] * 3, i3 = i * 3, s2 = src[o] * 2, i2 = i * 2
+    return P[s3] === P[i3] && P[s3 + 1] === P[i3 + 1] && P[s3 + 2] === P[i3 + 2]
+      && N[s3] === N[i3] && N[s3 + 1] === N[i3 + 1] && N[s3 + 2] === N[i3 + 2]
+      && U[s2] === U[i2] && U[s2 + 1] === U[i2 + 1]
+      && T[s3] === T[i3] && T[s3 + 1] === T[i3 + 1] && T[s3 + 2] === T[i3 + 2]
+      && (!F || (F[s2] === F[i2] && F[s2 + 1] === F[i2 + 1]))
   }
   let w = 0, p0 = -1, p1 = -1, p2 = -1
   for (let t = 0; t < n; t += 3) {
@@ -595,17 +595,7 @@ function packMesh(P, N, U, T, F, n) {
     for (let k = 0; k < 3; k++) {
       const i = t + k
       let o = p0 >= 0 && same(p0, i) ? p0 : p1 >= 0 && same(p1, i) ? p1 : p2 >= 0 && same(p2, i) ? p2 : -1
-      if (o < 0) {
-        o = w++
-        if (o !== i) {
-          const o3 = o * 3, i3 = i * 3, o2 = o * 2, i2 = i * 2
-          P[o3] = P[i3]; P[o3 + 1] = P[i3 + 1]; P[o3 + 2] = P[i3 + 2]
-          N[o3] = N[i3]; N[o3 + 1] = N[i3 + 1]; N[o3 + 2] = N[i3 + 2]
-          U[o2] = U[i2]; U[o2 + 1] = U[i2 + 1]
-          T[o3] = T[i3]; T[o3 + 1] = T[i3 + 1]; T[o3 + 2] = T[i3 + 2]
-          if (F) { F[o2] = F[i2]; F[o2 + 1] = F[i2 + 1] }
-        }
-      }
+      if (o < 0) src[o = w++] = i
       index[i] = o
       if (k === 0) c0 = o
       else if (k === 1) c1 = o
@@ -613,31 +603,48 @@ function packMesh(P, N, U, T, F, n) {
     }
     p0 = c0; p1 = c1; p2 = c2
   }
+  const position = new Float32Array(w * 3), uv = new Float32Array(w * 2), color = new Uint8Array(w * 3)
   let byteNormals = true
-  for (let i = 0; i < w * 3 && byteNormals; i += 3) byteNormals = byteNormal(N, i)
+  for (let o = 0; o < w; o++) {
+    const s3 = src[o] * 3, s2 = src[o] * 2, o3 = o * 3, o2 = o * 2
+    position[o3] = P[s3]; position[o3 + 1] = P[s3 + 1]; position[o3 + 2] = P[s3 + 2]
+    uv[o2] = U[s2]; uv[o2 + 1] = U[s2 + 1]
+    color[o3] = T[s3]; color[o3 + 1] = T[s3 + 1]; color[o3 + 2] = T[s3 + 2]
+    if (byteNormals) byteNormals = byteNormal(N, s3)
+  }
   let normal
   if (byteNormals) {
     normal = new Int8Array(w * 3)
-    for (let i = 0; i < w * 3; i++) normal[i] = Math.round(N[i] * 127)
-  } else normal = N.slice(0, w * 3)
+    for (let o = 0; o < w; o++) {
+      const s3 = src[o] * 3, o3 = o * 3
+      normal[o3] = Math.round(N[s3] * 127); normal[o3 + 1] = Math.round(N[s3 + 1] * 127); normal[o3 + 2] = Math.round(N[s3 + 2] * 127)
+    }
+  } else {
+    normal = new Float32Array(w * 3)
+    for (let o = 0; o < w; o++) {
+      const s3 = src[o] * 3, o3 = o * 3
+      normal[o3] = N[s3]; normal[o3 + 1] = N[s3 + 1]; normal[o3 + 2] = N[s3 + 2]
+    }
+  }
   let faceData = null
   if (F) {
     let bytes = true
-    for (let i = 0; i < w * 2 && bytes; i += 2) {
-      const k = F[i] * 15, flags = F[i + 1]
+    for (let o = 0; o < w && bytes; o++) {
+      const s2 = src[o] * 2, k = F[s2] * 15, flags = F[s2 + 1]
       bytes = Math.abs(k - Math.round(k)) < 1e-4 && k >= 0 && k <= 255 && Number.isInteger(flags) && flags >= 0 && flags <= 255
     }
     faceData = bytes ? new Uint8Array(w * 2) : new Float32Array(w * 2)
-    for (let i = 0; i < w * 2; i += 2) {
-      faceData[i] = bytes ? Math.round(F[i] * 15) : F[i] * 15
-      faceData[i + 1] = F[i + 1]
+    for (let o = 0; o < w; o++) {
+      const s2 = src[o] * 2
+      faceData[o * 2] = bytes ? Math.round(F[s2] * 15) : F[s2] * 15
+      faceData[o * 2 + 1] = F[s2 + 1]
     }
   }
   return {
-    position: P.slice(0, w * 3),
+    position,
     normal,
-    uv: U.slice(0, w * 2),
-    color: T.slice(0, w * 3),
+    uv,
+    color,
     faceData,
     index: w <= 65536 ? Uint16Array.from(index) : index
   }
