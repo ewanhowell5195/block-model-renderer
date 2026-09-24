@@ -122,6 +122,8 @@ function computeSignature(m) {
 
 let _pixelCanvas = null, _pixelCtx = null
 function pixelData(img) {
+  const px = platform.imagePixels?.(img)
+  if (px) return px
   if (!_pixelCanvas) {
     _pixelCanvas = new Canvas(1, 1)
     _pixelCtx = _pixelCanvas.getContext("2d", { willReadFrequently: true })
@@ -392,22 +394,44 @@ async function buildAtlas(textures, maxAtlas, breathe, owned) {
     sizes[ai].w = Math.max(sizes[ai].w, x)
     sizes[ai].h = Math.max(sizes[ai].h, y + rowH)
   }
-  const ctxs = sizes.map(s => new Canvas(s.w, s.h).getContext("2d"))
   const byHash = new Map()
   let drawn = 0
-  for (const it of items) {
-    if (++drawn % 64 === 0) await breathe?.()
-    const ctx = ctxs[it.ai], dx = it.px + pad, dy = it.py + pad, { w, h, img } = it
-    ctx.drawImage(img, dx, dy)
-    ctx.drawImage(img, 0, 0, w, 1, dx, dy - 1, w, 1)
-    ctx.drawImage(img, 0, h - 1, w, 1, dx, dy + h, w, 1)
-    ctx.drawImage(img, 0, 0, 1, h, dx - 1, dy, 1, h)
-    ctx.drawImage(img, w - 1, 0, 1, h, dx + w, dy, 1, h)
-    byHash.set(hashTexture(it.t), { ai: it.ai, x: dx, y: dy, w, h })
+  const pixels = platform.imageFromPixels ? items.map(it => pixelData(it.img)) : []
+  let canvases
+  if (pixels.length && pixels.every(Boolean)) {
+    const pages = sizes.map(s => new Uint8ClampedArray(s.w * s.h * 4))
+    for (let n = 0; n < items.length; n++) {
+      if (++drawn % 64 === 0) await breathe?.()
+      const it = items[n], px = pixels[n], page = pages[it.ai], pw = sizes[it.ai].w, dx = it.px + pad, dy = it.py + pad, { w, h } = it
+      const row = y => px.subarray(y * w * 4, (y + 1) * w * 4)
+      for (let y = 0; y < h; y++) {
+        const at = ((dy + y) * pw + dx) * 4
+        page.set(row(y), at)
+        page.set(px.subarray(y * w * 4, y * w * 4 + 4), at - 4)
+        page.set(px.subarray((y * w + w - 1) * 4, (y * w + w) * 4), at + w * 4)
+      }
+      page.set(row(0), ((dy - 1) * pw + dx) * 4)
+      page.set(row(h - 1), ((dy + h) * pw + dx) * 4)
+      byHash.set(hashTexture(it.t), { ai: it.ai, x: dx, y: dy, w, h })
+    }
+    canvases = pages.map((page, i) => platform.imageFromPixels(page, sizes[i].w, sizes[i].h))
+  } else {
+    const ctxs = sizes.map(s => new Canvas(s.w, s.h).getContext("2d"))
+    for (const it of items) {
+      if (++drawn % 64 === 0) await breathe?.()
+      const ctx = ctxs[it.ai], dx = it.px + pad, dy = it.py + pad, { w, h, img } = it
+      ctx.drawImage(img, dx, dy)
+      ctx.drawImage(img, 0, 0, w, 1, dx, dy - 1, w, 1)
+      ctx.drawImage(img, 0, h - 1, w, 1, dx, dy + h, w, 1)
+      ctx.drawImage(img, 0, 0, 1, h, dx - 1, dy, 1, h)
+      ctx.drawImage(img, w - 1, 0, 1, h, dx + w, dy, 1, h)
+      byHash.set(hashTexture(it.t), { ai: it.ai, x: dx, y: dy, w, h })
+    }
+    canvases = ctxs.map(ctx => ctx.canvas)
   }
   const atlases = []
-  for (const ctx of ctxs) {
-    const a = await loadTexture(ctx.canvas)
+  for (const canvas of canvases) {
+    const a = await loadTexture(canvas)
     a.magFilter = a.minFilter = THREE.NearestFilter
     a.generateMipmaps = false
     a.colorSpace = colorSpace
@@ -988,9 +1012,22 @@ function tiledSub(srcImg, key, sub, ur, vr) {
   const k = key + "|" + ur + "x" + vr
   let c = tiledCache.get(k)
   if (c) return c
-  c = new Canvas(sub.sw * ur, sub.sh * vr)
-  const ctx = c.getContext("2d")
-  for (let j = 0; j < vr; j++) for (let i = 0; i < ur; i++) ctx.drawImage(srcImg, sub.sx, sub.sy, sub.sw, sub.sh, i * sub.sw, j * sub.sh, sub.sw, sub.sh)
+  const px = platform.imageFromPixels ? pixelData(srcImg) : null
+  if (px) {
+    const W = sub.sw * ur, rowBytes = sub.sw * 4, out = new Uint8ClampedArray(W * sub.sh * vr * 4)
+    for (let row = 0; row < sub.sh; row++) {
+      const from = ((sub.sy + row) * srcImg.width + sub.sx) * 4, line = px.subarray(from, from + rowBytes)
+      for (let j = 0; j < vr; j++) {
+        const to = (j * sub.sh + row) * W * 4
+        for (let i = 0; i < ur; i++) out.set(line, to + i * rowBytes)
+      }
+    }
+    c = platform.pixelImage(out, W, sub.sh * vr)
+  } else {
+    c = new Canvas(sub.sw * ur, sub.sh * vr)
+    const ctx = c.getContext("2d")
+    for (let j = 0; j < vr; j++) for (let i = 0; i < ur; i++) ctx.drawImage(srcImg, sub.sx, sub.sy, sub.sw, sub.sh, i * sub.sw, j * sub.sh, sub.sw, sub.sh)
+  }
   texHash.set(c, k + "_" + c.width + "x" + c.height)
   tiledCache.set(k, c)
   if (tiledCache.size > 4096) tiledCache.delete(tiledCache.keys().next().value)

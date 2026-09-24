@@ -663,6 +663,18 @@ function makePlatform() {
       return decodedPixels.get(image) ?? null
     },
 
+    imageFromPixels(data, width, height) {
+      const canvas = new OffscreenCanvas(width, height)
+      canvas.getContext("2d", { willReadFrequently: true }).putImageData(new ImageData(data, width, height), 0, 0)
+      return canvas
+    },
+
+    pixelImage(data, width, height) {
+      const image = { width, height }
+      decodedPixels.set(image, data)
+      return image
+    },
+
     writeFile() {
       throw new Error("The path option is not available on web - renders return canvases")
     }
