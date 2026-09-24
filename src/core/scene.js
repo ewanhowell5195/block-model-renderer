@@ -127,6 +127,12 @@ const CK3 = (() => {
   return t
 })()
 
+function fluidKey(f) {
+  const o = f.overlay, s = f.same
+  const bits = (f.full ? 1 : 0) | (o.north ? 2 : 0) | (o.south ? 4 : 0) | (o.west ? 8 : 0) | (o.east ? 16 : 0) | (s.north ? 32 : 0) | (s.south ? 64 : 0) | (s.west ? 128 : 0) | (s.east ? 256 : 0) | (s.up ? 512 : 0) | (s.down ? 1024 : 0)
+  return f.nw + "," + f.ne + "," + f.sw + "," + f.se + "," + f.angle + "," + bits
+}
+
 function cellKey3(dx, dy, dz) {
   let k = dy === 1 ? "up" : dy === -1 ? "down" : ""
   if (dz === -1) k += (k ? "_" : "") + "north"
@@ -254,7 +260,7 @@ export async function createScene(assets, blocks, args = {}) {
     blockPalette = wide
   }
   const NO_PROPS = {}
-  const piMemo = new WeakMap()
+  const piMemo = new WeakMap(), bioMemo = new WeakMap()
   const idInfo = new Map()
   const infoOf = rawId => {
     let info = idInfo.get(rawId)
@@ -327,9 +333,15 @@ export async function createScene(assets, blocks, args = {}) {
       if (b.nbt) pi = nbtIndex(id, b.properties, biome, b.nbt, b.pos)
       else {
         const po = b.properties ?? NO_PROPS
-        let byId = piMemo.get(po)
-        if (!byId) piMemo.set(po, byId = new Map())
-        const bk = biome == null ? id : id + "\0" + JSON.stringify(biome)
+        const bioObj = biome != null && typeof biome === "object"
+        let memo = piMemo
+        if (bioObj) {
+          memo = bioMemo.get(biome)
+          if (!memo) bioMemo.set(biome, memo = new WeakMap())
+        }
+        let byId = memo.get(po)
+        if (!byId) memo.set(po, byId = new Map())
+        const bk = biome == null || bioObj ? id : id + "\0" + JSON.stringify(biome)
         pi = byId.get(bk)
         if (pi === undefined) byId.set(bk, pi = stateIndex(id, b.properties, biome))
       }
@@ -482,7 +494,7 @@ export async function createScene(assets, blocks, args = {}) {
     const packed = fh === null && pick !== null ? pick * palette.length + cellPi : -1
     const templateKey = pick === null && fh === null
       ? cellPi
-      : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + (fh ? JSON.stringify(fh) : "")
+      : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + (fh ? fluidKey(fh) : "")
     let ti = templateIds.get(templateKey)
     if (ti === undefined) {
       templateIds.set(templateKey, ti = templateKeys.push(templateKey) - 1)
