@@ -77,26 +77,21 @@ fn union_covers(a: Option<&[u16]>, b: Option<&[u16]>) -> bool {
     true
 }
 
-struct FaceBits {
-    has: Vec<u8>,
-    full: Vec<u8>,
-}
-
-fn face_bits(st: &States) -> FaceBits {
-    let n = st.mask_off.len();
-    let mut has = vec![0u8; n];
-    let mut full = vec![0u8; n];
-    for si in 0..n {
+fn state_info(st: &States) -> Vec<u32> {
+    let mut info = vec![1u32; 65536];
+    for (si, v) in info.iter_mut().enumerate().take(st.damp.len().max(st.mask_off.len())) {
+        let (mut has, mut full) = (0u32, 0u32);
         for dir in 0..6 {
             if let Some(m) = st.face(si, dir) {
-                has[si] |= 1 << dir;
+                has |= 1 << dir;
                 if m.iter().all(|&v| v == 0xffff) {
-                    full[si] |= 1 << dir;
+                    full |= 1 << dir;
                 }
             }
         }
+        *v = st.damp_of(si).max(1) as u32 | has << 8 | full << 16;
     }
-    FaceBits { has, full }
+    info
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -104,7 +99,7 @@ fn spread(
     light: &mut [u8],
     cell_state: &[u16],
     st: &States,
-    fb: &FaceBits,
+    info: &[u32],
     w: usize,
     h: usize,
     d: usize,
@@ -112,33 +107,32 @@ fn spread(
     let stride_y = w;
     let stride_z = w * h;
     let mut buckets: Vec<Vec<u32>> = (0..16).map(|_| Vec::new()).collect();
-    for (i, &l) in light.iter().enumerate() {
-        if l <= 1 {
-            continue;
-        }
-        if l == 15 {
-            let x = i % w;
-            let r = i / w;
-            let y = r % h;
-            let z = r / h;
-            let lit = |j: usize| light[j] == 15;
-            if (x == 0 || lit(i - 1))
-                && (x == w - 1 || lit(i + 1))
-                && (y == 0 || lit(i - stride_y))
-                && (y == h - 1 || lit(i + stride_y))
-                && (z == 0 || lit(i - stride_z))
-                && (z == d - 1 || lit(i + stride_z))
-            {
-                continue;
+    let mut i = 0;
+    for z in 0..d {
+        for y in 0..h {
+            for x in 0..w {
+                let l = light[i];
+                if l > 1 {
+                    let lit = |j: usize| light[j] == 15;
+                    if l != 15
+                        || !((x == 0 || lit(i - 1))
+                            && (x == w - 1 || lit(i + 1))
+                            && (y == 0 || lit(i - stride_y))
+                            && (y == h - 1 || lit(i + stride_y))
+                            && (z == 0 || lit(i - stride_z))
+                            && (z == d - 1 || lit(i + stride_z)))
+                    {
+                        buckets[l as usize].push(i as u32);
+                    }
+                }
+                i += 1;
             }
         }
-        buckets[l as usize].push(i as u32);
     }
     for lvl in (2..=15i32).rev() {
-        let mut bi = 0;
-        while bi < buckets[lvl as usize].len() {
-            let i = buckets[lvl as usize][bi] as usize;
-            bi += 1;
+        let bucket = std::mem::take(&mut buckets[lvl as usize]);
+        for &i in &bucket {
+            let i = i as usize;
             if light[i] as i32 != lvl {
                 continue;
             }
@@ -147,8 +141,9 @@ fn spread(
             let y = r % h;
             let z = r / h;
             let from = cell_state[i] as usize;
-            let from_has = fb.has.get(from).copied().unwrap_or(0);
-            let from_full = fb.full.get(from).copied().unwrap_or(0);
+            let from_info = info[from];
+            let from_has = from_info >> 8;
+            let from_full = from_info >> 16;
             let interior = x > 0 && x < w - 1 && y > 0 && y < h - 1 && z > 0 && z < d - 1;
             for di in 0..6 {
                 let (dx, dy, dz) = DIR[di];
@@ -174,18 +169,16 @@ fn spread(
                 }
                 let j = (i as i32 + dx + dy * stride_y as i32 + dz * stride_z as i32) as usize;
                 let to = cell_state[j] as usize;
-                let to_damp = st.damp_of(to).max(0);
-                let nl = lvl - to_damp.max(1);
+                let to_info = info[to];
+                let nl = lvl - (to_info & 0xff) as i32;
                 if nl <= light[j] as i32 {
                     continue;
                 }
                 let od = di ^ 1;
                 let f_bit = from_has & (1 << di);
-                let t_bit = fb.has.get(to).copied().unwrap_or(0) & (1 << od);
+                let t_bit = (to_info >> 8) & (1 << od);
                 if f_bit != 0 || t_bit != 0 {
-                    if from_full & (1 << di) != 0
-                        || fb.full.get(to).copied().unwrap_or(0) & (1 << od) != 0
-                    {
+                    if from_full & (1 << di) != 0 || (to_info >> 16) & (1 << od) != 0 {
                         continue;
                     }
                     let from_face = if f_bit != 0 { st.face(from, di) } else { None };
@@ -200,7 +193,6 @@ fn spread(
                 }
             }
         }
-        buckets[lvl as usize].clear();
     }
 }
 
@@ -251,9 +243,9 @@ pub fn compute_volume(
         }
     }
 
-    let fb = face_bits(st);
-    spread(&mut block_light, cell_state, st, &fb, w, h, d);
-    spread(&mut sky_light, cell_state, st, &fb, w, h, d);
+    let info = state_info(st);
+    spread(&mut block_light, cell_state, st, &info, w, h, d);
+    spread(&mut sky_light, cell_state, st, &info, w, h, d);
 
     let states = st.damp.len().max(st.emit.len());
     let mut state_solid = vec![false; states];
@@ -269,7 +261,7 @@ pub fn compute_volume(
     }
     let solid = |i: usize| state_solid.get(cell_state[i] as usize).copied().unwrap_or(false);
     let ao_cell = |i: usize| state_ao.get(cell_state[i] as usize).copied().unwrap_or(false);
-    let mut level = [[0u8; 121]; 9];
+    let mut level = [[0u8; 256]; 16];
     for (open, row) in level.iter_mut().enumerate() {
         for (sum, v) in row.iter_mut().enumerate() {
             let avg = if open != 0 { sum as f64 / open as f64 } else { sum as f64 / 8.0 };
@@ -330,7 +322,6 @@ pub fn compute_volume(
     let mut bytes = vec![0u8; tex_w * tex_h * 4];
 
     let hw = h * w;
-    let off = [0usize, 1, w, w + 1, hw, hw + 1, hw + w, hw + w + 1];
 
     let clamp_idx = |x: i32, y: i32, z: i32| -> usize {
         let cz = z.clamp(0, d as i32 - 1) as usize;
@@ -339,50 +330,46 @@ pub fn compute_volume(
         (cz * h + cy) * w + cx
     };
 
+    let pack = |ci: usize| -> u64 {
+        let (b, s) = (block_light[ci] as u64, sky_light[ci] as u64);
+        if solid(ci) {
+            b << 24 | s << 32
+        } else {
+            b | s << 8 | 1 << 16
+        }
+    };
+    let mut col = vec![0u64; w];
     for y in 0..=h {
         let tx = (y % cols) * w2;
         let ty = (y / cols) * d2;
         for z in 0..=d {
             let mut ti = ((ty + z) * tex_w + tx) * 4;
+            let inner = y >= 1 && y < h && z >= 1 && z < d;
+            if inner {
+                let base = ((z - 1) * h + (y - 1)) * w;
+                for (x, c) in col.iter_mut().enumerate() {
+                    let ci = base + x;
+                    *c = pack(ci) + pack(ci + w) + pack(ci + hw) + pack(ci + hw + w);
+                }
+            }
             for x in 0..=w {
-                let (mut bl, mut sl, mut open, mut blf, mut slf) = (0u32, 0u32, 0u32, 0u32, 0u32);
-                if x >= 1 && x < w && y >= 1 && y < h && z >= 1 && z < d {
-                    let base = ((z - 1) * h + (y - 1)) * w + (x - 1);
-                    for k in 0..8 {
-                        let ci = base + off[k];
-                        if solid(ci) {
-                            blf += block_light[ci] as u32;
-                            slf += sky_light[ci] as u32;
-                        } else {
-                            bl += block_light[ci] as u32;
-                            sl += sky_light[ci] as u32;
-                            open += 1;
-                        }
-                    }
+                let mut v = 0u64;
+                if inner && x >= 1 && x < w {
+                    v = col[x - 1] + col[x];
                 } else {
                     for dy in -1..=0 {
                         for dz in -1..=0 {
                             for dx in -1..=0 {
-                                let ci = clamp_idx(x as i32 + dx, y as i32 + dy, z as i32 + dz);
-                                if solid(ci) {
-                                    blf += block_light[ci] as u32;
-                                    slf += sky_light[ci] as u32;
-                                } else {
-                                    bl += block_light[ci] as u32;
-                                    sl += sky_light[ci] as u32;
-                                    open += 1;
-                                }
+                                v += pack(clamp_idx(x as i32 + dx, y as i32 + dy, z as i32 + dz));
                             }
                         }
                     }
                 }
-                let row = &level[open as usize];
-                bytes[ti] = row[if open != 0 { bl } else { blf } as usize];
-                bytes[ti + 1] = row[if open != 0 { sl } else { slf } as usize];
-                if x < w && y < h && z < d && ao_cell((z * h + y) * w + x) {
-                    bytes[ti + 2] = 255;
-                }
-                bytes[ti + 3] = 255;
+                let open = (v >> 16) as usize & 15;
+                let row = &level[open];
+                let lit = if open != 0 { v } else { v >> 24 };
+                let ao = if x < w && y < h && z < d && ao_cell((z * h + y) * w + x) { 255 } else { 0 };
+                bytes[ti..ti + 4].copy_from_slice(&[row[lit as u8 as usize], row[(lit >> 8) as u8 as usize], ao, 255]);
                 ti += 4;
             }
         }
