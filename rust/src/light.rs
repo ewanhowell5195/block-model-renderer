@@ -100,35 +100,13 @@ fn spread(
     cell_state: &[u16],
     st: &States,
     info: &[u32],
+    mut buckets: Vec<Vec<u32>>,
     w: usize,
     h: usize,
     d: usize,
 ) {
     let stride_y = w;
     let stride_z = w * h;
-    let mut buckets: Vec<Vec<u32>> = (0..16).map(|_| Vec::new()).collect();
-    let mut i = 0;
-    for z in 0..d {
-        for y in 0..h {
-            for x in 0..w {
-                let l = light[i];
-                if l > 1 {
-                    let lit = |j: usize| light[j] == 15;
-                    if l != 15
-                        || !((x == 0 || lit(i - 1))
-                            && (x == w - 1 || lit(i + 1))
-                            && (y == 0 || lit(i - stride_y))
-                            && (y == h - 1 || lit(i + stride_y))
-                            && (z == 0 || lit(i - stride_z))
-                            && (z == d - 1 || lit(i + stride_z)))
-                    {
-                        buckets[l as usize].push(i as u32);
-                    }
-                }
-                i += 1;
-            }
-        }
-    }
     for lvl in (2..=15i32).rev() {
         let bucket = std::mem::take(&mut buckets[lvl as usize]);
         for &i in &bucket {
@@ -210,8 +188,10 @@ pub fn compute_volume(
     let stride_z = w * h;
     let mut block_light = vec![0u8; n];
     let mut sky_light = vec![0u8; n];
+    let mut sky_buckets: Vec<Vec<u32>> = (0..16).map(|_| Vec::new()).collect();
 
     if has_sky_light {
+        let mut bottom = vec![h; w * d];
         for z in 0..d {
             for x in 0..w {
                 let mut above: Option<&[u16]> = None;
@@ -227,25 +207,52 @@ pub fn compute_volume(
                         break;
                     }
                     sky_light[i] = 15;
+                    bottom[z * w + x] = y;
                     above = st.face(si, FACE_DOWN);
+                }
+            }
+        }
+        for z in 0..d {
+            for x in 0..w {
+                let c = z * w + x;
+                let b = bottom[c];
+                let mut top = b + 1;
+                if x > 0 {
+                    top = top.max(bottom[c - 1]);
+                }
+                if x < w - 1 {
+                    top = top.max(bottom[c + 1]);
+                }
+                if z > 0 {
+                    top = top.max(bottom[c - w]);
+                }
+                if z < d - 1 {
+                    top = top.max(bottom[c + w]);
+                }
+                for y in b..top.min(h) {
+                    sky_buckets[15].push(((z * h + y) * w + x) as u32);
                 }
             }
         }
     }
 
+    let mut block_buckets: Vec<Vec<u32>> = (0..16).map(|_| Vec::new()).collect();
     for i in 0..n {
         let si = cell_state[i] as usize;
         if st.damp_of(si) >= 0 {
             let e = st.emit.get(si).copied().unwrap_or(0);
             if e != 0 {
                 block_light[i] = e;
+                if e > 1 {
+                    block_buckets[e as usize & 15].push(i as u32);
+                }
             }
         }
     }
 
     let info = state_info(st);
-    spread(&mut block_light, cell_state, st, &info, w, h, d);
-    spread(&mut sky_light, cell_state, st, &info, w, h, d);
+    spread(&mut block_light, cell_state, st, &info, block_buckets, w, h, d);
+    spread(&mut sky_light, cell_state, st, &info, sky_buckets, w, h, d);
 
     let states = st.damp.len().max(st.emit.len());
     let mut state_solid = vec![false; states];
