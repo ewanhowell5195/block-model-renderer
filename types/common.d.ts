@@ -1497,6 +1497,8 @@ export interface CloudsHandle {
   height: number
   /** An extra shift of the cloud pattern in blocks, `[x, z]`, on top of `origin`. Assignable. */
   offset: [number, number]
+  /** The layer's opacity, 0 to 1. `0` stops drawing it. Assignable. */
+  alpha: number
   /** The cloud clock in ticks. Assignable. */
   time: number
   /** Whether the clock advances on its own. Assignable. */

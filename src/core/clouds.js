@@ -150,7 +150,7 @@ export async function createClouds(assets, args = {}) {
   const range = Math.max(1, Number(args.range) || DEFAULT_RANGE)
   const radius = Math.ceil(range * 16 / CELL)
   const base = tintVec(args.color ?? 0xFFFFFF)
-  const alpha = args.alpha ?? 0.8
+  let alpha = Number(args.alpha ?? 0.8)
   const cloudColor = new THREE.Vector4(base.x, base.y, base.z, alpha)
   const fogEnd = { value: Math.min(range * 16, FOG_END) * UNIT }
   const fogCenter = { value: new THREE.Vector3() }
@@ -180,7 +180,7 @@ export async function createClouds(assets, args = {}) {
   mesh.userData.sky = true
   mesh.userData.prepare = view => anchor ? update() : update(view)
   mesh.renderOrder = 1000
-  mesh.visible = !!cells
+  mesh.visible = !!cells && alpha > 0
   mesh.onBeforeRender = (renderer, scene, view) => sync(view)
   mesh.onAfterRender = commit
   group.add(mesh)
@@ -263,6 +263,13 @@ export async function createClouds(assets, args = {}) {
     set offset(value) {
       offsetX = Number(value?.[0]) || 0
       offsetZ = Number(value?.[1]) || 0
+    },
+    get alpha() {
+      return alpha
+    },
+    set alpha(value) {
+      alpha = Math.max(0, Math.min(1, Number(value) || 0))
+      mesh.visible = !!cells && alpha > 0
     },
     get time() {
       return time

@@ -256,7 +256,7 @@ clouds.height = 200
 | `args.fancy` | `true` | The game's Fancy clouds. `false` draws Fast clouds, the flat sheet. Also settable on the handle |
 | `args.range` | `128` | The game's cloud range option, in chunks |
 | `args.color` | `#FFFFFF` | The base cloud colour, the overworld's in game. The day/night curve scales it |
-| `args.alpha` | `0.8` | The layer's opacity |
+| `args.alpha` | `0.8` | The layer's opacity. Also settable on the handle |
 
 The handle:
 
@@ -270,6 +270,7 @@ The handle:
 | `origin` | The world coordinates of the scene's position `0, 0, 0`, assignable |
 | `height` | The bottom of the layer as a world height in blocks, assignable |
 | `offset` | The extra `[x, z]` shift on top of `origin`, assignable |
+| `alpha` | The layer's opacity, assignable. `0` stops drawing it |
 | `tick` | Whether the clock advances on its own, assignable |
 | `fancy` | Fancy or Fast clouds, assignable |
 | `dispose()` | Frees the geometry and material, and removes the group from its parent |
