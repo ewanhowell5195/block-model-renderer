@@ -322,7 +322,9 @@ function cullBit(dir) {
   }
 }
 
-function cullMaskOf(set) {
+export const CULL_DIRS = ["down", "up", "north", "south", "west", "east"]
+
+export function cullMaskOf(set) {
   let m = 0
   for (const dir of set) m |= cullBit(dir)
   return m

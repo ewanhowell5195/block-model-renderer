@@ -5,7 +5,7 @@ import { getCullFaces } from "./render.js"
 import { computeSceneLight, isFlatBlocks } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
 import { blockRules } from "./data.js"
-import { optimizePlacements } from "./optimize.js"
+import { optimizePlacements, cullMaskOf, CULL_DIRS } from "./optimize.js"
 
 const nextTask = globalThis.scheduler?.yield
   ? () => scheduler.yield()
@@ -375,7 +375,26 @@ export async function createScene(assets, blocks, args = {}) {
   const templateOf = new Map()
   const templateSpecs = new Map()
   const templateKeys = [], templateIds = new Map()
-  const cullSets = [], cullIds = new Map()
+  const cullSets = [], maskCull = new Int32Array(64).fill(-1)
+  const palSig = Int32Array.from(palette, e => e.sigId + 2)
+  const sigNumeric = palSig.every(s => s < 8192)
+  const cullNums = (assets.cache.cullMasks ??= new Map())
+  let cullNum = cullNums.get(cullEnv)
+  if (!cullNum) cullNums.set(cullEnv, cullNum = new Map())
+  async function cullFacesFor(entry, cached) {
+    const neighbors = {}
+    for (let di = 0; di < 6; di++) {
+      if (_nbr[di] >= 0) neighbors[DIR_NAMES[di]] = palette[_nbr[di]].flat
+      else if (_nbr[di] === -2) neighbors[DIR_NAMES[di]] = true
+    }
+    const faces = () => getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults })
+    if (!cached) return faces()
+    let ck = cullEnv + entry.sigId
+    for (let di = 0; di < 6; di++) ck += "," + (_nbr[di] >= 0 ? palette[_nbr[di]].sigId : _nbr[di])
+    let cull = cullCache.get(ck)
+    if (cull === undefined) cullCache.set(ck, cull = await faces())
+    return cull
+  }
   const cellTmpl = new Int32Array(cellN).fill(-1), cellCull = new Int32Array(cellN).fill(-1)
   let parsed = 0
   for (let c = 0; c < cellN; c++) {
@@ -400,43 +419,43 @@ export async function createScene(assets, blocks, args = {}) {
       const v = DIR_VECS[di]
       _nbr[di] = extOcc?.(px + v[0], py + v[1], pz + v[2]) ? -2 : -1
     }
-    let hi, lo, bucket
-    if (cullNumeric) {
-      const s0 = _nbr[0] < 0 ? palette.length - _nbr[0] - 1 : _nbr[0]
-      const s1 = _nbr[1] < 0 ? palette.length - _nbr[1] - 1 : _nbr[1]
-      const s2 = _nbr[2] < 0 ? palette.length - _nbr[2] - 1 : _nbr[2]
-      const s3 = _nbr[3] < 0 ? palette.length - _nbr[3] - 1 : _nbr[3]
-      const s4 = _nbr[4] < 0 ? palette.length - _nbr[4] - 1 : _nbr[4]
-      const s5 = _nbr[5] < 0 ? palette.length - _nbr[5] - 1 : _nbr[5]
-      hi = ((cellPi * CB + s0) * CB + s1) * CB + s2
-      lo = (s3 * CB + s4) * CB + s5
+    let mask
+    if (sigNumeric) {
+      const s0 = _nbr[0] >= 0 ? palSig[_nbr[0]] : _nbr[0] + 2
+      const s1 = _nbr[1] >= 0 ? palSig[_nbr[1]] : _nbr[1] + 2
+      const s2 = _nbr[2] >= 0 ? palSig[_nbr[2]] : _nbr[2] + 2
+      const s3 = _nbr[3] >= 0 ? palSig[_nbr[3]] : _nbr[3] + 2
+      const s4 = _nbr[4] >= 0 ? palSig[_nbr[4]] : _nbr[4] + 2
+      const s5 = _nbr[5] >= 0 ? palSig[_nbr[5]] : _nbr[5] + 2
+      const hi = ((palSig[cellPi] * 8192 + s0) * 8192 + s1) * 8192 + s2
+      const lo = (s3 * 8192 + s4) * 8192 + s5
+      let bucket = cullNum.get(hi)
+      if (bucket === undefined) cullNum.set(hi, bucket = new Map())
+      mask = bucket.get(lo)
+      if (mask === undefined) bucket.set(lo, mask = cullMaskOf(await cullFacesFor(entry, false)))
     } else {
-      hi = String(cellPi) + "|" + _nbr[0] + "|" + _nbr[1] + "|" + _nbr[2]
-      lo = _nbr[3] + "|" + _nbr[4] + "|" + _nbr[5]
+      let hi, lo
+      if (cullNumeric) {
+        const s0 = _nbr[0] < 0 ? palette.length - _nbr[0] - 1 : _nbr[0]
+        const s1 = _nbr[1] < 0 ? palette.length - _nbr[1] - 1 : _nbr[1]
+        const s2 = _nbr[2] < 0 ? palette.length - _nbr[2] - 1 : _nbr[2]
+        const s3 = _nbr[3] < 0 ? palette.length - _nbr[3] - 1 : _nbr[3]
+        const s4 = _nbr[4] < 0 ? palette.length - _nbr[4] - 1 : _nbr[4]
+        const s5 = _nbr[5] < 0 ? palette.length - _nbr[5] - 1 : _nbr[5]
+        hi = ((cellPi * CB + s0) * CB + s1) * CB + s2
+        lo = (s3 * CB + s4) * CB + s5
+      } else {
+        hi = String(cellPi) + "|" + _nbr[0] + "|" + _nbr[1] + "|" + _nbr[2]
+        lo = _nbr[3] + "|" + _nbr[4] + "|" + _nbr[5]
+      }
+      let bucket = cullMemo.get(hi)
+      if (bucket === undefined) cullMemo.set(hi, bucket = new Map())
+      mask = bucket.get(lo)
+      if (mask === undefined) bucket.set(lo, mask = cullMaskOf(await cullFacesFor(entry, true)))
     }
-    bucket = cullMemo.get(hi)
-    if (bucket === undefined) cullMemo.set(hi, bucket = new Map())
-    let cull = bucket.get(lo)
-    if (cull === undefined) {
-      const neighbors = {}
-      for (let di = 0; di < 6; di++) {
-        if (_nbr[di] >= 0) neighbors[DIR_NAMES[di]] = palette[_nbr[di]].flat
-        else if (_nbr[di] === -2) neighbors[DIR_NAMES[di]] = true
-      }
-      let ck = cullEnv + entry.sigId
-      for (let di = 0; di < 6; di++) {
-        ck += "," + (_nbr[di] >= 0 ? palette[_nbr[di]].sigId : _nbr[di])
-      }
-      cull = cullCache.get(ck)
-      if (cull === undefined) {
-        cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults })
-        cullCache.set(ck, cull)
-      }
-      bucket.set(lo, cull)
-    }
-    if (cull.size) {
-      let ci = cullIds.get(cull)
-      if (ci === undefined) cullIds.set(cull, ci = cullSets.push(cull) - 1)
+    if (mask) {
+      let ci = maskCull[mask]
+      if (ci < 0) maskCull[mask] = ci = cullSets.push(new Set(CULL_DIRS.filter((d, i) => mask & (1 << i)))) - 1
       cellCull[c] = ci
     }
 
