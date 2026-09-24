@@ -262,7 +262,7 @@ Optional, may be async. Adds three.js objects to the model's group. Runs after t
 | `model` | The resolved model data | `{ type: "block", "my_mod:overlays": [{…}] }` |
 | `assets` | The prepared assets | `[…]` (prepared assets) |
 | `args` | The render args | `{ width: 128, height: 128, lighting: "world" }` |
-| `block` | Placement context `{ id, properties, neighbors }`, or `null` when the caller gave no placement info. See [Placement-aware models](#placement-aware-models) | `{ id: "minecraft:oak_stairs", properties: { facing: "east" }, neighbors: {…} }` |
+| `block` | Placement context `{ id, properties, pos, neighbors }`, or `null` when the caller gave no placement info. See [Placement-aware models](#placement-aware-models) | `{ id: "minecraft:oak_stairs", properties: { facing: "east" }, pos: [4, 64, -2], neighbors: ([x, y, z]) => … }` |
 | `helpers` | Helpers that keep loader geometry consistent with the rest (below) | `{ THREE, createMaterial, … }` |
 
 The `helpers` object:
@@ -284,12 +284,21 @@ Optional. A loader whose output varies by placement returns a short string (e.g.
 | Argument | Description | Example |
 |---|---|---|
 | `model` | The resolved model data | `{ type: "block", "my_mod:overlays": [{…}] }` |
-| `block` | Placement context `{ id, properties, neighbors }`, or `null`. See [Placement-aware models](#placement-aware-models) | `{ id: "minecraft:oak_stairs", properties: { facing: "east" }, neighbors: {…} }` |
+| `block` | Placement context `{ id, properties, pos, neighbors }`, or `null`. See [Placement-aware models](#placement-aware-models) | `{ id: "minecraft:oak_stairs", properties: { facing: "east" }, pos: [4, 64, -2], neighbors: ([x, y, z]) => … }` |
 
 ### Placement-aware models
 
-Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbors). The `block` argument to `build` carries that context: `{ id, properties, neighbors }`, with `neighbors` in the same shape as [culling neighbors](culling.md#culling-hidden-faces). [`renderBlock`](standard-api.md#renderblockargs) fills it in automatically from its `id`/`blockstates`/`neighbors` args; when calling [`loadModel`](scenes.md#loadmodelscene-assets-model-args) directly, pass `block: { id, properties }` and the surrounding blocks as the separate `neighbors` arg, which gets merged in as `block.neighbors`. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
+Some formats build different geometry depending on where the block sits (connected textures, models that extend toward matching neighbors). The `block` argument to `build` and `variantKey` carries that context: `{ id, properties, pos, neighbors }`. `pos` is the block's world position, or `null` when the caller didn't give one.
 
-A loader whose output varies by placement should also implement [`variantKey`](#variantkeymodel-block), so anything caching built models keys the variants apart.
+`neighbors` looks up blocks relative to this one. Pass one offset for one block, or a list of offsets for a list of blocks in the same order. Each block is `{ id, ...properties }`, or `null` for air or anything outside what the caller knows about:
+
+```js
+const above = block.neighbors([0, 1, 0])
+const [north, south] = block.neighbors([[0, 0, -1], [0, 0, 1]])
+```
+
+Offsets are world-space `[x, y, z]`, unaffected by the model's `x`/`y` rotation, and can reach any distance. In [`createScene`](scenes.md#createsceneassets-blocks-args) the lookup covers the whole scene, including `context` blocks. [`renderBlock`](standard-api.md#renderblockargs) and [`loadModel`](scenes.md#loadmodelscene-assets-model-args) answer from their `neighbors` arg, so callers there control what's visible. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
+
+A loader whose output varies by placement must implement [`variantKey`](#variantkeymodel-block), reading `block.neighbors` the same way `build` does. [`createScene`](scenes.md#createsceneassets-blocks-args) builds one model per block state and reuses it for every placement, unless a loader with a `variantKey` claims one of the state's models: then each block's key picks which build it shares, and blocks with the same key share one. Only blocks those loaders claim pay for the lookup.
 
 Two worked loaders ship as examples in [`examples/node/render_loader.js`](../examples/node/render_loader.js): a from-scratch polygon model format with concatenating inheritance, and the (Neo)Forge OBJ format (`"loader": "forge:obj"`, mtl materials resolving `#slot` textures, `flip_v`).

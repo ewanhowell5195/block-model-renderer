@@ -6,6 +6,7 @@ import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, collectAnimated, applyFrame, applyTint, readTexture } from "./animation.js"
 import { blockRules } from "./data.js"
+import { faceNeighbors } from "./neighbors.js"
 
 const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east: "west", west: "east" }
 
@@ -161,9 +162,9 @@ export async function renderBlock(args = {}) {
 
   const models = await parseBlockstate(assets, args.id, { data: args.blockstates, nbt: args.nbt, mapArt: args.mapArt, seed: args.seed, pos: args.pos, randomOffset: args.randomOffset, biome: args.biome, ignoreAtlases: args.ignoreAtlases, version: args.version, defaults: args.defaults })
 
-  const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, blockstates: args.blockstates, neighbors: args.neighbors, assets, version: args.version, defaults: args.defaults }) : undefined)
+  const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, blockstates: args.blockstates, neighbors: faceNeighbors(args.neighbors), assets, version: args.version, defaults: args.defaults }) : undefined)
 
-  const block = { id: args.id, properties: args.blockstates }
+  const block = { id: args.id, properties: args.blockstates, pos: args.pos ?? null }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })

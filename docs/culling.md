@@ -6,15 +6,17 @@ Blocks in the world hide the faces pressed against their neighbors. To render a 
 await renderBlock({
   id: "oak_stairs",
   blockstates: { facing: "east", half: "bottom" },
-  neighbors: {
-    down: "stone",                             // id string = that block, default state
-    north: { id: "oak_slab", type: "bottom" }, // object = id + blockstate properties
-    up: true,                                  // force-cull this side
-    // omitted sides = air, nothing culled
+  neighbors: ([x, y, z]) => {
+    if (x === 0 && y === -1 && z === 0) return { id: "stone" }                  // id + blockstate properties
+    if (x === 0 && y === 0 && z === -1) return { id: "oak_slab", type: "bottom" }
+    if (x === 0 && y === 1 && z === 0) return true                               // force-cull this side
+    return null                                                                  // air, nothing culled
   },
   assets,
 })
 ```
+
+`neighbors` is called with an offset `[x, y, z]` from the block and returns the block there. Culling only asks for the six face offsets; [fluids](fluids.md) and [placement-aware loaders](extending.md#placement-aware-models) can ask for any offset.
 
 The rules follow Minecraft's `shouldRenderFace`. A `cullface`-authored face is dropped when:
 
@@ -34,7 +36,7 @@ The same logic as a standalone helper, for building your own scenes with [`loadM
 | `id` | required | The block id |
 | `assets` | required | The assets source |
 | `blockstates` | `{}` | The block's blockstate property values |
-| `neighbors` | | The surrounding blocks, as in [`renderBlock`](standard-api.md#renderblockargs) above |
+| `neighbors` | | The six face neighbors as an object keyed `up`, `down`, `north`, `south`, `west`, `east`. Each value is `{ id, ...properties }`, an id string, or `true` to force-cull that side |
 | `version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `defaults` | | Which [default blockstates](extending.md#default-blockstates) fill properties `blockstates` doesn't set, as in [`renderBlock`](standard-api.md#renderblockargs) |
 

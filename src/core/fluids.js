@@ -43,30 +43,6 @@ function ownHeight(id, properties) {
   return (level >= 1 && level <= 7 ? 8 - level : 8) / 9
 }
 
-const CK = (() => {
-  const t = new Array(27)
-  for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++) for (let x = -1; x <= 1; x++) {
-    t[(y + 1) * 9 + (z + 1) * 3 + (x + 1)] = cellKeyOf(x, y, z)
-  }
-  return t
-})()
-
-function cellKey(x, y, z) {
-  return x >= -1 && x <= 1 && y >= -1 && y <= 1 && z >= -1 && z <= 1
-    ? CK[(y + 1) * 9 + (z + 1) * 3 + (x + 1)]
-    : cellKeyOf(x, y, z)
-}
-
-function cellKeyOf(x, y, z) {
-  if (!x && !y && !z) return "self"
-  let k = y === 1 ? "up" : y === -1 ? "down" : ""
-  if (z === -1) k += (k ? "_" : "") + "north"
-  else if (z === 1) k += (k ? "_" : "") + "south"
-  if (x === -1) k += (k ? "_" : "") + "west"
-  else if (x === 1) k += (k ? "_" : "") + "east"
-  return k
-}
-
 const FLOW_DIRS = [[0, -1], [0, 1], [-1, 0], [1, 0]]
 const rulesMemo = new WeakMap()
 const cellMemo = new WeakMap()
@@ -85,11 +61,11 @@ export async function fluidHeights(assets, type, neighbors) {
     const k = (y + 1) * 9 + (z + 1) * 3 + (x + 1)
     const hit = seen[k]
     if (hit !== undefined) return hit
-    const v = neighbors?.[cellKey(x, y, z)] ?? (!x && !y && !z ? type : null)
+    const v = (typeof neighbors === "function" ? neighbors([x, y, z]) : null) ?? (!x && !y && !z ? type : null)
     let c = null
     if (v) {
       if (typeof v === "string") c = { id: v, properties: undefined, key: v + "|null" }
-      else {
+      else if (typeof v === "object") {
         c = cellMemo.get(v)
         if (!c) {
           const { id, ...properties } = v

@@ -6,6 +6,7 @@ import { computeSceneLight, isFlatBlocks } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
 import { blockRules } from "./data.js"
 import { optimizePlacements, cullMaskOf, CULL_DIRS } from "./optimize.js"
+import { ModelLoader, activeLoaders } from "./loaders.js"
 
 const nextTask = globalThis.scheduler?.yield
   ? () => scheduler.yield()
@@ -159,27 +160,10 @@ function cloneTemplate(src, rebind) {
   return walk(src, true)
 }
 
-const CK3 = (() => {
-  const t = new Array(27)
-  for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
-    t[(dy + 1) * 9 + (dz + 1) * 3 + (dx + 1)] = cellKey3(dx, dy, dz)
-  }
-  return t
-})()
-
 function fluidKey(f) {
   const o = f.overlay, s = f.same
   const bits = (f.full ? 1 : 0) | (o.north ? 2 : 0) | (o.south ? 4 : 0) | (o.west ? 8 : 0) | (o.east ? 16 : 0) | (s.north ? 32 : 0) | (s.south ? 64 : 0) | (s.west ? 128 : 0) | (s.east ? 256 : 0) | (s.up ? 512 : 0) | (s.down ? 1024 : 0)
   return f.nw + "," + f.ne + "," + f.sw + "," + f.se + "," + f.angle + "," + bits
-}
-
-function cellKey3(dx, dy, dz) {
-  let k = dy === 1 ? "up" : dy === -1 ? "down" : ""
-  if (dz === -1) k += (k ? "_" : "") + "north"
-  else if (dz === 1) k += (k ? "_" : "") + "south"
-  if (dx === -1) k += (k ? "_" : "") + "west"
-  else if (dx === 1) k += (k ? "_" : "") + "east"
-  return k
 }
 
 export async function createScene(assets, blocks, args = {}) {
@@ -255,6 +239,13 @@ export async function createScene(assets, blocks, args = {}) {
       if (i >= 0) j = cellIdx[i] - 1
     } else j = cellMap.get(x, y, z)
     return j >= 0 && cellPal[j] >= 0 ? j : -1
+  }
+  function neighborsAt(px, py, pz) {
+    function one(o) {
+      const c = cellAt(px + o[0], py + o[1], pz + o[2])
+      return c >= 0 ? palette[cellPal[c]].flat : null
+    }
+    return q => Array.isArray(q[0]) ? q.map(one) : one(q)
   }
   function cellOffset(c) {
     const limits = offsetOrigin ? palette[cellPal[c]].offsetLimits : null
@@ -390,6 +381,7 @@ export async function createScene(assets, blocks, args = {}) {
   }
 
   const sigIds = (assets.cache.sigIds ??= new Map())
+  const variantLoaders = activeLoaders().filter(l => l.variantKey && l.match)
   enter("parse")
   for (const entry of palette) {
     const rolls = entry.pos ? undefined : {}
@@ -405,17 +397,23 @@ export async function createScene(assets, blocks, args = {}) {
     if (sid === undefined) sigIds.set(entry.sig, sid = sigIds.size)
     entry.sigId = sid
     entry.fluid = fluidTypeOf(entry.id, entry.properties, rules)
+    entry.placed = null
+    if (variantLoaders.length) {
+      const placed = []
+      for (const model of entry.models) {
+        try {
+          const resolved = await resolveModelData(assets, model)
+          if (variantLoaders.some(l => l.match(resolved))) placed.push(resolved)
+        } catch {}
+      }
+      if (placed.length) entry.placed = placed
+    }
     await breathe()
     if (shouldCancel?.()) return null
   }
   // the cull key is the cell's own state plus its six neighbours, packed into
   // two integers rather than built as a string. -1 is "nothing there" and -2 is
   // "occluded from outside", which sit just past the palette
-  // one object of a fixed shape, refilled per fluid cell. fluidHeights is
-  // awaited before the next cell touches it
-  const HOOD_KEYS = [...new Set(CK3.filter(Boolean))].concat("self")
-  const HOOD = {}
-  for (const k of HOOD_KEYS) HOOD[k] = null
   const hoodPal = new Int32Array(27), fluidMemo = new Map()
 
   const cullCache = (assets.cache.cullFaces ??= new Map())
@@ -543,11 +541,11 @@ export async function createScene(assets, blocks, args = {}) {
       const hit = bucket?.find(e => e[0].every((v, k) => v === hoodPal[k]))
       if (hit) [, fh, fk] = hit
       else {
-        const hood = HOOD, key = Int32Array.from(hoodPal)
-        for (let k = 0; k < HOOD_KEYS.length; k++) hood[HOOD_KEYS[k]] = null
-        for (let k = 0; k < 27; k++) if (k !== 13 && key[k] >= 0) hood[CK3[k]] = palette[key[k]].flat
-        hood.self = entry.flat
-        fh = await fluidHeights(assets, entry.fluid, hood)
+        const key = Int32Array.from(hoodPal)
+        fh = await fluidHeights(assets, entry.fluid, ([x, y, z]) => {
+          const p = key[(y + 1) * 9 + (z + 1) * 3 + (x + 1)]
+          return p >= 0 ? palette[p].flat : null
+        })
         fk = fh ? fluidKey(fh) : ""
         if (bucket) bucket.push([key, fh, fk])
         else fluidMemo.set(h, [[key, fh, fk]])
@@ -555,14 +553,25 @@ export async function createScene(assets, blocks, args = {}) {
     }
 
     const pick = entry.rolls ? rollPicks(entry.rolls, px + origin[0], py + origin[1], pz + origin[2]) : null
+    let block = null, vk = null
+    if (entry.placed) {
+      block = { id: entry.id, properties: entry.properties ?? {}, pos: [px + origin[0], py + origin[1], pz + origin[2]], neighbors: neighborsAt(px, py, pz) }
+      for (const model of entry.placed) {
+        const k = ModelLoader.variantKey(model, block)
+        if (k !== null) vk = vk === null ? k : vk + "\u0001" + k
+      }
+    }
     const packed = fh === null && pick !== null ? pick * palette.length + cellPi : -1
-    const templateKey = pick === null && fh === null
-      ? cellPi
-      : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + fk
+    const templateKey = vk !== null
+      ? cellPi + "|" + (pick ?? "") + "|" + fk + "|" + vk
+      : pick === null && fh === null
+        ? cellPi
+        : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + fk
     let ti = templateIds.get(templateKey)
     if (ti === undefined) {
       templateIds.set(templateKey, ti = templateKeys.push(templateKey) - 1)
-      templateSpecs.set(templateKey, { entry, palette: cellPi, pick, pos: pick === null ? null : [px + origin[0], py + origin[1], pz + origin[2]], fh })
+      block ??= { id: entry.id, properties: entry.properties ?? {}, pos: [px + origin[0], py + origin[1], pz + origin[2]], neighbors: neighborsAt(px, py, pz) }
+      templateSpecs.set(templateKey, { entry, palette: cellPi, pick, pos: pick === null ? null : [px + origin[0], py + origin[1], pz + origin[2]], fh, block, vk })
     }
     cellTmpl[c] = ti
 
@@ -613,7 +622,7 @@ export async function createScene(assets, blocks, args = {}) {
     const cacheable = !spec.entry.nbt && !spec.entry.pos
     const cacheKey = cacheable
       ? spec.entry.id + "\0" + JSON.stringify(spec.entry.properties) + "\0" + JSON.stringify(spec.entry.biome)
-        + "\0" + (spec.pick ?? "") + "\0" + (spec.fh ? JSON.stringify(spec.fh) : "") + "\0" + envSig
+        + "\0" + (spec.pick ?? "") + "\0" + (spec.fh ? JSON.stringify(spec.fh) : "") + "\0" + (spec.vk ?? "") + "\0" + envSig
       : null
     let tmpl
     const hit = cacheKey ? tcache.get(cacheKey) : undefined
@@ -640,7 +649,7 @@ export async function createScene(assets, blocks, args = {}) {
           await loadModel(tmpl, assets, await resolveModelData(assets, model), {
             display: {}, animate: false, lighting: lightingOpt,
             shaderScale: args.shaderScale,
-            block: { id: spec.entry.id, properties: spec.entry.properties ?? {} },
+            block: spec.block ?? { id: spec.entry.id, properties: spec.entry.properties ?? {} },
             fluidHeights: spec.fh, version, defaults
           })
         } catch {}
@@ -723,7 +732,7 @@ export async function createScene(assets, blocks, args = {}) {
               await loadModel(culled, assets, await resolveModelData(assets, model), {
                 display: {}, animate: false, lighting: lightingOpt, cull: cellCullSet,
                 shaderScale: args.shaderScale,
-                block: { id: spec.entry.id, properties: spec.entry.properties ?? {} },
+                block: spec.block ?? { id: spec.entry.id, properties: spec.entry.properties ?? {} },
                 fluidHeights: spec.fh, version, defaults
               })
             } catch {}

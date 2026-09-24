@@ -7,34 +7,36 @@ In the world a fluid's shape depends on its surroundings: each surface corner av
 ```js
 import { parseBlockstate, resolveModelData, loadModel } from "block-model-renderer"
 
+const around = new Map([
+  ["0,0,0", { id: "water", level: "2" }],
+  ["0,0,-1", { id: "water" }],
+  ["1,0,-1", { id: "water" }],
+  ["1,0,0", { id: "water", level: "4" }],
+  ["0,1,-1", { id: "water" }],
+  ["-1,0,0", { id: "stone" }],
+  ["0,0,1", { id: "glass" }]
+])
+
 for (const model of await parseBlockstate(assets, "water", { data: { level: "2" } })) {
   const data = await resolveModelData(assets, model)
   await loadModel(scene, assets, data, {
     lighting: "world",
-    neighbors: {
-      self: { id: "water", level: "2" },
-      north: "water",
-      north_east: "water",
-      east: { id: "water", level: "4" },
-      up_north: "water",
-      west: "stone",
-      south: "glass"
-    }
+    neighbors: ([x, y, z]) => around.get(`${x},${y},${z}`) ?? null
   })
 }
 ```
 
-The object uses the same per-direction values as [`renderBlock`](standard-api.md#renderblockargs)'s culling `neighbors` (a block id string, or `{ id, ...properties }`), extended with diagonal and vertical keys since the surface shape needs them. Anything missing counts as air. Non-fluid models ignore it. [`renderBlock`](standard-api.md#renderblockargs) forwards its `neighbors` here automatically, so a fluid rendered through it gets both culling and surface shaping from the one object.
+`neighbors` is the same lookup [`renderBlock`](standard-api.md#renderblockargs) takes for culling: called with an offset `[x, y, z]`, it returns `{ id, ...properties }` for the block there, or `null` for air. Non-fluid models ignore it. [`renderBlock`](standard-api.md#renderblockargs) forwards its `neighbors` here automatically, so a fluid rendered through it gets both culling and surface shaping from the one function.
 
-| Key | Used for |
+The surface reads every offset within one block:
+
+| Offsets | Used for |
 |---|---|
-| `self` | The fluid block itself; its `level` property sets its own height. Optional: when omitted, the block counts as the still fluid |
-| `north`, `south`, `east`, `west` | Corner averaging, hiding shared faces, overlays, and flow direction |
-| `north_east`, `north_west`, `south_east`, `south_west` | Corner averaging with the diagonal columns |
-| `up`, plus `up_north` ... `up_south_west` | Fluid above a column makes that column full height |
-| `down`, plus `down_north` ... `down_west` | Falling fluid below: hides the bottom face and pulls the flow |
-
-Compound keys order as vertical, then north/south, then east/west (`up_north_east`, `down_west`).
+| `[0, 0, 0]` | The fluid block itself; its `level` property sets its own height. Returning `null` counts it as the still fluid |
+| `[±1, 0, 0]`, `[0, 0, ±1]` | Corner averaging, hiding shared faces, overlays, and flow direction |
+| `[±1, 0, ±1]` | Corner averaging with the diagonal columns |
+| `y` of `1` | Fluid above a column makes that column full height |
+| `y` of `-1` | Falling fluid below: hides the bottom face and pulls the flow |
 
 That's the whole API for a single block. The two helpers below only matter when you render fluids at scale, scanning a structure or world for fluid cells and reusing surface shapes across models and blocks; skip them otherwise.
 
@@ -64,7 +66,8 @@ Use it to compute a block's surface shape once and share it: a waterlogged block
 import { parseBlockstate, resolveModelData, loadModel, fluidTypeOf, fluidHeights } from "block-model-renderer"
 
 const type = fluidTypeOf("oak_fence", { waterlogged: "true" }) // "water"
-const heights = await fluidHeights(assets, type, { north: "water", north_east: "water", east: "water" })
+const water = new Set(["0,0,-1", "1,0,-1", "1,0,0"])
+const heights = await fluidHeights(assets, type, ([x, y, z]) => water.has(`${x},${y},${z}`) ? { id: "water" } : null)
 
 // a waterlogged fence resolves to two models, the fence and its water layer:
 // both share the one precomputed shape
@@ -78,7 +81,7 @@ for (const model of await parseBlockstate(assets, "oak_fence", { data: { waterlo
 |---|---|
 | `assets` | The assets source (neighbor solidity is read from their models) |
 | `type` | `"water"` or `"lava"`, or `null` for a non-fluid (this is [`fluidTypeOf`](#fluidtypeofid-properties)'s return, passed straight through) |
-| `neighbors` | The surrounding blocks, in the same direction-keyed form shown above |
+| `neighbors` | The surrounding blocks, as the offset lookup shown above |
 
 Returns an object you can pass to [`loadModel`](scenes.md#loadmodelscene-assets-model-args) as its `fluidHeights` arg (or `null` when `type` was `null`):
 

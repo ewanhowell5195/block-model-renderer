@@ -44,7 +44,7 @@ Default display:
 
 | Option | Default | Description |
 |---|---|---|
-| `neighbors` | | The blocks surrounding this one; faces they hide are dropped, and fluid surfaces shape themselves from it. See [Culling hidden faces](culling.md#culling-hidden-faces) and [Fluids](fluids.md) |
+| `neighbors` | | A lookup `([x, y, z]) => block` for the blocks around this one, called with offsets from it and returning `{ id, ...properties }` or `null`. Faces they hide are dropped, fluid surfaces shape themselves from it, and [placement-aware loaders](extending.md#placement-aware-models) read it. See [Culling hidden faces](culling.md#culling-hidden-faces) and [Fluids](fluids.md) |
 | `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](culling.md#culling-hidden-faces) |
 
 **Asset interpretation:**

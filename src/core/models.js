@@ -7,6 +7,7 @@ import { buildAnimation } from "./animation.js"
 import { classifyPngAlpha, hashBytes } from "./png.js"
 import { modelLoaders, activeLoaders } from "./loaders.js"
 import { mapArtFor, mapIdOf } from "./maps.js"
+import { neighborLookup } from "./neighbors.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
@@ -2318,7 +2319,7 @@ export async function loadModel(scene, assets, model, args) {
   if (scene) scene.userData.daytime = daytime
   const fog = scene?.userData?.fog ?? (world?.fog?.uniforms ? world.fog : makeFog(world?.fog, world?.dim))
   if (scene) scene.userData.fog = fog
-  const block = args?.block ? { ...args.block, neighbors: args?.neighbors ?? null } : null
+  const block = args?.block ? { ...args.block, neighbors: args.neighbors ? neighborLookup(args.neighbors) : args.block.neighbors ?? neighborLookup() } : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   if (!model.version && (args?.version ?? assets.version)) model.version = args?.version ?? assets.version
 

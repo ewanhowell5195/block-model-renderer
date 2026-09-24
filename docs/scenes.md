@@ -238,9 +238,9 @@ Where the block sits:
 | Option | Description |
 |---|---|
 | `args.cull` | Face directions to drop, as a `Set` from [`getCullFaces`](culling.md#getcullfacesargs) or a plain object like `{ north: true }`. Faces whose `cullface` points at a culled direction are skipped |
-| `args.neighbors` | The surrounding blocks as a direction-keyed object (`north`, `north_east`, `up`, `self`, ...). Shapes fluid surfaces (see [Fluids](fluids.md)), and is merged into `args.block` as the placement context's `neighbors` for loaders |
+| `args.neighbors` | A lookup `([x, y, z]) => block` for the surrounding blocks, as in [`renderBlock`](standard-api.md#renderblockargs). Shapes fluid surfaces (see [Fluids](fluids.md)), and becomes `block.neighbors` for [placement-aware loaders](extending.md#placement-aware-models) |
 | `args.fluidHeights` | Fluid models only: a precomputed [`fluidHeights`](fluids.md#fluidheightsassets-type-neighbors) result, reused instead of deriving it from `neighbors` again |
-| `args.block` | Placement context (`{ id, properties }`) for [placement-aware model loaders](extending.md#placement-aware-models). Its `neighbors` are filled from `args.neighbors`, so don't set them here |
+| `args.block` | Placement context (`{ id, properties, pos }`) for [placement-aware model loaders](extending.md#placement-aware-models). Its `neighbors` come from `args.neighbors` |
 
 How the group is built:
 
