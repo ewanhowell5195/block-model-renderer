@@ -660,7 +660,7 @@ function getMultipartDefaults(multipart) {
   return first
 }
 
-export const posHash = (x, y, z) => {
+const posHash = (x, y, z) => {
   const h = Math.imul(x, 3129871) ^ Math.imul(z, 116129781) ^ y
   return (Math.imul(Math.imul(h, h), 42317861) + Math.imul(h, 11) | 0) >>> 16
 }
@@ -672,6 +672,113 @@ export function randomOffset(x, z, horizontal, vertical) {
   return [spread(h & 15), vertical ? (step((h >> 4) & 15) - 1) * Math.fround(vertical) : 0, spread((h >> 8) & 15)]
 }
 
+let limb0 = 0, limb1 = 0, limb2 = 0, limb3 = 0
+
+function mulLimbs(a0, a1, a2, a3, b0, b1, b2, b3) {
+  const c0 = a0 * b0
+  let c1 = (c0 >>> 16) + a1 * b0
+  let c2 = c1 >>> 16
+  c1 = (c1 & 0xFFFF) + a0 * b1
+  c2 += (c1 >>> 16) + a2 * b0
+  let c3 = c2 >>> 16
+  c2 = (c2 & 0xFFFF) + a1 * b1
+  c3 += c2 >>> 16
+  c2 = (c2 & 0xFFFF) + a0 * b2
+  c3 += (c2 >>> 16) + a3 * b0 + a2 * b1 + a1 * b2 + a0 * b3
+  limb0 = c0 & 0xFFFF
+  limb1 = c1 & 0xFFFF
+  limb2 = c2 & 0xFFFF
+  limb3 = c3 & 0xFFFF
+}
+
+let seedHigh = 0, seedLow = 0
+
+function positionSeed(x, y, z) {
+  const xi = Math.imul(x, 3129871)
+  const zs = z < 0 ? 0xFFFF : 0
+  mulLimbs(z & 0xFFFF, z >>> 16, zs, zs, 116129781 & 0xFFFF, 116129781 >>> 16, 0, 0)
+  const sign = (xi < 0 ? 0xFFFF : 0) ^ (y < 0 ? 0xFFFF : 0)
+  const s0 = limb0 ^ xi & 0xFFFF ^ y & 0xFFFF
+  const s1 = limb1 ^ xi >>> 16 ^ y >>> 16
+  const s2 = limb2 ^ sign
+  const s3 = limb3 ^ sign
+  mulLimbs(s0, s1, s2, s3, 42317861 & 0xFFFF, 42317861 >>> 16, 0, 0)
+  let t0 = limb0 + 11, t1 = limb1, t2 = limb2, t3 = limb3
+  if (t0 > 0xFFFF) {
+    t0 &= 0xFFFF
+    if (++t1 > 0xFFFF) {
+      t1 = 0
+      if (++t2 > 0xFFFF) {
+        t2 = 0
+        t3 = t3 + 1 & 0xFFFF
+      }
+    }
+  }
+  mulLimbs(s0, s1, s2, s3, t0, t1, t2, t3)
+  seedLow = (limb1 | limb2 << 16) >>> 0
+  seedHigh = limb3 << 16 >> 16
+}
+
+let lcgHigh = 0, lcgLow = 0
+
+function lcgSeed(high, low) {
+  const l = (low ^ 0xDEECE66D) >>> 0
+  lcgLow = l & 0xFFFFFF
+  lcgHigh = l >>> 24 | ((high ^ 5) & 0xFFFF) << 8
+}
+
+function lcgNext(bits) {
+  const low = lcgLow * 0xECE66D + 11
+  const carry = Math.floor(low / 16777216)
+  lcgHigh = (lcgHigh * 0xECE66D + lcgLow * 0x5DE + carry) % 16777216
+  lcgLow = low - carry * 16777216
+  return (lcgHigh * 2 ** (bits - 24) + (lcgLow >>> 48 - bits)) | 0
+}
+
+function lcgNextInt(bound) {
+  if ((bound & bound - 1) === 0) return Math.floor(bound * lcgNext(31) / 2147483648)
+  let sample, modulo
+  do {
+    sample = lcgNext(31)
+    modulo = sample % bound
+  } while ((sample - modulo + bound - 1 | 0) < 0)
+  return modulo
+}
+
+function lcgNextLong() {
+  const upper = lcgNext(32)
+  const lower = lcgNext(32)
+  seedHigh = (upper + (lower >> 31)) | 0
+  seedLow = lower >>> 0
+}
+
+export function rollPicks(rolls, x, y, z) {
+  positionSeed(x + rolls.shift[0], y + rolls.shift[1], z + rolls.shift[2])
+  const high = seedHigh, low = seedLow
+  let partHigh = 0, partLow = 0, partSeeded = false
+  let key = 0
+  for (const list of rolls.lists) {
+    if (!list.part) lcgSeed(high, low)
+    else {
+      if (!partSeeded) {
+        lcgSeed(high, low)
+        lcgNextLong()
+        partHigh = seedHigh
+        partLow = seedLow
+        partSeeded = true
+      }
+      lcgSeed(partHigh, partLow)
+    }
+    let r = lcgNextInt(list.total)
+    let i = 0
+    while (i < list.weights.length - 1 && (r -= list.weights[i]) >= 0) i++
+    key = key * list.weights.length + i
+  }
+  return key
+}
+
+const BED_HEAD = { north: [0, -1], south: [0, 1], west: [-1, 0], east: [1, 0] }
+
 function seededRandom(seed) {
   let a = seed | 0
   return () => {
@@ -682,12 +789,12 @@ function seededRandom(seed) {
   }
 }
 
-function pickWeighted(value, rand) {
+function pickWeighted(value, roll) {
   if (!Array.isArray(value)) return value
-  if (!rand || value.length <= 1) return value[0]
+  if (!roll || value.length <= 1) return value[0]
   let total = 0
   for (const entry of value) total += entry.weight ?? 1
-  let r = rand() * total
+  let r = roll(total)
   for (const entry of value) {
     r -= entry.weight ?? 1
     if (r < 0) return entry
@@ -700,7 +807,6 @@ export async function parseBlockstate(assets, blockstate, args) {
   if (AIR_BLOCKS.test(blockstate)) return []
   if (assets == null || assets.length === 0) throw new Error("parseBlockstate requires assets")
   let data = args?.data ?? {}
-  const rand = args?.seed != null ? seededRandom(args.seed) : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   const version = args?.version ?? assets.version
   const defaultsMode = args?.defaults ?? assets.defaults
@@ -713,6 +819,42 @@ export async function parseBlockstate(assets, blockstate, args) {
   const stateValue = defaultsMode === "game"
     ? key => data[key] ?? defaults.unique(defaultsId)[key] ?? defaults.properties[key]
     : key => data[key]
+
+  let variantRoll = null
+  let partRoll = null
+  const rolls = args?.rolls
+  if (args?.seed != null) {
+    const rand = seededRandom(args.seed)
+    variantRoll = partRoll = total => rand() * total
+  } else if (args?.pos || rolls) {
+    const own = key => data[key] ?? defaults.unique(defaultsId)[key]
+    const head = own("part") === "foot" ? BED_HEAD[own("facing") ?? defaults.properties.facing] : null
+    const shift = [head ? head[0] : 0, own("half") === "upper" ? -1 : 0, head ? head[1] : 0]
+    if (rolls) {
+      rolls.shift = shift
+      rolls.lists = []
+    }
+    if (args.pos) {
+      positionSeed(args.pos[0] + shift[0], args.pos[1] + shift[1], args.pos[2] + shift[2])
+      const high = seedHigh, low = seedLow
+      lcgSeed(high, low)
+      lcgNextLong()
+      const partHigh = seedHigh, partLow = seedLow
+      variantRoll = total => {
+        lcgSeed(high, low)
+        return lcgNextInt(total)
+      }
+      partRoll = total => {
+        lcgSeed(partHigh, partLow)
+        return lcgNextInt(total)
+      }
+    }
+  }
+  function recordRoll(value, part) {
+    if (!rolls?.lists || !Array.isArray(value) || value.length <= 1) return
+    const weights = value.map(e => e.weight ?? 1)
+    rolls.lists.push({ part, weights, total: weights.reduce((a, b) => a + b, 0) })
+  }
 
   let frameMapArt = null
   if (args?.nbt && /^(glow_)?item_frame$/.test(block) && /(^|:)filled_map$/.test(args.nbt.Item?.id ?? "")) {
@@ -768,7 +910,8 @@ export async function parseBlockstate(assets, blockstate, args) {
 
       if (scored.length > 0) {
         scored.sort((a, b) => b.score - a.score)
-        models.push(pickWeighted(scored[0].value, rand))
+        recordRoll(scored[0].value, false)
+        models.push(pickWeighted(scored[0].value, variantRoll))
       }
     } else if (json.multipart) {
       const ranges = new Set
@@ -833,7 +976,8 @@ export async function parseBlockstate(assets, blockstate, args) {
               usedKeyValues[key] = value
             }
           }
-          const apply = pickWeighted(part.apply, rand)
+          recordRoll(part.apply, true)
+          const apply = pickWeighted(part.apply, partRoll)
           if (!apply?.model) return
           models.push(apply)
           if (index < firstIndex) {

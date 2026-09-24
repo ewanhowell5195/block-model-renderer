@@ -1,6 +1,6 @@
-import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
-import { prepareAssets, scopedCache, readFile } from "./assets.js"
-import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog, posHash, randomOffset } from "./models.js"
+import { THREE, normalize } from "./platform.js"
+import { prepareAssets, scopedCache } from "./assets.js"
+import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog, randomOffset, rollPicks } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight, isFlatBlocks } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -26,6 +26,7 @@ const DIRS = {
 const DIR_NAMES = Object.keys(DIRS)
 const DIR_VECS = Object.values(DIRS)
 const _nbr = new Int32Array(6)
+const NO_OFFSET = [0, 0, 0]
 
 const templateCaches = new WeakMap()
 const TEMPLATE_CACHE_MAX = 4096
@@ -91,25 +92,6 @@ function cloneTemplate(src, rebind) {
   return walk(src, true)
 }
 
-async function hasRandomModels(assets, id) {
-  const cache = assets.cache.sceneRandom ??= new Map()
-  if (cache.has(id)) return cache.get(id)
-  let random = false
-  try {
-    const { namespace, item } = resolveNamespace(id)
-    const buf = await readFile(`assets/${namespace}/blockstates/${item}.json`, assets)
-    if (buf) {
-      const json = parseJson(buf)
-      if (json.variants) random = Object.values(json.variants).some(v => Array.isArray(v) && v.length > 1)
-      else if (json.multipart) random = json.multipart.some(p => Array.isArray(p.apply) && p.apply.length > 1)
-    }
-  } catch {}
-  cache.set(id, random)
-  return random
-}
-
-const withOffset = (models, offset) => offset ? models.map(m => m && typeof m === "object" && !m.fluid ? { ...m, offset } : m) : models
-
 const CK3 = (() => {
   const t = new Array(27)
   for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
@@ -143,7 +125,8 @@ export async function createScene(assets, blocks, args = {}) {
   const version = args.version ?? assets.version
   const onProgress = args.onProgress
   const shouldCancel = args.shouldCancel
-  const offsetOrigin = args.randomOffset ? (Array.isArray(args.randomOffset.origin) ? args.randomOffset.origin : [0, 0]) : null
+  const origin = Array.isArray(args.origin) ? args.origin : [0, 0, 0]
+  const offsetOrigin = args.randomOffset ? (Array.isArray(args.randomOffset.origin) ? args.randomOffset.origin : [origin[0], origin[2]]) : null
 
   const givenLight = worldCfg?.light && typeof worldCfg.light === "object" ? worldCfg.light : null
   const computeLight = worldCfg != null && !givenLight && worldCfg.light !== false
@@ -199,6 +182,10 @@ export async function createScene(assets, blocks, args = {}) {
       if (i >= 0) j = cellIdx[i]
     } else j = cellMap.get(PK(x, y, z)) ?? -1
     return j >= 0 && cellPal[j] >= 0 ? j : -1
+  }
+  function cellOffset(c) {
+    const limits = offsetOrigin ? palette[cellPal[c]].offsetLimits : null
+    return limits ? randomOffset(cellX[c] + offsetOrigin[0], cellZ[c] + offsetOrigin[1], limits[0], limits[1]) : NO_OFFSET
   }
   function putCell(x, y, z, pi, context) {
     if (cellIdx) {
@@ -328,17 +315,19 @@ export async function createScene(assets, blocks, args = {}) {
   const sigIds = (assets.cache.sigIds ??= new Map())
   enter("parse")
   for (const entry of palette) {
+    const rolls = entry.pos ? undefined : {}
     entry.models = await parseBlockstate(assets, entry.id, {
       data: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
-      mapArt: args.mapArt, pos: entry.pos ?? undefined, ignoreAtlases: args.ignoreAtlases, version, defaults
+      mapArt: args.mapArt, pos: entry.pos ?? undefined, rolls, ignoreAtlases: args.ignoreAtlases, version, defaults
     })
+    entry.rolls = rolls?.lists?.length ? rolls : null
+    entry.offsetLimits = offsetOrigin ? rules.offset(entry.id) : null
     entry.flat = { id: entry.id, ...(entry.properties ?? {}) }
     entry.sig = entry.id + "\u0000" + JSON.stringify(entry.properties ?? null)
     let sid = sigIds.get(entry.sig)
     if (sid === undefined) sigIds.set(entry.sig, sid = sigIds.size)
     entry.sigId = sid
     entry.fluid = fluidTypeOf(entry.id, entry.properties, rules)
-    entry.random = await hasRandomModels(assets, entry.id)
     await breathe()
     if (shouldCancel?.()) return null
   }
@@ -445,22 +434,14 @@ export async function createScene(assets, blocks, args = {}) {
       fh = await fluidHeights(assets, entry.fluid, hood)
     }
 
-    let seed = null
-    if (entry.random) {
-      seed = Math.imul((posHash(px, py, pz) & 15) + 1, 0x9E3779B1) >>> 0
-    }
-    let offset = null
-    if (offsetOrigin) {
-      const limits = rules.offset(entry.id)
-      if (limits) offset = randomOffset(px + offsetOrigin[0], pz + offsetOrigin[1], limits[0], limits[1])
-    }
-    const templateKey = seed === null && fh === null && offset === null
+    const pick = entry.rolls ? rollPicks(entry.rolls, px + origin[0], py + origin[1], pz + origin[2]) : null
+    const templateKey = pick === null && fh === null
       ? cellPi
-      : cellPi + "|" + (seed ?? "") + "|" + (fh ? JSON.stringify(fh) : "") + "|" + (offset ? offset.join(",") : "")
+      : cellPi + "|" + (pick ?? "") + "|" + (fh ? JSON.stringify(fh) : "")
     let ti = templateIds.get(templateKey)
     if (ti === undefined) {
       templateIds.set(templateKey, ti = templateKeys.push(templateKey) - 1)
-      templateSpecs.set(templateKey, { entry, palette: cellPi, seed, fh, offset })
+      templateSpecs.set(templateKey, { entry, palette: cellPi, pick, pos: pick === null ? null : [px + origin[0], py + origin[1], pz + origin[2]], fh })
     }
     cellTmpl[c] = ti
 
@@ -472,7 +453,7 @@ export async function createScene(assets, blocks, args = {}) {
   }
   for (const o of overlays) {
     o.template = o.palette
-    if (!templateSpecs.has(o.template)) templateSpecs.set(o.template, { entry: palette[o.palette], palette: o.palette, seed: null, fh: null })
+    if (!templateSpecs.has(o.template)) templateSpecs.set(o.template, { entry: palette[o.palette], palette: o.palette, pick: null, pos: null, fh: null })
   }
   report(1, 1)
 
@@ -511,7 +492,7 @@ export async function createScene(assets, blocks, args = {}) {
     const cacheable = !spec.entry.nbt && !spec.entry.pos
     const cacheKey = cacheable
       ? spec.entry.id + "\0" + JSON.stringify(spec.entry.properties) + "\0" + JSON.stringify(spec.entry.biome)
-        + "\0" + (spec.seed ?? "") + "\0" + (spec.fh ? JSON.stringify(spec.fh) : "") + "\0" + (spec.offset ? spec.offset.join(",") : "") + "\0" + envSig
+        + "\0" + (spec.pick ?? "") + "\0" + (spec.fh ? JSON.stringify(spec.fh) : "") + "\0" + envSig
       : null
     let tmpl
     const hit = cacheKey ? tcache.get(cacheKey) : undefined
@@ -527,13 +508,13 @@ export async function createScene(assets, blocks, args = {}) {
     } else {
       tmpl = new THREE.Group()
       if (daytimeUniform) tmpl.userData.daytime = daytimeUniform
-      const models = spec.seed != null
+      const models = spec.pos
         ? await parseBlockstate(assets, spec.entry.id, {
           data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
-          mapArt: args.mapArt, pos: spec.entry.pos ?? undefined, seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version, defaults
+          mapArt: args.mapArt, pos: spec.pos, ignoreAtlases: args.ignoreAtlases, version, defaults
         })
         : spec.entry.models
-      for (const model of withOffset(models, spec.offset)) {
+      for (const model of models) {
         try {
           await loadModel(tmpl, assets, await resolveModelData(assets, model), {
             display: {}, animate: false, lighting: lightingOpt,
@@ -566,7 +547,7 @@ export async function createScene(assets, blocks, args = {}) {
     enter("optimize")
     let n = overlays.length
     for (let c = 0; c < cellN; c++) if (cellPal[c] >= 0 && cellTmpl[c] >= 0) n++
-    const groups = [], gi = new Int32Array(n), pos = new Int32Array(n * 3), ci = new Int32Array(n)
+    const groups = [], gi = new Int32Array(n), pos = offsetOrigin ? new Float64Array(n * 3) : new Int32Array(n * 3), ci = new Int32Array(n)
     const groupIds = new Map()
     function addPlacement(i, key, x, y, z, cull) {
       let g = groupIds.get(key)
@@ -580,7 +561,8 @@ export async function createScene(assets, blocks, args = {}) {
     let pn = 0
     for (let c = 0; c < cellN; c++) {
       if (cellPal[c] < 0 || cellTmpl[c] < 0) continue
-      addPlacement(pn++, templateKeys[cellTmpl[c]], cellX[c], cellY[c], cellZ[c], cellCull[c])
+      const off = cellOffset(c)
+      addPlacement(pn++, templateKeys[cellTmpl[c]], cellX[c] + off[0], cellY[c] + off[1], cellZ[c] + off[2], cellCull[c])
     }
     for (const o of overlays) addPlacement(pn++, o.template, o.pos[0], o.pos[1], o.pos[2], -1)
     optimized = await optimizePlacements({ n, groups, gi, pos, culls: cullSets, ci }, {
@@ -609,13 +591,13 @@ export async function createScene(assets, blocks, args = {}) {
           const spec = templateSpecs.get(templateKey)
           culled = new THREE.Group()
           culled.userData.daytime = daytimeUniform
-          const models = spec.seed != null
+          const models = spec.pos
             ? await parseBlockstate(assets, spec.entry.id, {
               data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined,
-              seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version, defaults
+              pos: spec.pos, ignoreAtlases: args.ignoreAtlases, version, defaults
             })
             : spec.entry.models
-          for (const model of withOffset(models, spec.offset)) {
+          for (const model of models) {
             try {
               await loadModel(culled, assets, await resolveModelData(assets, model), {
                 display: {}, animate: false, lighting: lightingOpt, cull: cellCullSet,
@@ -631,7 +613,8 @@ export async function createScene(assets, blocks, args = {}) {
         tmpl = culled
       }
       const inst = cloneInstance(tmpl, true)
-      inst.position.set(cellX[c] * 16, cellY[c] * 16, cellZ[c] * 16)
+      const off = cellOffset(c)
+      inst.position.set((cellX[c] + off[0]) * 16, (cellY[c] + off[1]) * 16, (cellZ[c] + off[2]) * 16)
       group.add(inst)
       inst.traverse(o => {
         if (o.isLineSegments) { drawCalls++; return }
@@ -659,7 +642,7 @@ export async function createScene(assets, blocks, args = {}) {
 
   const bounds = new THREE.Box3().setFromObject(group)
 
-  let templates = null, blockTemplate = null
+  let templates = null, blockTemplate = null, blockOffset = null
   if (args.keepTemplates) {
     templates = []
     const templateIdx = new Map()
@@ -668,6 +651,7 @@ export async function createScene(assets, blocks, args = {}) {
       templates.push({ palette: spec.palette, group: templateOf.get(key) })
     }
     blockTemplate = new Uint32Array(count).fill(0xFFFFFFFF)
+    if (offsetOrigin) blockOffset = new Float32Array(count * 3)
     for (let i = 0; i < count; i++) {
       let c
       if (flat) {
@@ -678,24 +662,27 @@ export async function createScene(assets, blocks, args = {}) {
         if (!b?.pos) continue
         c = cellAt(b.pos[0], b.pos[1], b.pos[2])
       }
-      if (c >= 0 && cellTmpl[c] >= 0) blockTemplate[i] = templateIdx.get(templateKeys[cellTmpl[c]])
+      if (c < 0 || cellTmpl[c] < 0) continue
+      blockTemplate[i] = templateIdx.get(templateKeys[cellTmpl[c]])
+      if (blockOffset) blockOffset.set(cellOffset(c), i * 3)
     }
   }
 
-  return sceneHandle({ group, palette, blockPalette, templates, blockTemplate, bounds, light, drawCalls, tris, optimized, ownsLight: computeLight, usedEntries, tcache })
+  return sceneHandle({ group, palette, blockPalette, templates, blockTemplate, blockOffset, bounds, light, drawCalls, tris, optimized, ownsLight: computeLight, usedEntries, tcache })
 }
 
 function relayProgress(onProgress, stage) {
   return onProgress ? (done, total) => onProgress(stage, done, total) : undefined
 }
 
-function sceneHandle({ group, palette, blockPalette, templates, blockTemplate, bounds, light, drawCalls, tris, optimized, ownsLight, usedEntries, tcache }) {
+function sceneHandle({ group, palette, blockPalette, templates, blockTemplate, blockOffset, bounds, light, drawCalls, tris, optimized, ownsLight, usedEntries, tcache }) {
   return {
     group,
     palette,
     blockPalette,
     templates,
     blockTemplate,
+    blockOffset,
     bounds,
     light,
     drawCalls,

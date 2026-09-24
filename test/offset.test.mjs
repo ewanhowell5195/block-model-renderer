@@ -1,7 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { createScene, parseBlockstate } from "../src/node.js"
-import { THREE } from "../src/core/platform.js"
 import { randomOffset } from "../src/core/models.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
@@ -33,29 +32,42 @@ test("random offsets match the game's 64-bit position seed", () => {
   }
 })
 
-function templateMin(handle, index) {
-  const group = handle.templates[handle.blockTemplate[index]].group
-  group.updateMatrixWorld(true)
-  return new THREE.Box3().setFromObject(group).min
+function assertNear(actual, expected, tolerance) {
+  for (let i = 0; i < 3; i++) assert.ok(Math.abs(actual[i] - expected[i]) < tolerance, `${actual} vs ${expected}`)
 }
 
-function assertShift(on, off, expected) {
-  const shift = [(on.x - off.x) / 16, (on.y - off.y) / 16, (on.z - off.z) / 16]
-  for (let i = 0; i < 3; i++) assert.ok(Math.abs(shift[i] - expected[i]) < 1e-9, `${shift} vs ${expected}`)
+async function sceneMin(block, args) {
+  const handle = await createScene([jar], [block], { lighting: "item", ...args })
+  const min = handle.bounds.min.toArray()
+  handle.dispose()
+  return min
 }
 
 test("randomOffset shifts offset blocks by their world position", async () => {
-  const blocks = [{ id: "short_grass", pos: [3, 0, -7] }, { id: "stone", pos: [4, 0, -7] }, { id: "pointed_dripstone", pos: [5, 0, -7] }]
-  const off = await createScene([jar], blocks, { lighting: "item", optimize: false, keepTemplates: true })
+  const blocks = [{ id: "short_grass", pos: [3, 0, -7] }, { id: "stone", pos: [4, 0, -7] }, { id: "pointed_dripstone", pos: [5, 0, -7] }, { id: "short_grass", pos: [3, 0, -8] }]
   const on = await createScene([jar], blocks, { lighting: "item", optimize: false, keepTemplates: true, randomOffset: true })
-  const shifted = await createScene([jar], blocks, { lighting: "item", optimize: false, keepTemplates: true, randomOffset: { origin: [100, 200] } })
-  assertShift(templateMin(on, 0), templateMin(off, 0), gameOffset(3, -7, 0.25, 0.2))
-  assertShift(templateMin(on, 1), templateMin(off, 1), [0, 0, 0])
-  assertShift(templateMin(on, 2), templateMin(off, 2), gameOffset(5, -7, 0.125, 0))
-  assertShift(templateMin(shifted, 0), templateMin(off, 0), gameOffset(103, 193, 0.25, 0.2))
-  off.dispose()
+  const offsets = i => Array.from(on.blockOffset.subarray(i * 3, i * 3 + 3))
+  assertNear(offsets(0), gameOffset(3, -7, 0.25, 0.2), 1e-6)
+  assertNear(offsets(1), [0, 0, 0], 1e-9)
+  assertNear(offsets(2), gameOffset(5, -7, 0.125, 0), 1e-6)
+  assert.equal(on.blockTemplate[0], on.blockTemplate[3])
+  assertNear(on.group.children[0].position.toArray().map(v => v / 16), [3, 0, -7].map((v, i) => v + gameOffset(3, -7, 0.25, 0.2)[i]), 1e-9)
   on.dispose()
+
+  const shifted = await createScene([jar], blocks, { lighting: "item", optimize: false, keepTemplates: true, origin: [100, 64, 200] })
+  assert.equal(shifted.blockOffset, null)
   shifted.dispose()
+  const moved = await createScene([jar], blocks, { lighting: "item", optimize: false, keepTemplates: true, origin: [100, 64, 200], randomOffset: true })
+  assertNear(Array.from(moved.blockOffset.subarray(0, 3)), gameOffset(103, 193, 0.25, 0.2), 1e-6)
+  moved.dispose()
+})
+
+test("optimized scenes place offset blocks at their offset", async () => {
+  const grass = { id: "short_grass", pos: [3, 0, -7] }
+  const plain = await sceneMin(grass, {})
+  const shifted = await sceneMin(grass, { randomOffset: true })
+  const expected = gameOffset(3, -7, 0.25, 0.2).map((v, i) => plain[i] + v * 16)
+  assertNear(shifted, expected, 1e-3)
 })
 
 test("parseBlockstate attaches the offset to a block's models but not its water", async () => {

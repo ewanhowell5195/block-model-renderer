@@ -516,8 +516,13 @@ export interface CreateSceneOptions {
   animate?: boolean
   /** Retain the internal per-state template groups and return them on the handle. Default `false`. */
   keepTemplates?: boolean
-  /** Shift the blocks the game offsets by position (grass, flowers, bamboo) as it does. `true` treats positions as world coordinates; `origin` gives the world `[x, z]` of position `0, 0`. Default `false`. */
-  randomOffset?: boolean | { origin?: [number, number] }
+  /** The world coordinates of position `0, 0, 0`. Weighted variants and `randomOffset` are picked from world coordinates. Default `[0, 0, 0]`. */
+  origin?: [number, number, number]
+  /** Shift the blocks the game offsets by position (grass, flowers, bamboo) as it does. Default `false`. */
+  randomOffset?: boolean | {
+    /** @deprecated Use the scene's `origin`. */
+    origin?: [number, number]
+  }
   /** Treat absent cells as full occluders, for building a chunk of a larger world. */
   externalOcclusion?(x: number, y: number, z: number): boolean
   /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
@@ -557,6 +562,8 @@ export interface SceneHandle {
   templates: SceneTemplate[] | null
   /** Maps each input block index to its `templates` index (`0xFFFFFFFF` where nothing was placed), else `null`. */
   blockTemplate: Uint32Array | null
+  /** With `keepTemplates` and `randomOffset`, each input block's offset in blocks, `[x, y, z]` per block, to add to its template. Else `null`. */
+  blockOffset: Float32Array | null
   /** The bounds of the built geometry, for camera fitting. */
   bounds: THREE.Box3
   /** The light volume when world lighting ran, else `null`. */
@@ -574,7 +581,7 @@ export interface SceneHandle {
 export interface ParseBlockstateArgs {
   /** Blockstate property values. Missing ones fall back to the default blockstate rules. */
   data?: BlockProperties
-  /** Seeded randomness for weighted variants. The same seed always picks the same variants. */
+  /** Seeded randomness for weighted variants. The same seed always picks the same variants. Omit to pick from `pos` the way the game does. */
   seed?: number
   /** Biome tinting for the colormap tints. */
   biome?: BiomeInput
@@ -582,7 +589,7 @@ export interface ParseBlockstateArgs {
   nbt?: BlockNbt
   /** Map art callback for framed maps. */
   mapArt?: MapArtCallback
-  /** The block's world position, passed to the `mapArt` callback and used by `randomOffset`. */
+  /** The block's world position. Picks weighted variants the way the game does when there's no `seed`, and is used by `randomOffset` and the `mapArt` callback. */
   pos?: [number, number, number]
   /** Shift the blocks the game offsets by position (grass, flowers, bamboo) the same way it does, from `pos`. */
   randomOffset?: boolean
@@ -1185,9 +1192,9 @@ export interface BlockRenderInput {
   nbt?: BlockNbt
   /** Resolves a framed map's face. */
   mapArt?: MapArtCallback
-  /** Seeded randomness for weighted blockstate variants. */
+  /** Seeded randomness for weighted blockstate variants. Omit to pick from `pos` the way the game does. */
   seed?: number
-  /** The block's world position, used by `randomOffset` and passed to the `mapArt` callback. */
+  /** The block's world position. Picks weighted variants the way the game does when there's no `seed`, and is used by `randomOffset` and the `mapArt` callback. */
   pos?: [number, number, number]
   /** Shift the blocks the game offsets by position (grass, flowers, bamboo) the same way it does, from `pos`. */
   randomOffset?: boolean

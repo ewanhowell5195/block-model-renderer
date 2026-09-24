@@ -75,7 +75,8 @@ Options, grouped by what they affect. How the scene looks:
 | `shaderScale` | `1` | Screen-space shader density (the end portal), as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `technical` | `false` | Build the [technical blocks](models.md#skip_blocks-and-technical_blocks) (barrier, light, structure void) with their placeholder icons. Off, they're invisible like in game, but still feed the light volume, so a light block lights its area either way |
 | `mapArt` | | Map art callback for framed maps, as on [`renderBlock`](standard-api.md#renderblockargs). See [Map art](#map-art) |
-| `randomOffset` | `false` | Shift the blocks the game offsets by position (grass, ferns, flowers, bamboo, pointed dripstone) the same way it does. `true` treats block positions as world coordinates; `{ origin: [x, z] }` gives the world coordinates of position `0, 0` for a scene built away from them |
+| `origin` | `[0, 0, 0]` | The world coordinates of position `0, 0, 0`, for a scene built away from its real position. Weighted variants and `randomOffset` are picked from world coordinates, so they match the game |
+| `randomOffset` | `false` | Shift the blocks the game offsets by position (grass, ferns, flowers, bamboo, pointed dripstone) the same way it does |
 
 Asset interpretation:
 
@@ -103,7 +104,7 @@ The build itself:
 | `keepTemplates` | `false` | Retain the internal per-state template groups and return them on the handle, for tooling that needs per-block geometry (collision, hit-testing). Holds their memory for the scene's lifetime |
 | `externalOcclusion` | | `(x, y, z) => boolean` over cell coordinates outside `blocks`. Return `true` to treat that absent cell as a full occluder: faces pressed against it cull, and the automatic light volume counts it as a full opaque block, so a thinned scene (buried blocks dropped) lights its corners as if they were still there. For building a chunk of a larger world where the surroundings exist but aren't in this scene |
 
-Weighted blockstate variants pick deterministically per position (the position seeds the pick), so a field of grass blocks gets a natural rotation spread like in game, though not the game's exact per-position picks. Block entity contents and sign text are out of scope.
+Weighted blockstate variants are picked from each block's world position exactly as the game picks them, so a field of grass blocks has the same rotations as in game. Block entity contents and sign text are out of scope.
 
 ### Progress stages
 
@@ -127,6 +128,7 @@ Resolves to a handle, or `null` when cancelled:
 | `blockPalette` | Maps each input block index to its `palette` index (the type's maximum where nothing was placed). A `Uint16Array`, or a `Uint32Array` once the palette passes 65,535 states |
 | `templates` | With `keepTemplates`: the built template list, `{ palette, group }` per entry. `group` is the block-local geometry stamped at every position using it (a state can own several: one per variant pick, one per fluid shape); merged element meshes carry `userData.collision` boxes. `null` otherwise |
 | `blockTemplate` | With `keepTemplates`: `Uint32Array` mapping each input block index to its `templates` index (`0xFFFFFFFF` where nothing was placed). `null` otherwise |
+| `blockOffset` | With `keepTemplates` and `randomOffset`: `Float32Array` of each input block's offset in blocks, `[x, y, z]` per block. Templates are built without it, so add it when placing a template's geometry. `null` otherwise |
 | `bounds` | `THREE.Box3` of the built geometry, for camera fitting |
 | `light` | The [`computeSceneLight`](rendering.md#scene-lighting) handle when world lighting ran, else `null`. If you reposition the group, call `light.setOffset(group.position)` so torchlight stays aligned |
 | `drawCalls`, `tris` | Draw call and triangle counts from the optimize pass |
@@ -142,11 +144,11 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `assets` | The assets source |
 | `id` | The blockstate id |
 | `args.data` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
-| `args.seed` | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. Omit to always take the first variant. The picks don't match the game's per-position randomness |
+| `args.seed` | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. The picks don't match the game's. Omit to pick from `pos` instead, or to take the first variant without one |
 | `args.biome` | Biome tinting for the colormap tints and water: one `{ temperature, downfall, tint, combine, weight, water }` biome, or an array of them for a weighted blend. Same as [`renderBlock`](standard-api.md#renderblockargs) |
 | `args.nbt` | Block entity data rendered with the block, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Its models come back appended to the list |
 | `args.mapArt` | Map art callback for framed maps, as on [`renderBlock`](standard-api.md#renderblockargs). See [Map art](#map-art) |
-| `args.pos` | The block's world position `[x, y, z]`, passed through to the `mapArt` callback and used by `randomOffset` |
+| `args.pos` | The block's world position `[x, y, z]`. Without a `seed`, weighted variants are picked from it exactly as the game picks them. Also used by `randomOffset` and passed through to the `mapArt` callback |
 | `args.randomOffset` | Shift the blocks the game offsets by position (grass, flowers, bamboo, pointed dripstone) the same way it does, from `pos`. The block's model references get an `offset` in blocks, `[x, y, z]`, which [`loadModel`](#loadmodelscene-assets-model-args) applies |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
 | `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
