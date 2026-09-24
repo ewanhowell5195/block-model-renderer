@@ -1532,10 +1532,11 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
   const touched = []
   const bakes = { buf: new Float64Array(4096), len: 0 }
-  for (let i = 0; i < placeCount; i++) {
-    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
-    if (!td) continue
-    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
+  function planFor(td, cm, cull) {
+    const plans = td.plans ??= new Map()
+    let plan = plans.get(cm)
+    if (plan !== undefined) return plan
+    const faces = [], meshes = [], offs = [], need = new Map()
     for (const m of td.meshes) {
       for (const f of m.faces) {
         if (cm && f.cull && faceCulled(f, cm, cull)) continue
@@ -1549,10 +1550,29 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
           }
           f.acc = acc
         }
-        if (acc.need === 0) touched.push(acc)
-        acc.need += f.count
-        if (f.fd) acc.needF += f.count
+        let off = f.bake
+        if (off === undefined) off = f.bake = bakeFace(bakes, m, f)
+        faces.push(f)
+        meshes.push(m)
+        offs.push(off)
+        const n = need.get(acc) ?? [acc, 0, 0]
+        n[1] += f.count
+        if (f.fd) n[2] += f.count
+        need.set(acc, n)
       }
+    }
+    plan = { faces, meshes, offs: Int32Array.from(offs), need: Array.from(need.values()) }
+    if (!(cm & 64)) plans.set(cm, plan)
+    return plan
+  }
+  for (let i = 0; i < placeCount; i++) {
+    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
+    if (!td) continue
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
+    for (const [acc, n, nF] of planFor(td, cm, cull).need) {
+      if (acc.need === 0) touched.push(acc)
+      acc.need += n
+      acc.needF += nF
     }
   }
   for (const acc of touched) {
@@ -1571,24 +1591,20 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2]
     const tx = px * 16, ty = py * 16, tz = pz * 16
     blockT.makeTranslation(tx, ty, tz)
-    for (const m of td.meshes) {
-      let fullReady = false
-      for (const f of m.faces) {
-        if (cm && f.cull && faceCulled(f, cm, cull)) continue
-        let bake = f.bake
-        if (bake === -2) bake = f.bake = bakeFace(bakes, m, f)
-        else if (bake === undefined) f.bake = -2
-        if (bake >= 0) {
-          appendBaked(bakes.buf, bake, f.count, !!f.fd, tx, ty, tz, f.acc)
-          continue
-        }
-        if (!fullReady) {
-          full.multiplyMatrices(blockT, m.matrix)
-          nmat.getNormalMatrix(full)
-          fullReady = true
-        }
-        appendGroup(m.geo, f.start, f.count, full, nmat, f.rect, f.sw, f.sh, f.acc, f.fd)
+    const { faces, meshes, offs } = planFor(td, cm, cull), B = bakes.buf
+    let fullFor = null
+    for (let k = 0; k < faces.length; k++) {
+      const f = faces[k], off = offs[k]
+      if (off >= 0) {
+        appendBaked(B, off, f.count, !!f.fd, tx, ty, tz, f.acc)
+        continue
       }
+      if (fullFor !== meshes[k]) {
+        fullFor = meshes[k]
+        full.multiplyMatrices(blockT, fullFor.matrix)
+        nmat.getNormalMatrix(full)
+      }
+      appendGroup(fullFor.geo, f.start, f.count, full, nmat, f.rect, f.sw, f.sh, f.acc, f.fd)
     }
     for (const l of td.lines ?? []) {
       const key = matSignature(l.material) + "|" + (l.material?.color?.getHexString?.() ?? "") + "|" + (l.material?.opacity ?? 1) + "|" + !!l.material?.transparent
