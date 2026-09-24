@@ -22,6 +22,38 @@ export const SKIP_BLOCKS = new Set(["air", "cave_air", "void_air", "moving_pisto
 export const TECHNICAL_BLOCKS = new Set(["barrier", "light", "structure_void"])
 export const AIR_BLOCKS = new RegExp(`(^|:)(${Array.from(SKIP_BLOCKS).join("|")})$`)
 
+const BOX_PLANES = [[2, 1, 0, -1, -1, 2, 1, 0, 1], [2, 1, 0, 1, -1, 2, 1, 0, -1], [0, 2, 1, 1, 1, 0, 2, 1, 1], [0, 2, 1, 1, -1, 0, 2, 1, -1], [0, 1, 2, 1, -1, 0, 1, 2, 1], [0, 1, 2, -1, -1, 0, 1, 2, -1]]
+
+function boxGeometry(W, H, D) {
+  const dims = [W, H, D], vec = [0, 0, 0]
+  const pos = new Float32Array(72), nrm = new Float32Array(72), uv = new Float32Array(48), idx = new Uint16Array(36)
+  const geometry = new THREE.BufferGeometry()
+  for (let p = 0; p < 6; p++) {
+    const [u, v, w, udir, vdir, wi, hi, di, ds] = BOX_PLANES[p]
+    const width = dims[wi], height = dims[hi], depth = ds < 0 ? -dims[di] : dims[di]
+    const widthHalf = width / 2, heightHalf = height / 2, depthHalf = depth / 2
+    for (let iy = 0; iy < 2; iy++) {
+      const y = iy * height - heightHalf
+      for (let ix = 0; ix < 2; ix++) {
+        const x = ix * width - widthHalf, k = p * 4 + iy * 2 + ix
+        vec[u] = x * udir; vec[v] = y * vdir; vec[w] = depthHalf
+        pos[k * 3] = vec[0]; pos[k * 3 + 1] = vec[1]; pos[k * 3 + 2] = vec[2]
+        vec[u] = 0; vec[v] = 0; vec[w] = depth > 0 ? 1 : -1
+        nrm[k * 3] = vec[0]; nrm[k * 3 + 1] = vec[1]; nrm[k * 3 + 2] = vec[2]
+        uv[k * 2] = ix; uv[k * 2 + 1] = 1 - iy
+      }
+    }
+    const a = p * 4
+    idx.set([a, a + 2, a + 1, a + 2, a + 3, a + 1], p * 6)
+    geometry.addGroup(p * 6, 6, p)
+  }
+  geometry.setIndex(new THREE.Uint16BufferAttribute(idx, 1))
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3))
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3))
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2))
+  return geometry
+}
+
 const X_CYCLE = { north: "up", up: "south", south: "down", down: "north" }
 const Y_CYCLE = { north: "east", east: "south", south: "west", west: "north" }
 
@@ -2556,7 +2588,7 @@ export async function loadModel(scene, assets, model, args) {
     size.y ||= 0.001
     size.z ||= 0.001
 
-    const geometry = new THREE.BoxGeometry(size.x, size.y, size.z)
+    const geometry = boxGeometry(size.x, size.y, size.z)
 
     if (element.rotation?.rescale) {
       let rescaleAxis = element.rotation.axis
