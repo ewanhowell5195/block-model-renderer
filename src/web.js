@@ -60,8 +60,11 @@ async function loadTexture(input) {
 }
 
 async function inflateRaw(data) {
-  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))
-  return new Uint8Array(await new Response(stream).arrayBuffer())
+  const stream = new DecompressionStream("deflate-raw")
+  const writer = stream.writable.getWriter()
+  writer.write(data).catch(() => {})
+  writer.close().catch(() => {})
+  return new Uint8Array(await new Response(stream.readable).arrayBuffer())
 }
 
 function parseColor(input) {

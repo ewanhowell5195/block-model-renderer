@@ -36,8 +36,11 @@ export function pngInfo(bytes) {
 }
 
 async function inflateZlib(parts) {
-  const stream = new Blob(parts).stream().pipeThrough(new DecompressionStream("deflate"))
-  return new Uint8Array(await new Response(stream).arrayBuffer())
+  const stream = new DecompressionStream("deflate")
+  const writer = stream.writable.getWriter()
+  for (const part of parts) writer.write(part).catch(() => {})
+  writer.close().catch(() => {})
+  return new Uint8Array(await new Response(stream.readable).arrayBuffer())
 }
 
 const paeth = (a, b, c) => {
