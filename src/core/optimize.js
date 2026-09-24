@@ -305,6 +305,11 @@ class GridTable {
   }
 }
 
+function posMod(v, m) {
+  const iv = v | 0, im = m | 0
+  return iv === v && im === m && im > 0 ? ((iv % im) + im) % im : ((v % m) + m) % m
+}
+
 function cullBit(dir) {
   switch (dir) {
     case "down": return 1
@@ -1291,7 +1296,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       }
       const wpc = f.pc + P[o3 + f.na] * 16
       const wa0 = f.a0 + P[o3 + f.pa] * 16, wb0 = f.b0 + P[o3 + f.pb] * 16
-      const phaseA = ((wa0 % f.wa) + f.wa) % f.wa, phaseB = ((wb0 % f.wb) + f.wb) % f.wb
+      const phaseA = posMod(wa0, f.wa), phaseB = posMod(wb0, f.wb)
       const wq = Math.round((f.pc + (P[o3 + f.na] - base[f.na]) * 16) * 100), pa = Math.round(phaseA * 100), pb = Math.round(phaseB * 100)
       const key = pa >= 0 && pa < 2048 && pb >= 0 && pb < 2048 && wq > -1e8 && wq < 1e8
         ? ((wq * 2048 + pa) * 2048 + pb) * 8 + f.na * 2 + (f.ns > 0 ? 1 : 0)
@@ -1626,13 +1631,21 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     const qRect = new Array(greedyQuads.length)
     const qSize = new Array(greedyQuads.length)
     const verts = new Int32Array(accList.length)
+    let lastSig, lastPseudo, at, rect, ai, size
     for (let i = 0; i < greedyQuads.length; i++) {
       const q = greedyQuads[i]
-      const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo)
-      const ai = accId.get(at.accs[rect.ai])
+      if (q.sig !== lastSig) {
+        at = atlases.get(lastSig = q.sig)
+        lastPseudo = undefined
+      }
+      if (q.pseudo !== lastPseudo) {
+        rect = at.rects.get(lastPseudo = q.pseudo)
+        ai = accId.get(at.accs[rect.ai])
+        size = at.sizes[rect.ai]
+      }
       qAcc[i] = ai
       qRect[i] = rect
-      qSize[i] = at.sizes[rect.ai]
+      qSize[i] = size
       verts[ai] += 6
     }
     for (let i = 0; i < accList.length; i++) {
