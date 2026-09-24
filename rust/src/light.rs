@@ -319,8 +319,8 @@ pub fn compute_volume(
         if z < d - 1 {
             take(i + stride_z)
         }
-        block_light[i] = bl;
-        sky_light[i] = sl;
+        block_light[i] = bl | 0x80;
+        sky_light[i] = sl | 0x80;
     }
 
     // y slices tiled into one texture
@@ -344,14 +344,14 @@ pub fn compute_volume(
         (cz * h + cy) * w + cx
     };
 
-    let pack = |ci: usize| -> u64 {
-        let (b, s) = (block_light[ci] as u64, sky_light[ci] as u64);
-        if solid(ci) {
-            b << 24 | s << 32
-        } else {
-            b | s << 8 | 1 << 16
-        }
-    };
+    let mut pack_b = [0u64; 256];
+    let mut pack_s = [0u64; 256];
+    for v in 0..256usize {
+        let l = (v & 15) as u64;
+        pack_b[v] = if v & 0x80 != 0 { l << 24 } else { l | 1 << 16 };
+        pack_s[v] = if v & 0x80 != 0 { l << 32 } else { l << 8 };
+    }
+    let pack = |ci: usize| -> u64 { pack_b[block_light[ci] as usize] + pack_s[sky_light[ci] as usize] };
     let mut col = vec![0u64; w];
     for y in 0..=h {
         let tx = (y % cols) * w2;
