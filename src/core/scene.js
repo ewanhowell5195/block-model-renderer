@@ -1,4 +1,4 @@
-import { THREE, normalize } from "./platform.js"
+import { THREE, normalize, jsonKey } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog, randomOffset, rollPicks } from "./models.js"
 import { getCullFaces } from "./render.js"
@@ -251,7 +251,7 @@ export async function createScene(assets, blocks, args = {}) {
     return pi
   }
   function nbtIndex(id, properties, biome, nbt, pos) {
-    const stateKey = id + "\0" + JSON.stringify(properties ?? null) + "\0" + JSON.stringify(biome) + "\0" + JSON.stringify(nbt)
+    const stateKey = id + "\0" + JSON.stringify(properties ?? null) + "\0" + JSON.stringify(biome) + "\0" + jsonKey(nbt)
     let pi = paletteIndex.get(stateKey)
     if (pi === undefined) {
       pi = palette.length

@@ -35,6 +35,8 @@ export function parseJson(data) {
   return JSON.parse(typeof data === "string" ? data : textDecoder.decode(data))
 }
 
+export const jsonKey = value => JSON.stringify(value, (key, v) => typeof v === "bigint" ? v + "n" : v)
+
 export function resolveNamespace(str) {
   const parts = str.split(":")
   if (parts.length === 2) {

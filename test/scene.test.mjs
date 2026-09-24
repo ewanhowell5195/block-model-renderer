@@ -35,3 +35,19 @@ test("blockPalette widens to 32-bit past 65535 states", async () => {
   for (const i of [1, 2, 0xFFFF, 0x10000, 0x10001, count]) assert.equal(handle.blockPalette[i], i - 1)
   handle.dispose()
 })
+
+test("block nbt with BigInt longs keys and builds", async () => {
+  const bees = anger => ({ bees: [{ entity_data: { anger_end_time: anger } }] })
+  const frame = { Item: { id: "minecraft:compass", count: 1, components: { "minecraft:custom_data": { stamp: 123456789012345n } } } }
+  const palette = [{ id: "beehive", properties: { facing: "north" } }, { id: "item_frame", properties: { facing: "north" } }]
+  const raw = new Int32Array([0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 1, 3, 0, 0])
+  const blockNbt = new Map([[0, bees(-1n)], [1, bees(-1n)], [2, bees(5n)], [3, frame]])
+  const handle = await createScene([jar], { palette, raw, blockNbt }, { lighting: "item" })
+  assert.equal(handle.palette.length, 3)
+  assert.equal(handle.blockPalette[0], handle.blockPalette[1])
+  assert.notEqual(handle.blockPalette[0], handle.blockPalette[2])
+  handle.dispose()
+  const listed = await createScene([jar], [{ id: "item_frame", properties: { facing: "north" }, pos: [0, 0, 0], nbt: frame }], { lighting: "item", optimize: false })
+  assert.ok(listed.drawCalls > 1)
+  listed.dispose()
+})
