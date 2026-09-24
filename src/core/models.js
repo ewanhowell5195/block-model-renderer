@@ -1,4 +1,4 @@
-import { THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace, isBefore, isImage } from "./platform.js"
+import { platform, THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTER, parseJson, normalize, resolveNamespace, isBefore, isImage } from "./platform.js"
 import { COLORS, parseColor, getPotionColor } from "./colors.js"
 import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
@@ -1267,28 +1267,32 @@ export async function getBiomeTint(assets, mapName, biome) {
   return "#" + c.toString(16).padStart(6, "0").toUpperCase()
 }
 
+function colormapPixels(assets, mapName) {
+  const cache = assets.cache ? (assets.cache.colormapPixels ??= new Map()) : null
+  let pixels = cache?.get(mapName)
+  if (!pixels) {
+    pixels = readFile(`assets/minecraft/textures/colormap/${mapName}.png`, assets).then(buf => buf ? platform.decodeToRaw(buf) : null)
+    cache?.set(mapName, pixels)
+  }
+  return pixels
+}
+
 async function getColorMapTint(assets, mapName, temperature, downfall) {
   if (isNaN(temperature) || isNaN(downfall)) return "#FF00FF"
   temperature = Math.min(1, Math.max(0, temperature))
   downfall = Math.min(1, Math.max(0, downfall))
 
-  const buf = await readFile(`assets/minecraft/textures/colormap/${mapName}.png`, assets)
-  if (!buf) return "#FFFFFF"
-
-  const image = await loadImage(buf)
-  const canvas = new Canvas(256, 256)
-  const ctx = canvas.getContext("2d", { willReadFrequently: true })
-
-  if (image.width !== 256 || image.height !== 256) return "#FF00FF"
-  ctx.drawImage(image, 0, 0)
+  const map = await colormapPixels(assets, mapName)
+  if (!map) return "#FFFFFF"
+  if (map.width !== 256 || map.height !== 256) return "#FF00FF"
 
   const x = Math.round((1 - temperature) * 255)
   const y = Math.round((1 - downfall * temperature) * 255)
 
   if (x < 0 || x > 255 || y < 0 || y > 255) return "#FF00FF"
 
-  const { data } = ctx.getImageData(x, y, 1, 1)
-  const [r, g, b] = data
+  const i = (y * 256 + x) * 4
+  const r = map.data[i], g = map.data[i + 1], b = map.data[i + 2]
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase()
 }
 
