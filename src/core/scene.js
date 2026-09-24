@@ -416,6 +416,7 @@ export async function createScene(assets, blocks, args = {}) {
   const HOOD_KEYS = [...new Set(CK3.filter(Boolean))].concat("self")
   const HOOD = {}
   for (const k of HOOD_KEYS) HOOD[k] = null
+  const hoodPal = new Int32Array(27), fluidMemo = new Map()
 
   const cullCache = (assets.cache.cullFaces ??= new Map())
   const cullEnv = (version ?? "") + "\u0000" + (defaults ?? "") + "\u0001"
@@ -524,30 +525,40 @@ export async function createScene(assets, blocks, args = {}) {
       cellCull[c] = ci
     }
 
-    let fh = null
+    let fh = null, fk = ""
     if (entry.fluid) {
-      const hood = HOOD
-      for (let k = 0; k < HOOD_KEYS.length; k++) hood[HOOD_KEYS[k]] = null
       if (bi >= 0) {
         for (let k = 0; k < 27; k++) {
-          if (k === 13) continue
-          const j = cellIdx[bi + HOFF[k]] - 1
-          if (j >= 0 && cellPal[j] >= 0) hood[CK3[k]] = palette[cellPal[j]].flat
+          const j = k === 13 ? -1 : cellIdx[bi + HOFF[k]] - 1
+          hoodPal[k] = j >= 0 && cellPal[j] >= 0 ? cellPal[j] : -1
         }
-      } else for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy && !dz) continue
-        const nc = cellAt(px + dx, py + dy, pz + dz)
-        if (nc >= 0) hood[CK3[(dy + 1) * 9 + (dz + 1) * 3 + (dx + 1)]] = palette[cellPal[nc]].flat
+      } else for (let dy = -1, k = 0; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++, k++) {
+        const nc = k === 13 ? -1 : cellAt(px + dx, py + dy, pz + dz)
+        hoodPal[k] = nc >= 0 ? cellPal[nc] : -1
       }
-      hood.self = entry.flat
-      fh = await fluidHeights(assets, entry.fluid, hood)
+      hoodPal[13] = cellPi
+      let h = 0x811c9dc5
+      for (let k = 0; k < 27; k++) h = Math.imul(h ^ hoodPal[k], 16777619)
+      const bucket = fluidMemo.get(h)
+      const hit = bucket?.find(e => e[0].every((v, k) => v === hoodPal[k]))
+      if (hit) [, fh, fk] = hit
+      else {
+        const hood = HOOD, key = Int32Array.from(hoodPal)
+        for (let k = 0; k < HOOD_KEYS.length; k++) hood[HOOD_KEYS[k]] = null
+        for (let k = 0; k < 27; k++) if (k !== 13 && key[k] >= 0) hood[CK3[k]] = palette[key[k]].flat
+        hood.self = entry.flat
+        fh = await fluidHeights(assets, entry.fluid, hood)
+        fk = fh ? fluidKey(fh) : ""
+        if (bucket) bucket.push([key, fh, fk])
+        else fluidMemo.set(h, [[key, fh, fk]])
+      }
     }
 
     const pick = entry.rolls ? rollPicks(entry.rolls, px + origin[0], py + origin[1], pz + origin[2]) : null
     const packed = fh === null && pick !== null ? pick * palette.length + cellPi : -1
     const templateKey = pick === null && fh === null
       ? cellPi
-      : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + (fh ? fluidKey(fh) : "")
+      : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + fk
     let ti = templateIds.get(templateKey)
     if (ti === undefined) {
       templateIds.set(templateKey, ti = templateKeys.push(templateKey) - 1)
