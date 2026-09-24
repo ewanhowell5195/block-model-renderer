@@ -1671,6 +1671,11 @@ function applyTint(img, tint) {
 const _tintRGB = new Map()
 function tintRGB(tint) {
   let c = _tintRGB.get(tint)
+  if (!c && typeof tint === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(tint)) {
+    const h = tint.length === 4 ? tint[1] + tint[1] + tint[2] + tint[2] + tint[3] + tint[3] : tint.slice(1)
+    const n = parseInt(h, 16)
+    _tintRGB.set(tint, c = [n >> 16, (n >> 8) & 255, n & 255])
+  }
   if (!c) {
     const cv = new Canvas(1, 1)
     const ctx = cv.getContext("2d", { willReadFrequently: true })
