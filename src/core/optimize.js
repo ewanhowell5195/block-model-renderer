@@ -1199,6 +1199,12 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   const gridIndex = new Map()
   const cellIds = new Map()
   stage(800)
+  const base = [Infinity, Infinity, Infinity]
+  for (let i = 0; i < placeCount; i++) {
+    if (placeGroup[i] < 0) continue
+    for (let a = 0; a < 3; a++) if (P[i * 3 + a] < base[a]) base[a] = P[i * 3 + a]
+  }
+  for (let a = 0; a < 3; a++) base[a] = Number.isFinite(base[a]) ? Math.floor(base[a]) : 0
   let scanned = 0
   for (let i = 0; i < placeCount; i++) {
     if (++scanned % 4096 === 0) {
@@ -1221,8 +1227,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       const wpc = f.pc + P[o3 + f.na] * 16
       const wa0 = f.a0 + P[o3 + f.pa] * 16, wb0 = f.b0 + P[o3 + f.pb] * 16
       const phaseA = ((wa0 % f.wa) + f.wa) % f.wa, phaseB = ((wb0 % f.wb) + f.wb) % f.wb
-      const wq = Math.round(wpc * 100), pa = Math.round(phaseA * 100), pb = Math.round(phaseB * 100)
-      const key = pa >= 0 && pa < 2048 && pb >= 0 && pb < 2048 && wq > -1e7 && wq < 1e7
+      const wq = Math.round((f.pc + (P[o3 + f.na] - base[f.na]) * 16) * 100), pa = Math.round(phaseA * 100), pb = Math.round(phaseB * 100)
+      const key = pa >= 0 && pa < 2048 && pb >= 0 && pb < 2048 && wq > -1e8 && wq < 1e8
         ? ((wq * 2048 + pa) * 2048 + pb) * 8 + f.na * 2 + (f.ns > 0 ? 1 : 0)
         : f.na + "|" + wq + "|" + f.ns + "|" + pa + "|" + pb
       let byCid = gridIndex.get(cid)
