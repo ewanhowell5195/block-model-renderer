@@ -14,6 +14,8 @@ const nextTask = globalThis.scheduler?.yield
     c.port2.postMessage(0)
   })
 
+const STITCH_LOADS = 16
+
 const matMap = m => m.uniforms?.map?.value ?? m.map
 
 const geoHashes = new WeakMap()
@@ -604,20 +606,25 @@ export async function stitchSharedAtlas(shared, assets, opts = {}) {
   if (!sheet) shared.sheets.set("*", sheet = { pages: [], rects: new Map() })
   const total = sprites.length * 2
   let n = 0
-  const texs = []
-  let area = 0
-  for (const path of sprites) {
-    const tex = await loadSpriteTexture(path, assets)
-    if (tex?.image) {
-      texs.push(tex)
-      area += (tex.image.width + 2) * (tex.image.height + 2)
-    }
-    if (++n % 64 === 0) {
-      opts.onProgress?.(n, total)
-      await nextTask()
-      if (opts.shouldCancel?.()) return null
+  let next = 0
+  let cancelled = false
+  const loaded = new Array(sprites.length)
+  async function loadNext() {
+    while (next < sprites.length && !cancelled) {
+      const i = next++
+      loaded[i] = await loadSpriteTexture(sprites[i], assets)
+      if (++n % 64 === 0) {
+        opts.onProgress?.(n, total)
+        await nextTask()
+        if (opts.shouldCancel?.()) cancelled = true
+      }
     }
   }
+  await Promise.all(Array.from({ length: STITCH_LOADS }, loadNext))
+  if (cancelled) return null
+  const texs = loaded.filter(tex => tex?.image)
+  let area = 0
+  for (const tex of texs) area += (tex.image.width + 2) * (tex.image.height + 2)
   if (shared.autoSize && !sheet.pages.length) {
     const cap = Math.min(detectMaxAtlas(), 8192)
     const fill = 1 - Math.min(Math.max(shared.headroom, 0), 0.95)
