@@ -1,7 +1,8 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { createScene } from "../src/node.js"
-import { randomOffset } from "../src/core/scene.js"
+import { createScene, parseBlockstate } from "../src/node.js"
+import { THREE } from "../src/core/platform.js"
+import { randomOffset } from "../src/core/models.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
 const jar = await loadMojangJar()
@@ -32,25 +33,40 @@ test("random offsets match the game's 64-bit position seed", () => {
   }
 })
 
-function templateShift(handle, index) {
+function templateMin(handle, index) {
   const group = handle.templates[handle.blockTemplate[index]].group
-  const shift = group.children.length === 1 && group.children[0].isGroup ? group.children[0].position : null
-  return shift ? [shift.x / 16, shift.y / 16, shift.z / 16] : [0, 0, 0]
+  group.updateMatrixWorld(true)
+  return new THREE.Box3().setFromObject(group).min
+}
+
+function assertShift(on, off, expected) {
+  const shift = [(on.x - off.x) / 16, (on.y - off.y) / 16, (on.z - off.z) / 16]
+  for (let i = 0; i < 3; i++) assert.ok(Math.abs(shift[i] - expected[i]) < 1e-9, `${shift} vs ${expected}`)
 }
 
 test("randomOffset shifts offset blocks by their world position", async () => {
   const blocks = [{ id: "short_grass", pos: [3, 0, -7] }, { id: "stone", pos: [4, 0, -7] }, { id: "pointed_dripstone", pos: [5, 0, -7] }]
   const off = await createScene([jar], blocks, { lighting: "item", optimize: false, keepTemplates: true })
-  assert.deepEqual(templateShift(off, 0), [0, 0, 0])
-  off.dispose()
-
   const on = await createScene([jar], blocks, { lighting: "item", optimize: false, keepTemplates: true, randomOffset: true })
-  assert.deepEqual(templateShift(on, 0), gameOffset(3, -7, 0.25, 0.2))
-  assert.deepEqual(templateShift(on, 1), [0, 0, 0])
-  assert.deepEqual(templateShift(on, 2), gameOffset(5, -7, 0.125, 0))
-  on.dispose()
-
   const shifted = await createScene([jar], blocks, { lighting: "item", optimize: false, keepTemplates: true, randomOffset: { origin: [100, 200] } })
-  assert.deepEqual(templateShift(shifted, 0), gameOffset(103, 193, 0.25, 0.2))
+  assertShift(templateMin(on, 0), templateMin(off, 0), gameOffset(3, -7, 0.25, 0.2))
+  assertShift(templateMin(on, 1), templateMin(off, 1), [0, 0, 0])
+  assertShift(templateMin(on, 2), templateMin(off, 2), gameOffset(5, -7, 0.125, 0))
+  assertShift(templateMin(shifted, 0), templateMin(off, 0), gameOffset(103, 193, 0.25, 0.2))
+  off.dispose()
+  on.dispose()
   shifted.dispose()
+})
+
+test("parseBlockstate attaches the offset to a block's models but not its water", async () => {
+  const plain = await parseBlockstate([jar], "short_grass", { pos: [3, 0, -7] })
+  assert.ok(plain.every(m => !m.offset))
+  const grass = await parseBlockstate([jar], "short_grass", { pos: [3, 0, -7], randomOffset: true })
+  assert.ok(grass.length)
+  for (const m of grass) assert.deepEqual(m.offset, gameOffset(3, -7, 0.25, 0.2))
+  const stone = await parseBlockstate([jar], "stone", { pos: [3, 0, -7], randomOffset: true })
+  assert.ok(stone.every(m => !m.offset))
+  const dripstone = await parseBlockstate([jar], "pointed_dripstone", { data: { waterlogged: "true" }, pos: [5, 0, -7], randomOffset: true })
+  assert.deepEqual(dripstone.filter(m => m.offset).length, dripstone.length - 1)
+  assert.ok(dripstone.find(m => m.fluid) && !dripstone.find(m => m.fluid).offset)
 })

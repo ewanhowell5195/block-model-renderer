@@ -582,8 +582,10 @@ export interface ParseBlockstateArgs {
   nbt?: BlockNbt
   /** Map art callback for framed maps. */
   mapArt?: MapArtCallback
-  /** The block's grid position, passed to the `mapArt` callback. */
+  /** The block's world position, passed to the `mapArt` callback and used by `randomOffset`. */
   pos?: [number, number, number]
+  /** Shift the blocks the game offsets by position (grass, flowers, bamboo) the same way it does, from `pos`. */
+  randomOffset?: boolean
   /** Skip texture atlas membership rules for the returned models. */
   ignoreAtlases?: boolean
   /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
@@ -1185,6 +1187,10 @@ export interface BlockRenderInput {
   mapArt?: MapArtCallback
   /** Seeded randomness for weighted blockstate variants. */
   seed?: number
+  /** The block's world position, used by `randomOffset` and passed to the `mapArt` callback. */
+  pos?: [number, number, number]
+  /** Shift the blocks the game offsets by position (grass, flowers, bamboo) the same way it does, from `pos`. */
+  randomOffset?: boolean
   /** Biome tinting for the colormap tints. */
   biome?: BiomeInput
   /** The blocks surrounding this one: faces they hide are dropped, and fluids shape themselves from it. */

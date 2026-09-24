@@ -1,6 +1,6 @@
 import { THREE, parseJson, normalize, resolveNamespace } from "./platform.js"
 import { prepareAssets, scopedCache, readFile } from "./assets.js"
-import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog } from "./models.js"
+import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog, posHash, randomOffset } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight, isFlatBlocks } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -108,24 +108,7 @@ async function hasRandomModels(assets, id) {
   return random
 }
 
-const posHash = (x, y, z) => {
-  const h = Math.imul(x, 3129871) ^ Math.imul(z, 116129781) ^ y
-  return (Math.imul(Math.imul(h, h), 42317861) + Math.imul(h, 11) | 0) >>> 16
-}
-
-export function randomOffset(x, z, horizontal, vertical) {
-  const h = posHash(x, 0, z)
-  const step = bits => Math.fround(bits / 15)
-  const spread = bits => Math.max(-horizontal, Math.min(horizontal, (step(bits) - 0.5) * 0.5))
-  return [spread(h & 15), vertical ? (step((h >> 4) & 15) - 1) * Math.fround(vertical) : 0, spread((h >> 8) & 15)]
-}
-
-function offsetTemplate(group, offset) {
-  const shift = new THREE.Group()
-  shift.position.set(offset[0] * 16, offset[1] * 16, offset[2] * 16)
-  for (const child of Array.from(group.children)) shift.add(child)
-  group.add(shift)
-}
+const withOffset = (models, offset) => offset ? models.map(m => m && typeof m === "object" && !m.fluid ? { ...m, offset } : m) : models
 
 const CK3 = (() => {
   const t = new Array(27)
@@ -550,7 +533,7 @@ export async function createScene(assets, blocks, args = {}) {
           mapArt: args.mapArt, pos: spec.entry.pos ?? undefined, seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version, defaults
         })
         : spec.entry.models
-      for (const model of models) {
+      for (const model of withOffset(models, spec.offset)) {
         try {
           await loadModel(tmpl, assets, await resolveModelData(assets, model), {
             display: {}, animate: false, lighting: lightingOpt,
@@ -560,7 +543,6 @@ export async function createScene(assets, blocks, args = {}) {
           })
         } catch {}
       }
-      if (spec.offset) offsetTemplate(tmpl, spec.offset)
       daytimeUniform ??= tmpl.userData.daytime
       templateOf.set(key, tmpl)
       if (cacheKey) {
@@ -633,7 +615,7 @@ export async function createScene(assets, blocks, args = {}) {
               seed: spec.seed, ignoreAtlases: args.ignoreAtlases, version, defaults
             })
             : spec.entry.models
-          for (const model of models) {
+          for (const model of withOffset(models, spec.offset)) {
             try {
               await loadModel(culled, assets, await resolveModelData(assets, model), {
                 display: {}, animate: false, lighting: lightingOpt, cull: cellCullSet,
@@ -643,7 +625,6 @@ export async function createScene(assets, blocks, args = {}) {
               })
             } catch {}
           }
-          if (spec.offset) offsetTemplate(culled, spec.offset)
           cullVariants.set(key, culled)
           templateOf.set(key, culled)
         }

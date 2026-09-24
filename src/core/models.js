@@ -660,6 +660,18 @@ function getMultipartDefaults(multipart) {
   return first
 }
 
+export const posHash = (x, y, z) => {
+  const h = Math.imul(x, 3129871) ^ Math.imul(z, 116129781) ^ y
+  return (Math.imul(Math.imul(h, h), 42317861) + Math.imul(h, 11) | 0) >>> 16
+}
+
+export function randomOffset(x, z, horizontal, vertical) {
+  const h = posHash(x, 0, z)
+  const step = bits => Math.fround(bits / 15)
+  const spread = bits => Math.max(-horizontal, Math.min(horizontal, (step(bits) - 0.5) * 0.5))
+  return [spread(h & 15), vertical ? (step((h >> 4) & 15) - 1) * Math.fround(vertical) : 0, spread((h >> 8) & 15)]
+}
+
 function seededRandom(seed) {
   let a = seed | 0
   return () => {
@@ -880,6 +892,14 @@ export async function parseBlockstate(assets, blockstate, args) {
   if (multipartGroup) {
     const ao = (await resolveModelData(assets, multipartFirst)).ambientocclusion !== false
     for (const model of multipartGroup) model.ambientocclusion = ao
+  }
+
+  if (args?.randomOffset && args.pos) {
+    const limits = rules.offset(blockstate)
+    if (limits) {
+      const offset = randomOffset(args.pos[0], args.pos[2], limits[0], limits[1])
+      for (const m of models) if (m && typeof m === "object") m.offset = offset
+    }
   }
 
   const waterlogged = stateValue("waterlogged")
@@ -2294,6 +2314,11 @@ export async function loadModel(scene, assets, model, args) {
 
   if (model.translation) {
     containerGroup.position.set(...model.translation)
+  }
+  if (model.offset) {
+    containerGroup.position.x += model.offset[0] * 16
+    containerGroup.position.y += model.offset[1] * 16
+    containerGroup.position.z += model.offset[2] * 16
   }
 
   if (model.scale) {

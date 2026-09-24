@@ -146,7 +146,8 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 | `args.biome` | Biome tinting for the colormap tints and water: one `{ temperature, downfall, tint, combine, weight, water }` biome, or an array of them for a weighted blend. Same as [`renderBlock`](standard-api.md#renderblockargs) |
 | `args.nbt` | Block entity data rendered with the block, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Its models come back appended to the list |
 | `args.mapArt` | Map art callback for framed maps, as on [`renderBlock`](standard-api.md#renderblockargs). See [Map art](#map-art) |
-| `args.pos` | The block's grid position, passed through to the `mapArt` callback |
+| `args.pos` | The block's world position `[x, y, z]`, passed through to the `mapArt` callback and used by `randomOffset` |
+| `args.randomOffset` | Shift the blocks the game offsets by position (grass, flowers, bamboo, pointed dripstone) the same way it does, from `pos`. The block's model references get an `offset` in blocks, `[x, y, z]`, which [`loadModel`](#loadmodelscene-assets-model-args) applies |
 | `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
 | `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 | `args.defaults` | Which [default blockstates](extending.md#default-blockstates) fill properties `data` doesn't set: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone |
