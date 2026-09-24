@@ -196,7 +196,7 @@ export async function createScene(assets, blocks, args = {}) {
   }
   const cW = cx1 - cx0 + 3, cH = cy1 - cy0 + 3, cD = cz1 - cz0 + 3
   const cVol = cx0 === Infinity ? 0 : cW * cH * cD
-  const cellIdx = cVol > 0 && cVol <= 24e6 ? new Int32Array(cVol).fill(-1) : null
+  const cellIdx = cVol > 0 && cVol <= 24e6 ? new Int32Array(cVol) : null
   const cellMap = cellIdx ? null : new CellTable(count)
   const CI = (x, y, z) => {
     const ix = x - cx0 + 1, iy = y - cy0 + 1, iz = z - cz0 + 1
@@ -206,7 +206,7 @@ export async function createScene(assets, blocks, args = {}) {
     let j = -1
     if (cellIdx) {
       const i = CI(x, y, z)
-      if (i >= 0) j = cellIdx[i]
+      if (i >= 0) j = cellIdx[i] - 1
     } else j = cellMap.get(x, y, z)
     return j >= 0 && cellPal[j] >= 0 ? j : -1
   }
@@ -218,9 +218,9 @@ export async function createScene(assets, blocks, args = {}) {
     if (cellIdx) {
       const i = CI(x, y, z)
       if (i < 0) return
-      const j = cellIdx[i]
+      const j = cellIdx[i] - 1
       if (j >= 0 && cellPal[j] >= 0) { cellPal[j] = pi; cellCtx[j] = context; return }
-      cellIdx[i] = cellN
+      cellIdx[i] = cellN + 1
     } else {
       const j = cellMap.get(x, y, z)
       if (j >= 0 && cellPal[j] >= 0) { cellPal[j] = pi; cellCtx[j] = context; return }
@@ -409,7 +409,7 @@ export async function createScene(assets, blocks, args = {}) {
     for (let di = 0; di < 6; di++) {
       let nc
       if (bi >= 0) {
-        const j = cellIdx[bi + NOFF[di]]
+        const j = cellIdx[bi + NOFF[di]] - 1
         nc = j >= 0 && cellPal[j] >= 0 ? j : -1
       } else {
         const v = DIR_VECS[di]
@@ -466,7 +466,7 @@ export async function createScene(assets, blocks, args = {}) {
       if (bi >= 0) {
         for (let k = 0; k < 27; k++) {
           if (k === 13) continue
-          const j = cellIdx[bi + HOFF[k]]
+          const j = cellIdx[bi + HOFF[k]] - 1
           if (j >= 0 && cellPal[j] >= 0) hood[CK3[k]] = palette[cellPal[j]].flat
         }
       } else for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
@@ -479,9 +479,10 @@ export async function createScene(assets, blocks, args = {}) {
     }
 
     const pick = entry.rolls ? rollPicks(entry.rolls, px + origin[0], py + origin[1], pz + origin[2]) : null
+    const packed = fh === null && pick !== null ? pick * palette.length + cellPi : -1
     const templateKey = pick === null && fh === null
       ? cellPi
-      : cellPi + "|" + (pick ?? "") + "|" + (fh ? JSON.stringify(fh) : "")
+      : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + (fh ? JSON.stringify(fh) : "")
     let ti = templateIds.get(templateKey)
     if (ti === undefined) {
       templateIds.set(templateKey, ti = templateKeys.push(templateKey) - 1)
