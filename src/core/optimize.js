@@ -266,6 +266,45 @@ function extractFlats(geo, grp, mw, nm, tex, mat, cull) {
   return out
 }
 
+class GridTable {
+  constructor() {
+    this.size = 0
+    this.alloc(1024)
+  }
+  alloc(cap) {
+    this.mask = cap - 1
+    this.keys = new Float64Array(cap)
+    this.cids = new Int32Array(cap).fill(-1)
+    this.vals = new Int32Array(cap)
+  }
+  slot(cid, key) {
+    let h = Math.imul((key >>> 0) ^ Math.imul((key / 4294967296) | 0, 0x85ebca6b) ^ Math.imul(cid, 0x9e3779b1), 0x27d4eb2d)
+    h = (h ^ (h >>> 15)) & this.mask
+    const keys = this.keys, cids = this.cids
+    while (cids[h] >= 0 && (cids[h] !== cid || keys[h] !== key)) h = (h + 1) & this.mask
+    return h
+  }
+  get(cid, key) {
+    const s = this.slot(cid, key)
+    return this.cids[s] < 0 ? -1 : this.vals[s]
+  }
+  set(cid, key, v) {
+    if ((this.size + 1) * 2 > this.mask) {
+      const { keys, cids, vals } = this
+      this.alloc((this.mask + 1) * 2)
+      for (let i = 0; i < cids.length; i++) if (cids[i] >= 0) this.place(cids[i], keys[i], vals[i])
+    }
+    this.place(cid, key, v)
+    this.size++
+  }
+  place(cid, key, v) {
+    const s = this.slot(cid, key)
+    this.cids[s] = cid
+    this.keys[s] = key
+    this.vals[s] = v
+  }
+}
+
 function cullBit(dir) {
   switch (dir) {
     case "down": return 1
@@ -1221,7 +1260,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   const cullMask = Int32Array.from(culls, cullMaskOf)
   const grids = []
   const cellRuns = new GrowI32()
-  const gridIndex = new Map()
+  const gridIndex = new GridTable()
+  const gridNames = new Map()
   const cellIds = new Map()
   stage(800)
   const base = [Infinity, Infinity, Infinity]
@@ -1256,11 +1296,17 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       const key = pa >= 0 && pa < 2048 && pb >= 0 && pb < 2048 && wq > -1e8 && wq < 1e8
         ? ((wq * 2048 + pa) * 2048 + pb) * 8 + f.na * 2 + (f.ns > 0 ? 1 : 0)
         : f.na + "|" + wq + "|" + f.ns + "|" + pa + "|" + pb
-      let byCid = gridIndex.get(cid)
-      if (!byCid) gridIndex.set(cid, byCid = new Map())
-      let grid = byCid.get(key)
-      if (!grid) { byCid.set(key, grid = { f, wpc, phaseA, phaseB, index: grids.length }); grids.push(grid) }
-      cellRuns.push3(grid.index, Math.round((wa0 - phaseA) / f.wa), Math.round((wb0 - phaseB) / f.wb))
+      let g
+      if (typeof key === "number") {
+        g = gridIndex.get(cid, key)
+        if (g < 0) gridIndex.set(cid, key, g = grids.length)
+      } else {
+        const sk = cid + "#" + key
+        g = gridNames.get(sk) ?? -1
+        if (g < 0) gridNames.set(sk, g = grids.length)
+      }
+      if (g === grids.length) grids.push({ f, wpc, phaseA, phaseB, index: g })
+      cellRuns.push3(g, Math.round((wa0 - phaseA) / f.wa), Math.round((wb0 - phaseB) / f.wb))
     }
   }
   const cellData = cellRuns.data()
