@@ -21,14 +21,21 @@ export function isImage(data) {
   return data != null && typeof data === "object" && typeof data.width === "number" && typeof data.height === "number"
 }
 
+const beforeMemo = new Map()
+
 export function isBefore(version, target) {
+  const key = version + "\0" + target
+  let r = beforeMemo.get(key)
+  if (r !== undefined) return r
   const parse = s => s.split("-")[0].split(".").map(n => +n || 0)
   const a = parse(version), b = parse(target)
+  r = false
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
     const av = a[i] ?? 0, bv = b[i] ?? 0
-    if (av !== bv) return av < bv
+    if (av !== bv) { r = av < bv; break }
   }
-  return false
+  if (beforeMemo.size < 4096) beforeMemo.set(key, r)
+  return r
 }
 
 export function parseJson(data) {
