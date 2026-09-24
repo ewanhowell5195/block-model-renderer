@@ -1457,9 +1457,11 @@ export interface CreateCloudsOptions {
   daytime?: Daytime | DaytimeUniform
   /** What the layer is centred on. Default the rendering camera. */
   anchor?: AnchorInput | null
-  /** The bottom of the layer in blocks. Default `192.33`. */
+  /** The world coordinates of the scene's position `0, 0, 0`, as on `createScene`. Default `[0, 0, 0]`. */
+  origin?: [number, number, number]
+  /** The bottom of the layer, as a world height in blocks. Default `192.33`. */
   height?: number
-  /** The world block `[x, z]` the scene's origin stands for. Default `[0, 0]`. */
+  /** An extra shift of the cloud pattern in blocks, `[x, z]`, on top of `origin`. Default `[0, 0]`. */
   offset?: [number, number]
   /** The cloud clock in ticks. Default `0`. */
   time?: number
@@ -1489,9 +1491,11 @@ export interface CloudsHandle {
   update(anchor?: AnchorInput | null): void
   /** What the layer is centred on. Assignable. */
   anchor: THREE.Object3D | THREE.Vector3 | null
-  /** The bottom of the layer in blocks. Assignable. */
+  /** The world coordinates of the scene's position `0, 0, 0`. Assignable. */
+  origin: [number, number, number]
+  /** The bottom of the layer, as a world height in blocks. Assignable. */
   height: number
-  /** The world `[x, z]` of the scene origin. Assignable. */
+  /** An extra shift of the cloud pattern in blocks, `[x, z]`, on top of `origin`. Assignable. */
   offset: [number, number]
   /** The cloud clock in ticks. Assignable. */
   time: number
