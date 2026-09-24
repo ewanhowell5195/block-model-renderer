@@ -22,10 +22,15 @@ const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageDat
 
 let frameCtx = null, frameRenderer = null, frameSize = null
 
-async function makeFolderEntry(folderPath) {
+async function makeFolderEntry(folderPath, indexed = false) {
+  let files = null
+  if (indexed) {
+    try { files = new Set((await fs.promises.readdir(folderPath, { recursive: true })).map(p => p.split(path.sep).join("/"))) } catch {}
+  }
   const entry = {
     path: folderPath,
     async read(file) {
+      if (files && !files.has(file)) return null
       try { return await fs.promises.readFile(path.join(folderPath, file)) } catch { return null }
     },
     async list(dir) {
@@ -132,7 +137,7 @@ setPlatform({
       if (!role) continue
       const rolePath = path.join(assetsDir, name)
       const existing = find(rolePath)
-      const entry = existing ?? await makeFolderEntry(rolePath)
+      const entry = existing ?? await makeFolderEntry(rolePath, true)
       entry.bundledOverrides = true
       entry.overrideRole = role.role
       if (role.versionBefore) entry.versionBefore = role.versionBefore
@@ -141,7 +146,7 @@ setPlatform({
     bundled.sort((a, b) => (a.versionBefore ? 0 : 1) - (b.versionBefore ? 0 : 1))
     arr.unshift(...bundled)
     if (!find(fallbacksPath)) {
-      arr.push(await makeFolderEntry(fallbacksPath))
+      arr.push(await makeFolderEntry(fallbacksPath, true))
     }
   },
 
