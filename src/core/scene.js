@@ -55,6 +55,44 @@ class CellTable {
   }
 }
 
+class PairTable {
+  constructor() {
+    this.size = 0
+    this.alloc(4096)
+  }
+  alloc(cap) {
+    this.mask = cap - 1
+    this.hi = new Float64Array(cap).fill(-1)
+    this.lo = new Float64Array(cap)
+    this.vals = new Int32Array(cap)
+  }
+  slot(hi, lo) {
+    let h = Math.imul((hi >>> 0) ^ Math.imul((hi / 4294967296) | 0, 0x85ebca6b) ^ Math.imul((lo >>> 0) ^ Math.imul((lo / 4294967296) | 0, 0xc2b2ae35), 0x9e3779b1), 0x27d4eb2d)
+    h = (h ^ (h >>> 15)) & this.mask
+    while (this.hi[h] !== -1 && (this.hi[h] !== hi || this.lo[h] !== lo)) h = (h + 1) & this.mask
+    return h
+  }
+  get(hi, lo) {
+    const s = this.slot(hi, lo)
+    return this.hi[s] === -1 ? -1 : this.vals[s]
+  }
+  set(hi, lo, v) {
+    if ((this.size + 1) * 2 > this.mask) {
+      const { hi: H, lo: L, vals } = this
+      this.alloc((this.mask + 1) * 2)
+      for (let i = 0; i < H.length; i++) if (H[i] !== -1) this.place(H[i], L[i], vals[i])
+    }
+    this.place(hi, lo, v)
+    this.size++
+  }
+  place(hi, lo, v) {
+    const s = this.slot(hi, lo)
+    this.hi[s] = hi
+    this.lo[s] = lo
+    this.vals[s] = v
+  }
+}
+
 const templateCaches = new WeakMap()
 const TEMPLATE_CACHE_MAX = 4096
 
@@ -108,7 +146,8 @@ function cloneTemplate(src, rebind) {
     d.renderOrder = s.renderOrder
     d.matrixAutoUpdate = s.matrixAutoUpdate
     d.position.copy(s.position)
-    d.quaternion.copy(s.quaternion)
+    const q = s.quaternion
+    if (q.w !== 1 || !Object.is(q.x, 0) || !Object.is(q.y, 0) || !Object.is(q.z, 0)) d.quaternion.copy(q)
     d.scale.copy(s.scale)
     d.matrix.copy(s.matrix)
     d.matrixWorldNeedsUpdate = true
@@ -392,7 +431,7 @@ export async function createScene(assets, blocks, args = {}) {
   const sigNumeric = palSig.every(s => s < 8192)
   const cullNums = (assets.cache.cullMasks ??= new Map())
   let cullNum = cullNums.get(cullEnv)
-  if (!cullNum) cullNums.set(cullEnv, cullNum = new Map())
+  if (!cullNum) cullNums.set(cullEnv, cullNum = new PairTable())
   async function cullFacesFor(entry, cached) {
     const neighbors = {}
     for (let di = 0; di < 6; di++) {
@@ -441,10 +480,11 @@ export async function createScene(assets, blocks, args = {}) {
       const s5 = _nbr[5] >= 0 ? palSig[_nbr[5]] : _nbr[5] + 2
       const hi = ((palSig[cellPi] * 8192 + s0) * 8192 + s1) * 8192 + s2
       const lo = (s3 * 8192 + s4) * 8192 + s5
-      let bucket = cullNum.get(hi)
-      if (bucket === undefined) cullNum.set(hi, bucket = new Map())
-      mask = bucket.get(lo)
-      if (mask === undefined) bucket.set(lo, mask = cullMaskOf(await cullFacesFor(entry, false)))
+      mask = cullNum.get(hi, lo)
+      if (mask < 0) {
+        mask = cullMaskOf(await cullFacesFor(entry, false))
+        cullNum.set(hi, lo, mask)
+      }
     } else {
       let hi, lo
       if (cullNumeric) {
