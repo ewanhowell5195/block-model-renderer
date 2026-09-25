@@ -13,7 +13,6 @@ const DEFAULT_HEIGHT = 192.33
 const DEFAULT_RANGE = 128
 const FOG_END = 2048
 const EMPTY_ALPHA = 10
-const REBUILD_CELLS = 4
 const COLOR_CURVE = [[133, 0xFFFFFF], [11867, 0xFFFFFF], [13670, 0x191926], [22330, 0x191926]]
 
 const FACES = {
@@ -25,6 +24,7 @@ const FACES = {
   east: { shade: 0.9, corners: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]] }
 }
 const DIRECTIONS = Object.keys(FACES)
+const SIDES = [["north", 0, -1], ["south", 0, 1], ["west", -1, 0], ["east", 1, 0]]
 
 const floorMod = (a, n) => ((a % n) + n) % n
 
@@ -51,61 +51,63 @@ async function cloudCells(assets) {
   return { filled, width, height }
 }
 
-function cloudMaterial(cloudColor, fogEnd, fogCenter, fancy) {
-  return new THREE.ShaderMaterial({
-    uniforms: { cloudColor: { value: cloudColor }, fogEnd, fogCenter },
-    vertexShader: `
-      attribute float shade;
-      uniform vec4 cloudColor;
-      uniform float fogEnd;
-      uniform vec3 fogCenter;
-      varying vec4 vColor;
-      void main() {
-        vec4 world = modelMatrix * vec4(position, 1.0);
-        float fog = clamp(distance(world.xyz, fogCenter) / fogEnd, 0.0, 1.0);
-        vColor = vec4(cloudColor.rgb * shade, cloudColor.a * (1.0 - fog));
-        gl_Position = projectionMatrix * viewMatrix * world;
-      }
-    `,
+const vertexShader = `
+  attribute float shade;
+  uniform vec4 cloudColor;
+  uniform float fogEnd;
+  uniform vec3 fogCenter;
+  varying vec4 vColor;
+  void main() {
+    #ifdef USE_INSTANCING
+      vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
+    #else
+      vec4 world = modelMatrix * vec4(position, 1.0);
+    #endif
+    float fog = clamp(distance(world.xyz, fogCenter) / fogEnd, 0.0, 1.0);
+    vColor = vec4(cloudColor.rgb * shade, cloudColor.a * (1.0 - fog));
+    gl_Position = projectionMatrix * viewMatrix * world;
+  }
+`
+
+function cloudMaterial(uniforms, side, depth) {
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader,
     fragmentShader: `
       varying vec4 vColor;
       void main() {
+        if (vColor.a <= 0.0) discard;
         gl_FragColor = vColor;
       }
     `,
-    blending: THREE.CustomBlending,
-    blendSrc: THREE.SrcAlphaFactor,
-    blendDst: THREE.OneMinusSrcAlphaFactor,
-    blendSrcAlpha: THREE.OneFactor,
-    blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
-    depthWrite: true,
-    side: fancy ? THREE.FrontSide : THREE.DoubleSide
+    depthFunc: THREE.LessEqualDepth,
+    side
   })
+  if (depth) {
+    material.colorWrite = false
+    material.depthWrite = true
+    material.blending = THREE.NoBlending
+  } else {
+    material.depthWrite = false
+    material.blending = THREE.CustomBlending
+    material.blendSrc = THREE.SrcAlphaFactor
+    material.blendDst = THREE.OneMinusSrcAlphaFactor
+    material.blendSrcAlpha = THREE.OneFactor
+    material.blendDstAlpha = THREE.OneMinusSrcAlphaFactor
+  }
+  return material
 }
 
-function buildGeometry(cells, cellX, cellZ, radius, fancy, inner) {
+const flatCorners = corners => Float32Array.from(corners.flatMap(c => [c[0] * CELL * UNIT, c[1] * THICKNESS * UNIT, c[2] * CELL * UNIT]))
+const OUTSIDE = Object.fromEntries(DIRECTIONS.map(dir => [dir, flatCorners(FACES[dir].corners)]))
+const INTERIOR = DIRECTIONS.map(dir => [flatCorners(FACES[dir].corners.slice().reverse()), FACES[dir].shade])
+
+function buildGeometry(cells, eachCell) {
   const { filled, width, height } = cells
   const at = (x, z) => filled[floorMod(x, width) + floorMod(z, height) * width]
   function walk(emit) {
-    function cell(rx, rz) {
-      const x = cellX + rx, z = cellZ + rz
-      if (!at(x, z)) return
-      if (!fancy) return emit(rx, rz, "down", false, FACES.up.shade)
-      emit(rx, rz, "up", false)
-      emit(rx, rz, "down", false)
-      if (!at(x, z - 1)) emit(rx, rz, "north", false)
-      if (!at(x, z + 1)) emit(rx, rz, "south", false)
-      if (!at(x - 1, z)) emit(rx, rz, "west", false)
-      if (!at(x + 1, z)) emit(rx, rz, "east", false)
-      if (Math.abs(rx) <= inner && Math.abs(rz) <= inner) for (const dir of DIRECTIONS) emit(rx, rz, dir, true)
-    }
-    for (let ring = 0; ring <= 2 * radius; ring++) {
-      for (let rx = -ring; rx <= ring; rx++) {
-        const rz = ring - Math.abs(rx)
-        if (rz < 0 || rz > radius || rx * rx + rz * rz > radius * radius) continue
-        if (rz !== 0) cell(rx, -rz)
-        cell(rx, rz)
-      }
+    for (let z = 0; z < height; z++) {
+      for (let x = 0; x < width; x++) if (filled[x + z * width]) eachCell(x, z, at, emit)
     }
   }
   let quads = 0
@@ -114,18 +116,14 @@ function buildGeometry(cells, cellX, cellZ, radius, fancy, inner) {
   const shade = new Float32Array(quads * 4)
   const index = new Uint32Array(quads * 6)
   let q = 0
-  walk((rx, rz, dir, inside, value) => {
-    const face = FACES[dir]
-    const base = q * 4
-    for (let k = 0; k < 4; k++) {
-      const c = face.corners[inside ? 3 - k : k]
-      const v = (base + k) * 3
-      position[v] = (rx + c[0]) * CELL * UNIT
-      position[v + 1] = c[1] * THICKNESS * UNIT
-      position[v + 2] = (rz + c[2]) * CELL * UNIT
-      shade[base + k] = value ?? face.shade
+  walk((x, z, corners, value) => {
+    const px = x * CELL * UNIT, pz = z * CELL * UNIT, v = q * 12, base = q * 4, i = q * 6
+    for (let k = 0; k < 12; k += 3) {
+      position[v + k] = px + corners[k]
+      position[v + k + 1] = corners[k + 1]
+      position[v + k + 2] = pz + corners[k + 2]
     }
-    const i = q * 6
+    shade.fill(value, base, base + 4)
     index[i] = base
     index[i + 1] = base + 1
     index[i + 2] = base + 2
@@ -141,6 +139,20 @@ function buildGeometry(cells, cellX, cellZ, radius, fancy, inner) {
   return geometry
 }
 
+function fancyShell(x, z, at, emit) {
+  emit(x, z, OUTSIDE.up, FACES.up.shade)
+  emit(x, z, OUTSIDE.down, FACES.down.shade)
+  for (const [dir, dx, dz] of SIDES) if (!at(x + dx, z + dz)) emit(x, z, OUTSIDE[dir], FACES[dir].shade)
+}
+
+function fancyInterior(x, z, at, emit) {
+  for (const [corners, shade] of INTERIOR) emit(x, z, corners, shade)
+}
+
+function flatSheet(x, z, at, emit) {
+  emit(x, z, OUTSIDE.down, FACES.up.shade)
+}
+
 export async function createClouds(assets, args = {}) {
   assets = await prepareAssets(assets)
   const daytime = args.daytime && typeof args.daytime === "object" && "value" in args.daytime
@@ -148,12 +160,15 @@ export async function createClouds(assets, args = {}) {
     : { value: parseDaytime(args.daytime) }
   const cells = await cloudCells(assets)
   const range = Math.max(1, Number(args.range) || DEFAULT_RANGE)
-  const radius = Math.ceil(range * 16 / CELL)
+  const reach = Math.ceil(range * 16 / CELL) * CELL
   const base = tintVec(args.color ?? 0xFFFFFF)
   let alpha = Number(args.alpha ?? 0.8)
   const cloudColor = new THREE.Vector4(base.x, base.y, base.z, alpha)
-  const fogEnd = { value: Math.min(range * 16, FOG_END) * UNIT }
-  const fogCenter = { value: new THREE.Vector3() }
+  const uniforms = {
+    cloudColor: { value: cloudColor },
+    fogEnd: { value: Math.min(range * 16, FOG_END) * UNIT },
+    fogCenter: { value: new THREE.Vector3() }
+  }
   const tint = new THREE.Vector3()
 
   let height = Number(args.height ?? DEFAULT_HEIGHT)
@@ -164,74 +179,104 @@ export async function createClouds(assets, args = {}) {
   let fancy = args.fancy !== false
   let last = -1
   let anchor = toAnchor(args.anchor)
-  let builtX = null, builtZ = null, builtFancy = null
-  let retired = null
 
   const group = new THREE.Group()
   group.name = "clouds"
   group.userData.daytime = daytime
-  const material = cloudMaterial(cloudColor, fogEnd, fogCenter, fancy)
-  const empty = new THREE.BufferGeometry()
-  empty.setAttribute("position", new THREE.Float32BufferAttribute([], 3))
-  empty.setAttribute("shade", new THREE.Float32BufferAttribute([], 1))
-  empty.setIndex([])
-  const mesh = new THREE.Mesh(empty, material)
-  mesh.frustumCulled = false
-  mesh.userData.sky = true
-  mesh.userData.prepare = view => anchor ? update() : update(view)
-  mesh.renderOrder = 1000
-  mesh.visible = !!cells && alpha > 0
-  mesh.onBeforeRender = (renderer, scene, view) => sync(view)
-  mesh.onAfterRender = commit
-  group.add(mesh)
+  const layer = new THREE.Group()
+  group.add(layer)
+
+  const periodX = (cells?.width ?? 1) * CELL, periodZ = (cells?.height ?? 1) * CELL
+  const tilesX = Math.ceil(2 * reach / periodX) + 1, tilesZ = Math.ceil(2 * reach / periodZ) + 1
+  const tileMatrices = new THREE.InstancedBufferAttribute(new Float32Array(tilesX * tilesZ * 16), 16)
+  const geometries = {}
+  const geometry = kind => {
+    if (!cells) return new THREE.BufferGeometry()
+    geometries[kind] ??= buildGeometry(cells, { shell: fancyShell, interior: fancyInterior, flat: flatSheet }[kind])
+    return geometries[kind]
+  }
+  const side = () => fancy ? THREE.FrontSide : THREE.DoubleSide
+  function pass(depth, order) {
+    const mesh = new THREE.InstancedMesh(new THREE.BufferGeometry(), cloudMaterial(uniforms, side(), depth), tilesX * tilesZ)
+    mesh.instanceMatrix = tileMatrices
+    mesh.count = 0
+    mesh.frustumCulled = false
+    mesh.renderOrder = order
+    mesh.userData.sky = true
+    layer.add(mesh)
+    return mesh
+  }
+  const shellDepth = pass(true, 1000)
+  const interiorDepth = pass(true, 1000.1)
+  const shellColor = pass(false, 1000.2)
+  const interiorColor = pass(false, 1000.3)
+  const passes = [shellDepth, interiorDepth, shellColor, interiorColor]
+  const interiors = [interiorDepth, interiorColor]
+  const shells = [shellDepth, shellColor]
+  shellDepth.userData.prepare = view => anchor ? update() : update(view)
+  shellDepth.onBeforeRender = (renderer, scene, view) => sync(view)
+
+  function applyFancy() {
+    for (const mesh of shells) mesh.geometry = geometry(fancy ? "shell" : "flat")
+    for (const mesh of passes) mesh.material.side = side()
+    if (fancy) for (const mesh of interiors) mesh.geometry = geometry("interior")
+  }
+  applyFancy()
 
   const cameraPos = new THREE.Vector3()
-  let pending = null
+  const tileMatrix = new THREE.Matrix4()
+  let tileKey = "", tiles = 0
 
-  function commit() {
-    if (!pending) return
-    retired?.dispose()
-    retired = mesh.geometry
-    mesh.geometry = pending.geometry
-    builtX = pending.x
-    builtZ = pending.z
-    builtFancy = pending.fancy
-    pending = null
+  function placeTiles(cloudX, cloudZ) {
+    const x0 = Math.floor((cloudX - reach) / periodX), x1 = Math.floor((cloudX + reach) / periodX)
+    const z0 = Math.floor((cloudZ - reach) / periodZ), z1 = Math.floor((cloudZ + reach) / periodZ)
+    const key = x0 + "," + x1 + "," + z0 + "," + z1
+    if (key === tileKey) return
+    tileKey = key
+    tiles = 0
+    for (let tx = x0; tx <= x1; tx++) {
+      for (let tz = z0; tz <= z1; tz++) tileMatrices.set(tileMatrix.makeTranslation(tx * periodX * UNIT, 0, tz * periodZ * UNIT).elements, tiles++ * 16)
+    }
+    tileMatrices.needsUpdate = true
   }
 
   function update(target) {
     if (target !== undefined) anchor = toAnchor(target)
     anchor?.object?.updateMatrixWorld(true)
     sync(null)
-    if (pending) {
-      commit()
-      sync(null)
-    }
   }
 
   function sync(view) {
+    if (!cells) return
     if (anchor?.object) cameraPos.setFromMatrixPosition(anchor.object.matrixWorld)
     else if (anchor) cameraPos.copy(anchor.pos)
     else if (view) cameraPos.setFromMatrixPosition(view.matrixWorld)
     else return
-    fogCenter.value.copy(cameraPos)
+    uniforms.fogCenter.value.copy(cameraPos)
     const now = performance.now()
     if (ticking && last >= 0) time += (now - last) / 50
     last = now
     if (group.parent) group.parent.worldToLocal(cameraPos)
-    const camX = cameraPos.x / UNIT, camZ = cameraPos.z / UNIT
-    const period = cells.width * TICKS_PER_CELL
-    const cloudX = camX + origin[0] + 0.5 + offsetX + floorMod(time, period) * BLOCKS_PER_TICK
-    const cloudZ = camZ + origin[2] + 0.5 + offsetZ + Z_OFFSET
-    const cellX = Math.floor(cloudX / CELL), cellZ = Math.floor(cloudZ / CELL)
-    const stale = builtX === null || Math.abs(cellX - builtX) > REBUILD_CELLS || Math.abs(cellZ - builtZ) > REBUILD_CELLS || fancy !== builtFancy
-    if (stale && !pending) pending = { x: cellX, z: cellZ, fancy, geometry: buildGeometry(cells, cellX, cellZ, radius, fancy, REBUILD_CELLS + 1) }
-    const ox = builtX ?? pending.x, oz = builtZ ?? pending.z
-    mesh.position.set((camX - cloudX + ox * CELL) * UNIT, (height - origin[1] - 0.5) * UNIT, (camZ - cloudZ + oz * CELL) * UNIT)
+    const camX = cameraPos.x / UNIT, camY = cameraPos.y / UNIT, camZ = cameraPos.z / UNIT
+    const drift = floorMod(time, cells.width * TICKS_PER_CELL) * BLOCKS_PER_TICK
+    const cloudX = floorMod(camX + origin[0] + 0.5 + offsetX + drift, periodX)
+    const cloudZ = floorMod(camZ + origin[2] + 0.5 + offsetZ + Z_OFFSET, periodZ)
+    placeTiles(cloudX, cloudZ)
+    const bottom = height - origin[1] - 0.5
+    layer.position.set((camX - cloudX) * UNIT, bottom * UNIT, (camZ - cloudZ) * UNIT)
+    const inside = fancy && camY >= bottom && camY <= bottom + THICKNESS
+    for (const mesh of shells) mesh.count = tiles
+    for (const mesh of interiors) mesh.count = inside ? tiles : 0
     curveAt(COLOR_CURVE, daytime.value, tint)
     cloudColor.set(base.x * tint.x, base.y * tint.y, base.z * tint.z, alpha)
     group.updateMatrixWorld(true)
   }
+
+  function setVisible() {
+    for (const mesh of shells) mesh.visible = !!cells && alpha > 0
+    for (const mesh of interiors) mesh.visible = !!cells && alpha > 0 && fancy
+  }
+  setVisible()
 
   if (anchor && cells) update()
 
@@ -269,7 +314,7 @@ export async function createClouds(assets, args = {}) {
     },
     set alpha(value) {
       alpha = Math.max(0, Math.min(1, Number(value) || 0))
-      mesh.visible = !!cells && alpha > 0
+      setVisible()
     },
     get time() {
       return time
@@ -288,13 +333,12 @@ export async function createClouds(assets, args = {}) {
     },
     set fancy(value) {
       fancy = !!value
-      material.side = fancy ? THREE.FrontSide : THREE.DoubleSide
+      applyFancy()
+      setVisible()
     },
     dispose() {
-      try { pending?.geometry.dispose() } catch {}
-      try { retired?.dispose() } catch {}
-      try { mesh.geometry.dispose() } catch {}
-      try { material.dispose() } catch {}
+      for (const g of Object.values(geometries)) g.dispose()
+      for (const mesh of passes) mesh.material.dispose()
       group.removeFromParent()
     }
   }
