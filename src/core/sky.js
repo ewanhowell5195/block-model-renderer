@@ -29,6 +29,7 @@ const DIMENSIONS = {
 }
 
 const clamp = (v, min, max) => v < min ? min : v > max ? max : v
+const toGlow = value => value === "pixel" ? "pixel" : value == null || value === "camera" ? null : clamp(Number(value) || 0, 0, 1)
 
 function javaRandom(seed) {
   let s = (seed ^ 0x5DEECE66Dn) & 0xFFFFFFFFFFFFn
@@ -114,40 +115,61 @@ function skyMaterial(config, blend) {
   return material
 }
 
-function flatMaterial(tint) {
+const SKY_FOG_GLSL = `
+  uniform vec3 fogColor;
+  uniform bool pixelGlow;
+  uniform vec3 fogPlain;
+  uniform vec4 glowColor;
+  uniform float glowToward;
+  uniform vec3 skyColor;
+  uniform float skyMix;
+  varying vec3 vDir;
+  vec3 skyFogColor() {
+    if (!pixelGlow) return fogColor;
+    vec3 c = fogPlain;
+    float facing = normalize(vDir).x * glowToward;
+    if (facing > 0.0) c = mix(c, glowColor.rgb, clamp(facing * glowColor.a, 0.0, 1.0));
+    return mix(c, skyColor, skyMix);
+  }
+`
+
+function flatMaterial(fogUniforms) {
   return skyMaterial({
-    uniforms: { tint: { value: tint } },
+    uniforms: fogUniforms,
     vertexShader: `
+      varying vec3 vDir;
       void main() {
+        vDir = mat3(modelMatrix) * position;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: `
-      uniform vec3 tint;
+      ${SKY_FOG_GLSL}
       void main() {
-        gl_FragColor = vec4(tint, 1.0);
+        gl_FragColor = vec4(skyFogColor(), 1.0);
       }
     `
   })
 }
 
-function discMaterial(skyColor, fogColor, skyEnd) {
+function discMaterial(fogUniforms, skyEnd) {
   return skyMaterial({
-    uniforms: { skyColor: { value: skyColor }, fogColor: { value: fogColor }, skyEnd },
+    uniforms: { ...fogUniforms, skyEnd },
     vertexShader: `
       varying float vDist;
+      varying vec3 vDir;
       void main() {
         vDist = length(position);
+        vDir = mat3(modelMatrix) * position;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
     fragmentShader: `
-      uniform vec3 skyColor;
-      uniform vec3 fogColor;
+      ${SKY_FOG_GLSL}
       uniform float skyEnd;
       varying float vDist;
       void main() {
-        gl_FragColor = vec4(mix(skyColor, fogColor, clamp(vDist / skyEnd, 0.0, 1.0)), 1.0);
+        gl_FragColor = vec4(mix(skyColor, skyFogColor(), clamp(vDist / skyEnd, 0.0, 1.0)), 1.0);
       }
     `
   })
@@ -384,8 +406,17 @@ export async function createSky(assets, args = {}) {
   const fading = args.horizonFade === true
   const skyEnd = { value: SKY_RADIUS }
   let ticking = args.tick === true
-  let ownGlow = args.sunriseGlow == null ? null : clamp(Number(args.sunriseGlow) || 0, 0, 1)
+  let ownGlow = toGlow(args.sunriseGlow)
   if (fog && fog !== args.fog && ownGlow != null) fog.sunriseGlow = ownGlow
+  const fogUniforms = {
+    fogColor: { value: fogColor },
+    pixelGlow: { value: false },
+    fogPlain: { value: new THREE.Vector3() },
+    glowColor: { value: new THREE.Vector4() },
+    glowToward: { value: 1 },
+    skyColor: { value: skyColor },
+    skyMix: { value: 0 }
+  }
   let last = -1
   const sunFade = { value: 1 }
   const moonFade = { value: 1 }
@@ -431,11 +462,11 @@ export async function createSky(assets, args = {}) {
       place(group, geometry, endSkyMaterial(texture), -1000)
     }
   } else {
-    place(group, new THREE.SphereGeometry(BACKDROP_RADIUS, 16, 12), flatMaterial(fogColor), -1000)
+    place(group, new THREE.SphereGeometry(BACKDROP_RADIUS, 16, 12), flatMaterial(fogUniforms), -1000)
   }
 
   if (dimension.skybox === "overworld") {
-    place(group, discGeometry(), discMaterial(skyColor, fogColor, skyEnd), -999)
+    place(group, discGeometry(), discMaterial(fogUniforms, skyEnd), -999)
 
     glow = new THREE.Group()
     glow.rotation.x = Math.PI / 2
@@ -506,14 +537,21 @@ export async function createSky(assets, args = {}) {
       fogColor.copy(baseFog).multiply(curveAt(FOG_CURVE, tick, fogTint))
 
       const alpha = sunriseColor(angle, glowRgb)
-      if (alpha > 0) {
-        const fixed = fog ? fog.sunriseGlow : ownGlow
-        const facing = fixed ?? view.getWorldDirection(cameraDir).x * (Math.sin(angle) > 0 ? -1 : 1)
+      const toward = Math.sin(angle) > 0 ? -1 : 1
+      const setting = fog ? fog.sunriseGlow : ownGlow
+      const pixel = setting === "pixel"
+      fogUniforms.pixelGlow.value = pixel
+      fogUniforms.fogPlain.value.copy(fogColor)
+      fogUniforms.glowColor.value.set(glowRgb.x, glowRgb.y, glowRgb.z, Math.max(0, alpha))
+      fogUniforms.glowToward.value = toward
+      if (alpha > 0 && !pixel) {
+        const facing = setting ?? view.getWorldDirection(cameraDir).x * toward
         if (facing > 0) fogColor.lerp(glowRgb, clamp(facing * alpha, 0, 1))
       }
       const distance = fog?.distance ?? 0
       skyEnd.value = distance > 0 ? Math.min(distance * 16, SKY_RADIUS) : SKY_RADIUS
       const skyMix = fogSkyMix(distance)
+      fogUniforms.skyMix.value = skyMix
       if (skyMix > 0) fogColor.lerp(skyColor, skyMix)
       glow.visible = alpha > 0.001
       if (glow.visible) {
@@ -569,7 +607,7 @@ export async function createSky(assets, args = {}) {
     },
     set sunriseGlow(value) {
       if (fog) fog.sunriseGlow = value
-      else ownGlow = value == null ? null : clamp(Number(value) || 0, 0, 1)
+      else ownGlow = toGlow(value)
     },
     dispose() {
       for (const mesh of meshes) {

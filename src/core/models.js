@@ -469,6 +469,8 @@ export const LIGHT_DIMENSIONS = {
 
 export const FOG_CURVE = [[133, 0xFFFFFF], [11867, 0xFFFFFF], [13670, 0x0C0C16], [22330, 0x161616]]
 
+const PIXEL_GLOW = -2
+
 export function fogSkyMix(renderDistance) {
   if (!(renderDistance > 0)) return 0
   const factor = 0.25 + 0.75 * Math.max(0, Math.min(1, Math.min(32, renderDistance) / 32))
@@ -497,7 +499,7 @@ const FOG_GLSL = (() => {
         if (dist >= end) return 1.0;
         return (dist - start) / (end - start);
       }
-      vec3 fogColorAt() {
+      vec3 fogColorAt(vec3 dir) {
         if (!fogSunrise) return mix(fogBase, skyBase, fogSkyMix);
         float tick = mod(daytime, 24000.0);
         vec3 c = fogBase * fogCurve(tick);
@@ -508,7 +510,8 @@ const FOG_GLSL = (() => {
           float a = 1.0 - (1.0 - sin(f * 3.14159265)) * 0.99;
           a *= a;
           vec3 glow = vec3(f * 0.3 + 0.7, f * f * 0.7 + 0.2, 0.2);
-          float facing = fogGlow >= 0.0 ? fogGlow : -viewMatrix[0][2] * (sin(angle) > 0.0 ? -1.0 : 1.0);
+          float toward = sin(angle) > 0.0 ? -1.0 : 1.0;
+          float facing = fogGlow >= 0.0 ? fogGlow : (fogGlow < -1.5 ? dir.x : -viewMatrix[0][2]) * toward;
           if (facing > 0.0) c = mix(c, glow, clamp(facing * a, 0.0, 1.0));
         }
         return mix(c, skyBase * clamp(cs * 2.0 + 0.5, 0.0, 1.0), fogSkyMix);
@@ -557,10 +560,11 @@ export function makeFog(config, dim) {
       uniforms.fogBase.value.copy(tintVec(value, 0xC0D8FF))
     },
     get sunriseGlow() {
-      return uniforms.fogGlow.value < 0 ? null : uniforms.fogGlow.value
+      const glow = uniforms.fogGlow.value
+      return glow === PIXEL_GLOW ? "pixel" : glow < 0 ? null : glow
     },
     set sunriseGlow(value) {
-      uniforms.fogGlow.value = value == null ? -1 : Math.max(0, Math.min(1, Number(value) || 0))
+      uniforms.fogGlow.value = value === "pixel" ? PIXEL_GLOW : value == null || value === "camera" ? -1 : Math.max(0, Math.min(1, Number(value) || 0))
     },
     get anchor() {
       return anchor
@@ -3632,7 +3636,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           float sph = length(rel) / 16.0;
           float cyl = max(length(rel.xz), abs(rel.y)) / 16.0;
           float f = max(fogValue(sph, fogStart, fogEnd), fogValue(cyl, fogNear, fogFar));
-          if (f > 0.0) rgb = mix(rgb, fogColorAt(), f);
+          if (f > 0.0) rgb = mix(rgb, fogColorAt(normalize(rel)), f);
         }
         gl_FragColor = vec4(rgb, texColor.a);
       }

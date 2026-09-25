@@ -103,7 +103,7 @@ await createScene(assets, blocks, { lighting: { fog: { distance: 12, color: "#c0
 | `distance` | | The render distance in chunks. `0` turns the fog off |
 | `color` | the dimension's `fogColor` | The base fog colour. It follows the day/night curve and the sunrise glow like the sky's, and takes on the sky colour at short distances as in the game |
 | `anchor` | the rendering camera | Where distances are measured from: a fixed position in world units (`[x, y, z]`, `{ x, y, z }` or a `Vector3`), or an object to follow |
-| `sunriseGlow` | the camera's direction | A fixed `0` to `1` strength for the sunrise and sunset glow in the fog colour, in place of the game's, which depends on how directly the camera faces the sun |
+| `sunriseGlow` | `"camera"` | How strongly the fog colour takes on the sunrise and sunset glow. `"camera"` is the game's, by how directly the camera faces the sun, `"pixel"` measures each pixel's own direction from the fog's anchor so the glow sits in the world and wraps around the horizon, and a number from `0` to `1` fixes it everywhere |
 
 Terrain fades into the fog colour over the last stretch before the render distance, with the overworld's faint distance haze on top, matching the game's two fog terms.
 
@@ -216,7 +216,7 @@ scene.add(sky.group)
 | `args.version` | | The Minecraft version, which picks the sun and moon texture layout: `environment/celestial/` from 1.21.11, `environment/` before it, each falling back to the other |
 | `args.tick` | `false` | Advance the day/night clock in real time, 20 ticks a second like the game, wrapping at 24000. Off, `daytime` only moves when you set it. Also settable on the handle |
 | `args.fog` | | The [fog](#fog): a scene's fog handle, or the same number or object `createScene` takes. The sky fades to the fog colour within the render distance, and the fog colour takes on the sky colour at short distances, as in the game |
-| `args.sunriseGlow` | the camera's direction | The horizon's share of the sunrise glow, `0` to `1`, as the fog's [`sunriseGlow`](#fog). With a fog, the sky follows the fog's setting. Also settable on the handle |
+| `args.sunriseGlow` | `"camera"` | The horizon's sunrise glow, `"camera"`, `"pixel"` or a fixed `0` to `1`, as the fog's [`sunriseGlow`](#fog). With a fog, the sky follows the fog's setting. Also settable on the handle |
 
 The handle:
 
@@ -228,7 +228,7 @@ The handle:
 | `moonPhase` | The moon phase, assignable |
 | `angle` | The path tilt in degrees, assignable |
 | `tick` | Whether the clock advances on its own, assignable |
-| `sunriseGlow` | The fixed glow amount, or `null` to follow the camera, assignable. Sets the fog's when there is one |
+| `sunriseGlow` | The glow setting, assignable: `"pixel"`, the fixed amount, or `null` to follow the camera. Sets the fog's when there is one |
 | `dispose()` | Frees the geometry, materials, and textures, and removes the group from its parent |
 
 ## Clouds
