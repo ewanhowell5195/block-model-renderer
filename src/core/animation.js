@@ -46,6 +46,12 @@ export function applyFrame(s, image) {
   s.tex.needsUpdate = true
 }
 
+export function lcmTicks(a, b) {
+  let x = a, y = b
+  while (y > 1e-6) [x, y] = [y, x % y]
+  return a * b / x
+}
+
 export function computeAnimationTimeline(animatedTextures, maxFrameCount, dynamicLoop = 0, excerptFrames = maxFrameCount) {
   let schedules, totalDuration, events, frameCount
   for (let maxSubFrames = 8; maxSubFrames >= 1; maxSubFrames--) {
@@ -66,18 +72,12 @@ export function computeAnimationTimeline(animatedTextures, maxFrameCount, dynami
       }
       return { tex: ch.tex, region: ch.region, frames, times, total, boundaries }
     })
-    totalDuration = schedules.reduce((acc, s) => {
-      let a = acc, b = s.total
-      while (b) [a, b] = [b, a % b]
-      return (acc * s.total) / a
-    }, 1)
+    totalDuration = schedules.reduce((acc, s) => lcmTicks(acc, s.total), 1)
     if (dynamicLoop) {
       if (dynamicLoop === Infinity) {
         totalDuration = Infinity
       } else {
-        let a = totalDuration, b = dynamicLoop
-        while (b) [a, b] = [b, a % b]
-        totalDuration = (totalDuration * dynamicLoop) / a
+        totalDuration = schedules.length ? lcmTicks(totalDuration, dynamicLoop) : dynamicLoop
       }
       if (totalDuration > maxFrameCount) {
         frameCount = Math.min(excerptFrames, maxFrameCount)
@@ -102,7 +102,7 @@ export function computeAnimationTimeline(animatedTextures, maxFrameCount, dynami
     }
     if (dynamicLoop) {
       const budget = Math.max(1, maxFrameCount - eventSet.size)
-      const steps = Math.min(totalDuration, budget)
+      const steps = Math.min(Math.ceil(totalDuration), budget)
       for (let i = 0; i < steps; i++) eventSet.add(i * totalDuration / steps)
     }
     events = Array.from(eventSet).sort((a, b) => a - b).slice(0, cap)

@@ -4,7 +4,7 @@ import { sortObjectOnce } from "./sorting.js"
 import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
-import { computeAnimationTimeline, collectAnimated, applyFrame, applyTint, readTexture } from "./animation.js"
+import { computeAnimationTimeline, lcmTicks, collectAnimated, applyFrame, applyTint, readTexture } from "./animation.js"
 import { blockRules } from "./data.js"
 import { faceNeighbors } from "./neighbors.js"
 
@@ -336,14 +336,9 @@ export async function renderModelScene(scene, camera, args) {
 
   let dynamicLoop = 0
   if (collected) {
-    const fold = loop => {
-      let a = dynamicLoop || loop, b = loop
-      while (b) [a, b] = [b, a % b]
-      dynamicLoop = ((dynamicLoop || loop) * loop) / a
-    }
     for (const d of collected.dynamics) {
       const loop = DYNAMIC_LOOPS[d.userData.dynamic]
-      if (loop) fold(loop)
+      if (loop) dynamicLoop = dynamicLoop ? lcmTicks(dynamicLoop, loop) : loop
     }
     if (collected.shaders.length) dynamicLoop = Infinity
   }
