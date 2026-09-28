@@ -299,6 +299,17 @@ The `helpers` object:
 
 Materials are shared between calls with the same options, except with `texture_offset` or `image`. They render `THREE.SkinnedMesh` as well, so a loader can merge moving parts into one skinned mesh per material instead of a mesh per part.
 
+#### Animating loader geometry
+
+`build` can return `{ animate(root, ticks, camera), loop }` to animate what it built. The model's root group then becomes a dynamic that plays on its own, the same way animated block entities do: it advances every frame in the browser, counts as animated for animated output ([Node](standard-api.md#animated-output-node), [browser](standard-api.md#animated-renders-browser)), and [`poseSpecial(root, { ticks })`](scenes.md#posespecialroot-pose) freezes it at a given tick.
+
+| Field | Description |
+|---|---|
+| `animate(root, ticks, camera)` | Pose the model at `ticks` since the animation started. `camera` is the camera about to render it, when there is one, for parts that follow the viewer. `root` is the model's root group, or an instanced clone of it when the model is [optimized](optimization.md) into a scene, so look parts up from `root` (by name) rather than keeping references from `build` |
+| `loop` | Length of one cycle in ticks. Animated renders use it as the loop length |
+
+Parts that move need to sit under a group named `part:<anything>`, which is what keeps them as separately transformed instances when a scene is optimized.
+
 ### `variantKey(model, block)`
 
 Optional. A loader whose output varies by placement returns a short string (e.g. `"connected_east"`) identifying which variant a placement gets, so cached or instanced meshes don't share geometry across variants. Consumers call `ModelLoader.variantKey(model, block)`, which combines the keys from every matching loader (or returns `null` when none vary) for use in their own cache keys.

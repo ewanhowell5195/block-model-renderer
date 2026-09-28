@@ -337,7 +337,7 @@ export async function renderModelScene(scene, camera, args) {
   let dynamicLoop = 0
   if (collected) {
     for (const d of collected.dynamics) {
-      const loop = DYNAMIC_LOOPS[d.userData.dynamic]
+      const loop = DYNAMIC_LOOPS[d.userData.dynamic] ?? d.userData.loop
       if (loop) dynamicLoop = dynamicLoop ? lcmTicks(dynamicLoop, loop) : loop
     }
     if (collected.shaders.length) dynamicLoop = Infinity

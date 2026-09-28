@@ -297,7 +297,7 @@ Nothing is yours to run per-frame: like texture animation, it advances whenever 
 
 ### `poseSpecial(root, pose)`
 
-The manual setter, for driving a pose yourself. Calling it cancels the automatic movement: an in-flight `.open()`/`.close()`, `.ring()`, or `.wobble()` stops, and a book's or banner's auto animation turns off for good (that one is yours from then on).
+The manual setter, for driving a pose yourself. Calling it cancels the automatic movement: an in-flight `.open()`/`.close()`, `.ring()`, or `.wobble()` stops, and an auto animation (books, banners, heads, [loader animations](extending.md#animating-loader-geometry)) holds where it is posed until [`resumeSpecial`](#resumespecialroot) hands it back. While held nothing re-poses the model, so parts can be adjusted by hand.
 
 | Argument | Description |
 |---|---|
@@ -314,10 +314,21 @@ The pose fields per kind (`root.userData.dynamic`):
 | `"decorated_pot"` | `{ style, progress }` | A wobble (`"positive"` or `"negative"`) at `progress` 0-1 through its run. No `style` means at rest |
 | `"dragon_head"` | `{ openness }` | How open the jaw is, 0-1 |
 | `"enchanting_book"` | `{ time, rot, open, flip }` | The game's `EnchantingTableBlockEntity` fields: `time` in ticks drives the hover bob and page ripple, `rot` is the facing angle in radians, `open` is 0-1, `flip` is the page-flip counter (fractional values mid-flip) |
+| `"loader"` | `{ ticks }` | Ticks into a [loader animation](extending.md#animating-loader-geometry) |
 | `"piglin_head"` | `{ left, right }` | How far each ear is raised, 0-1 (0 is the resting droop) |
 | `"shulker_box"` | `{ openness }` | Opening progress 0-1: lifts the lid 8 voxels while twisting it 270°, linear like the game |
 
 Models opt in with the `dynamic` and `part` [extension fields](extending.md#dynamic-models), and [`loadModel`](#loadmodelscene-assets-model-args) applies the model's initial `pose` on build (a chest special's `openness` ends up there).
+
+### `resumeSpecial(root)`
+
+Hands an auto animation held by `poseSpecial` back to its own clock. A loader animation carries on from the `ticks` it was held at; books, banners and heads restart their cycle. Models that only move on events (lids, bells, pots) have nothing to resume.
+
+```js
+poseSpecial(root, { ticks: 12 })
+root.getObjectByName("part:arm").rotation.x = -1
+resumeSpecial(root)
+```
 
 ## `renderModelScene(scene, camera, args?)`
 

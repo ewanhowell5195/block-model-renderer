@@ -664,7 +664,7 @@ export type DynamicKind = "banner" | "bell" | "chest" | "decorated_pot" | "drago
 export interface SpecialPose {
   /** `"banner"`: where in the wave cycle the flag is, 0-1. */
   phase?: number
-  /** `"bell"`: ticks since it was rung, fractional for partial ticks. */
+  /** `"bell"`: ticks since it was rung, fractional for partial ticks. `"loader"`: ticks into a loader animation. */
   ticks?: number
   /** `"bell"`: the side it was hit from. No direction means at rest. */
   direction?: "north" | "south" | "east" | "west"
@@ -1092,6 +1092,17 @@ export interface LoaderHelpers {
 }
 
 /**
+ * What a loader's `build` can return to animate its geometry. The model's root
+ * group becomes a dynamic that plays on its own, like animated block entities.
+ */
+export interface LoaderAnimation {
+  /** Pose `root` (the model's root group, or an instanced clone of it) at `ticks` since the animation started. */
+  animate(root: THREE.Object3D, ticks: number, camera?: THREE.Camera): boolean | void
+  /** Length of one cycle in ticks, used as the loop length for animated renders. */
+  loop?: number
+}
+
+/**
  * A custom model loader, for model formats the vanilla pipeline doesn't know.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/extending.md#custom-model-loaders
@@ -1119,7 +1130,7 @@ export interface ModelLoaderDefinition {
     args: Record<string, any>
     block: PlacementContext | null
     helpers: LoaderHelpers
-  }): void | Promise<void>
+  }): void | LoaderAnimation | Promise<void | LoaderAnimation>
   /** Key placement variants apart so caches don't share geometry across them. */
   variantKey?(model: ResolvedModel, block: PlacementContext | null): string | null
 }
@@ -1691,8 +1702,8 @@ export function evaluateAnimation(schedules: AnimationSchedule[], shaders: THREE
 
 /**
  * Manually pose a dynamic model. Calling it cancels the automatic movement: an
- * in-flight `.open()`/`.close()`, `.ring()`, or `.wobble()` stops, and a book's
- * or banner's auto animation turns off for good.
+ * in-flight `.open()`/`.close()`, `.ring()`, or `.wobble()` stops, and an
+ * auto animation (books, banners, heads, loader animations) holds until {@link resumeSpecial}.
  *
  * @param root A group whose `userData.dynamic` is set, or any clone of one.
  * @param pose The pose values for that model kind. Omitted fields fall back to the rest pose.
@@ -1700,6 +1711,12 @@ export function evaluateAnimation(schedules: AnimationSchedule[], shaders: THREE
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#posespecialroot-pose
  */
 export function poseSpecial(root: THREE.Object3D, pose?: SpecialPose): void
+
+/**
+ * Hand an auto animation held by {@link poseSpecial} back to its own clock.
+ * Loader animations continue from the tick they were held at.
+ */
+export function resumeSpecial(root: THREE.Object3D): void
 
 /**
  * The fluid a block contributes: `"water"` for water (including anything

@@ -12,7 +12,7 @@ import {
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
-  makeModelScene, createScene, createSky, createClouds, createFog, loadModel, poseSpecial, renderModelScene, optimizeScene, sortTranslucent,
+  makeModelScene, createScene, createSky, createClouds, createFog, loadModel, poseSpecial, resumeSpecial, renderModelScene, optimizeScene, sortTranslucent,
   computeSceneLight, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
   // shared atlases, packing, animation
   createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures,
@@ -73,6 +73,7 @@ import {
 | `createFog(config, dimension?)` | Make a fog handle on its own, to share between scenes and a sky. [Details](rendering.md#fog) |
 | `loadModel(scene, assets, model, args?)` | Build a model's geometry into a scene. [Details](scenes.md#loadmodelscene-assets-model-args) |
 | `poseSpecial(root, pose)` | Manually pose a dynamic model (chest lid, shulker lid, enchanting book); books animate and lids `.open()`/`.close()` on their own. [Details](scenes.md#dynamic-models) |
+| `resumeSpecial(root)` | Hand an auto animation held by `poseSpecial` back to its own clock. [Details](scenes.md#resumespecialroot) |
 | `renderModelScene(scene, camera, args?)` | Render a scene to output. [Details](scenes.md#rendermodelscenescene-camera-args) |
 | `optimizeScene(placements, options?)` | Merge the whole scene into a handful of draw calls, with far fewer polygons. [Details](optimization.md#scene-optimization) |
 | `sortTranslucent(group, options?)` | Depth-sort a group's translucent faces for a moving camera. [Details](optimization.md#translucent-sorting) |

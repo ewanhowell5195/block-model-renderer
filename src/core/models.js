@@ -4,7 +4,7 @@ import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining, remapPalette, readPaletteTexture } from "./assets.js"
 import { resolveProfile } from "./profiles.js"
-import { buildAnimation } from "./animation.js"
+import { buildAnimation, lcmTicks } from "./animation.js"
 import { classifyPngAlpha, hashBytes } from "./png.js"
 import { modelLoaders, activeLoaders } from "./loaders.js"
 import { mapArtFor, mapIdOf } from "./maps.js"
@@ -79,7 +79,7 @@ function dynState(root) {
   return s
 }
 
-const AUTO_DYNAMICS = new Set(["banner", "dragon_head", "piglin_head", "enchanting_book"])
+const AUTO_DYNAMICS = new Set(["banner", "dragon_head", "piglin_head", "enchanting_book", "loader"])
 export const DYNAMIC_LOOPS = { banner: 100, dragon_head: 10, piglin_head: 50, enchanting_book: 314 }
 
 export function isAutoDynamic(obj) {
@@ -92,8 +92,9 @@ export function poseSpecial(root, data = {}) {
   const kind = root?.userData?.dynamic
   if (!kind) return
   const s = dynState(root)
-  if (kind === "banner" || kind === "dragon_head" || kind === "enchanting_book" || kind === "piglin_head") {
+  if (AUTO_DYNAMICS.has(kind)) {
     s.auto = false
+    s.held = Number(data.ticks) || 0
   } else if (kind === "bell") {
     s.ring = null
   } else if (kind === "decorated_pot") {
@@ -104,6 +105,18 @@ export function poseSpecial(root, data = {}) {
     s.last = null
   }
   applyDynamicPose(root, data)
+}
+
+export function resumeSpecial(root) {
+  const kind = root?.userData?.dynamic
+  if (!AUTO_DYNAMICS.has(kind)) return
+  const s = dynState(root)
+  if (s.auto) return
+  s.auto = true
+  s.t0 = null
+  s.from = kind === "loader" ? s.held ?? 0 : 0
+  if (kind === "banner") s.seed = undefined
+  if (s.book) s.book.last = null
 }
 
 // three's Object3D.copy json round trips userData for every object, which
@@ -195,6 +208,7 @@ export function dynamicFrame(root, renderer, camera) {
   else if (kind === "decorated_pot") moved = potFrame(root, s, now)
   else if (kind === "dragon_head" || kind === "piglin_head") moved = headFrame(root, s, now)
   else if (kind === "enchanting_book") moved = bookFrame(root, s, camera, now)
+  else if (kind === "loader") moved = loaderFrame(root, s, now, camera)
   else moved = lidFrame(root, s, now)
   s.moved = !!moved
   if (s.moved) root.updateWorldMatrix(false, true)
@@ -253,6 +267,13 @@ function headFrame(root, s, now) {
   } else {
     applyDynamicPose(root, { left: (1 - Math.cos(p * 1.2)) / 2, right: (1 - Math.cos(p)) / 2 })
   }
+  return true
+}
+
+function loaderFrame(root, s, now, camera) {
+  if (!s.auto) return
+  s.t0 ??= now - (s.from ?? 0) * 50
+  applyDynamicPose(root, { ticks: (now - s.t0) / 50, camera })
   return true
 }
 
@@ -340,6 +361,10 @@ const _pm = [], _pt = []
 function applyDynamicPose(root, data = {}) {
   const kind = root?.userData?.dynamic
   if (!kind) return
+  if (kind === "loader") {
+    for (const a of root.userData.loaderAnimations ?? []) a.animate(root, data.ticks ?? 0, data.camera)
+    return
+  }
   const parts = []
   root.traverse(o => { if (o.name?.startsWith("part:")) parts.push(o) })
   if (kind === "banner") {
@@ -2989,9 +3014,10 @@ export async function loadModel(scene, assets, model, args) {
 
   if (args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1 && !(model.dynamic && model.elements?.some(e => e?.part))) mergeElementMeshes(containerGroup)
 
+  const loaderAnimations = []
   for (const loader of activeLoaders()) {
     if (loader.build && loader.match?.(model)) {
-      await loader.build({
+      const built = await loader.build({
         group: containerGroup,
         model,
         assets,
@@ -3065,6 +3091,7 @@ export async function loadModel(scene, assets, model, args) {
           }
         }
       })
+      if (typeof built?.animate === "function") loaderAnimations.push(built)
     }
   }
 
@@ -3178,6 +3205,12 @@ export async function loadModel(scene, assets, model, args) {
     initDynamic(rootGroup)
     if (model.pose) poseSpecial(rootGroup, model.pose)
     else applyDynamicPose(rootGroup, {})
+  } else if (loaderAnimations.length) {
+    rootGroup.userData.dynamic = "loader"
+    rootGroup.userData.loaderAnimations = loaderAnimations
+    rootGroup.userData.loop = loaderAnimations.reduce((acc, a) => a.loop > 0 ? acc ? lcmTicks(acc, a.loop) : a.loop : acc, 0)
+    initDynamic(rootGroup)
+    applyDynamicPose(rootGroup, {})
   }
 
   rootGroup.userData.model = model
