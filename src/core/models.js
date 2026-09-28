@@ -1892,7 +1892,10 @@ export async function resolveModelData(assets, model) {
       if (modelType === "block") continue
       merged.display ??= {}
       for (const layerDisplay of values) {
-        for (const [slot, entry] of Object.entries(layerDisplay)) {
+        const filled = { ...layerDisplay }
+        if (filled.thirdperson_righthand && !filled.thirdperson_lefthand) filled.thirdperson_lefthand = filled.thirdperson_righthand
+        if (filled.firstperson_righthand && !filled.firstperson_lefthand) filled.firstperson_lefthand = filled.firstperson_righthand
+        for (const [slot, entry] of Object.entries(filled)) {
           if (!(slot in merged.display)) {
             merged.display[slot] = entry
           }
@@ -2425,8 +2428,8 @@ export async function loadModel(scene, assets, model, args) {
   }
 
   let settings
+  const context = typeof display === "object" ? display.display ?? (display.type === "fallback" ? "gui" : null) : display
   if (typeof display === "object") {
-    const context = display.display ?? (display.type === "fallback" ? "gui" : null)
     const own = context ? model.display?.[context] : null
     if (!context) {
       settings = structuredClone(display)
@@ -2440,6 +2443,7 @@ export async function loadModel(scene, assets, model, args) {
     delete settings.display
     delete settings.generated
     delete settings.rotateFlat
+    leftHandFix(settings, context)
 
     const flatYaws = display.rotateFlat && settings.rotation && !model.waterlogged ? flatPlaneYaws(model) : null
     if (flatYaws) {
@@ -2454,7 +2458,7 @@ export async function loadModel(scene, assets, model, args) {
       }
     }
   } else {
-    settings = structuredClone(model.display?.[display] ?? {})
+    settings = leftHandFix(structuredClone(model.display?.[display] ?? {}), context)
   }
 
   if (model.billboard) {
@@ -3258,6 +3262,13 @@ export async function buildOcclusionModel(assets, id, props, version, defaults) 
     await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false, defaults })
   }
   return g
+}
+
+function leftHandFix(settings, context) {
+  if (context !== "thirdperson_lefthand" && context !== "firstperson_lefthand") return settings
+  if (settings.translation) settings.translation = [-settings.translation[0], settings.translation[1], settings.translation[2]]
+  if (settings.rotation) settings.rotation = [settings.rotation[0], -settings.rotation[1], -settings.rotation[2]]
+  return settings
 }
 
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true) {

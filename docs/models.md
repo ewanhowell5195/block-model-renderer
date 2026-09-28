@@ -27,6 +27,8 @@ display: { type: "fallback", generated: false, ...DISPLAYS.block }  // as above,
 
 A model that doesn't define the named context, with nothing to fall back to, renders untransformed. That is what the game does: a missing context is `NO_TRANSFORM` (no rotation, no translation, scale 1), and the isometric look of blocks in an inventory comes from vanilla's `block/block` declaring a `gui` transform, not from any built-in default. [`DISPLAYS`](#displays) provides that transform for models that don't carry one.
 
+Left hand contexts (`thirdperson_lefthand`, `firstperson_lefthand`) get the game's left hand fix: X translation and the Y and Z rotations are negated, whichever transform is used. A model that leaves them out uses its right hand transform, as in the game.
+
 Translation values are clamped to ±80 and scale to ±4, like the game. Mirrored scales (an odd number of negative components) render inside out from 1.15 onwards (MC-176864), which is what unversioned renders do too; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) for the pre-1.15 behavior.
 
 ## `DISPLAYS`
