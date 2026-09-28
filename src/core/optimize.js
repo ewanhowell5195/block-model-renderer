@@ -1549,7 +1549,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     if (plan) return plan
     const proto = cloneInstance(node, true)
     const found = []
-    proto.traverse(o => { if (o.isMesh || o.isLineSegments) found.push(o) })
+    proto.traverse(o => { if ((o.isMesh && !o.isSkinnedMesh) || o.isLineSegments) found.push(o) })
     const parts = []
     for (const m of found) {
       let inPart = false

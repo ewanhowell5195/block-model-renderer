@@ -110,11 +110,19 @@ export function poseSpecial(root, data = {}) {
 // dominates instancing. per instance state lives in WeakMaps keyed by the
 // root, so children can share theirs
 export function cloneInstance(s, root) {
-  const d = s.isMesh ? new THREE.Mesh(s.geometry, s.material)
+  const d = cloneNode(s, root)
+  if (root) rebindSkins(s, d)
+  return d
+}
+
+function cloneNode(s, root) {
+  const d = s.isSkinnedMesh ? new THREE.SkinnedMesh(s.geometry, s.material)
+    : s.isMesh ? new THREE.Mesh(s.geometry, s.material)
     : s.isLineSegments ? new THREE.LineSegments(s.geometry, s.material)
+    : s.isBone ? new THREE.Bone()
     : new THREE.Group()
   d.name = s.name
-  d.userData = root ? { ...s.userData } : s.userData
+  d.userData = root || s.isBone ? { ...s.userData } : s.userData
   d.visible = s.visible
   d.renderOrder = s.renderOrder
   d.matrixAutoUpdate = s.matrixAutoUpdate
@@ -124,8 +132,21 @@ export function cloneInstance(s, root) {
   d.matrix.copy(s.matrix)
   d.matrixWorldNeedsUpdate = true
   d.onBeforeRender = s.onBeforeRender
-  for (const ch of s.children) d.add(cloneInstance(ch, false))
+  for (const ch of s.children) d.add(cloneNode(ch, false))
   return d
+}
+
+export function rebindSkins(s, d) {
+  const from = [], to = []
+  s.traverse(o => from.push(o))
+  d.traverse(o => to.push(o))
+  let bones
+  for (let i = 0; i < from.length; i++) {
+    if (!from[i].isSkinnedMesh) continue
+    bones ??= new Map(from.map((o, j) => [o, to[j]]))
+    const skeleton = from[i].skeleton
+    to[i].bind(new THREE.Skeleton(skeleton.bones.map(b => bones.get(b) ?? b), skeleton.boneInverses), from[i].bindMatrix)
+  }
 }
 
 export function initDynamic(root) {
@@ -3312,6 +3333,23 @@ export async function buildOcclusionModel(assets, id, props, version, defaults) 
   return g
 }
 
+const BONE_TEXTURE_SIZE = 64
+const SKINNING_PARS = `
+  #ifdef USE_SKINNING
+    uniform mat4 bindMatrix;
+    uniform mat4 bindMatrixInverse;
+    uniform highp sampler2D boneTexture;
+    mat4 getBoneMatrix(const in float i) {
+      float j = i * 4.0;
+      float y = floor(j / ${BONE_TEXTURE_SIZE}.0);
+      float x = j - y * ${BONE_TEXTURE_SIZE}.0;
+      float d = 1.0 / ${BONE_TEXTURE_SIZE}.0;
+      float v = d * (y + 0.5);
+      return mat4(texture2D(boneTexture, vec2(d * (x + 0.5), v)), texture2D(boneTexture, vec2(d * (x + 1.5), v)), texture2D(boneTexture, vec2(d * (x + 2.5), v)), texture2D(boneTexture, vec2(d * (x + 3.5), v)));
+    }
+  #endif
+`
+
 function leftHandFix(settings, context) {
   if (context !== "thirdperson_lefthand" && context !== "firstperson_lefthand") return settings
   if (settings.translation) settings.translation = [-settings.translation[0], settings.translation[1], settings.translation[2]]
@@ -3340,9 +3378,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         mat.emissiveMap = texture
         mat.emissiveIntensity = emission / 15
       }
-      return mat
+      return skinnable(mat)
     }
-    return new THREE.MeshBasicMaterial({ map: texture, alphaTest: cutoff, side, vertexColors: true, opacity, transparent: forced })
+    return skinnable(new THREE.MeshBasicMaterial({ map: texture, alphaTest: cutoff, side, vertexColors: true, opacity, transparent: forced }))
   }
   if (shader?.type === "end_portal") {
     const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
@@ -3459,7 +3497,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     })
   }
   const volume = lightConfig?.light?.uniforms ? lightConfig.light : null
-  return new THREE.ShaderMaterial({
+  const material = new THREE.ShaderMaterial({
     defines: Object.assign(volume ? { LIGHT_VOLUME: "" } : {}, translucent === false ? { CUTOUT: "" } : {}, uvOffset ? { UV_OFFSET: "" } : {}),
     uniforms: {
       map: { value: texture },
@@ -3504,6 +3542,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         varying vec3 vLightPos;
       #endif
       #include <clipping_planes_pars_vertex>
+      ${SKINNING_PARS}
       void main() {
         vUv = uv;
         vTint = color;
@@ -3513,6 +3552,12 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         ${parseInt(THREE.REVISION) >= 159 ? "#include <batching_vertex>" : ""}
         vec4 pos = vec4(position, 1.0);
         vec3 nrm = normal;
+        #ifdef USE_SKINNING
+          mat4 skinMatrix = skinWeight.x * getBoneMatrix(skinIndex.x) + skinWeight.y * getBoneMatrix(skinIndex.y) + skinWeight.z * getBoneMatrix(skinIndex.z) + skinWeight.w * getBoneMatrix(skinIndex.w);
+          skinMatrix = bindMatrixInverse * skinMatrix * bindMatrix;
+          pos = skinMatrix * pos;
+          nrm = mat3(skinMatrix) * nrm;
+        #endif
         #ifdef USE_BATCHING
           pos = batchingMatrix * pos;
           nrm = mat3(batchingMatrix) * nrm;
@@ -3746,4 +3791,25 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     clipping: true,
   })
+  material.onBeforeRender = skinnedBeforeRender
+  return material
+}
+
+function skinnedBeforeRender(renderer, scene, camera, geometry, object) {
+  const skeleton = object.isSkinnedMesh ? object.skeleton : null
+  if (!skeleton || skeleton.boneTexture?.image.width === BONE_TEXTURE_SIZE) return
+  const matrices = new Float32Array(BONE_TEXTURE_SIZE * BONE_TEXTURE_SIZE * 4)
+  matrices.set(skeleton.boneMatrices)
+  skeleton.boneTexture?.dispose()
+  skeleton.boneMatrices = matrices
+  skeleton.boneTexture = new THREE.DataTexture(matrices, BONE_TEXTURE_SIZE, BONE_TEXTURE_SIZE, THREE.RGBAFormat, THREE.FloatType)
+  skeleton.boneTexture.needsUpdate = true
+}
+
+function skinnable(material) {
+  material.onBeforeCompile = shader => {
+    shader.vertexShader = shader.vertexShader.replace("#include <skinning_pars_vertex>", SKINNING_PARS)
+  }
+  material.onBeforeRender = skinnedBeforeRender
+  return material
 }

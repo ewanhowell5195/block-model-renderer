@@ -1,6 +1,6 @@
 import { THREE, normalize, jsonKey } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
-import { cloneInstance, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog, randomOffset, rollPicks } from "./models.js"
+import { cloneInstance, rebindSkins, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog, randomOffset, rollPicks } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight, isFlatBlocks } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -138,12 +138,14 @@ function cloneTemplate(src, rebind) {
     return c
   }
   const walk = (s, root) => {
-    const d = s.isMesh ? new THREE.Mesh(s.geometry, cloneMat(s.material))
+    const d = s.isSkinnedMesh ? new THREE.SkinnedMesh(s.geometry, cloneMat(s.material))
+      : s.isMesh ? new THREE.Mesh(s.geometry, cloneMat(s.material))
       : s.isLineSegments ? new THREE.LineSegments(s.geometry, cloneMat(s.material))
+      : s.isBone ? new THREE.Bone()
       : new THREE.Group()
     if (root) d.__templateSource = src
     d.name = s.name
-    d.userData = root ? { ...s.userData } : s.userData
+    d.userData = root || s.isBone ? { ...s.userData } : s.userData
     d.visible = s.visible
     d.renderOrder = s.renderOrder
     d.matrixAutoUpdate = s.matrixAutoUpdate
@@ -157,7 +159,9 @@ function cloneTemplate(src, rebind) {
     for (const ch of s.children) d.add(walk(ch, false))
     return d
   }
-  return walk(src, true)
+  const out = walk(src, true)
+  rebindSkins(src, out)
+  return out
 }
 
 function fluidKey(f) {

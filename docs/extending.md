@@ -297,7 +297,7 @@ The `helpers` object:
 | `image` | An image to use instead of reading `id` from the assets, eg a fetched skin |
 | `shader` | Shader settings |
 
-Materials are shared between calls with the same options, except with `texture_offset` or `image`.
+Materials are shared between calls with the same options, except with `texture_offset` or `image`. They render `THREE.SkinnedMesh` as well, so a loader can merge moving parts into one skinned mesh per material instead of a mesh per part.
 
 ### `variantKey(model, block)`
 
