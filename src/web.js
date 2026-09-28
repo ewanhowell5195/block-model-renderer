@@ -704,6 +704,7 @@ export const exportOcclusionCache = wrap("exportOcclusionCache")
 export const importOcclusionCache = wrap("importOcclusionCache")
 export const computeSceneLight = wrap("computeSceneLight")
 export const getBiomeTint = wrap("getBiomeTint")
+export const resolveProfile = wrap("resolveProfile")
 export async function renderTexture(args = {}) {
   await init()
   if (!args.texture) throw new Error("renderTexture requires the texture option")

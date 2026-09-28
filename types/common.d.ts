@@ -94,6 +94,11 @@ export interface PrepareAssetsOptions {
    * default state alone. A per-call `defaults` overrides this.
    */
   defaults?: "preferred" | "game"
+  /**
+   * A URL prefix, or a function given the URL and returning the one to request
+   * (`false` requests it directly), for every network request made with these assets.
+   */
+  proxy?: string | ((url: string) => string | false)
 }
 
 /** A file read out of the asset stack, with where it came from attached. */
@@ -1749,6 +1754,33 @@ export function getLightEmission(id: string, properties?: BlockProperties, resol
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#map-art
  */
 export function mapIdOf(item: Record<string, any>): string | number | null
+
+/** A player profile: a username, or the shape the game saves. */
+export type PlayerProfile = string | {
+  name?: string
+  /** A UUID string or the game's four int array. */
+  id?: string | number[]
+  /** A list of `{ name, value, signature }`, or a map of name to values. */
+  properties?: { name: string, value: string, signature?: string }[] | Record<string, string[]>
+  /** Skin patch: a texture id used instead of the fetched skin. */
+  texture?: string
+  /** Skin patch: a texture id used instead of the fetched cape. */
+  cape?: string
+  /** Skin patch: the model the skin uses. */
+  model?: "wide" | "slim"
+}
+
+export interface ResolvedProfile {
+  name: string | null
+  id: string | null
+  model: "wide" | "slim"
+  /** `image` for a fetched skin, `texture` for a default one. */
+  skin: { image?: CanvasImageSource | object, texture?: string }
+  cape: { image: CanvasImageSource | object } | null
+}
+
+/** Resolve a profile to its skin and cape through Mojang's API, requesting through the assets' `proxy`. Cached for the session. */
+export function resolveProfile(assets: AssetsInput, profile: PlayerProfile): Promise<ResolvedProfile | null>
 
 /**
  * Clear the cached framed-map art. Call it when the world the maps came from is

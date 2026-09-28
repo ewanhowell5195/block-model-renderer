@@ -212,6 +212,7 @@ export async function prepareAssets(assets, opts) {
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
     if (opts?.translucency) assets.translucency = opts.translucency
     if (opts?.defaults) assets.defaults = opts.defaults
+    if (opts?.proxy !== undefined) assets.proxy = opts.proxy
     return assets
   }
 
@@ -233,6 +234,7 @@ export async function prepareAssets(assets, opts) {
   if (opts?.translucency) prepared.translucency = opts.translucency
   if (opts?.version) prepared.version = opts.version
   if (opts?.defaults) prepared.defaults = opts.defaults
+  if (opts?.proxy !== undefined) prepared.proxy = opts.proxy
   await loadAtlases(prepared)
   return prepared
 }

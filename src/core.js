@@ -9,6 +9,7 @@ export { prepareAssets, disposeCache, readFile, listDirectory, zipAssets, zipAss
 export { computeAnimationTimeline, interpolateFrames, collectAnimated, buildSchedules, evaluateAnimation, readTexture, setAnimationRenderer } from "./core/animation.js"
 export { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, isFlatModel, getBiomeTint, poseSpecial, setDynamicClock, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, resolveWorldLighting } from "./core/models.js"
 export { renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS } from "./core/maps.js"
+export { resolveProfile } from "./core/profiles.js"
 export { fluidHeights, fluidTypeOf } from "./core/fluids.js"
 export { renderBlock, renderItem, renderModel, renderTexture, makeModelScene, renderModelScene, getCullFaces, fullyOccludes, exportOcclusionCache, importOcclusionCache } from "./core/render.js"
 export { optimizeScene, createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures } from "./core/optimize.js"

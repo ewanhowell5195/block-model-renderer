@@ -80,6 +80,7 @@ import {
 | `MAP_COLORS` | The vanilla map palette, `{ base, shade, names }`. [Details](scenes.md#map-art) |
 | `mapIdOf(item)` | The map id from an item's components, `null` when absent. [Details](scenes.md#map-art) |
 | `disposeMapArt(assets)` | Clear the cached framed-map art. [Details](scenes.md#map-art) |
+| `resolveProfile(assets, profile)` | Resolve a player profile to its skin and cape through Mojang's API. [Details](scenes.md#player-heads) |
 | `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](rendering.md#scene-lighting) |
 
 ## Shared atlases, packing, animation

@@ -178,7 +178,7 @@ Returns a list of model references.
 The full item definition format is supported. What that means in practice:
 
 * **Model types**: `model`, `composite`, `condition`, `select`, `range_dispatch`, `special`, and `bundle/selected_item`. Nested `transformation` fields compose down the tree
-* **Special models** (`type: "special"`) render through the [bundled overrides](assets.md#bundled-packs): banners, chests, shulker boxes, heads and skulls, conduits, decorated pots, shields, tridents, copper golem statues, and the end portal cube. Runtime state like `openness`, `chest_type`, banner `color`, and statue `pose` is honored, as are `banner_patterns` (on both banners and shields) and a shield's `base_color`, each pattern layered in its dye color the way the game builds them
+* **Special models** (`type: "special"`) render through the [bundled overrides](assets.md#bundled-packs): banners, chests, shulker boxes, heads and skulls, conduits, decorated pots, shields, tridents, copper golem statues, and the end portal cube. Runtime state like `openness`, `chest_type`, banner `color`, and statue `pose` is honored, as are `banner_patterns` (on both banners and shields) and a shield's `base_color`, each pattern layered in its dye color the way the game builds them. A player head's `profile` component renders that player's skin ([Player heads](#player-heads))
 * **Select properties**: `custom_model_data` (strings), `component`, `block_state`, `charge`, `trim_material`, `display_context` (fed from `args.display`), `local_time` (formatted from the actual current time using the definition's pattern), plus any plain string property looked up in `args.data` by name, so future vanilla additions work without renderer updates
 * **Condition properties**: `custom_model_data` (flags), `has_component`, and any plain boolean property in `args.data`
 * **Tint sources**: `team`, `dye`, `map_color`, `potion` (with the vanilla effect color blending), `custom_model_data` (colors), `firework` (color averaging), `grass`/`foliage`/`dry_foliage` (sampled from the colormaps), and `constant`/`default` values
@@ -370,6 +370,30 @@ colors[64 + 65 * 128] = water * 4 + 3 // (64, 65): darkest step
 
 const art = await renderMapColors(assets, colors)
 ```
+
+## Player heads
+
+Player heads take a profile like the game's, as a placed head's `nbt.profile` or a `player_head` item's `profile` component, and render with that player's skin:
+
+```js
+await renderBlock({ assets, id: "player_head", nbt: { profile: "jeb_" } })
+await renderItem({ assets, id: "player_head", components: { profile: { id: "853c80ef-3c37-49fd-aa49-938b674adae6" } } })
+```
+
+The profile takes every shape the game saves, so a structure's block entity data can be passed straight through:
+
+| Shape | Example |
+|---|---|
+| A username | `"jeb_"` |
+| `{ name, id, properties }` | `id` a UUID string or the four int array a save holds. `properties` a list of `{ name, value, signature }` or a map like `{ textures: ["…"] }` |
+| Skin patch fields | `texture`, `cape` (texture ids used instead of the fetched ones) and `model` (`"wide"` or `"slim"`), alongside the above |
+| Pre-1.20.5 `SkullOwner` | `nbt: { SkullOwner: { Name, Id, Properties: { textures: [{ Value }] } } }` |
+
+A `textures` property (the signed base64 value a save or profile holds) is used directly without a lookup. Otherwise the UUID or name is looked up with Mojang's API and the skin fetched from `textures.minecraft.net`. Legacy 64×32 skins are converted the way the game converts them, and a profile with no skin gets the default skin the game picks from its UUID. Lookups and skins are cached for the session.
+
+`resolveProfile(assets, profile)` is exported for other uses, resolving to `{ name, id, model, skin, cape }`: `model` is `"wide"` or `"slim"`, `skin` is `{ image }` for a fetched skin or `{ texture }` for a default one, and `cape` is `{ image }` or `null`.
+
+Mojang's profile API sends no CORS headers, so in a browser set a [`proxy`](assets.md#proxy) on the assets. The skin host allows cross-origin requests, so it can be left direct.
 
 ## Helpers
 

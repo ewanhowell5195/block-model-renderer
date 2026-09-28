@@ -228,6 +228,6 @@ export {
   optimizeScene, createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures, sortTranslucent, poseSpecial,
   packScene, reviveScene, collectAnimated, buildSchedules, evaluateAnimation, setAnimationRenderer,
   zipAssets, zipAssetsFromSlices, readTexture,
-  renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS
+  renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS, resolveProfile
 } from "./core.js"
 export { parseZip } from "./zip.js"

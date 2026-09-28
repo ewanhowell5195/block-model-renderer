@@ -3,6 +3,7 @@ import { COLORS, parseColor, getPotionColor } from "./colors.js"
 import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
 import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining } from "./assets.js"
+import { resolveProfile } from "./profiles.js"
 import { buildAnimation } from "./animation.js"
 import { classifyPngAlpha, hashBytes } from "./png.js"
 import { modelLoaders, activeLoaders } from "./loaders.js"
@@ -1090,6 +1091,10 @@ export async function parseBlockstate(assets, blockstate, args) {
   }
 
   if (args?.nbt) {
+    const profile = args.nbt.profile ?? args.nbt.SkullOwner
+    if (/^player_(wall_)?head$/.test(block) && profile != null) {
+      for (const m of models) if (m && typeof m === "object") await applyProfile(assets, m, profile)
+    }
     if (/(^|_)banner$/.test(block)) {
       const patterns = bannerPatternsOf(args.nbt)
       if (patterns.length) {
@@ -1103,6 +1108,18 @@ export async function parseBlockstate(assets, blockstate, args) {
   }
 
   return models
+}
+
+async function applyProfile(assets, model, profile) {
+  const resolved = await resolveProfile(assets, profile)
+  if (!resolved) return
+  if (resolved.skin.image) {
+    const key = `block-model-renderer:profile/${resolved.id ?? resolved.name ?? "skin"}`
+    model.texture_images = { ...model.texture_images, [key]: resolved.skin.image }
+    model.textures = { ...model.textures, head: key }
+  } else {
+    model.textures = { ...model.textures, head: resolved.skin.texture }
+  }
 }
 
 const LEGACY_BANNER_PATTERNS = {
@@ -1508,6 +1525,7 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
       }
       model.special = Object.assign({}, def.model, { type: normalize(def.model.type) })
       if (data["banner_patterns"]) model.special.patterns = data["banner_patterns"]
+      if (data.profile != null) model.special.profile = data.profile
       if (data["base_color"] != null) model.special.base_color = data["base_color"]
       let transform = currentTransform
       if (!def.transformation && !accTransform) {
@@ -2129,6 +2147,7 @@ async function resolveSpecialModel(assets, data, base) {
     case "player_head":
       translation = [-8, -16, -8]
       rotation = [0, 0, 180]
+      if (data.profile != null && data.type === "player_head") await applyProfile(assets, model, data.profile)
       break
     case "decorated_pot":
       rotation = [0, 180, 0]

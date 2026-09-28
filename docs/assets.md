@@ -116,6 +116,15 @@ const assets = await prepareAssets(sources, { cache: true, defaults: "game" })
 
 `"preferred"` (the default) layers the preferred overrides over each block's real default state; `"game"` uses the real default state alone, for block data whose format omits properties that are at their default. A `defaults` passed to an individual call still wins over the assets-level one, so an app can render its scenes in one mode and its item icons in the other.
 
+### Proxy
+
+Renders made with the assets fetch over the network for some content, like [player head skins](scenes.md#player-heads). In a browser, hosts that send no CORS headers need a proxy. `proxy` is a URL prefix, or a function given the URL and returning the one to request, where `false` requests the original URL directly:
+
+```js
+const assets = await prepareAssets(sources, { proxy: "https://my-proxy/" })
+const assets = await prepareAssets(sources, { proxy: url => url.includes("textures.minecraft.net") ? false : "https://my-proxy/" + url })
+```
+
 ## Bundled packs
 
 Minecraft renders some blocks dynamically at runtime with hardcoded geometry, with no usable model JSON in the vanilla resource pack. block-model-renderer ships bundled packs that supply models for these cases, so they render correctly without any setup from you. They come in two categories that mirror how the game treats each block:
