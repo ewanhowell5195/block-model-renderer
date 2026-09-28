@@ -6,7 +6,7 @@ import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage,
 import { resolveProfile } from "./profiles.js"
 import { buildAnimation, lcmTicks } from "./animation.js"
 import { classifyPngAlpha, hashBytes } from "./png.js"
-import { modelLoaders, activeLoaders } from "./loaders.js"
+import { modelLoaders, activeLoaders, shadings } from "./loaders.js"
 import { mapArtFor, mapIdOf } from "./maps.js"
 import { neighborLookup } from "./neighbors.js"
 
@@ -2550,6 +2550,7 @@ export async function loadModel(scene, assets, model, args) {
   lightConfig.skyLightFactor = typeof world?.dim.skyLightFactor === "number" ? world.dim.skyLightFactor : -1
   lightConfig.brightness = world?.brightness ?? 0.5
   lightConfig.cardinal = world?.cardinal
+  lightConfig.nether = world?.dim.cardinalLight === "nether"
   lightConfig.fog = fog
   if (world && world.rotateShade && settings?.rotation) {
     const [x, y, z] = settings.rotation
@@ -3066,7 +3067,9 @@ export async function loadModel(scene, assets, model, args) {
             const emission = Math.max(0, blockEmission, Math.min(15, opts.light_emission ?? 0))
             const ao = opts.ao !== false && blockEmission === 0
             const opacity = Math.max(0, Math.min(1, opts.opacity ?? 1))
-            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}\0${ao}\0${opacity}\0${opts.alpha ?? ""}\0${opts.blending ?? ""}\0${opts.palette ?? ""}`
+            const shading = opts.shading == null ? null : shadings.get(opts.shading)
+            if (opts.shading != null && !shading) throw new Error(`Unknown shading ${JSON.stringify(opts.shading)}, register it with ModelLoader.registerShading`)
+            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}\0${ao}\0${opacity}\0${opts.alpha ?? ""}\0${opts.blending ?? ""}\0${opts.palette ?? ""}\0${opts.shading ?? ""}`
             const translucent = opts.alpha === "translucent" ? true : opts.alpha === "cutout" ? false : undefined
             function applyBlending(material) {
               if (opts.blending !== "additive") return material
@@ -3078,13 +3081,13 @@ export async function loadModel(scene, assets, model, args) {
             const source = { image: opts.image, palette: opts.palette }
             if (opts.texture_offset) {
               const uvOffset = new THREE.Vector2()
-              const material = await makeMaterial(await loadModelTexture(id, opts.tint, source), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, ao, opacity, translucent, uvOffset)
+              const material = await makeMaterial(await loadModelTexture(id, opts.tint, source), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, ao, opacity, translucent, uvOffset, shading)
               material.userData.uvOffset = uvOffset
               return applyBlending(material)
             }
             let material = opts.image ? null : materialCache.get(key)
             if (!material) {
-              material = applyBlending(await makeMaterial(await loadModelTexture(id, opts.tint, source), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, ao, opacity, translucent))
+              material = applyBlending(await makeMaterial(await loadModelTexture(id, opts.tint, source), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, ao, opacity, translucent, null, shading))
               if (!opts.image) materialCache.set(key, material)
             }
             return material
@@ -3390,7 +3393,13 @@ function leftHandFix(settings, context) {
   return settings
 }
 
-async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true, opacity = 1, translucent, uvOffset = null) {
+function unitVector(v, flipY = false) {
+  return new THREE.Vector3(v[0], flipY ? -v[1] : v[1], v[2]).normalize()
+}
+
+async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true, opacity = 1, translucent, uvOffset = null, shading = null) {
+  const levelLights = shading?.[lightConfig?.nether ? "nether" : "level"]
+  const gui = shading ? { light0: unitVector(shading.ui.lights[0], true), light1: unitVector(shading.ui.lights[1], true), d0: shading.ui.power, d1: shading.ui.power, ambient: shading.ui.ambient } : { light0: new THREE.Vector3(...(lightConfig?.light0 ?? [0, 0, 1])), light1: new THREE.Vector3(...(lightConfig?.light1 ?? [0, 1, 0])), d0: lightConfig?.d0 ?? 0.6, d1: lightConfig?.d1 ?? 0.6, ambient: lightConfig?.ambient ?? 0.4 }
   if (uvOffset && (lighting === "scene" || lighting === "off")) {
     texture = texture.clone()
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
@@ -3534,11 +3543,15 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     defines: Object.assign(volume ? { LIGHT_VOLUME: "" } : {}, translucent === false ? { CUTOUT: "" } : {}, uvOffset ? { UV_OFFSET: "" } : {}),
     uniforms: {
       map: { value: texture },
-      light0: { value: new THREE.Vector3(...(lightConfig?.light0 ?? [0, 0, 1])) },
-      light1: { value: new THREE.Vector3(...(lightConfig?.light1 ?? [0, 1, 0])) },
-      d0: { value: lightConfig?.d0 ?? 0.6 },
-      d1: { value: lightConfig?.d1 ?? 0.6 },
-      ambient: { value: lightConfig?.ambient ?? 0.4 },
+      light0: { value: gui.light0 },
+      light1: { value: gui.light1 },
+      d0: { value: gui.d0 },
+      d1: { value: gui.d1 },
+      ambient: { value: gui.ambient },
+      diffuseOn: { value: !!levelLights },
+      diffuse0: { value: levelLights ? unitVector(levelLights.lights[0]) : new THREE.Vector3() },
+      diffuse1: { value: levelLights ? unitVector(levelLights.lights[1]) : new THREE.Vector3() },
+      diffuseMix: { value: new THREE.Vector2(levelLights?.power ?? 0, levelLights?.ambient ?? 0) },
       shadeEnabled: { value: shadeEnabled !== false },
       shadeOverride: { value: new THREE.Vector3(...(SHADE_DIR_VECS[shadeDir] ?? [0, 0, 0])) },
       worldShade: { value: lighting === "world" },
@@ -3552,7 +3565,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       shadePos: { value: new THREE.Vector3(lightConfig?.cardinal?.up ?? 1, lightConfig?.cardinal?.south ?? 0.8, lightConfig?.cardinal?.east ?? 0.6) },
       shadeNeg: { value: new THREE.Vector3(lightConfig?.cardinal?.down ?? 0.5, lightConfig?.cardinal?.north ?? 0.8, lightConfig?.cardinal?.west ?? 0.6) },
       shadeMat: { value: lightConfig?.shadeMat ?? new THREE.Matrix3() },
-      aoEnabled: { value: ao !== false },
+      aoEnabled: { value: ao !== false && !shading },
       opacity: { value: opacity },
       uvOffset: { value: uvOffset ?? new THREE.Vector2() },
       ...(lightConfig?.fog?.uniforms ?? makeFog(0).uniforms),
@@ -3632,6 +3645,10 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform vec3 shadePos;
       uniform vec3 shadeNeg;
       uniform mat3 shadeMat;
+      uniform bool diffuseOn;
+      uniform vec3 diffuse0;
+      uniform vec3 diffuse1;
+      uniform vec2 diffuseMix;
       uniform float fogStart;
       uniform float fogEnd;
       uniform float fogNear;
@@ -3729,10 +3746,15 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           if (shadeOn) {
             bool hasOverride = dot(shadeDirV, shadeDirV) > 0.5;
             vec3 wn = hasOverride ? shadeDirV : shadeMat * vWorldNormal;
-            vec3 n2 = wn * wn;
-            shade = (n2.y * (wn.y >= 0.0 ? shadePos.x : shadeNeg.x)
-              + n2.z * (wn.z >= 0.0 ? shadePos.y : shadeNeg.y)
-              + n2.x * (wn.x >= 0.0 ? shadePos.z : shadeNeg.z)) / (n2.x + n2.y + n2.z);
+            if (diffuseOn) {
+              vec3 dn = normalize(wn);
+              shade = min(1.0, (max(0.0, dot(diffuse0, dn)) + max(0.0, dot(diffuse1, dn))) * diffuseMix.x + diffuseMix.y);
+            } else {
+              vec3 n2 = wn * wn;
+              shade = (n2.y * (wn.y >= 0.0 ? shadePos.x : shadeNeg.x)
+                + n2.z * (wn.z >= 0.0 ? shadePos.y : shadeNeg.y)
+                + n2.x * (wn.x >= 0.0 ? shadePos.z : shadeNeg.z)) / (n2.x + n2.y + n2.z);
+            }
           }
           float skyFactor;
           vec3 skyColor;

@@ -295,9 +295,32 @@ The `helpers` object:
 | `texture_offset` | Gives the material a live `userData.uvOffset` vector for scrolling textures |
 | `palette` | A palette id such as `"minecraft:trim/iron"`, recolouring the texture from the base palette its `.mcmeta` names |
 | `image` | An image to use instead of reading `id` from the assets, eg a fetched skin |
+| `shading` | A [registered shading](#shading) name, in place of block face shading |
 | `shader` | Shader settings |
 
 Materials are shared between calls with the same options, except with `texture_offset` or `image`. They render `THREE.SkinnedMesh` as well, so a loader can merge moving parts into one skinned mesh per material instead of a mesh per part.
+
+#### Shading
+
+Materials shade like blocks by default: in world lighting, each face is darkened by its direction (top brightest, bottom darkest) and gets smooth lighting, and GUI renders use the item lights. Things the game lights differently, like entities, register their own shading and pass its name as `createMaterial`'s `shading`:
+
+```js
+ModelLoader.registerShading("entity", {
+  level: { lights: [[0.2, 1, -0.7], [-0.2, 1, 0.7]] },
+  nether: { lights: [[0.2, 1, -0.7], [-0.2, -1, 0.7]] },
+  ui: { lights: [[0.2, -1, 1], [-0.2, -1, 0]] }
+})
+```
+
+A shading is two directional lights per context, combined as the game's shaders do: `min(1, (max(0, light0 · n) + max(0, light1 · n)) * power + ambient)`, with `power` defaulting to 0.6 and `ambient` to 0.4. Directions are in the game's coordinates and needn't be normalised.
+
+| Context | Used for |
+|---|---|
+| `level` | World lighting, in place of face shading. Required |
+| `nether` | World lighting in dimensions with nether cardinal light. Defaults to `level` |
+| `ui` | GUI lighting, in place of the item lights. In the game's screen space, where Y points down. Defaults to `level` |
+
+In world lighting the lightmap, emission and fog still apply, and smooth lighting is off, as it is for the game's entities. `scene` and `off` lighting ignore shading. `ModelLoader.removeShading(name)` unregisters one.
 
 #### Animating loader geometry
 

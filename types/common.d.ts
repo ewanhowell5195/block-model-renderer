@@ -1087,6 +1087,8 @@ export interface LoaderHelpers {
     palette?: string
     /** Use this image instead of reading `id` from the assets. Such materials aren't shared. */
     image?: CanvasImageSource | object
+    /** A shading registered with `ModelLoader.registerShading`, in place of block face shading. Also turns off smooth lighting. */
+    shading?: string
     shader?: Record<string, any>
   }): Promise<THREE.Material>
 }
@@ -1153,6 +1155,30 @@ export interface ModelLoaderRegistry {
    * vary by placement. For callers that cache built models themselves.
    */
   variantKey(model: ResolvedModel, block: PlacementContext | null): string | null
+  /** Register a named shading for `createMaterial`'s `shading` option. Returns the name. */
+  registerShading(name: string, definition: ShadingDefinition): string
+  /** Unregister a shading. Returns `true` if one was removed. */
+  removeShading(name: string): boolean
+}
+
+/** Two directional lights, combined as the game does: `min(1, (max(0, light0 · n) + max(0, light1 · n)) * power + ambient)`. */
+export interface ShadingLights {
+  /** Two light directions in the game's coordinates. */
+  lights: [[number, number, number], [number, number, number]]
+  /** Default 0.6. */
+  power?: number
+  /** Default 0.4. */
+  ambient?: number
+}
+
+/** A shading for loader materials, replacing block face shading. */
+export interface ShadingDefinition {
+  /** World lighting in the overworld, the End, and any dimension without nether cardinal light. */
+  level: ShadingLights
+  /** World lighting in dimensions with nether cardinal light. Defaults to `level`. */
+  nether?: ShadingLights
+  /** GUI lighting, in the game's screen space (Y down). Defaults to `level`. */
+  ui?: ShadingLights
 }
 
 // #endregion
