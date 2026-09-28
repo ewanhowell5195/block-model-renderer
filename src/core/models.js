@@ -2,7 +2,7 @@ import { platform, THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTE
 import { COLORS, parseColor, getPotionColor } from "./colors.js"
 import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
-import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining } from "./assets.js"
+import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining, remapPalette, readPaletteTexture } from "./assets.js"
 import { resolveProfile } from "./profiles.js"
 import { buildAnimation } from "./animation.js"
 import { classifyPngAlpha, hashBytes } from "./png.js"
@@ -1679,6 +1679,19 @@ async function loadMinecraftTexture(path, assets, type) {
   return { ...buildAnimation(image, meta), cls, srcHash }
 }
 
+async function loadPalettedTexture(path, palette, assets) {
+  const buf = await readFile(path, assets)
+  if (!buf) return { image: await getMissingImage(assets) }
+  let basePalette
+  try {
+    basePalette = parseJson(await readFile(path + ".mcmeta", assets, buf.hintIndex)).palette?.base_palette
+  } catch {}
+  if (!basePalette) return { image: await loadImage(buf) }
+  const [keyBuf, palBuf] = await Promise.all([readPaletteTexture(basePalette, assets), readPaletteTexture(palette, assets)])
+  const remapped = keyBuf && palBuf ? await remapPalette(buf, keyBuf, palBuf).catch(() => null) : null
+  return { image: remapped ? await loadImage(remapped) : await getMissingImage(assets) }
+}
+
 function applyTint(img, tint) {
   const canvas = new Canvas(img.width, img.height)
   const ctx = canvas.getContext("2d")
@@ -2378,16 +2391,18 @@ export async function loadModel(scene, assets, model, args) {
     return `assets/${namespace}/textures/${item}.png`
   }
 
-  async function loadModelTexture(id, tint) {
-    const direct = id != null ? model.texture_images?.[id] : undefined
+  async function loadModelTexture(id, tint, source = {}) {
+    const direct = source.image ?? (id != null ? model.texture_images?.[id] : undefined)
     const atlas = shouldIgnoreAtlases(model) ? "" : (model.type ?? "")
     const srgb = lighting === "scene" || lighting === "off" ? "\0srgb" : ""
-    const cacheKey = `${id ?? ""}\0${tint ?? ""}\0${atlas}${srgb}`
+    const cacheKey = `${id ?? ""}\0${tint ?? ""}\0${atlas}${srgb}${source.palette ? `\0${source.palette}` : ""}`
     if (!direct && textureCache.has(cacheKey)) return textureCache.get(cacheKey)
 
     let loaded
     if (direct) {
       loaded = { image: direct }
+    } else if (id && source.palette) {
+      loaded = await loadPalettedTexture(resolveTexturePath(id), source.palette, assets)
     } else if (id) {
       const path = resolveTexturePath(id)
       loaded = await loadMinecraftTexture(path, assets, shouldIgnoreAtlases(model) ? undefined : model.type)
@@ -2967,10 +2982,27 @@ export async function loadModel(scene, assets, model, args) {
           daytime,
           readFile: (path, hint) => readFile(path, assets, hint),
           loadTexture: (id, tint) => loadModelTexture(id, tint),
+          resolveProfile: profile => resolveProfile(assets, profile),
           buildElements: async (elements = []) => {
             const g = new THREE.Group()
             for (const element of elements) await buildElement(element, g)
             if (args?.mergeElements !== false && !model.fluid && elements.length > 1) mergeElementMeshes(g)
+            return g
+          },
+          buildBlock: async (id, properties = {}) => {
+            const g = new THREE.Group()
+            const blockArgs = { lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults, block: { id, properties, pos: null } }
+            for (const m of await parseBlockstate(assets, id, { data: properties, defaults: args?.defaults, version: args?.version })) {
+              await loadModel(g, assets, await resolveModelData(assets, m), blockArgs)
+            }
+            return g
+          },
+          buildItem: async (id, context = "none", components = {}) => {
+            const g = new THREE.Group()
+            const display = { type: "fallback", display: context }
+            for (const m of await parseItemDefinition(assets, id, { data: components, display, version: args?.version })) {
+              await loadModel(g, assets, await resolveModelData(assets, m), { display, lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults })
+            }
             return g
           },
           resolveTexture: ref => {
@@ -2986,11 +3018,27 @@ export async function loadModel(scene, assets, model, args) {
             const shadeDir = SHADE_DIR_VECS[opts.shade_direction] ? opts.shade_direction : null
             const emission = Math.max(0, blockEmission, Math.min(15, opts.light_emission ?? 0))
             const ao = opts.ao !== false && blockEmission === 0
-            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}\0${ao}`
-            let material = materialCache.get(key)
+            const opacity = Math.max(0, Math.min(1, opts.opacity ?? 1))
+            const key = `loader\0${id}\0${opts.tint ?? ""}\0${opts.shade !== false}\0${shadeDir ?? ""}\0${!!opts.double_sided}\0${opts.shader ? JSON.stringify(opts.shader) : ""}\0${emission}\0${ao}\0${opacity}\0${opts.alpha ?? ""}\0${opts.blending ?? ""}\0${opts.palette ?? ""}`
+            const translucent = opts.alpha === "translucent" ? true : opts.alpha === "cutout" ? false : undefined
+            function applyBlending(material) {
+              if (opts.blending !== "additive") return material
+              material.blending = THREE.AdditiveBlending
+              material.transparent = true
+              material.depthWrite = false
+              return material
+            }
+            const source = { image: opts.image, palette: opts.palette }
+            if (opts.texture_offset) {
+              const uvOffset = new THREE.Vector2()
+              const material = await makeMaterial(await loadModelTexture(id, opts.tint, source), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, ao, opacity, translucent, uvOffset)
+              material.userData.uvOffset = uvOffset
+              return applyBlending(material)
+            }
+            let material = opts.image ? null : materialCache.get(key)
             if (!material) {
-              material = await makeMaterial(await loadModelTexture(id, opts.tint), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, ao)
-              materialCache.set(key, material)
+              material = applyBlending(await makeMaterial(await loadModelTexture(id, opts.tint, source), assets, opts.shader, opts.double_sided, opts.shade !== false, lightConfig, lighting, shadeDir, emission, ao, opacity, translucent))
+              if (!opts.image) materialCache.set(key, material)
             }
             return material
           }
@@ -3271,13 +3319,22 @@ function leftHandFix(settings, context) {
   return settings
 }
 
-async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true) {
+async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true, opacity = 1, translucent, uvOffset = null) {
+  if (uvOffset && (lighting === "scene" || lighting === "off")) {
+    texture = texture.clone()
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.offset = uvOffset
+    texture.needsUpdate = true
+  }
+  const blend = (translucent ?? texture?.userData?.translucent === true) || opacity < 1
+  const forced = opacity < 1 || translucent === true
+  const cutoff = translucent === false ? 0.1 : forced ? 0.01 : 0.5
   if ((lighting === "scene" || lighting === "off") && shader?.type !== "end_portal") {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.needsUpdate = true
     const side = doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide
     if (lighting === "scene") {
-      const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: 0.5, side, vertexColors: true })
+      const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: cutoff, side, vertexColors: true, opacity, transparent: forced })
       if (emission > 0) {
         mat.emissive = new THREE.Color(0xffffff)
         mat.emissiveMap = texture
@@ -3285,7 +3342,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       }
       return mat
     }
-    return new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.5, side, vertexColors: true })
+    return new THREE.MeshBasicMaterial({ map: texture, alphaTest: cutoff, side, vertexColors: true, opacity, transparent: forced })
   }
   if (shader?.type === "end_portal") {
     const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
@@ -3403,7 +3460,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
   }
   const volume = lightConfig?.light?.uniforms ? lightConfig.light : null
   return new THREE.ShaderMaterial({
-    defines: volume ? { LIGHT_VOLUME: "" } : {},
+    defines: Object.assign(volume ? { LIGHT_VOLUME: "" } : {}, translucent === false ? { CUTOUT: "" } : {}, uvOffset ? { UV_OFFSET: "" } : {}),
     uniforms: {
       map: { value: texture },
       light0: { value: new THREE.Vector3(...(lightConfig?.light0 ?? [0, 0, 1])) },
@@ -3425,6 +3482,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       shadeNeg: { value: new THREE.Vector3(lightConfig?.cardinal?.down ?? 0.5, lightConfig?.cardinal?.north ?? 0.8, lightConfig?.cardinal?.west ?? 0.6) },
       shadeMat: { value: lightConfig?.shadeMat ?? new THREE.Matrix3() },
       aoEnabled: { value: ao !== false },
+      opacity: { value: opacity },
+      uvOffset: { value: uvOffset ?? new THREE.Vector2() },
       ...(lightConfig?.fog?.uniforms ?? makeFog(0).uniforms),
       ...(volume ? volume.uniforms : {}),
     },
@@ -3475,6 +3534,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     `,
     fragmentShader: `
       uniform sampler2D map;
+      uniform float opacity;
+      uniform vec2 uvOffset;
       uniform vec3 light0;
       uniform vec3 light1;
       uniform float d0;
@@ -3551,8 +3612,17 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       #include <clipping_planes_pars_fragment>
       void main() {
         #include <clipping_planes_fragment>
-        if (vUv.x < 0.0 || vUv.x > 1.0 || vUv.y < 0.0 || vUv.y > 1.0) discard;
-        vec4 texColor = texture2D(map, vUv);
+        #ifdef UV_OFFSET
+          vec2 texUv = fract(vUv + uvOffset);
+        #else
+          vec2 texUv = vUv;
+        #endif
+        if (texUv.x < 0.0 || texUv.x > 1.0 || texUv.y < 0.0 || texUv.y > 1.0) discard;
+        vec4 texColor = texture2D(map, texUv);
+        #ifdef CUTOUT
+          if (texColor.a < 0.1) discard;
+          texColor.a = 1.0;
+        #endif
         if (texColor.a < 0.01) discard;
         #ifdef FACE_ATTRS
           float emissionV = vFaceData.x / 15.0;
@@ -3668,11 +3738,11 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           float f = max(fogValue(sph, fogStart, fogEnd), fogValue(cyl, fogNear, fogFar));
           if (f > 0.0) rgb = mix(rgb, fogColorAt(normalize(rel)), f);
         }
-        gl_FragColor = vec4(rgb, texColor.a);
+        gl_FragColor = vec4(rgb, texColor.a * opacity);
       }
       //salt:${shaderSalt}`,
-    transparent: texture?.userData?.translucent === true,
-    depthWrite: texture?.userData?.translucent !== true,
+    transparent: blend,
+    depthWrite: !blend || translucent === true,
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     clipping: true,
   })

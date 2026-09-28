@@ -1056,10 +1056,15 @@ export interface LoaderHelpers {
   readFile(path: string, hint?: number): Promise<AssetFile | undefined>
   /** Load a texture by id with the standard caching, animation frames, and optional tint. */
   loadTexture(id: string, tint?: string): Promise<THREE.Texture>
+  resolveProfile(profile: PlayerProfile): Promise<ResolvedProfile | null>
   /** Follow `#slot` references through the model's texture map. */
   resolveTexture(ref: string): string | undefined
   /** Run vanilla-format elements through the standard cube pipeline and get back a group. */
   buildElements(elements: Record<string, any>[]): Promise<THREE.Group>
+  /** Build an item from its item definition with a display context (default `"none"`), centred on the origin like any item model. */
+  buildItem(id: string, context?: string, components?: Record<string, any>): Promise<THREE.Group>
+  /** Build a whole block from its blockstate with the active lighting, centred on the origin like any block model. */
+  buildBlock(id: string, properties?: Record<string, string>): Promise<THREE.Group>
   /** A material matching the active lighting mode. */
   createMaterial(id: string, opts?: {
     tint?: string
@@ -1070,6 +1075,18 @@ export interface LoaderHelpers {
     double_sided?: boolean
     /** 0-15, the element emission floor. */
     light_emission?: number
+    /** 0-1, multiplies the texture alpha. Below 1 the material renders translucent. */
+    opacity?: number
+    /** Override the texture's detected translucency: `"cutout"` alpha tests at 0.1 and draws opaque, `"translucent"` blends while still writing depth. */
+    alpha?: "cutout" | "translucent"
+    /** `"additive"` for glow and energy layers. */
+    blending?: "additive"
+    /** Give the material a live `userData.uvOffset` vector for scrolling textures. Such materials aren't shared. */
+    texture_offset?: boolean
+    /** A palette id such as `"minecraft:trim/iron"`, recolouring the texture from the base palette its `.mcmeta` names. */
+    palette?: string
+    /** Use this image instead of reading `id` from the assets. Such materials aren't shared. */
+    image?: CanvasImageSource | object
     shader?: Record<string, any>
   }): Promise<THREE.Material>
 }

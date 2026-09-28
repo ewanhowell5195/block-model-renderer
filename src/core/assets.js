@@ -433,7 +433,38 @@ function applyUnstitchSource(src, sprites, assets) {
   }
 }
 
-function readPaletteTexture(id, assets) {
+export async function remapPalette(baseBuf, keyBuf, palBuf) {
+  const key = await platform.decodeToRaw(keyBuf)
+  const pal = await platform.decodeToRaw(palBuf)
+  const base = await platform.decodeToRaw(baseBuf)
+
+  const keyCount = key.width * key.height
+  if (keyCount !== pal.width * pal.height) return null
+
+  const map = new Map()
+  for (let p = 0; p < keyCount; p++) {
+    if (key.data[p * 4 + 3] === 0) continue
+    const rgb = (key.data[p * 4] << 16) | (key.data[p * 4 + 1] << 8) | key.data[p * 4 + 2]
+    map.set(rgb, p * 4)
+  }
+
+  const out = new Uint8Array(base.data)
+  const px = base.width * base.height
+  for (let p = 0; p < px; p++) {
+    const a = out[p * 4 + 3]
+    if (a === 0) continue
+    const rep = map.get((out[p * 4] << 16) | (out[p * 4 + 1] << 8) | out[p * 4 + 2])
+    if (rep == null) continue
+    out[p * 4] = pal.data[rep]
+    out[p * 4 + 1] = pal.data[rep + 1]
+    out[p * 4 + 2] = pal.data[rep + 2]
+    out[p * 4 + 3] = Math.floor((a * pal.data[rep + 3]) / 255)
+  }
+
+  return await platform.encodeRawToPng({ data: out, width: base.width, height: base.height })
+}
+
+export function readPaletteTexture(id, assets) {
   const { namespace, item } = resolveNamespace(normalize(id))
   const modern = `assets/${namespace}/textures/palettes/${item}.png`
   const legacy = `assets/${namespace}/textures/${item}.png`
@@ -460,43 +491,7 @@ function applyPalettedPermutationsSource(src, sprites, assets) {
         ])
         if (!baseBuf || !keyBuf || !palBuf) return await getMissingTexturePng(assets)
         try {
-          const key = await platform.decodeToRaw(keyBuf)
-          const pal = await platform.decodeToRaw(palBuf)
-          const base = await platform.decodeToRaw(baseBuf)
-
-          const keyCount = key.width * key.height
-          const palCount = pal.width * pal.height
-          if (keyCount !== palCount) return await getMissingTexturePng(assets)
-
-          const map = new Map()
-          for (let p = 0; p < keyCount; p++) {
-            const ka = key.data[p * 4 + 3]
-            if (ka === 0) continue
-            const rgb = (key.data[p * 4] << 16) | (key.data[p * 4 + 1] << 8) | key.data[p * 4 + 2]
-            map.set(rgb, {
-              r: pal.data[p * 4],
-              g: pal.data[p * 4 + 1],
-              b: pal.data[p * 4 + 2],
-              a: pal.data[p * 4 + 3]
-            })
-          }
-
-          const out = new Uint8Array(base.data)
-          const px = base.width * base.height
-          for (let p = 0; p < px; p++) {
-            const a = out[p * 4 + 3]
-            if (a === 0) continue
-            const rgb = (out[p * 4] << 16) | (out[p * 4 + 1] << 8) | out[p * 4 + 2]
-            const rep = map.get(rgb)
-            if (rep) {
-              out[p * 4] = rep.r
-              out[p * 4 + 1] = rep.g
-              out[p * 4 + 2] = rep.b
-              out[p * 4 + 3] = Math.floor((a * rep.a) / 255)
-            }
-          }
-
-          return await platform.encodeRawToPng({ data: out, width: base.width, height: base.height })
+          return await remapPalette(baseBuf, keyBuf, palBuf) ?? await getMissingTexturePng(assets)
         } catch {
           return await getMissingTexturePng(assets)
         }

@@ -275,7 +275,29 @@ The `helpers` object:
 | `loadTexture(id, tint?)` | Load a texture by id with the standard caching, animation frames, and optional tint |
 | `resolveTexture(ref)` | Follow `#slot` references through the model's texture map |
 | `buildElements(elements)` | Run an array of vanilla-format elements through the standard cube pipeline (uv defaults, face rotation, uvlock, cullfaces, rotation with rescale, mesh merging) and get back a group to add. For formats that are "vanilla elements, chosen differently", so they don't reimplement cube building |
-| `createMaterial(id, opts?)` | A material matching the active lighting mode. `opts`: `tint`, `shade` (false = unshaded in world mode, the pre-26.3 element field), `shade_direction` (shade as if facing this direction, the 26.3+ replacement; see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)), `double_sided`, `light_emission` (0-15, the element emission floor as in [Lighting modes](rendering.md#lighting-modes)), `shader` |
+| `buildItem(id, context?, components?)` | Build an item from its item definition with the given display context (`"thirdperson_righthand"`, `"head"`, `"ground"`, …, default `"none"`) and optional item components, and get back a group to add, centred on the origin like any item model |
+| `buildBlock(id, properties?)` | Build a whole block (blockstate, variants, multipart, block entity models) with the active lighting and get back a group to add, centred on the origin like any block model |
+| `resolveProfile(profile)` | Resolve a player profile to its skin and cape, as [`resolveProfile`](scenes.md#player-heads) |
+| `createMaterial(id, opts?)` | A material matching the active lighting mode, with the options below |
+
+`createMaterial` options:
+
+| Option | Description |
+|---|---|
+| `tint` | Tint colour |
+| `shade` | `false` renders unshaded in world mode (the pre-26.3 element field) |
+| `shade_direction` | Shade as if facing this direction (the 26.3+ replacement, see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)) |
+| `double_sided` | Render both sides |
+| `light_emission` | 0-15, the element emission floor as in [Lighting modes](rendering.md#lighting-modes) |
+| `opacity` | 0-1, multiplies the texture alpha. Below 1 renders translucent |
+| `alpha` | Overrides the detected translucency. `"cutout"` alpha tests at 0.1 and draws opaque like the game's cutout types, `"translucent"` blends while writing depth like its entity translucent types |
+| `blending` | `"additive"` for glow and energy layers |
+| `texture_offset` | Gives the material a live `userData.uvOffset` vector for scrolling textures |
+| `palette` | A palette id such as `"minecraft:trim/iron"`, recolouring the texture from the base palette its `.mcmeta` names |
+| `image` | An image to use instead of reading `id` from the assets, eg a fetched skin |
+| `shader` | Shader settings |
+
+Materials are shared between calls with the same options, except with `texture_offset` or `image`.
 
 ### `variantKey(model, block)`
 
