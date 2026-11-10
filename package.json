@@ -67,16 +67,26 @@
     "build:wasm": "node tools/build-wasm.js",
     "version": "node scripts/sync-version.js"
   },
-  "dependencies": {
+  "peerDependencies": {
     "gl": "^8.1.6",
     "headless-three": "^1.9.0",
     "sharp": "^0.34.5",
-    "skia-canvas": "^4.0.0"
-  },
-  "peerDependencies": {
+    "skia-canvas": "^4.0.0",
     "three": ">=0.152.0"
   },
   "peerDependenciesMeta": {
+    "gl": {
+      "optional": true
+    },
+    "headless-three": {
+      "optional": true
+    },
+    "sharp": {
+      "optional": true
+    },
+    "skia-canvas": {
+      "optional": true
+    },
     "three": {
       "optional": true
     }
@@ -84,6 +94,10 @@
   "devDependencies": {
     "@types/three": "^0.162.0",
     "esbuild": "^0.28.1",
+    "gl": "^8.1.6",
+    "headless-three": "^1.9.0",
+    "sharp": "^0.34.5",
+    "skia-canvas": "^4.0.0",
     "typescript": "^5.9.3"
   }
 }

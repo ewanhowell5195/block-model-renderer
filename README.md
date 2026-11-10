@@ -24,7 +24,13 @@ Render any block, item, or custom model JSON, with full support for vanilla reso
 
 ## Install
 
-For Node.js, or the browser through a bundler:
+For Node.js, install it with the native rendering packages it draws with:
+
+```bash
+npm install block-model-renderer gl headless-three sharp skia-canvas
+```
+
+For the browser through a bundler, the library on its own:
 
 ```bash
 npm install block-model-renderer
