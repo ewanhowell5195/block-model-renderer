@@ -394,6 +394,12 @@ Setting [`configure({ assetsUrl: false })`](#browser-only-exports) skips the bun
 
 [`makeModelScene()`](scenes.md#makemodelscene) is async in the browser, since three resolves lazily.
 
+## Node-only exports
+
+| Export | Description |
+|---|---|
+| `setCanvasGPU(enabled)` | Let skia-canvas draw 2D canvases on the GPU. Off by default. Only canvases created after the call change, so call it before the first render |
+
 ## Going further
 
 * [API reference](api.md): every export in one place

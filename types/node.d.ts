@@ -191,3 +191,12 @@ export function readTexture(path: string, assets: AssetsInput, opts?: ReadTextur
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#map-art
  */
 export function renderMapColors(assets: AssetsInput, colors: Uint8Array | number[]): Promise<NodeCanvas>
+
+/**
+ * Let skia-canvas draw 2D canvases on the GPU. Off by default, since GPU mode
+ * only adds overhead on machines without one. Affects canvases created after
+ * the call, so set it before the first render.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/standard-api.md#node-only-exports
+ */
+export function setCanvasGPU(enabled: boolean): void

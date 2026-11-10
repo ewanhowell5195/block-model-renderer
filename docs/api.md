@@ -1,6 +1,6 @@
 # API reference
 
-Every export the package provides, grouped by area, with a link to where each is documented in full. The import is the same on Node and in the browser (`import { ... } from "block-model-renderer"`) except for the [browser-only](#browser-only) exports at the bottom.
+Every export the package provides, grouped by area, with a link to where each is documented in full. The import is the same on Node and in the browser (`import { ... } from "block-model-renderer"`) except for the [browser-only](#browser-only) and [Node-only](#node-only) exports at the bottom.
 
 ```js
 import {
@@ -24,7 +24,9 @@ import {
   // extending
   ModelLoader,
   // browser only
-  configure, getThree, THREE, pauseAnimations, resumeAnimations, createAnimator
+  configure, getThree, THREE, pauseAnimations, resumeAnimations, createAnimator,
+  // Node only
+  setCanvasGPU
 } from "block-model-renderer"
 ```
 
@@ -141,3 +143,11 @@ Not exported on Node.
 | `THREE` | Live binding to that instance, populated after first use. [Details](standard-api.md#providing-threejs-browser) |
 | `pauseAnimations()` / `resumeAnimations(clockStart?)` | Pause and resume the page-global animation clock, optionally rebasing onto a [shared epoch](advanced-api.md#syncing-the-animation-clock). [Details](standard-api.md#animated-renders-browser) |
 | `createAnimator(root)` | Manual animation control for `loadModel` scenes. [Details](scenes.md#animation-browser) |
+
+## Node only
+
+Not exported in the browser.
+
+| Export | Description |
+|---|---|
+| `setCanvasGPU(enabled)` | Let skia-canvas draw 2D canvases on the GPU, off by default. [Details](standard-api.md#node-only-exports) |

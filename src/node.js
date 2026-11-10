@@ -11,11 +11,17 @@ import { setPlatform, parsePackFilter, zipAssets, zipAssetsFromSlices, overrides
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+let canvasGPU = false
+
 class Canvas extends SkiaCanvas {
   constructor(...args) {
     super(...args)
-    this.gpu = false
+    this.gpu = canvasGPU
   }
+}
+
+function setCanvasGPU(enabled) {
+  canvasGPU = !!enabled
 }
 
 const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageData }))
@@ -231,3 +237,4 @@ export {
   renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS, resolveProfile
 } from "./core.js"
 export { parseZip } from "./zip.js"
+export { setCanvasGPU }
