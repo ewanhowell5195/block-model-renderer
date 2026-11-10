@@ -3369,23 +3369,6 @@ export async function buildOcclusionModel(assets, id, props, version, defaults) 
   return g
 }
 
-const BONE_TEXTURE_SIZE = 64
-const SKINNING_PARS = `
-  #ifdef USE_SKINNING
-    uniform mat4 bindMatrix;
-    uniform mat4 bindMatrixInverse;
-    uniform highp sampler2D boneTexture;
-    mat4 getBoneMatrix(const in float i) {
-      float j = i * 4.0;
-      float y = floor(j / ${BONE_TEXTURE_SIZE}.0);
-      float x = j - y * ${BONE_TEXTURE_SIZE}.0;
-      float d = 1.0 / ${BONE_TEXTURE_SIZE}.0;
-      float v = d * (y + 0.5);
-      return mat4(texture2D(boneTexture, vec2(d * (x + 0.5), v)), texture2D(boneTexture, vec2(d * (x + 1.5), v)), texture2D(boneTexture, vec2(d * (x + 2.5), v)), texture2D(boneTexture, vec2(d * (x + 3.5), v)));
-    }
-  #endif
-`
-
 function leftHandFix(settings, context) {
   if (context !== "thirdperson_lefthand" && context !== "firstperson_lefthand") return settings
   if (settings.translation) settings.translation = [-settings.translation[0], settings.translation[1], settings.translation[2]]
@@ -3420,9 +3403,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         mat.emissiveMap = texture
         mat.emissiveIntensity = emission / 15
       }
-      return skinnable(mat)
+      return mat
     }
-    return skinnable(new THREE.MeshBasicMaterial({ map: texture, alphaTest: cutoff, side, vertexColors: true, opacity, transparent: forced }))
+    return new THREE.MeshBasicMaterial({ map: texture, alphaTest: cutoff, side, vertexColors: true, opacity, transparent: forced })
   }
   if (shader?.type === "end_portal") {
     const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
@@ -3588,7 +3571,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         varying vec3 vLightPos;
       #endif
       #include <clipping_planes_pars_vertex>
-      ${SKINNING_PARS}
+      #include <skinning_pars_vertex>
       void main() {
         vUv = uv;
         vTint = color;
@@ -3846,25 +3829,5 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     clipping: true,
   })
-  material.onBeforeRender = skinnedBeforeRender
-  return material
-}
-
-function skinnedBeforeRender(renderer, scene, camera, geometry, object) {
-  const skeleton = object.isSkinnedMesh ? object.skeleton : null
-  if (!skeleton || skeleton.boneTexture?.image.width === BONE_TEXTURE_SIZE) return
-  const matrices = new Float32Array(BONE_TEXTURE_SIZE * BONE_TEXTURE_SIZE * 4)
-  matrices.set(skeleton.boneMatrices)
-  skeleton.boneTexture?.dispose()
-  skeleton.boneMatrices = matrices
-  skeleton.boneTexture = new THREE.DataTexture(matrices, BONE_TEXTURE_SIZE, BONE_TEXTURE_SIZE, THREE.RGBAFormat, THREE.FloatType)
-  skeleton.boneTexture.needsUpdate = true
-}
-
-function skinnable(material) {
-  material.onBeforeCompile = shader => {
-    shader.vertexShader = shader.vertexShader.replace("#include <skinning_pars_vertex>", SKINNING_PARS)
-  }
-  material.onBeforeRender = skinnedBeforeRender
   return material
 }
