@@ -1,5 +1,6 @@
 import { THREE, Canvas } from "./platform.js"
 import { makeLightSwitches } from "./models.js"
+import { lightOffsetSetter } from "./lighting.js"
 
 const LIGHT_UNIFORM = /^light(Vol|Ao)/
 const LIGHT_SWITCHES = Object.keys(makeLightSwitches())
@@ -148,7 +149,7 @@ export async function packScene(handle, opts = {}) {
 }
 
 export function reviveScene(payload, opts = {}) {
-  const mirror = opts.atlas ?? null
+  const mirror = opts.sharedAtlas ?? null
   const release = opts.release ? function () { this.array = null } : null
   const owned = { textures: [], materials: [], geometries: [] }
 
@@ -223,6 +224,7 @@ export function reviveScene(payload, opts = {}) {
     if (!light) {
       light = { uniforms: {} }
       for (const [k, u] of Object.entries(mat.uniforms)) if (LIGHT_UNIFORM.test(k)) light.uniforms[k] = u
+      light.setOffset = lightOffsetSetter(light.uniforms, light.uniforms.lightVolOrigin.value.toArray())
     } else for (const k of Object.keys(light.uniforms)) mat.uniforms[k] = light.uniforms[k]
   }
 

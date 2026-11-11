@@ -483,13 +483,17 @@ function lightHandle({ origin, w, h, d, blockLight, skyLight, uniforms, texture,
       const i = (lz * h + ly) * w + lx
       return { block: blockLight[i], sky: skyLight[i] }
     },
-    setOffset(x = 0, y = 0, z = 0) {
-      if (typeof x === "object") ({ x = 0, y = 0, z = 0 } = Array.isArray(x) ? { x: x[0], y: x[1], z: x[2] } : x)
-      uniforms.lightVolOrigin.value.set(origin[0] + x / 16, origin[1] + y / 16, origin[2] + z / 16)
-    },
+    setOffset: lightOffsetSetter(uniforms, origin),
     dispose() {
       texture.dispose()
       aoTexture.dispose()
     }
+  }
+}
+
+export function lightOffsetSetter(uniforms, origin) {
+  return function setOffset(x = 0, y = 0, z = 0) {
+    if (typeof x === "object") ({ x = 0, y = 0, z = 0 } = Array.isArray(x) ? { x: x[0], y: x[1], z: x[2] } : x)
+    uniforms.lightVolOrigin.value.set(origin[0] + x / 16, origin[1] + y / 16, origin[2] + z / 16)
   }
 }

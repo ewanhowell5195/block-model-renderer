@@ -2,6 +2,7 @@ import * as files from "./assets.js"
 import * as animation from "./animation.js"
 import * as lighting from "./lighting.js"
 import * as models from "./models.js"
+import * as pack from "./pack.js"
 import * as render from "./render.js"
 import * as scene from "./scene.js"
 
@@ -40,6 +41,11 @@ export async function computeSceneLight(assets, blocks, options) {
 export async function warmShaders(assets, renderer, args) {
   assetsFirst(typeof assets?.compile === "function", "warmShaders", "assets, renderer, args")
   return scene.warmShaders(assets, renderer, args)
+}
+
+export function reviveScene(payload, opts) {
+  renamed("reviveScene", opts, "atlas", "sharedAtlas")
+  return pack.reviveScene(payload, opts)
 }
 
 export async function renderBlock(args) {

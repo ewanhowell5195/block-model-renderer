@@ -358,9 +358,16 @@ export interface FogHandle {
   update(): void
 }
 
-/** A light volume's shader uniforms alone, as {@link reviveScene} returns. */
+/** A light volume's shader uniforms alone. */
 export interface LightUniforms {
   uniforms: Record<string, { value: any }>
+}
+
+/** A revived scene's light volume, as {@link reviveScene} returns: the uniforms, without the light levels. */
+export interface RevivedLight extends LightUniforms {
+  /** Tell the volume the world offset the revived scene was moved by, so it keeps sampling the right cells. */
+  setOffset(position: THREE.Vector3 | [number, number, number] | { x?: number, y?: number, z?: number }): void
+  setOffset(x?: number, y?: number, z?: number): void
 }
 
 /** A lighting mode name, or a world lighting config object. */
@@ -1003,7 +1010,7 @@ export interface PackedScene {
 
 export interface ReviveSceneOptions {
   /** The handle page references resolve against: the main thread's stitched atlas. */
-  atlas?: SharedAtlas
+  sharedAtlas?: SharedAtlas
   /** Drop CPU-side geometry arrays after GPU upload, roughly a third of a big scene's heap. */
   release?: boolean
 }
@@ -1012,7 +1019,7 @@ export interface ReviveSceneOptions {
 export interface RevivedScene {
   group: THREE.Group
   /** The scene's light volume, to pass as `lighting: { light }`, or `null` without one. */
-  light: LightUniforms | null
+  light: RevivedLight | null
   /** The switches every world-lit material in the group shares, or `null` when it has none. */
   lightSwitches: LightSwitches | null
   dispose(): void
@@ -1714,7 +1721,7 @@ export function packScene(handle: SceneHandle | { group: THREE.Group }, opts?: P
 
 /**
  * Rebuild a packed payload into live meshes. Revived groups are inert data, not
- * {@link createScene} handles: no palette, no light handle, no dynamic model rigs.
+ * {@link createScene} handles: no palette, no light levels, no dynamic model rigs.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#packing-scenes-across-workers
  */
