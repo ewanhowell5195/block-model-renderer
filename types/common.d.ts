@@ -596,7 +596,7 @@ export interface SceneHandle {
 
 export interface ParseBlockstateArgs {
   /** Blockstate property values. Missing ones fall back to the default blockstate rules. */
-  data?: BlockProperties
+  properties?: BlockProperties
   /** Seeded randomness for weighted variants. The same seed always picks the same variants. Omit to pick from `pos` the way the game does. */
   seed?: number
   /** Biome tinting for the colormap tints. */
@@ -619,7 +619,7 @@ export interface ParseBlockstateArgs {
 
 export interface ParseItemDefinitionArgs {
   /** Item components used by the definition. */
-  data?: ItemComponents
+  components?: ItemComponents
   /** Display context, used by `display_context` selects and tint resolution. */
   display?: DisplayOption
   /** Skip texture atlas membership rules for the returned models. */
@@ -823,7 +823,7 @@ export interface GetCullFacesArgs {
   /** The assets source. */
   assets: AssetsInput
   /** The block's blockstate property values. */
-  blockstates?: BlockProperties
+  properties?: BlockProperties
   /** The surrounding blocks. */
   neighbors?: Neighbors
   /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
@@ -1275,7 +1275,7 @@ export interface BlockRenderInput {
   /** The block id (e.g. `"oak_log"`). Namespace optional. */
   id: string
   /** Blockstate property values (e.g. `{ axis: "y", half: "top" }`). */
-  blockstates?: BlockProperties
+  properties?: BlockProperties
   /** Block entity data rendered with the block. */
   nbt?: BlockNbt
   /** Resolves a framed map's face. */
@@ -1470,7 +1470,7 @@ export function parseZip(bytes: Uint8Array | ArrayBuffer): Map<string, ZipEntry>
  * automatic water layer on waterlogged blocks.
  *
  * @example
- * const models = await parseBlockstate(assets, "oak_log", { data: { axis: "y" } })
+ * const models = await parseBlockstate(assets, "oak_log", { properties: { axis: "y" } })
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#parseblockstateassets-id-args
  */

@@ -78,7 +78,7 @@ test("parseBlockstate attaches the offset to a block's models but not its water"
   for (const m of grass) assert.deepEqual(m.offset, gameOffset(3, -7, 0.25, 0.2))
   const stone = await parseBlockstate([jar], "stone", { pos: [3, 0, -7], randomOffset: true })
   assert.ok(stone.every(m => !m.offset))
-  const dripstone = await parseBlockstate([jar], "pointed_dripstone", { data: { waterlogged: "true" }, pos: [5, 0, -7], randomOffset: true })
+  const dripstone = await parseBlockstate([jar], "pointed_dripstone", { properties: { waterlogged: "true" }, pos: [5, 0, -7], randomOffset: true })
   assert.deepEqual(dripstone.filter(m => m.offset).length, dripstone.length - 1)
   assert.ok(dripstone.find(m => m.fluid) && !dripstone.find(m => m.fluid).offset)
 })

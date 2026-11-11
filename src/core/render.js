@@ -58,7 +58,7 @@ async function occlusionMasks(assets, rules, id, props, version, defaults) {
   return { neighbor, self }
 }
 
-export async function getCullFaces({ id, blockstates, neighbors, assets, version, defaults } = {}) {
+export async function getCullFaces({ id, properties, neighbors, assets, version, defaults } = {}) {
   if (!id) throw new Error("getCullFaces requires the id option")
   if (AIR_BLOCKS.test(id)) return new Set()
   if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
@@ -66,7 +66,7 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
   defaults ??= assets.defaults
   const rules = await blockRules(assets)
   let selfP
-  const selfMasks = () => selfP ??= occlusionMasks(assets, rules, id, blockstates, version, defaults).then(m => m.self)
+  const selfMasks = () => selfP ??= occlusionMasks(assets, rules, id, properties, version, defaults).then(m => m.self)
   const cull = new Set()
   for (const dir in OPPOSITE) {
     const n = neighbors?.[dir]
@@ -75,11 +75,11 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     const nid = typeof n === "string" ? n : n.id
     const props = typeof n === "string" ? undefined : (({ id, ...rest }) => rest)(n)
     if (typeof n === "object" && "occludes" in n) {
-      if (n.occludes || selfCulls(id, nid, dir, blockstates, props, rules)) cull.add(dir)
+      if (n.occludes || selfCulls(id, nid, dir, properties, props, rules)) cull.add(dir)
       continue
     }
     if (!nid) continue
-    if (selfCulls(id, nid, dir, blockstates, props, rules)) { cull.add(dir); continue }
+    if (selfCulls(id, nid, dir, properties, props, rules)) { cull.add(dir); continue }
     const sm = (await selfMasks())?.[dir]
     if (!sm || faceIsEmpty(sm)) continue
     const nm = AIR_BLOCKS.test(nid) ? null : (await occlusionMasks(assets, rules, nid, props, version, defaults)).neighbor
@@ -150,7 +150,7 @@ const OUTPUT_DEFAULTS = {
 export async function renderBlock(args = {}) {
   if (!args.id) throw new Error("renderBlock requires the id option")
   if (args.assets == null || args.assets.length === 0) throw new Error("renderBlock requires the assets option")
-  args.blockstates ??= {}
+  args.properties ??= {}
   args.display ??= {
     rotation: [30, 135, 0],
     scale: [0.625, 0.625, 0.625],
@@ -162,11 +162,11 @@ export async function renderBlock(args = {}) {
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
 
-  const models = await parseBlockstate(assets, args.id, { data: args.blockstates, nbt: args.nbt, mapArt: args.mapArt, seed: args.seed, pos: args.pos, randomOffset: args.randomOffset, biome: args.biome, ignoreAtlases: args.ignoreAtlases, version: args.version, defaults: args.defaults })
+  const models = await parseBlockstate(assets, args.id, { properties: args.properties, nbt: args.nbt, mapArt: args.mapArt, seed: args.seed, pos: args.pos, randomOffset: args.randomOffset, biome: args.biome, ignoreAtlases: args.ignoreAtlases, version: args.version, defaults: args.defaults })
 
-  const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, blockstates: args.blockstates, neighbors: faceNeighbors(args.neighbors), assets, version: args.version, defaults: args.defaults }) : undefined)
+  const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, properties: args.properties, neighbors: faceNeighbors(args.neighbors), assets, version: args.version, defaults: args.defaults }) : undefined)
 
-  const block = { id: args.id, properties: args.blockstates, pos: args.pos ?? null }
+  const block = { id: args.id, properties: args.properties, pos: args.pos ?? null }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
     await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
@@ -191,7 +191,7 @@ export async function renderItem(args = {}) {
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
 
-  const models = await parseItemDefinition(assets, args.id, { data: args.components, display: args.display, ignoreAtlases: args.ignoreAtlases, version: args.version })
+  const models = await parseItemDefinition(assets, args.id, { components: args.components, display: args.display, ignoreAtlases: args.ignoreAtlases, version: args.version })
 
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)

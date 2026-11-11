@@ -6,7 +6,7 @@ import { loadMojangJar } from "../examples/node/mojang-jar.js"
 const jar = await loadMojangJar()
 
 async function grassRotation(args) {
-  const [model] = await parseBlockstate([jar], "grass_block", { data: { snowy: "false" }, ...args })
+  const [model] = await parseBlockstate([jar], "grass_block", { properties: { snowy: "false" }, ...args })
   return model.y ?? 0
 }
 

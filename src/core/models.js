@@ -1115,7 +1115,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   if (!blockstate) throw new Error("parseBlockstate requires a blockstate id")
   if (AIR_BLOCKS.test(blockstate)) return []
   if (assets == null || assets.length === 0) throw new Error("parseBlockstate requires assets")
-  let data = args?.data ?? {}
+  let data = args?.properties ?? {}
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   const version = args?.version ?? assets.version
   const defaultsMode = args?.defaults ?? assets.defaults
@@ -1440,7 +1440,7 @@ async function blockEntityItemModels(assets, block, data, args) {
   const itemArgs = id => ({
     version,
     ignoreAtlases: args.ignoreAtlases,
-    data: id.components ?? {},
+    components: id.components ?? {},
     glint: itemHasFoil(id, glintRules) || undefined,
     display: { type: "fallback", display: context }
   })
@@ -1677,7 +1677,7 @@ async function legacyEntityModel(assets, namespace, item) {
 export async function parseItemDefinition(assets, itemId, args) {
   if (!itemId) throw new Error("parseItemDefinition requires an item id")
   if (assets == null || assets.length === 0) throw new Error("parseItemDefinition requires assets")
-  const data = { ...(args?.data ?? {}) }
+  const data = { ...(args?.components ?? {}) }
   if (data.custom_model_data != null && typeof data.custom_model_data !== "object") {
     data.custom_model_data = { floats: [Number(data.custom_model_data)] }
   }
@@ -3259,7 +3259,7 @@ export async function loadModel(scene, assets, model, args) {
             const g = new THREE.Group()
             Object.assign(g.userData, { daytime, fog, lightSwitches })
             const blockArgs = { lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults, block: { id, properties, pos: null } }
-            for (const m of await parseBlockstate(assets, id, { data: properties, defaults: args?.defaults, version: args?.version })) {
+            for (const m of await parseBlockstate(assets, id, { properties, defaults: args?.defaults, version: args?.version })) {
               await loadModel(g, assets, await resolveModelData(assets, m), blockArgs)
             }
             return g
@@ -3268,7 +3268,7 @@ export async function loadModel(scene, assets, model, args) {
             const g = new THREE.Group()
             Object.assign(g.userData, { daytime, fog, lightSwitches })
             const display = { type: "fallback", display: context }
-            for (const m of await parseItemDefinition(assets, id, { data: components, display, version: args?.version })) {
+            for (const m of await parseItemDefinition(assets, id, { components, display, version: args?.version })) {
               await loadModel(g, assets, await resolveModelData(assets, m), { display, lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults })
             }
             return g
@@ -3583,7 +3583,7 @@ export function occlusionStateKey(id, props, defaults) {
 
 export async function buildOcclusionModel(assets, id, props, version, defaults) {
   const g = new THREE.Group()
-  for (const model of await parseBlockstate(assets, id, { data: props ?? {}, ignoreAtlases: true, version, defaults })) {
+  for (const model of await parseBlockstate(assets, id, { properties: props ?? {}, ignoreAtlases: true, version, defaults })) {
     if (model.model === "block-model-renderer:missing") return null
     await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false, defaults })
   }

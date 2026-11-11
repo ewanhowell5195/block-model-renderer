@@ -464,7 +464,7 @@ export async function createScene(assets, blocks, args = {}) {
       const pick = rollPicks(entry.rolls, x, 0, 0)
       if (seen.has(pick)) continue
       seen.add(pick)
-      const models = await parseBlockstate(assets, entry.id, { data: entry.properties ?? {}, pos: [x, 0, 0], ignoreAtlases: args.ignoreAtlases, version, defaults })
+      const models = await parseBlockstate(assets, entry.id, { properties: entry.properties ?? {}, pos: [x, 0, 0], ignoreAtlases: args.ignoreAtlases, version, defaults })
       if (!await modelsCullAway(entry, models)) return false
     }
     return seen.size === picks
@@ -480,7 +480,7 @@ export async function createScene(assets, blocks, args = {}) {
     const entry = palette[pi]
     const rolls = entry.pos ? undefined : {}
     entry.models = await parseBlockstate(assets, entry.id, {
-      data: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
+      properties: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
       mapArt: args.mapArt, pos: entry.pos ?? undefined, rolls, ignoreAtlases: args.ignoreAtlases, version, defaults
     })
     entry.rolls = rolls?.lists?.length ? rolls : null
@@ -541,7 +541,7 @@ export async function createScene(assets, blocks, args = {}) {
     let ck = cullEnv + entry.sigId
     for (let di = 0; di < 6; di++) ck += "," + (_nbr[di] >= 0 ? palette[_nbr[di]].sigId : _nbr[di])
     let cull = cullCache.get(ck)
-    if (cull === undefined) cullCache.set(ck, cull = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors, assets, version, defaults }))
+    if (cull === undefined) cullCache.set(ck, cull = await getCullFaces({ id: entry.id, properties: entry.properties ?? undefined, neighbors, assets, version, defaults }))
     return cull
   }
   const cellTmpl = new Int32Array(cellN).fill(-1), cellCull = new Int32Array(cellN).fill(-1)
@@ -601,7 +601,7 @@ export async function createScene(assets, blocks, args = {}) {
           if (nb < 0) continue
           let hit = cullPairs.get(self + palSig[nb], di)
           if (hit < 0) {
-            const faces = await getCullFaces({ id: entry.id, blockstates: entry.properties ?? undefined, neighbors: { [DIR_NAMES[di]]: palette[nb].flat }, assets, version, defaults })
+            const faces = await getCullFaces({ id: entry.id, properties: entry.properties ?? undefined, neighbors: { [DIR_NAMES[di]]: palette[nb].flat }, assets, version, defaults })
             cullPairs.set(self + palSig[nb], di, hit = faces.size ? 1 : 0)
           }
           if (hit) mask |= DIR_BITS[di]
@@ -761,7 +761,7 @@ export async function createScene(assets, blocks, args = {}) {
       if (daytimeUniform) tmpl.userData.daytime = daytimeUniform
       const models = spec.pos
         ? await parseBlockstate(assets, spec.entry.id, {
-          data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
+          properties: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
           mapArt: args.mapArt, pos: spec.pos, ignoreAtlases: args.ignoreAtlases, version, defaults
         })
         : spec.entry.models
@@ -846,7 +846,7 @@ export async function createScene(assets, blocks, args = {}) {
           culled.userData.lightSwitches = lightSwitches
           const models = spec.pos
             ? await parseBlockstate(assets, spec.entry.id, {
-              data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined,
+              properties: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined,
               pos: spec.pos, ignoreAtlases: args.ignoreAtlases, version, defaults
             })
             : spec.entry.models

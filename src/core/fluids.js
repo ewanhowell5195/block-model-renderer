@@ -12,7 +12,7 @@ async function blockIsSolid(assets, id, properties, key = id + "|" + JSON.string
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]
   let any3d = false
   try {
-    for (const model of await parseBlockstate(assets, id, { data: properties ?? {}, ignoreAtlases: true })) {
+    for (const model of await parseBlockstate(assets, id, { properties: properties ?? {}, ignoreAtlases: true })) {
       if (model.fluid) continue
       const data = await resolveModelData(assets, model)
       for (const el of data?.elements ?? []) {
@@ -170,7 +170,7 @@ async function faceIsFullToward(assets, id, properties, dir, stateKey = id + "|"
   const [t1, t2] = [0, 1, 2].filter(a => a !== axis)
   let full = false
   try {
-    outer: for (const model of await parseBlockstate(assets, id, { data: properties ?? {}, ignoreAtlases: true })) {
+    outer: for (const model of await parseBlockstate(assets, id, { properties: properties ?? {}, ignoreAtlases: true })) {
       if (model.fluid) continue
       const data = await resolveModelData(assets, model)
       for (const el of data?.elements ?? []) {
