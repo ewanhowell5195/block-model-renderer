@@ -1548,7 +1548,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         sheet = shared.sheets.get("*")
         for (const t of grp.textures) rects.set(t, sheet.rects.get(hashTexture(t)))
       } else {
-        sheet = shared.sheets.get(sig)
+        const stitched = shared.sheets.get("*"), colorSpace = grp.textures.values().next().value.colorSpace ?? THREE.NoColorSpace
+        sheet = stitched && (!stitched.pages.length || stitched.pages[0].texture.colorSpace === colorSpace) ? stitched : shared.sheets.get(sig)
         if (!sheet) shared.sheets.set(sig, sheet = { pages: [], rects: new Map() })
         for (const t of grp.textures) rects.set(t, await sharedLocate(shared, sheet, t))
         subFlush(shared.renderer)
