@@ -26,6 +26,8 @@ export const AIR_BLOCKS = new RegExp(`(^|:)(${Array.from(SKIP_BLOCKS).join("|")}
 
 const BOX_PLANES = [[2, 1, 0, -1, -1, 2, 1, 0, 1], [2, 1, 0, 1, -1, 2, 1, 0, -1], [0, 2, 1, 1, 1, 0, 2, 1, 1], [0, 2, 1, 1, -1, 0, 2, 1, -1], [0, 1, 2, 1, -1, 0, 1, 2, 1], [0, 1, 2, -1, -1, 0, 1, 2, -1]]
 
+const pendingTextures = new WeakMap()
+
 let _hiddenMaterial = null
 function hiddenMaterial() {
   return _hiddenMaterial ??= new THREE.MeshBasicMaterial({ visible: false })
@@ -2430,6 +2432,8 @@ export async function loadModel(scene, assets, model, args) {
   }
 
   const textureCache = assets.cache?.textures ?? new Map()
+  let texturesLoading = pendingTextures.get(textureCache)
+  if (!texturesLoading) pendingTextures.set(textureCache, texturesLoading = new Map())
   const materialCache = new Map()
 
   function resolveTexturePath(id) {
@@ -2442,8 +2446,14 @@ export async function loadModel(scene, assets, model, args) {
     const atlas = shouldIgnoreAtlases(model) ? "" : (model.type ?? "")
     const srgb = lighting === "scene" ? "\0srgb" : ""
     const cacheKey = `${id ?? ""}\0${tint ?? ""}\0${atlas}${srgb}${source.palette ? `\0${source.palette}` : ""}`
-    if (!direct && textureCache.has(cacheKey)) return textureCache.get(cacheKey)
+    if (direct) return buildModelTexture(id, tint, source, direct, cacheKey)
+    if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)
+    let loading = texturesLoading.get(cacheKey)
+    if (!loading) texturesLoading.set(cacheKey, loading = buildModelTexture(id, tint, source, direct, cacheKey).finally(() => texturesLoading.delete(cacheKey)))
+    return loading
+  }
 
+  async function buildModelTexture(id, tint, source, direct, cacheKey) {
     let loaded
     if (direct) {
       loaded = { image: direct }
