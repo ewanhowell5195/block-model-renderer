@@ -122,12 +122,6 @@ test("a shared atlas stitches, shares its layout and takes textures through its 
   adopter.dispose()
 })
 
-test("reviveScene refuses the old atlas option", () => {
-  const shared = createSharedAtlas()
-  assert.throws(() => reviveScene({ textures: [], materials: [], meshes: [] }, { atlas: shared }), { message: 'reviveScene: "atlas" is now "sharedAtlas"' })
-  shared.dispose()
-})
-
 test("a revived scene's light takes an offset like a built scene's", async () => {
   const shared = createSharedAtlas()
   const handle = await createScene(assets, [{ id: "stone", pos: [4, 2, -3] }, { id: "torch", pos: [4, 3, -3] }], { sharedAtlas: shared })

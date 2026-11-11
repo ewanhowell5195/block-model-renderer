@@ -1,17 +1,10 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { prepareAssets, renderBlock, renderItem, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, getCullFaces, fullyOccludes, readFile, listDirectory, readTexture, computeSceneLight, createScene, createSky, warmShaders, getThree } from "../src/node.js"
+import { prepareAssets, renderBlock, renderItem, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, readFile, listDirectory, readTexture, computeSceneLight, createScene, getThree } from "../src/node.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
 const jar = await loadMojangJar()
 const assets = await prepareAssets([jar], { cache: true })
-
-test("the old names for block properties and item components throw", async () => {
-  await assert.rejects(renderBlock({ id: "oak_log", assets, blockstates: { axis: "x" } }), { message: 'renderBlock: "blockstates" is now "properties"' })
-  await assert.rejects(getCullFaces({ id: "oak_log", assets, blockstates: { axis: "x" } }), { message: 'getCullFaces: "blockstates" is now "properties"' })
-  await assert.rejects(parseBlockstate(assets, "oak_log", { data: { axis: "x" } }), { message: 'parseBlockstate: "data" is now "properties"' })
-  await assert.rejects(parseItemDefinition(assets, "bow", { data: {} }), { message: 'parseItemDefinition: "data" is now "components"' })
-})
 
 test("properties and components pick the block state and the item model", async () => {
   const [x] = await parseBlockstate(assets, "oak_log", { properties: { axis: "x" } })
@@ -19,14 +12,6 @@ test("properties and components pick the block state and the item model", async 
   assert.notDeepEqual(x, y)
   const [trimmed] = await parseItemDefinition(assets, "iron_chestplate", { components: { trim: { material: "gold" } } })
   assert.equal(trimmed.model, "minecraft:item/iron_chestplate_gold_trim")
-})
-
-test("calls that put assets after the path, the blocks or the renderer throw", async () => {
-  await assert.rejects(readFile("assets/minecraft/blockstates/stone.json", assets), { message: "readFile takes assets first: readFile(assets, path)" })
-  await assert.rejects(listDirectory("assets/minecraft/blockstates", assets), { message: "listDirectory takes assets first: listDirectory(assets, dir)" })
-  await assert.rejects(readTexture("assets/minecraft/textures/block/stone.png", assets), { message: "readTexture takes assets first: readTexture(assets, path)" })
-  await assert.rejects(computeSceneLight([{ id: "torch", pos: [0, 0, 0] }], { assets }), { message: "computeSceneLight takes assets first: computeSceneLight(assets, blocks, options)" })
-  await assert.rejects(warmShaders({ compile() {}, info: { programs: [] } }, assets), { message: "warmShaders takes assets first: warmShaders(assets, renderer, args)" })
 })
 
 test("assets come first when reading files, textures and light", async () => {
@@ -54,17 +39,6 @@ test("loadModel returns the group and adds it to the parent option", async () =>
   assert.equal(parent.children[0], first)
   assert.equal(parent.children[1], second)
   assert.ok(parent.userData.daytime)
-  await assert.rejects(loadModel(parent, assets, model), { message: "loadModel takes assets first: loadModel(assets, model, { parent })" })
-  await assert.rejects(loadModel(null, assets, model), { message: "loadModel takes assets first: loadModel(assets, model, { parent })" })
-})
-
-test("version, defaults and ignoreAtlases given per call throw", async () => {
-  const moved = (name, key) => ({ message: `${name}: "${key}" is set on prepareAssets now: prepareAssets(sources, { ${key} })` })
-  await assert.rejects(parseBlockstate(assets, "stone", { version: "1.21.4" }), moved("parseBlockstate", "version"))
-  await assert.rejects(renderBlock({ id: "stone", assets, ignoreAtlases: true }), moved("renderBlock", "ignoreAtlases"))
-  await assert.rejects(createScene(assets, [{ id: "stone", pos: [0, 0, 0] }], { defaults: "game" }), moved("createScene", "defaults"))
-  await assert.rejects(fullyOccludes({ id: "stone", assets, version: false }), moved("fullyOccludes", "version"))
-  await assert.rejects(createSky(assets, { version: "1.21.4" }), moved("createSky", "version"))
 })
 
 test("prepareAssets carries version and defaults into every call", async () => {

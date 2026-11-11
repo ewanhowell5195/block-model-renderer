@@ -3,7 +3,7 @@ import zlib from "node:zlib"
 import path from "node:path"
 import fs from "node:fs"
 import os from "node:os"
-import { setPlatform, parsePackFilter, zipAssets, zipAssetsFromSlices, overridesRole } from "./core.js"
+import { setPlatform, parsePackFilter, zipAssets, zipAssetsFromSlices, overridesRole, makeModelScene as buildModelScene } from "./core.js"
 import { decodePng } from "./core/png.js"
 import { settleInstances } from "./core/models.js"
 
@@ -324,7 +324,7 @@ setPlatform({
 export {
   wasmStatus, COLORS, isWaterloggable, isWaterlogged, getLightEmission, computeSceneLight, getCullFaces, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, prepareAssets, disposeCache, listDirectory, readFile,
   renderBlock, renderItem, renderModel, renderTexture, fullyOccludes, exportCache, importCache,
-  makeModelScene, renderModelScene, createSky, createClouds, createFog, rebindUniforms,
+  renderModelScene, createSky, createClouds, createFog, rebindUniforms,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, warmShaders, isFlatModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
   optimizeScene, createSharedAtlas, createTranslucentSorter, poseSpecial, resumeSpecial,
@@ -334,3 +334,7 @@ export {
 } from "./core.js"
 export { parseZip } from "./zip.js"
 export { setCanvasGPU, getThree }
+
+export async function makeModelScene() {
+  return buildModelScene()
+}
