@@ -653,10 +653,10 @@ function packMesh(P, N, U, T, F, n) {
       normal[o3] = Math.round(N[s3] * 127); normal[o3 + 1] = Math.round(N[s3 + 1] * 127); normal[o3 + 2] = Math.round(N[s3 + 2] * 127)
     }
   } else {
-    normal = new Float32Array(w * 3)
+    normal = new Int16Array(w * 3)
     for (let o = 0; o < w; o++) {
       const s3 = src[o] * 3, o3 = o * 3
-      normal[o3] = N[s3]; normal[o3 + 1] = N[s3 + 1]; normal[o3 + 2] = N[s3 + 2]
+      normal[o3] = Math.round(N[s3] * 32767); normal[o3 + 1] = Math.round(N[s3 + 1] * 32767); normal[o3 + 2] = Math.round(N[s3 + 2] * 32767)
     }
   }
   let faceData = null
@@ -1941,7 +1941,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     acc.P = acc.N = acc.U = acc.T = acc.F = null
     const pd = packed.position
     geo.setAttribute("position", new THREE.BufferAttribute(pd, 3))
-    geo.setAttribute("normal", new THREE.BufferAttribute(packed.normal, 3, packed.normal instanceof Int8Array))
+    geo.setAttribute("normal", new THREE.BufferAttribute(packed.normal, 3, true))
     geo.setAttribute("uv", new THREE.BufferAttribute(packed.uv, 2))
     geo.setAttribute("color", new THREE.BufferAttribute(packed.color, 3, true))
     if (packed.faceData) geo.setAttribute("faceData", new THREE.BufferAttribute(packed.faceData, 2))
