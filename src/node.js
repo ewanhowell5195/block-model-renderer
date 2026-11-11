@@ -27,6 +27,7 @@ function setCanvasGPU(enabled) {
 const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageData }))
 
 let frameCtx = null, frameRenderer = null, frameSize = null
+const pinnedPrograms = new WeakSet()
 
 async function makeFolderEntry(folderPath, indexed = false) {
   let files = null
@@ -206,6 +207,33 @@ setPlatform({
       },
       programs() {
         return renderer.info.programs
+      },
+      release(scene) {
+        const materials = new Set()
+        scene.traverse(obj => {
+          if (!obj.isMesh && !obj.isLineSegments) return
+          obj.geometry?.dispose()
+          for (const mat of [].concat(obj.material ?? [])) materials.add(mat)
+        })
+        for (const mat of materials) {
+          const slots = Object.values(mat.uniforms ?? {}).filter(u => u?.value?.isTexture)
+          for (const texture of slots.map(u => u.value).concat(mat.map ?? [], mat.emissiveMap ?? [])) {
+            if (!texture.userData?.cached) texture.dispose()
+          }
+          let keeper = false
+          for (const program of renderer.properties.get(mat).programs?.values() ?? []) {
+            if (pinnedPrograms.has(program)) continue
+            pinnedPrograms.add(program)
+            keeper = true
+          }
+          if (!keeper) {
+            mat.dispose()
+            continue
+          }
+          for (const u of slots) u.value = null
+          if (mat.map) mat.map = null
+          if (mat.emissiveMap) mat.emissiveMap = null
+        }
       }
     }
   },

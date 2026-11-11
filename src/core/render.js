@@ -38,19 +38,6 @@ function verifyPrograms(frameRenderer, scene, camera) {
   for (const p of frameRenderer.programs()) verifiedPrograms.add(p)
 }
 
-function releaseEphemeral(scene) {
-  if (!scene.userData.ephemeral) return
-  scene.traverse(obj => {
-    if (!obj.isMesh && !obj.isLineSegments) return
-    obj.geometry?.dispose()
-    for (const mat of [].concat(obj.material ?? [])) {
-      if (mat.map && !mat.map.userData?.cached) mat.map.dispose()
-      for (const uniform of Object.values(mat.uniforms ?? {})) {
-        if (uniform?.value?.isTexture && !uniform.value.userData?.cached) uniform.value.dispose()
-      }
-    }
-  })
-}
 
 export async function getCullFaces({ id, blockstates, neighbors, assets, version, defaults } = {}) {
   if (!id) throw new Error("getCullFaces requires the id option")
@@ -391,7 +378,7 @@ export async function renderModelScene(scene, camera, args) {
     still.renderFrame(scene, camera)
     verifyPrograms(still, scene, camera)
     const data = still.readPixels()
-    releaseEphemeral(scene)
+    if (scene.userData.ephemeral) still.release(scene)
     const buffer = await platform.encodeStill({ data, width: baseWidth, height: baseHeight, format: finalFormat, output: args?.output ?? OUTPUT_DEFAULTS[finalFormat] })
     if (finalPath) await platform.writeFile(finalPath, buffer)
     return args?.animated ? { buffer, format: finalFormat ?? "png" } : buffer
@@ -461,7 +448,7 @@ export async function renderModelScene(scene, camera, args) {
     if (dynamicLoop) setDynamicClock(null)
   }
 
-  releaseEphemeral(scene)
+  if (scene.userData.ephemeral) frameRenderer.release(scene)
 
   const MAX_DELAY = 65535
   const frameSize = width * height * 4
