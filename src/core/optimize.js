@@ -1916,6 +1916,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         if (!inPart) m.removeFromParent()
         continue
       }
+      if (m.matrixAutoUpdate) m.updateMatrix()
       if (inPart) parts.push({ parent: m.parent, local: m.matrix.clone(), bucket: dynBucketFor(m.geometry, m.material) })
       m.removeFromParent()
     }

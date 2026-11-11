@@ -350,6 +350,21 @@ test("merged faces of every orientation sample the texels their blocks do", asyn
 
 const MOVING = [{ id: "white_banner", pos: [0, 0, 0] }, { id: "chest", pos: [2, 0, 0] }, { id: "bell", pos: [4, 0, 0] }, { id: "stone", pos: [1, 0, 1] }]
 
+test("moving block entity parts keep their place after an unoptimized build", async () => {
+  const fresh = await prepareAssets([await loadMojangJar()], { cache: true })
+  const loose = await createScene(fresh, MOVING, { lighting: "world", optimize: false })
+  const bounds = []
+  for (let i = 0; i < 3; i++) {
+    const handle = await createScene(fresh, MOVING, { lighting: "world" })
+    const { min, max } = handle.bounds
+    bounds.push([min.x, min.y, min.z, max.x, max.y, max.z])
+    handle.dispose()
+  }
+  loose.dispose()
+  assert.deepEqual(bounds[1], bounds[0])
+  assert.deepEqual(bounds[2], bounds[0])
+})
+
 test("a still shows moving block entity parts posed on its first frame", async () => {
   const warm = await createScene(assets, MOVING, { lighting: "world" })
   await shoot(warm)
