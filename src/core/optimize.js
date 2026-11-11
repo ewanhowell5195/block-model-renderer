@@ -4,7 +4,7 @@ import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS, loadSpriteTex
 import { wasmReady, greedyMeshFast, settleWasm } from "./fast.js"
 import { buildSchedules, evaluateAnimation } from "./animation.js"
 import { listAtlasSprites } from "./assets.js"
-import { sortTranslucent } from "./sorting.js"
+import { createTranslucentSorter } from "./sorting.js"
 
 const nextTask = globalThis.scheduler?.yield
   ? () => scheduler.yield()
@@ -2095,7 +2095,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
   onProgress?.(10000, 10000)
 
-  const sorter = sortTranslucent(group, { resortDistance: opts.resortDistance })
+  const sorter = createTranslucentSorter(group, { resortDistance: opts.resortDistance })
 
   return optimizedHandle({ group, drawCalls, tris, created, sorter })
 }

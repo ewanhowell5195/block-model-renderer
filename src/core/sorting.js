@@ -139,8 +139,8 @@ export function sortObjectOnce(object, camera) {
   for (const s of collectSorters(object)) s.sortNow(camera)
 }
 
-export function sortTranslucent(object, opts = {}) {
-  if (!object) throw new Error("sortTranslucent requires an object to sort")
+export function createTranslucentSorter(object, opts = {}) {
+  if (!object) throw new Error("createTranslucentSorter requires an object to sort")
   const resort = opts.resortDistance ?? 16
   const resortSq = resort * resort
   const sorters = collectSorters(object)

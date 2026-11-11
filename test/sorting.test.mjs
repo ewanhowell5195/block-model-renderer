@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { sortTranslucent } from "../src/node.js"
+import * as lib from "../src/node.js"
+import { createTranslucentSorter } from "../src/node.js"
 import { THREE } from "../src/core/platform.js"
 
 function quads(centers, perCenter = 1) {
@@ -29,7 +30,7 @@ test("near faces keep their order when one face is far away", () => {
   const centers = [0, 32, 3040]
   const mesh = quads(centers)
   const group = new THREE.Group().add(mesh)
-  sortTranslucent(group).sort(cameraAt(-48, 0, 0))
+  createTranslucentSorter(group).sort(cameraAt(-48, 0, 0))
   const index = mesh.geometry.index.array, pos = mesh.geometry.attributes.position
   const order = []
   for (let t = 0; t < index.length; t += 3) {
@@ -44,7 +45,7 @@ test("every pending mesh gets sorted while the camera keeps moving", () => {
   const group = new THREE.Group()
   for (const mesh of meshes) group.add(mesh)
   group.updateMatrixWorld(true)
-  const sorter = sortTranslucent(group, { resortDistance: 16 })
+  const sorter = createTranslucentSorter(group, { resortDistance: 16 })
   const renderer = { info: { render: { frame: 0 } } }
   const farFirst = meshes.slice().reverse()
   for (let frame = 0; frame < meshes.length; frame++) {
@@ -61,10 +62,15 @@ test("small meshes share a frame", () => {
   const group = new THREE.Group()
   for (const mesh of meshes) group.add(mesh)
   group.updateMatrixWorld(true)
-  const sorter = sortTranslucent(group)
+  const sorter = createTranslucentSorter(group)
   const renderer = { info: { render: { frame: 0 } } }
   const camera = cameraAt(-100, 0, 0)
   for (const mesh of meshes) mesh.onBeforeRender(renderer, null, camera)
   assert.deepEqual(meshes.map(mesh => mesh.geometry.index.version), [1, 1, 1])
   sorter.detach()
+})
+
+test("the sorter is exported as createTranslucentSorter alone", () => {
+  assert.equal(typeof lib.createTranslucentSorter, "function")
+  assert.equal("sortTranslucent" in lib, false)
 })

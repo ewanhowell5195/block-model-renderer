@@ -902,7 +902,7 @@ export interface OptimizedScene {
   dispose(): void
 }
 
-/** The handle {@link sortTranslucent} attaches. */
+/** The handle {@link createTranslucentSorter} attaches. */
 export interface TranslucentSorter {
   /** Force a sort now, before a one-frame capture. */
   sort(camera: THREE.Camera): void
@@ -1663,7 +1663,7 @@ export function optimizeScene(placements: Placement[], options?: OptimizeSceneOp
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#translucent-sorting
  */
-export function sortTranslucent(object: THREE.Object3D, options?: { resortDistance?: number }): TranslucentSorter
+export function createTranslucentSorter(object: THREE.Object3D, options?: { resortDistance?: number }): TranslucentSorter
 
 /**
  * An atlas pool that outlives any one scene: pass it as `sharedAtlas` and every

@@ -14,7 +14,7 @@ export { renderItem, renderModel, renderTexture, makeModelScene, renderModelScen
 export { readFile, listDirectory, readTexture, computeSceneLight, warmShaders, reviveScene, renderBlock, getCullFaces, parseBlockstate, parseItemDefinition } from "./core/api.js"
 export { optimizeScene, createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures } from "./core/optimize.js"
 export { packScene } from "./core/pack.js"
-export { sortTranslucent } from "./core/sorting.js"
+export { createTranslucentSorter } from "./core/sorting.js"
 export { createScene } from "./core/scene.js"
 export { createSky } from "./core/sky.js"
 export { createClouds } from "./core/clouds.js"

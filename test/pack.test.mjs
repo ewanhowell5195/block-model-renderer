@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { createScene, prepareAssets, createSharedAtlas, packScene, reviveScene, sortTranslucent } from "../src/node.js"
+import { createScene, prepareAssets, createSharedAtlas, packScene, reviveScene, createTranslucentSorter } from "../src/node.js"
 import { THREE } from "../src/core/platform.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
@@ -32,7 +32,7 @@ test("a revived scene with release keeps what translucent sorting needs", async 
   const camera = new THREE.PerspectiveCamera()
   camera.position.set(-200, 24, 8)
   camera.updateMatrixWorld(true)
-  const sorter = sortTranslucent(tile.group)
+  const sorter = createTranslucentSorter(tile.group)
   sorter.sort(camera)
   const first = translucent[0], index = first.geometry.index.array, pos = first.geometry.attributes.position
   assert.ok(pos.getX(index[0]) > pos.getX(index[index.length - 1]))
