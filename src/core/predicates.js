@@ -201,7 +201,7 @@ function componentMap(components) {
   return data
 }
 
-function sameValue(a, b) {
+export function sameValue(a, b) {
   if (typeof a === "string" && typeof b === "string") return normalize(a) === normalize(b)
   if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((value, i) => sameValue(value, b[i]))
   if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return a === b

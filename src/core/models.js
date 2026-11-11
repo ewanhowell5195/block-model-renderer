@@ -9,7 +9,7 @@ import { classifyPngAlpha, hashBytes } from "./png.js"
 import { modelLoaders, activeLoaders, shadings } from "./loaders.js"
 import { mapArtFor, mapIdOf } from "./maps.js"
 import { neighborLookup } from "./neighbors.js"
-import { matchesComponentPredicate } from "./predicates.js"
+import { matchesComponentPredicate, sameValue } from "./predicates.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
@@ -1866,8 +1866,10 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
           }
         })
       }
+      const structured = prop === "component" && raw !== null && typeof raw === "object"
       const matched = def.cases.find(c => {
         const when = c.when
+        if (structured) return sameValue(when, raw) || (Array.isArray(when) && when.some(entry => sameValue(entry, raw)))
         if (Array.isArray(when)) return when.map(normalize).includes(value)
         return normalize(when) === value
       })
@@ -1884,7 +1886,7 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
         isTruthy = v === true || v === "true"
       } else if (prop === "has_component") {
         const component = normalize(def.component ?? "")
-        isTruthy = component in data && data[component] !== undefined && data[component] !== null
+        isTruthy = Object.hasOwn(data, component) && data[component] !== undefined && data[component] !== null
       } else if (prop === "component") {
         isTruthy = matchesComponentPredicate(data, def.predicate, def.value)
       } else {
