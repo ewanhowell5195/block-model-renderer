@@ -36,6 +36,12 @@ const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageDat
 let frameCtx = null, frameRenderer = null, frameSize = null
 const pinnedPrograms = new WeakSet()
 
+function openFrameContext(width, height) {
+  frameCtx = createContext(width, height)
+  frameRenderer = new THREE.WebGLRenderer({ context: frameCtx })
+  frameSize = { width, height }
+}
+
 const bundledIndex = new Map()
 
 async function makeFolderEntry(folderPath, indexed = false) {
@@ -126,10 +132,8 @@ setPlatform({
 
   maxTextureSize() {
     if (maxTexSize) return maxTexSize
-    const gl = frameCtx ?? createContext(1, 1)
-    maxTexSize = gl.getParameter(gl.MAX_TEXTURE_SIZE)
-    if (gl !== frameCtx) gl.getExtension("STACKGL_destroy_context")?.destroy()
-    return maxTexSize
+    if (!frameCtx) openFrameContext(1, 1)
+    return maxTexSize = frameCtx.getParameter(frameCtx.MAX_TEXTURE_SIZE)
   },
 
   async prepareEntry(entry) {
@@ -200,11 +204,8 @@ setPlatform({
   },
 
   createFrameRenderer({ width, height, background, camera }) {
-    if (!frameCtx) {
-      frameCtx = createContext(width, height)
-      frameRenderer = new THREE.WebGLRenderer({ context: frameCtx })
-      frameSize = { width, height }
-    } else if (frameSize.width !== width || frameSize.height !== height) {
+    if (!frameCtx) openFrameContext(width, height)
+    else if (frameSize.width !== width || frameSize.height !== height) {
       frameCtx.getExtension("STACKGL_resize_drawingbuffer").resize(width, height)
       frameSize = { width, height }
     }
