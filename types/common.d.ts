@@ -1383,6 +1383,33 @@ export function prepareAssets(assets: AssetsInput, options?: PrepareAssetsOption
  */
 export function disposeCache(assets: AssetsInput): void
 
+/** An exported model cache, as {@link exportModelCache} resolves to. Structured-cloneable and JSON-serializable. */
+export interface ModelCacheData {
+  /** The blockstate and model files read so far, by path. `null` marks a file the packs don't have. */
+  files: [string, { text: string, hintIndex: number } | null][]
+  /** The resolved models, by model id or inline model JSON. */
+  models: [string, Record<string, any>][]
+}
+
+/**
+ * The blockstate and model data cached on prepared assets, to copy to a
+ * worker's assets or persist for the next session. Only valid for the same pack
+ * stack, in the same order, and the same version.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#sharing-the-model-cache
+ */
+export function exportModelCache(assets: AssetsInput): Promise<ModelCacheData>
+
+/**
+ * Seed prepared assets (with `cache: true`) from an exported model cache.
+ * Existing keys are kept.
+ *
+ * @returns How many entries were added.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#sharing-the-model-cache
+ */
+export function importModelCache(assets: AssetsInput, data: ModelCacheData): Promise<number>
+
 /**
  * Read one file through the same layered, filtered view of the assets the
  * renderer uses. Atlas-generated virtual sprites resolve here too.

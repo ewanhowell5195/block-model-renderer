@@ -92,6 +92,17 @@ disposeCache(oldAssets)
 
 Caching stays enabled after a dispose; it just repopulates. Don't dispose while something from those assets is still rendering (a live player, a scene on screen).
 
+#### Sharing the model cache
+
+The blockstate and model files a cache has read, and the models it has resolved, can be copied to another prepared assets instance, such as a worker's, or persisted for the next session:
+
+| Export | Description |
+|---|---|
+| `exportModelCache(assets)` | The cached file text and resolved models as `{ files, models }`, structured-cloneable and JSON-serializable |
+| `importModelCache(assets, data)` | Seed a prepared assets instance (with `cache: true`) from an export. Existing keys are kept; returns how many entries were added |
+
+An export is only valid for the same pack stack, in the same order, and the same version. Pair it with the [occlusion cache](culling.md#persisting-the-occlusion-cache): with both imported, a cold scene of 1,200 different block states builds in under half the time.
+
 ### Minecraft version
 
 Pass `{ version: "1.21.11" }` to pin the Minecraft version the assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (the armor trim palette locations, the [versioned override packs](#versioned-packs)). Without it, the first render that passes a `version` stamps it onto the prepared assets, and with no version at all both the modern and legacy forms are probed.

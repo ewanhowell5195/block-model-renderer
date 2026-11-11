@@ -298,6 +298,30 @@ export function disposeCache(assets) {
   for (const v of Object.values(c)) if (v instanceof Map) v.clear()
 }
 
+export async function exportModelCache(assets) {
+  assets = await prepareAssets(assets)
+  return { files: Array.from(assets.cache?.jsonText ?? []), models: Array.from(assets.cache?.models ?? []) }
+}
+
+export async function importModelCache(assets, data) {
+  assets = await prepareAssets(assets)
+  const cache = assets.cache
+  if (!cache || !data) return 0
+  const files = cache.jsonText ??= new Map()
+  let added = 0
+  for (const [key, file] of data.files ?? []) {
+    if (typeof key !== "string" || files.has(key) || (file !== null && typeof file?.text !== "string")) continue
+    files.set(key, file)
+    added++
+  }
+  for (const [key, model] of data.models ?? []) {
+    if (typeof key !== "string" || cache.models.has(key) || model == null || typeof model !== "object") continue
+    cache.models.set(key, model)
+    added++
+  }
+  return added
+}
+
 export async function readFileAll(file, assets) {
   assets = await prepareAssets(assets)
   const found = []

@@ -8,7 +8,7 @@ import {
   renderBlock, renderItem, renderModel, renderTexture, getCullFaces, fullyOccludes,
   exportOcclusionCache, importOcclusionCache,
   // assets and files
-  prepareAssets, readFile, listDirectory, readTexture, zipAssets, zipAssetsFromSlices, parseZip, disposeCache,
+  prepareAssets, readFile, listDirectory, readTexture, zipAssets, zipAssetsFromSlices, parseZip, disposeCache, exportModelCache, importModelCache,
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
@@ -55,6 +55,8 @@ import {
 | `zipAssetsFromSlices(slice, size)` | Wrap a zip read on demand through a slice callback, for huge files. [Details](assets.md#zipassetsfromslicesslice-size) |
 | `parseZip(bytes)` | Parse a zip into its entries. [Details](assets.md#parsezipbytes) |
 | `disposeCache(assets)` | Free textures and GPU data cached on prepared assets. [Details](assets.md#caching) |
+| `exportModelCache(assets)` | The cached blockstate and model data, for workers or persistence. [Details](assets.md#sharing-the-model-cache) |
+| `importModelCache(assets, data)` | Seed a prepared assets instance with an exported model cache. [Details](assets.md#sharing-the-model-cache) |
 
 ## Model data
 

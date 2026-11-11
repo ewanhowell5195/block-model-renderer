@@ -1909,7 +1909,7 @@ export async function resolveModelData(assets, model) {
       currentItem = resolved.item
     }
   } catch {
-    stack = [parseJson(await readFile("assets/block-model-renderer/models/missing.json", assets))]
+    stack = [parseJson((await readJsonText("assets/block-model-renderer/models/missing.json", assets)).text)]
     merged.model = "block-model-renderer:missing.json"
   }
 
