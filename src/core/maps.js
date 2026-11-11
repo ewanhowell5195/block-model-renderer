@@ -37,15 +37,20 @@ export function mapIdOf(item) {
   return Number.isFinite(n) ? n : null
 }
 
+const backgrounds = new WeakMap()
+
+function mapBackground(assets) {
+  if (!backgrounds.has(assets)) backgrounds.set(assets, readFile("assets/minecraft/textures/map/map_background.png", assets).then(bytes => bytes ? loadImage(bytes) : null))
+  return backgrounds.get(assets)
+}
+
 export async function renderMapColors(assets, colors) {
   if (colors == null || colors.length < 16384) throw new Error("renderMapColors requires the 16384 map color bytes")
   assets = await prepareAssets(assets)
   const canvas = new Canvas(128, 128)
   const ctx = canvas.getContext("2d")
-  try {
-    const bytes = await readFile("assets/minecraft/textures/map/map_background.png", assets)
-    if (bytes) ctx.drawImage(await loadImage(bytes), 0, 0, 128, 128)
-  } catch {}
+  const background = await mapBackground(assets)
+  if (background) ctx.drawImage(background, 0, 0, 128, 128)
   const img = ctx.createImageData(128, 128)
   let any = false
   for (let i = 0; i < 16384; i++) {
@@ -68,21 +73,25 @@ export async function renderMapColors(assets, colors) {
   return canvas
 }
 
-export async function mapArtFor(assets, id, mapArt, info) {
+async function drawMapArt(id, mapArt, info) {
+  const raw = await mapArt(id, info)
+  if (!raw) return null
+  const w = raw.width || 128, h = raw.height || 128
+  const art = new Canvas(w, h)
+  art.getContext("2d").drawImage(raw, 0, 0, w, h)
+  return art
+}
+
+export function mapArtFor(assets, id, mapArt, info) {
   if (!mapArt) return null
   const cache = id != null && assets.cache ? (assets.cache.maps ??= new Map()) : null
-  if (cache?.has(id)) return cache.get(id)
-  let art = null
-  try {
-    const raw = await mapArt(id, info)
-    if (raw) {
-      const w = raw.width || 128, h = raw.height || 128
-      art = new Canvas(w, h)
-      art.getContext("2d").drawImage(raw, 0, 0, w, h)
-    }
-  } catch {}
-  if (art) cache?.set(id, art)
-  return art
+  if (!cache) return drawMapArt(id, mapArt, info)
+  if (!cache.has(id)) {
+    const art = drawMapArt(id, mapArt, info)
+    cache.set(id, art)
+    art.catch(() => cache.delete(id))
+  }
+  return cache.get(id)
 }
 
 export function disposeMapArt(assets) {
