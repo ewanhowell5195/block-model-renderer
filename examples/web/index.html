@@ -726,15 +726,15 @@ document.body.append(canvas)</code></pre>
         <div class="tab-contents">
           <div class="tab-content active" data-tab="cake">
             <div class="demo" id="demo-state-cake"></div>
-            <pre><code>await renderBlock({ id: "cake", assets, blockstates: { bites: "3" } })</code></pre>
+            <pre><code>await renderBlock({ id: "cake", assets, properties: { bites: "3" } })</code></pre>
           </div>
           <div class="tab-content" data-tab="fence">
             <div class="demo" id="demo-state-fence"></div>
-            <pre><code>await renderBlock({ id: "oak_fence", assets, blockstates: { north: "true", east: "true" } })</code></pre>
+            <pre><code>await renderBlock({ id: "oak_fence", assets, properties: { north: "true", east: "true" } })</code></pre>
           </div>
           <div class="tab-content" data-tab="pickle">
             <div class="demo" id="demo-state-pickle"></div>
-            <pre><code>await renderBlock({ id: "sea_pickle", assets, blockstates: { pickles: "3" } })</code></pre>
+            <pre><code>await renderBlock({ id: "sea_pickle", assets, properties: { pickles: "3" } })</code></pre>
           </div>
         </div>
       </div>
@@ -769,11 +769,11 @@ await renderItem({ id: "bow", assets, components: { using_item: true } })</code>
         <pre><code>import { renderItem, readFile } from "block-model-renderer"
 
 // any file in the pack stack is readable
-const png = await readFile("assets/minecraft/textures/gui/container/crafting_table.png", assets)
+const png = await readFile(assets, "assets/minecraft/textures/gui/container/crafting_table.png")
 ctx.drawImage(await createImageBitmap(new Blob([png])), 0, 0, 176, 166, 0, 0, 352, 332)
 
 // including data files, like recipes
-const recipe = JSON.parse(new TextDecoder().decode(await readFile("data/minecraft/recipe/cake.json", assets)))
+const recipe = JSON.parse(new TextDecoder().decode(await readFile(assets, "data/minecraft/recipe/cake.json")))
 
 // placement mode draws into a region of an existing canvas without clearing it
 await renderItem({ id: "diamond_sword", assets, canvas, width: 32, height: 32, x: 248, y: 70 })</code></pre>
@@ -866,8 +866,8 @@ const statics = { ...windmill, elements: windmill.elements.filter(e => e.name !=
 const sails = { ...windmill, elements: windmill.elements.filter(e => e.name === "rotate") }
 
 const { scene, camera } = await makeModelScene()
-await loadModel(scene, assets, await resolveModelData(assets, { model: statics }), { display })
-const sailRoot = await loadModel(scene, assets, await resolveModelData(assets, { model: sails }), { display })
+await loadModel(assets, await resolveModelData(assets, { model: statics }), { display, parent: scene })
+const sailRoot = await loadModel(assets, await resolveModelData(assets, { model: sails }), { display, parent: scene })
 
 // pivot the sails on the axle (x 8, y 16 in model space)
 const spin = new THREE.Group()
@@ -907,9 +907,9 @@ renderer.render(scene, camera)</code></pre>
 const THREE = await getThree()
 const group = new THREE.Group()
 
-for (const model of await parseBlockstate(assets, "campfire", { data: { lit: "true" } })) {
+for (const model of await parseBlockstate(assets, "campfire", { properties: { lit: "true" } })) {
   const resolved = await resolveModelData(assets, model)
-  await loadModel(group, assets, resolved, { lighting: "world", animate: true })
+  await loadModel(assets, resolved, { lighting: "world", animate: true, parent: group })
 }
 scene.add(group)
 
@@ -1057,8 +1057,8 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
 
       async function ids(sub) {
         const lists = []
-        for (const ns of await listDirectory("assets", assets)) {
-          const files = (await listDirectory(`assets/${ns}/${sub}`, assets)).filter(f => f.endsWith(".json"))
+        for (const ns of await listDirectory(assets, "assets")) {
+          const files = (await listDirectory(assets, `assets/${ns}/${sub}`)).filter(f => f.endsWith(".json"))
           if (files.length) lists.push([ns, files])
         }
         const prefix = lists.length > 1
@@ -1125,8 +1125,8 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       let widths = new Map()
 
       async function loadGuiAssets() {
-        guiImg = await createImageBitmap(new Blob([await readFile("assets/minecraft/textures/gui/container/crafting_table.png", assets)], { type: "image/png" }))
-        const fontImg = await createImageBitmap(new Blob([await readFile("assets/minecraft/textures/font/ascii.png", assets)], { type: "image/png" }))
+        guiImg = await createImageBitmap(new Blob([await readFile(assets, "assets/minecraft/textures/gui/container/crafting_table.png")], { type: "image/png" }))
+        const fontImg = await createImageBitmap(new Blob([await readFile(assets, "assets/minecraft/textures/font/ascii.png")], { type: "image/png" }))
         fontCanvas = document.createElement("canvas")
         fontCanvas.width = fontImg.width
         fontCanvas.height = fontImg.height
@@ -1189,7 +1189,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
       for (let col = 0; col < 9; col++) invSlots.push({ x: 8 + col * 18, y: 142, chance: 0.6 })
 
       async function readJson(path) {
-        const buf = await readFile(path, assets)
+        const buf = await readFile(assets, path)
         return buf ? JSON.parse(new TextDecoder().decode(buf)) : null
       }
 
@@ -1198,7 +1198,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         if (!recipeFiles) {
           recipeFiles = []
           for (const dir of ["data/minecraft/recipe", "data/minecraft/recipes"]) {
-            const files = (await listDirectory(dir, assets)).filter(f => f.endsWith(".json"))
+            const files = (await listDirectory(assets, dir)).filter(f => f.endsWith(".json"))
             if (files.length) {
               recipeFiles = files.map(f => `${dir}/${f}`)
               break
@@ -1907,8 +1907,8 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
             const outer = new THREE.Group()
             outer.rotation.x = THREE.MathUtils.degToRad(30)
             const inner = new THREE.Group()
-            for (const model of await parseBlockstate(assets, entry.id, { data: entry.properties })) {
-              await loadModel(inner, assets, await resolveModelData(assets, model), { animate: true })
+            for (const model of await parseBlockstate(assets, entry.id, { properties: entry.properties })) {
+              await loadModel(assets, await resolveModelData(assets, model), { animate: true, parent: inner })
             }
             if (run !== buildRun) {
               disposePreviewScene(scene)
@@ -1959,7 +1959,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
         async function previewBlockGroup(id, display) {
           const g = new THREE.Group()
           for (const model of await parseBlockstate(assets, id)) {
-            await loadModel(g, assets, await resolveModelData(assets, model), { display, animate: true })
+            await loadModel(assets, await resolveModelData(assets, model), { display, animate: true, parent: g })
           }
           return g
         }
@@ -2026,7 +2026,7 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
               inner.scale.setScalar(0.7)
               const g2 = new THREE.Group()
               for (const model of await parseItemDefinition(assets, gridIds[i], { display: "gui" })) {
-                await loadModel(g2, assets, await resolveModelData(assets, model), { animate: true })
+                await loadModel(assets, await resolveModelData(assets, model), { animate: true, parent: g2 })
               }
               inner.add(g2)
               outer.add(inner)
@@ -2128,8 +2128,8 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
           ]]
         }
         for (const [target, [id, variants]] of Object.entries(stateDemos)) {
-          for (const [blockstates, label] of variants) {
-            const canvas = await renderBlock({ id, assets, blockstates, width: SIZE, height: SIZE })
+          for (const [properties, label] of variants) {
+            const canvas = await renderBlock({ id, assets, properties, width: SIZE, height: SIZE })
             if (run !== buildRun) return
             demo(target, canvas, label)
           }
@@ -2237,8 +2237,8 @@ const assets = await prepareAssets([resourcePackZip, vanillaJar])</code></pre>
           const sails = { ...windmillModel, elements: windmillModel.elements.filter(e => e.name === "rotate") }
           const display = { rotation: [30, 225, 0], translation: [0, -0.7, 0], scale: [0.28, 0.28, 0.28] }
           const { scene, camera } = await makeModelScene()
-          await loadModel(scene, assets, await resolveModelData(assets, { model: statics }), { display })
-          const sailRoot = await loadModel(scene, assets, await resolveModelData(assets, { model: sails }), { display })
+          await loadModel(assets, await resolveModelData(assets, { model: statics }), { display, parent: scene })
+          const sailRoot = await loadModel(assets, await resolveModelData(assets, { model: sails }), { display, parent: scene })
           if (run !== buildRun) return
           const sailContainer = sailRoot.children[0].children[0]
           const spin = new THREE.Group()

@@ -172,8 +172,8 @@
     if (!idLists[kind]) {
       const sub = kind === "item" ? "items" : "blockstates"
       const lists = []
-      for (const ns of await listDirectory("assets", assets)) {
-        const files = (await listDirectory(`assets/${ns}/${sub}`, assets)).filter(f => f.endsWith(".json"))
+      for (const ns of await listDirectory(assets, "assets")) {
+        const files = (await listDirectory(assets, `assets/${ns}/${sub}`)).filter(f => f.endsWith(".json"))
         if (files.length) lists.push([ns, files])
       }
       const prefix = lists.length > 1
@@ -468,14 +468,14 @@
 
     const models = kind === "item"
       ? await parseItemDefinition(assets, id, { display: typeof display === "string" ? display : "gui" })
-      : await parseBlockstate(assets, id, { data: propsData() })
+      : await parseBlockstate(assets, id, { properties: propsData() })
 
     const group = new THREE.Group()
     let gui = null
     for (const model of models) {
       const resolved = await resolveModelData(assets, model)
       gui ??= resolved.display?.gui ?? null
-      await loadModel(group, assets, resolved, { display, lighting, cull, animate })
+      await loadModel(assets, resolved, { display, lighting, cull, animate, parent: group })
     }
 
     if (modelGroup) {

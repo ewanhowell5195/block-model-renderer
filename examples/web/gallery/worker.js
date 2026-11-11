@@ -26,8 +26,8 @@ function clearRenders() {
 
 async function blockList() {
   const lists = []
-  for (const ns of await lib.listDirectory("assets", assets)) {
-    const files = (await lib.listDirectory(`assets/${ns}/blockstates`, assets)).filter(f => f.endsWith(".json"))
+  for (const ns of await lib.listDirectory(assets, "assets")) {
+    const files = (await lib.listDirectory(assets, `assets/${ns}/blockstates`)).filter(f => f.endsWith(".json"))
     if (files.length) lists.push([ns, files])
   }
   const prefix = lists.length > 1

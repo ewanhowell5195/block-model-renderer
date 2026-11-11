@@ -28,7 +28,7 @@ console.log("Done block_stone")
 // A block with blockstate properties (log rotated on the X axis)
 await renderBlock({
   id: "oak_log",
-  blockstates: { axis: "x" },
+  properties: { axis: "x" },
   assets,
   lighting: "world",
   width: 300,
@@ -152,7 +152,7 @@ console.log("Done custom_torch")
 const virtualOverride = {
   async read(filePath) {
     if (filePath === "assets/minecraft/textures/block/stone.png") {
-      const src = sharp(Buffer.from(await readFile(filePath, assets)))
+      const src = sharp(Buffer.from(await readFile(assets, filePath)))
       const { width, height } = await src.metadata()
       return src.composite([{
         input: { create: { width, height, channels: 4, background: { r: 40, g: 90, b: 255, alpha: 1 } } },
@@ -176,12 +176,12 @@ console.log("Done virtual_blue_stone")
 
 // Simple advanced API: the low-level pipeline for a single block
 {
-  const { scene, camera } = makeModelScene()
+  const { scene, camera } = await makeModelScene()
   const display = { rotation: [30, 135, 0], scale: [0.625, 0.625, 0.625] }
   const models = await parseBlockstate(assets, "oak_planks")
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display, lighting: "world" })
+    await loadModel(assets, resolved, { display, lighting: "world", parent: scene })
   }
   const buf = await renderModelScene(scene, camera, { width: 300, height: 300 })
   fs.writeFileSync(`${outDir}/advanced_simple_scene.png`, buf)
@@ -190,14 +190,14 @@ console.log("Done virtual_blue_stone")
 
 // Advanced API: build a scene manually and combine multiple models into one render
 {
-  const { scene, camera } = makeModelScene()
+  const { scene, camera } = await makeModelScene()
   const display = { rotation: [30, 135, 0], scale: [0.44, 0.44, 0.44] }
   for (const [id, x] of [["diamond_block", -16], ["gold_block", 0], ["emerald_block", 16]]) {
     const models = await parseBlockstate(assets, id)
     for (const model of models) {
       const resolved = await resolveModelData(assets, model)
       resolved.translation = [x, 0, 0]
-      await loadModel(scene, assets, resolved, { display, lighting: "world" })
+      await loadModel(assets, resolved, { display, lighting: "world", parent: scene })
     }
   }
   const buf = await renderModelScene(scene, camera, { width: 318, height: 256 })

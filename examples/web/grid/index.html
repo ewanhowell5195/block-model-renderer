@@ -410,8 +410,8 @@
 
   async function ids(sub) {
     const lists = []
-    for (const ns of await listDirectory("assets", assets)) {
-      const files = (await listDirectory(`assets/${ns}/${sub}`, assets)).filter(f => f.endsWith(".json"))
+    for (const ns of await listDirectory(assets, "assets")) {
+      const files = (await listDirectory(assets, `assets/${ns}/${sub}`)).filter(f => f.endsWith(".json"))
       if (files.length) lists.push([ns, files])
     }
     const prefix = lists.length > 1
@@ -443,7 +443,7 @@
       const ns = i === -1 ? "minecraft" : cur.slice(0, i)
       const path = i === -1 ? cur : cur.slice(i + 1)
       if (ns === "minecraft" && path === "builtin/generated") return true
-      const buf = await readFile(`assets/${ns}/models/${path}.json`, assets)
+      const buf = await readFile(assets, `assets/${ns}/models/${path}.json`)
       if (!buf) return false
       cur = JSON.parse(new TextDecoder().decode(buf)).parent
     }
@@ -476,7 +476,7 @@
     const built = new THREE.Group()
     for (const model of pick.models) {
       const resolved = mode === "items" ? await resolveModelData(assets, model) : model
-      await loadModel(built, assets, resolved, { animate: false, shaderScale: (canvas.clientHeight || 1) / cellPx() })
+      await loadModel(assets, resolved, { animate: false, shaderScale: (canvas.clientHeight || 1) / cellPx(), parent: built })
     }
     if (!countMeshes(built)) {
       disposeGroup(built)

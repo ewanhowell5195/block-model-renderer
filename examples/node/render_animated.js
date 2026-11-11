@@ -13,8 +13,8 @@ fs.rmSync(outputDir, { recursive: true, force: true })
 fs.mkdirSync(path.join(outputDir, "blocks"), { recursive: true })
 fs.mkdirSync(path.join(outputDir, "items"), { recursive: true })
 
-const blockstateFiles = await listDirectory("assets/minecraft/blockstates", assets).then(arr => arr.filter(f => f.endsWith(".json")))
-const itemFiles = await listDirectory("assets/minecraft/items", assets).then(arr => arr.filter(f => f.endsWith(".json")))
+const blockstateFiles = await listDirectory(assets, "assets/minecraft/blockstates").then(arr => arr.filter(f => f.endsWith(".json")))
+const itemFiles = await listDirectory(assets, "assets/minecraft/items").then(arr => arr.filter(f => f.endsWith(".json")))
 
 async function processChunk(files, handler) {
   for (let i = 0; i < files.length; i += chunkSize) {
@@ -28,9 +28,9 @@ async function hasAnimatedTexture(resolved) {
   for (const value of Object.values(resolved.textures)) {
     if (typeof value !== "string" || value.startsWith("#")) continue
     const base = `assets/minecraft/textures/${value.replace(/^minecraft:/, "")}.png`
-    const png = await readFile(base, assets)
+    const png = await readFile(assets, base)
     if (!png) continue
-    const mcmeta = await readFile(`${base}.mcmeta`, assets, png.hintIndex)
+    const mcmeta = await readFile(assets, `${base}.mcmeta`, png.hintIndex)
     if (!mcmeta) continue
     try {
       const meta = JSON.parse(mcmeta)

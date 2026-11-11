@@ -129,7 +129,7 @@ SCENE.layers.forEach((layer, y) => {
 
 const handle = await createScene(assets, blocks)
 
-const { scene, camera } = makeModelScene()
+const { scene, camera } = await makeModelScene()
 scene.add(handle.group)
 
 // Centre the scene at the origin, keeping the light volume aligned with it
