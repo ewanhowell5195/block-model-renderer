@@ -67,6 +67,26 @@ test("scenes spread past the dense cell grid still cull between neighbours", asy
   both.dispose()
 })
 
+test("buried cells are skipped without changing the geometry", async () => {
+  const ids = ["stone", "grass_block", "dirt", "glass", "oak_stairs"]
+  const blocks = []
+  for (let x = 0; x < 7; x++) for (let y = 0; y < 7; y++) for (let z = 0; z < 7; z++) {
+    const id = x === 3 && z === 3 && y > 1 ? ids[3 + (y & 1)] : ids[(x * 5 + y * 3 + z) % 3]
+    blocks.push({ id, pos: [x, y, z] })
+  }
+  const skipped = await createScene([jar], blocks, { lighting: "item" })
+  const kept = await createScene([jar], blocks, { lighting: "item", keepTemplates: true })
+  const walled = await createScene([jar], blocks, { lighting: "item", externalOcclusion: () => true })
+  assert.ok(skipped.tris > 0)
+  assert.equal(skipped.tris, kept.tris)
+  assert.equal(skipped.drawCalls, kept.drawCalls)
+  assert.ok(walled.tris > 0 && walled.tris < skipped.tris)
+  assert.equal(kept.blockTemplate.indexOf(0xFFFFFFFF), -1)
+  skipped.dispose()
+  kept.dispose()
+  walled.dispose()
+})
+
 test("disposeCache empties every cross-call cache and rebuilds the same scene", async () => {
   const assets = await prepareAssets([jar], { cache: true })
   const blocks = [{ id: "stone", pos: [0, 0, 0] }, { id: "grass_block", pos: [1, 0, 0] }, { id: "water", properties: { level: "0" }, pos: [0, 1, 0] }, { id: "oak_stairs", pos: [1, 1, 0] }]

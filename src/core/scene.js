@@ -1,7 +1,7 @@
 import { THREE, normalize, jsonKey } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { cloneInstance, rebindSkins, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, makeLightSwitches,resolveWorldLighting, makeFog, randomOffset, rollPicks } from "./models.js"
-import { getCullFaces } from "./render.js"
+import { getCullFaces, fullyOccludes } from "./render.js"
 import { computeSceneLight, isFlatBlocks } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
 import { blockRules } from "./data.js"
@@ -162,6 +162,21 @@ function cloneTemplate(src, rebind) {
   const out = walk(src, true)
   rebindSkins(src, out)
   return out
+}
+
+function cullsAway(group) {
+  let away = true
+  group.traverse(o => {
+    if (o.isLineSegments || o.isLine || o.isPoints || o.isSprite || o.userData.dynamic || o.userData.billboard || o.name.startsWith("part:")) away = false
+    if (!away || !o.isMesh) return
+    const mats = [].concat(o.material)
+    const groups = o.geometry.groups.length ? o.geometry.groups : [{ materialIndex: 0 }]
+    for (const g of groups) {
+      const mat = mats[g.materialIndex]
+      if (mat && mat.visible !== false && !CULL_DIRS.includes(o.userData.cullface?.[g.materialIndex])) away = false
+    }
+  })
+  return away
 }
 
 function fluidKey(f) {
@@ -386,8 +401,37 @@ export async function createScene(assets, blocks, args = {}) {
 
   const sigIds = (assets.cache.sigIds ??= new Map())
   const variantLoaders = activeLoaders().filter(l => l.variantKey && l.match)
+  const cullEnv = (version ?? "") + "\u0000" + (defaults ?? "") + "\u0001"
+  const buryCache = (assets.cache.buried ??= new Map())
+  const palFull = new Uint8Array(palette.length), palBury = new Uint8Array(palette.length)
+  async function modelsCullAway(models) {
+    const g = new THREE.Group()
+    for (const model of models) await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false, version, defaults })
+    return cullsAway(g)
+  }
+  async function pickModelsCullAway(entry) {
+    if (!entry.rolls) return modelsCullAway(entry.models)
+    const picks = entry.rolls.lists.reduce((n, l) => n * l.weights.length, 1)
+    if (picks > 64) return false
+    const seen = new Set()
+    for (let x = 0; x < picks * 64 && seen.size < picks; x++) {
+      const pick = rollPicks(entry.rolls, x, 0, 0)
+      if (seen.has(pick)) continue
+      seen.add(pick)
+      const models = await parseBlockstate(assets, entry.id, { data: entry.properties ?? {}, pos: [x, 0, 0], ignoreAtlases: args.ignoreAtlases, version, defaults })
+      if (!await modelsCullAway(models)) return false
+    }
+    return seen.size === picks
+  }
+  async function buriesAway(entry) {
+    const key = cullEnv + (args.ignoreAtlases ? 1 : 0) + "\0" + entry.sig
+    let away = buryCache.get(key)
+    if (away === undefined) buryCache.set(key, away = await pickModelsCullAway(entry).catch(() => false))
+    return away
+  }
   enter("parse")
-  for (const entry of palette) {
+  for (let pi = 0; pi < palette.length; pi++) {
+    const entry = palette[pi]
     const rolls = entry.pos ? undefined : {}
     entry.models = await parseBlockstate(assets, entry.id, {
       data: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
@@ -412,6 +456,10 @@ export async function createScene(assets, blocks, args = {}) {
       }
       if (placed.length) entry.placed = placed
     }
+    if (optimize && !args.keepTemplates) {
+      palFull[pi] = await fullyOccludes({ id: entry.id, properties: entry.properties ?? {}, assets, version, defaults }) ? 1 : 0
+      if (palFull[pi] && !entry.nbt && !entry.placed && !entry.fluid && await buriesAway(entry)) palBury[pi] = 1
+    }
     await breathe()
     if (shouldCancel?.()) return null
   }
@@ -421,7 +469,6 @@ export async function createScene(assets, blocks, args = {}) {
   const hoodPal = new Int32Array(27), fluidMemo = new Map()
 
   const cullCache = (assets.cache.cullFaces ??= new Map())
-  const cullEnv = (version ?? "") + "\u0000" + (defaults ?? "") + "\u0001"
   const cullMemo = new Map()
   const extOcc = args.externalOcclusion
   const CB = palette.length + 2
@@ -452,6 +499,11 @@ export async function createScene(assets, blocks, args = {}) {
   }
   const cellTmpl = new Int32Array(cellN).fill(-1), cellCull = new Int32Array(cellN).fill(-1)
   let parsed = 0
+  async function tick() {
+    report(parsed, liveCells)
+    await breathe()
+    return shouldCancel?.()
+  }
   for (let c = 0; c < cellN; c++) {
     const cellPi = cellPal[c]
     if (cellPi < 0) continue
@@ -473,6 +525,14 @@ export async function createScene(assets, blocks, args = {}) {
       if (nc >= 0) { _nbr[di] = cellPal[nc]; continue }
       const v = DIR_VECS[di]
       _nbr[di] = extOcc?.(px + v[0], py + v[1], pz + v[2]) ? -2 : -1
+    }
+    if (palBury[cellPi]) {
+      let di = 0
+      while (di < 6 && (_nbr[di] === -2 || (_nbr[di] >= 0 && palFull[_nbr[di]]))) di++
+      if (di === 6) {
+        if (++parsed % 256 === 0 && await tick()) return null
+        continue
+      }
     }
     let mask
     if (sigNumeric) {
@@ -579,11 +639,7 @@ export async function createScene(assets, blocks, args = {}) {
     }
     cellTmpl[c] = ti
 
-    if (++parsed % 256 === 0) {
-      report(parsed, liveCells)
-      await breathe()
-      if (shouldCancel?.()) return null
-    }
+    if (++parsed % 256 === 0 && await tick()) return null
   }
   for (const o of overlays) {
     o.template = o.palette
