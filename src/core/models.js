@@ -1103,6 +1103,14 @@ export function rollPicks(rolls, x, y, z) {
 
 const BED_HEAD = { north: [0, -1], south: [0, 1], west: [-1, 0], east: [1, 0] }
 
+const LEGACY_BLOCK_ENTITIES = {
+  bed: () => "red_bed",
+  standing_sign: () => "sign",
+  standing_banner: () => "white_banner",
+  wall_banner: () => "white_wall_banner",
+  skull: properties => !properties.facing || properties.facing === "up" || properties.facing === "down" ? "skeleton_skull" : "skeleton_wall_skull"
+}
+
 function seededRandom(seed) {
   let a = seed | 0
   return () => {
@@ -1190,6 +1198,10 @@ export async function parseBlockstate(assets, blockstate, args) {
   let buf = await readJsonText(`assets/${namespace}/blockstates/${block}.json`, assets)
   const overlayBuf = await readJsonText(`assets/${namespace}/blockstates/${block}.json`, assets, true)
   if (buf && assets[buf.hintIndex]?.overrideRole === "additional") buf = null
+
+  if (!buf && !overlayBuf && namespace === "minecraft" && overlaysStandalone(version) && Object.hasOwn(LEGACY_BLOCK_ENTITIES, block)) {
+    return parseBlockstate(assets, LEGACY_BLOCK_ENTITIES[block](data), args)
+  }
 
   if (!buf && (!overlayBuf || !overlaysStandalone(version))) {
     if (rules.waterlogged(block)) return [waterPart(colors, args?.biome)]

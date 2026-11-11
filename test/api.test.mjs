@@ -151,3 +151,23 @@ test("a version id that is not a release leaves the assets unversioned", async (
   const [cactus] = await parseBlockstate(assets, "cactus", { version: "1.14 Pre-Release 1" })
   assert.equal(cactus.model, "minecraft:block/cactus")
 })
+
+test("block entity ids from before 1.13 resolve to the bundled models", async () => {
+  const legacy = await prepareAssets([jar], { version: "1.12.2", cache: true })
+  const cases = [["bed", {}], ["standing_sign", {}], ["wall_sign", {}], ["standing_banner", {}], ["wall_banner", {}], ["skull", {}], ["skull", { facing: "north" }]]
+  for (const [id, properties] of cases) {
+    const models = await parseBlockstate(legacy, id, { properties })
+    assert.ok(models.length > 0 && models.every(model => model.model !== "block-model-renderer:missing"), id)
+    const [plain] = await parseBlockstate(assets, id, { properties })
+    assert.equal(plain.model, "block-model-renderer:missing", id)
+  }
+  for (const id of ["standing_sign", "wall_sign"]) {
+    const [reference] = await parseBlockstate(legacy, id)
+    assert.equal((await resolveModelData(legacy, reference)).textures.sign, "entity/sign", id)
+  }
+  const floor = await parseBlockstate(legacy, "skull")
+  const wall = await parseBlockstate(legacy, "skull", { properties: { facing: "north" } })
+  assert.equal(floor.at(-1).model, "block-model-renderer:block/skeleton_skull")
+  assert.notDeepEqual(wall.at(-1), floor.at(-1))
+  for (const reference of floor) await resolveModelData(legacy, reference)
+})
