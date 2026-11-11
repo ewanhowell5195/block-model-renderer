@@ -3983,14 +3983,18 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
         #else
           #define lightTexel(map, uv) texture2D(map, uv)
         #endif
+        vec2 lightTile(float y, float cols) {
+          float row = floor((y + 0.5) / cols);
+          return vec2(y - row * cols, row);
+        }
         vec2 sampleLightVol(vec3 p) {
           p = clamp(p, vec3(0.0), lightVolSize);
           float y0 = floor(p.y);
           float y1 = min(y0 + 1.0, lightVolSize.y);
           vec2 tile = lightVolSize.xz + 1.0;
           vec2 xz = vec2(p.x, p.z) + 0.5;
-          vec2 uv0 = vec2(mod(y0, lightVolCols) * tile.x, floor(y0 / lightVolCols) * tile.y) + xz;
-          vec2 uv1 = vec2(mod(y1, lightVolCols) * tile.x, floor(y1 / lightVolCols) * tile.y) + xz;
+          vec2 uv0 = lightTile(y0, lightVolCols) * tile + xz;
+          vec2 uv1 = lightTile(y1, lightVolCols) * tile + xz;
           vec2 l0 = lightTexel(lightVol, uv0 / lightVolTex).rg;
           vec2 l1 = lightTexel(lightVol, uv1 / lightVolTex).rg;
           return mix(l0, l1, p.y - y0);
@@ -4002,7 +4006,7 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
           vec4 aoNeighbors(vec3 c) {
             c = clamp(c, vec3(-1.0), lightVolSize) + 1.0;
             vec2 tile = lightVolSize.xz + 2.0;
-            vec2 uv = vec2(mod(c.y, lightAoCols) * tile.x, floor(c.y / lightAoCols) * tile.y) + c.xz + 0.5;
+            vec2 uv = lightTile(c.y, lightAoCols) * tile + c.xz + 0.5;
             return floor(lightTexel(lightAo, uv / lightAoTex) * 255.0 + 0.5);
           }
           float aoShade(float bits, float place) {
@@ -4017,7 +4021,7 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
           float aoShade(vec3 c) {
             c = clamp(c, vec3(0.0), lightVolSize - 1.0);
             vec2 tile = lightVolSize.xz + 1.0;
-            vec2 uv = vec2(mod(c.y, lightVolCols) * tile.x, floor(c.y / lightVolCols) * tile.y) + c.xz + 0.5;
+            vec2 uv = lightTile(c.y, lightVolCols) * tile + c.xz + 0.5;
             return dot(lightTexel(lightAo, uv / lightVolTex), lightAoMask) > 0.5 ? 0.2 : 1.0;
           }
           float aoCorner(vec3 base, vec3 da, vec3 db, vec3 axis, float sa, float sb, float sc) {
