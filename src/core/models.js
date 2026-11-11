@@ -2083,6 +2083,7 @@ export async function resolveModelData(assets, model) {
     const dye = (await colorTables(assets)).tables.dye
     merged.textures ??= {}
     merged.tints ??= []
+    merged.elements = cloneData(merged.elements)
     applyPatternLayers(merged, { patterns: merged.banner_patterns }, dye, "banner", el => Object.values(el.faces ?? {}).some(f => f.texture === "#tinted"))
     delete merged.banner_patterns
   }
