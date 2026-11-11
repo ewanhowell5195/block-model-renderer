@@ -383,7 +383,7 @@ export async function renderModelScene(scene, camera, args) {
   const hasAnimation = animatedTextures.length > 0 || dynamicLoop > 0
   const animFormat = hasAnimation ? resolveAnimatedFormat(args?.animated, args?.format) : null
   const finalFormat = args?.format ?? animFormat
-  const finalPath = animFormat ? adjustPathForFormat(args?.path, animFormat, args?.format) : args?.path
+  const finalPath = animFormat ? adjustPathForFormat(args?.path, animFormat, args?.format === animFormat) : args?.path
 
   if (!hasAnimation) {
     const still = platform.createFrameRenderer({ width: baseWidth, height: baseHeight, background: args?.background, camera })
@@ -394,7 +394,7 @@ export async function renderModelScene(scene, camera, args) {
     releaseEphemeral(scene)
     const buffer = await platform.encodeStill({ data, width: baseWidth, height: baseHeight, format: finalFormat, output: args?.output ?? OUTPUT_DEFAULTS[finalFormat] })
     if (finalPath) await platform.writeFile(finalPath, buffer)
-    return args?.animated ? { buffer, format: "png" } : buffer
+    return args?.animated ? { buffer, format: finalFormat ?? "png" } : buffer
   }
 
   const width = args?.animatedWidth ?? baseWidth
