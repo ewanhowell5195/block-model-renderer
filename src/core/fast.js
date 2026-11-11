@@ -62,10 +62,10 @@ export function greedyMeshFast(triples, gridCount) {
   }
 }
 
-export function computeLightVolumeFast(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight, split = false) {
+export function computeLightVolumeFast(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight, split = false, neighbors = false) {
   if (broken || off() || !ready) return null
   try {
-    return rsLightVolume(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight, split)
+    return rsLightVolume(w, h, d, cellState, damp, emit, ao, maskOff, masks, hasSkyLight, split, neighbors)
   } catch {
     return recover()
   }

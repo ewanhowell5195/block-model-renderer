@@ -36,7 +36,8 @@ pub fn compute_light_volume_wasm(
     masks: &[u16],
     has_sky_light: bool,
     split: bool,
+    neighbors: bool,
 ) -> light::LightVolume {
     let st = light::States { damp, emit, ao, mask_off, masks };
-    light::compute_volume(w, h, d, cell_state, &st, has_sky_light, split)
+    light::compute_volume(w, h, d, cell_state, &st, has_sky_light, split, neighbors)
 }

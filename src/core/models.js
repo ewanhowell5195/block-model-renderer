@@ -3567,8 +3567,9 @@ export function rebindUniforms(target, source) {
   function bind(m) {
     if (!m?.uniforms?.worldShade) return
     for (const k of REBIND_UNIFORMS) if (shared[k]) m.uniforms[k] = shared[k]
-    if (shared.lightVol && m.defines?.LIGHT_VOLUME === undefined) {
-      m.defines = { ...m.defines, LIGHT_VOLUME: "" }
+    if (shared.lightVol && (m.defines?.LIGHT_VOLUME === undefined || (m.defines.AO_NEIGHBORS !== undefined) !== !!shared.lightAoCols)) {
+      const { AO_NEIGHBORS, ...defines } = m.defines ?? {}
+      m.defines = { ...defines, ...lightDefines(shared) }
       m.needsUpdate = true
     }
   }
@@ -3581,7 +3582,11 @@ export function makeLightSwitches() {
   return { shading: { value: true }, ambientOcclusion: { value: true }, fullbright: { value: false } }
 }
 
-export const REBIND_UNIFORMS = ["daytime", ...Object.keys(makeLightSwitches()), "lightVol","lightAo", "lightAoMask", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise", "fogGlow"]
+function lightDefines(uniforms) {
+  return uniforms.lightAoCols ? { LIGHT_VOLUME: "", AO_NEIGHBORS: "" } : { LIGHT_VOLUME: "" }
+}
+
+export const REBIND_UNIFORMS = ["daytime", ...Object.keys(makeLightSwitches()), "lightVol","lightAo", "lightAoMask", "lightAoTex", "lightAoCols", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise", "fogGlow"]
 
 export function occlusionStateKey(id, props, defaults) {
   let key = defaults === "game" ? id + "\0game" : id
@@ -3775,7 +3780,7 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
   if (shader?.type === "end_portal") return endPortalMaterial(texture, assets, shader)
   const volume = lightConfig?.light?.uniforms ? lightConfig.light : null
   const material = new THREE.ShaderMaterial({
-    defines: Object.assign(volume ? { LIGHT_VOLUME: "" } : {}, translucent === false ? { CUTOUT: "" } : {}, uvOffset ? { UV_OFFSET: "" } : {}),
+    defines: Object.assign(volume ? lightDefines(volume.uniforms) : {}, translucent === false ? { CUTOUT: "" } : {}, uvOffset ? { UV_OFFSET: "" } : {}),
     uniforms: {
       map: { value: texture },
       light0: { value: gui.light0 },
@@ -3957,7 +3962,6 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
         uniform vec3 lightVolSize;
         uniform sampler2D lightVol;
         uniform sampler2D lightAo;
-        uniform vec4 lightAoMask;
         uniform vec2 lightVolTex;
         uniform float lightVolCols;
         vec2 sampleLightVol(vec3 p) {
@@ -3973,18 +3977,37 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
           return mix(l0, l1, p.y - y0);
         }
         uniform bool aoEnabled;
-        float aoShade(vec3 c) {
-          c = clamp(c, vec3(0.0), lightVolSize - 1.0);
-          vec2 tile = lightVolSize.xz + 1.0;
-          vec2 uv = vec2(mod(c.y, lightVolCols) * tile.x, floor(c.y / lightVolCols) * tile.y) + c.xz + 0.5;
-          return dot(texture2D(lightAo, uv / lightVolTex), lightAoMask) > 0.5 ? 0.2 : 1.0;
-        }
-        float aoCorner(vec3 base, vec3 da, vec3 db, vec3 axis, float sa, float sb, float sc) {
-          bool blockedA = aoShade(base + da + axis) < 0.5;
-          bool blockedB = aoShade(base + db + axis) < 0.5;
-          float corner = (blockedA && blockedB) ? sa : aoShade(base + da + db);
-          return (sa + sb + corner + sc) * 0.25;
-        }
+        #ifdef AO_NEIGHBORS
+          uniform vec2 lightAoTex;
+          uniform float lightAoCols;
+          vec4 aoNeighbors(vec3 c) {
+            c = clamp(c, vec3(-1.0), lightVolSize) + 1.0;
+            vec2 tile = lightVolSize.xz + 2.0;
+            vec2 uv = vec2(mod(c.y, lightAoCols) * tile.x, floor(c.y / lightAoCols) * tile.y) + c.xz + 0.5;
+            return floor(texture2D(lightAo, uv / lightAoTex) * 255.0 + 0.5);
+          }
+          float aoShade(float bits, float place) {
+            return mod(floor(bits / place), 2.0) > 0.5 ? 0.2 : 1.0;
+          }
+          float aoCorner(float edgeA, float edgeB, float sa, float sb, float diagonal, float sc) {
+            float corner = (edgeA < 0.5 && edgeB < 0.5) ? sa : diagonal;
+            return (sa + sb + corner + sc) * 0.25;
+          }
+        #else
+          uniform vec4 lightAoMask;
+          float aoShade(vec3 c) {
+            c = clamp(c, vec3(0.0), lightVolSize - 1.0);
+            vec2 tile = lightVolSize.xz + 1.0;
+            vec2 uv = vec2(mod(c.y, lightVolCols) * tile.x, floor(c.y / lightVolCols) * tile.y) + c.xz + 0.5;
+            return dot(texture2D(lightAo, uv / lightVolTex), lightAoMask) > 0.5 ? 0.2 : 1.0;
+          }
+          float aoCorner(vec3 base, vec3 da, vec3 db, vec3 axis, float sa, float sb, float sc) {
+            bool blockedA = aoShade(base + da + axis) < 0.5;
+            bool blockedB = aoShade(base + db + axis) < 0.5;
+            float corner = (blockedA && blockedB) ? sa : aoShade(base + da + db);
+            return (sa + sb + corner + sc) * 0.25;
+          }
+        #endif
       #endif
       #include <clipping_planes_pars_fragment>
       void main() {
@@ -4103,15 +4126,38 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
               vec3 base = floor(P - axis * 0.0117);
               float edge = fract(dot(P, abs(axis)));
               if (edge < 0.0117 || edge > 0.9883) base += axis;
-              float sc = aoShade(base);
-              float sA0 = aoShade(base - t1);
-              float sA1 = aoShade(base + t1);
-              float sB0 = aoShade(base - t2);
-              float sB1 = aoShade(base + t2);
-              float q00 = aoCorner(base, -t1, -t2, axis, sA0, sB0, sc);
-              float q10 = aoCorner(base, t1, -t2, axis, sA1, sB0, sc);
-              float q01 = aoCorner(base, -t1, t2, axis, sA0, sB1, sc);
-              float q11 = aoCorner(base, t1, t2, axis, sA1, sB1, sc);
+              #ifdef AO_NEIGHBORS
+                vec4 nb = aoNeighbors(base);
+                vec3 planes = t1.y > 0.5 ? nb.rbg : t2.y > 0.5 ? nb.bgr : nb.gbr;
+                float side = axis.x + axis.y + axis.z;
+                vec2 along = side < -0.5 ? vec2(1.0, 4.0) : side > 0.5 ? vec2(32.0, 128.0) : vec2(8.0, 16.0);
+                vec2 across = side < -0.5 ? vec2(1.0, 32.0) : side > 0.5 ? vec2(4.0, 128.0) : vec2(2.0, 64.0);
+                vec2 placeA = t1.y > 0.5 ? across : along;
+                vec2 placeB = t2.y > 0.5 ? along : across;
+                float sc = nb.a > 127.5 ? 0.2 : 1.0;
+                float sA0 = aoShade(planes.x, 8.0);
+                float sA1 = aoShade(planes.x, 16.0);
+                float sB0 = aoShade(planes.x, 2.0);
+                float sB1 = aoShade(planes.x, 64.0);
+                float eA0 = aoShade(planes.y, placeA.x);
+                float eA1 = aoShade(planes.y, placeA.y);
+                float eB0 = aoShade(planes.z, placeB.x);
+                float eB1 = aoShade(planes.z, placeB.y);
+                float q00 = aoCorner(eA0, eB0, sA0, sB0, aoShade(planes.x, 1.0), sc);
+                float q10 = aoCorner(eA1, eB0, sA1, sB0, aoShade(planes.x, 4.0), sc);
+                float q01 = aoCorner(eA0, eB1, sA0, sB1, aoShade(planes.x, 32.0), sc);
+                float q11 = aoCorner(eA1, eB1, sA1, sB1, aoShade(planes.x, 128.0), sc);
+              #else
+                float sc = aoShade(base);
+                float sA0 = aoShade(base - t1);
+                float sA1 = aoShade(base + t1);
+                float sB0 = aoShade(base - t2);
+                float sB1 = aoShade(base + t2);
+                float q00 = aoCorner(base, -t1, -t2, axis, sA0, sB0, sc);
+                float q10 = aoCorner(base, t1, -t2, axis, sA1, sB0, sc);
+                float q01 = aoCorner(base, -t1, t2, axis, sA0, sB1, sc);
+                float q11 = aoCorner(base, t1, t2, axis, sA1, sB1, sc);
+              #endif
               float f1 = fract(dot(P, t1));
               float f2 = fract(dot(P, t2));
               ao = mix(mix(q00, q10, f1), mix(q01, q11, f1), f2);

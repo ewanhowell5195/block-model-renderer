@@ -43,23 +43,56 @@ export function isFlatBlocks(blocks) {
   return !!blocks && !Array.isArray(blocks) && ArrayBuffer.isView(blocks.raw) && Array.isArray(blocks.palette)
 }
 
-function lightTexture(data, w, h, format) {
+function lightTexture(data, w, h, format, filter = THREE.LinearFilter) {
   const texture = new THREE.DataTexture(data, w, h, format)
-  texture.minFilter = texture.magFilter = THREE.LinearFilter
+  texture.minFilter = texture.magFilter = filter
   texture.generateMipmaps = false
   texture.needsUpdate = true
   return texture
 }
 
-function splitChannels(bytes) {
+function splitChannels(bytes, keepAo) {
   const n = bytes.length >> 2
-  const rg = new Uint8Array(n * 2), ao = new Uint8Array(n)
+  const rg = new Uint8Array(n * 2), ao = keepAo ? new Uint8Array(n) : null
   for (let i = 0, j = 0; i < n; i++, j += 4) {
     rg[i * 2] = bytes[j]
     rg[i * 2 + 1] = bytes[j + 1]
-    ao[i] = bytes[j + 2]
+    if (ao) ao[i] = bytes[j + 2]
   }
   return { rg, ao }
+}
+
+async function neighborBytes(w, h, d, cellState, stAo, layout, breathe) {
+  const pw = w + 4, ph = h + 4, pd = d + 4
+  const pad = new Uint8Array(pw * ph * pd)
+  for (let pz = 0; pz < pd; pz++) {
+    const cz = Math.min(Math.max(pz - 2, 0), d - 1)
+    for (let py = 0; py < ph; py++) {
+      const src = (cz * h + Math.min(Math.max(py - 2, 0), h - 1)) * w, row = (pz * ph + py) * pw
+      for (let x = 0; x < w; x++) pad[row + 2 + x] = stAo[cellState[src + x]] ? 1 : 0
+      pad[row] = pad[row + 1] = pad[row + 2]
+      pad[row + w + 2] = pad[row + w + 3] = pad[row + w + 1]
+    }
+  }
+  const nw = w + 2, nd = d + 2, stepY = pw, stepZ = pw * ph
+  const { cols, texW, texH } = layout
+  const out = new Uint8Array(texW * texH * 4)
+  for (let y = 0; y < h + 2; y++) {
+    await breathe()
+    const tx = (y % cols) * nw, ty = ((y / cols) | 0) * nd
+    for (let z = 0; z < nd; z++) {
+      let c = ((z + 1) * ph + y + 1) * pw + 1
+      let ti = ((ty + z) * texW + tx) * 4
+      for (let x = 0; x < nw; x++, c++, ti += 4) {
+        const mid = pad[c - 1] << 3 | pad[c + 1] << 4
+        out[ti] = pad[c - stepY - stepZ] | pad[c - stepZ] << 1 | pad[c + stepY - stepZ] << 2 | pad[c - stepY] << 3 | pad[c + stepY] << 4 | pad[c - stepY + stepZ] << 5 | pad[c + stepZ] << 6 | pad[c + stepY + stepZ] << 7
+        out[ti + 1] = pad[c - stepZ - 1] | pad[c - stepZ] << 1 | pad[c - stepZ + 1] << 2 | mid | pad[c + stepZ - 1] << 5 | pad[c + stepZ] << 6 | pad[c + stepZ + 1] << 7
+        out[ti + 2] = pad[c - stepY - 1] | pad[c - stepY] << 1 | pad[c - stepY + 1] << 2 | mid | pad[c + stepY - 1] << 5 | pad[c + stepY] << 6 | pad[c + stepY + 1] << 7
+        out[ti + 3] = pad[c] * 255
+      }
+    }
+  }
+  return out
 }
 
 const LIGHT_CELL_LIMIT = 2 ** 28
@@ -156,9 +189,12 @@ export async function computeSceneLight(assets, blocks, opts = {}) {
   const skip = "Split the area into smaller scenes, or build without a light volume using lighting: { light: false }"
   if (n > LIGHT_CELL_LIMIT) throw new Error(`computeSceneLight: the blocks span ${span}, a light volume of ${n} cells, over the limit of ${LIGHT_CELL_LIMIT}. ${skip}`)
   const layout = lightLayout(w, h, d)
-  const texSide = Math.max(layout.texW, layout.texH)
+  const split = !!platform.webgl2?.()
+  const neighbors = !!(globalThis.__BMR_AO_NEIGHBORS ?? split)
+  const aoLayout = neighbors ? lightLayout(w + 1, h + 1, d + 1) : layout
+  const texSide = Math.max(aoLayout.texW, aoLayout.texH)
   const texLimit = texSide > SAFE_TEXTURE_SIZE ? platform.maxTextureSize?.() ?? 16384 : texSide
-  if (texSide > texLimit) throw new Error(`computeSceneLight: the blocks span ${span}, whose light volume needs a ${layout.texW}x${layout.texH} texture, over this device's ${texLimit} limit. ${skip}`)
+  if (texSide > texLimit) throw new Error(`computeSceneLight: the blocks span ${span}, whose light volume needs a ${aoLayout.texW}x${aoLayout.texH} texture, over this device's ${texLimit} limit. ${skip}`)
 
   const states = [null]
   function addState(state) {
@@ -396,7 +432,8 @@ export async function computeSceneLight(assets, blocks, opts = {}) {
       blockLight[i] = stEmit[cellState[i]]
       skyLight[i] = 0
     }
-    return { bytes, texW, texH, cols, blockLight, skyLight }
+    const ao = neighbors ? await neighborBytes(w, h, d, cellState, stAo, aoLayout, breathe) : null
+    return { bytes, ao, texW, texH, cols, blockLight, skyLight }
   }
 
   // the state table flattened for the kernel: -1 damp marks an empty cell and
@@ -421,39 +458,35 @@ export async function computeSceneLight(assets, blocks, opts = {}) {
     }
   }
 
-  const split = !!platform.webgl2?.()
   let bytes, rg, ao, texW, texH, cols, blockLight, skyLight
-  const vol = computeLightVolumeFast(w, h, d, cellState, stDamp, stEmit, stAo, stMaskOff, Uint16Array.from(maskRows), hasSkyLight, split)
+  const vol = computeLightVolumeFast(w, h, d, cellState, stDamp, stEmit, stAo, stMaskOff, Uint16Array.from(maskRows), hasSkyLight, split, neighbors)
   if (vol) {
     try {
       blockLight = vol.blockLight()
       skyLight = vol.skyLight()
-      if (split) {
-        rg = vol.bytes()
-        ao = vol.ao()
-      } else bytes = vol.bytes()
+      if (split) rg = vol.bytes()
+      else bytes = vol.bytes()
+      if (split || neighbors) ao = vol.ao()
     } finally {
       vol.free()
       settleWasm()
     }
     ({ cols, texW, texH } = layout)
   } else {
-    ({ bytes, texW, texH, cols, blockLight, skyLight } = await volumeJs())
+    ({ bytes, ao, texW, texH, cols, blockLight, skyLight } = await volumeJs())
   }
 
-  let texture, aoTexture, aoMask
+  let texture
   if (split) {
     if (bytes) {
-      ({ rg, ao } = splitChannels(bytes))
+      const channels = splitChannels(bytes, !neighbors)
+      rg = channels.rg
+      ao ??= channels.ao
       bytes = null
     }
     texture = lightTexture(rg, texW, texH, THREE.RGFormat)
-    aoTexture = lightTexture(ao, texW, texH, THREE.RedFormat)
-    aoMask = new THREE.Vector4(1, 0, 0, 0)
-  } else {
-    texture = aoTexture = lightTexture(bytes, texW, texH)
-    aoMask = new THREE.Vector4(0, 0, 1, 0)
-  }
+  } else texture = lightTexture(bytes, texW, texH)
+  const aoTexture = neighbors ? lightTexture(ao, aoLayout.texW, aoLayout.texH, THREE.RGBAFormat, THREE.NearestFilter) : split ? lightTexture(ao, texW, texH, THREE.RedFormat) : texture
   if (opts.release) {
     texture.onUpdate = aoTexture.onUpdate = releaseTextureData
     blockLight = skyLight = null
@@ -461,7 +494,7 @@ export async function computeSceneLight(assets, blocks, opts = {}) {
   const uniforms = {
     lightVol: { value: texture },
     lightAo: { value: aoTexture },
-    lightAoMask: { value: aoMask },
+    ...(neighbors ? { lightAoTex: { value: new THREE.Vector2(aoLayout.texW, aoLayout.texH) }, lightAoCols: { value: aoLayout.cols } } : { lightAoMask: { value: split ? new THREE.Vector4(1, 0, 0, 0) : new THREE.Vector4(0, 0, 1, 0) } }),
     lightVolOrigin: { value: new THREE.Vector3(...origin) },
     lightVolSize: { value: new THREE.Vector3(w, h, d) },
     lightVolTex: { value: new THREE.Vector2(texW, texH) },

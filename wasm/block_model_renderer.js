@@ -147,9 +147,10 @@ if (Symbol.dispose) LightVolume.prototype[Symbol.dispose] = LightVolume.prototyp
  * @param {Uint16Array} masks
  * @param {boolean} has_sky_light
  * @param {boolean} split
+ * @param {boolean} neighbors
  * @returns {LightVolume}
  */
-export function computeLightVolume(w, h, d, cell_state, damp, emit, ao, mask_off, masks, has_sky_light, split) {
+export function computeLightVolume(w, h, d, cell_state, damp, emit, ao, mask_off, masks, has_sky_light, split, neighbors) {
     const ptr0 = passArray16ToWasm0(cell_state, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passArray32ToWasm0(damp, wasm.__wbindgen_malloc);
@@ -162,7 +163,7 @@ export function computeLightVolume(w, h, d, cell_state, damp, emit, ao, mask_off
     const len4 = WASM_VECTOR_LEN;
     const ptr5 = passArray16ToWasm0(masks, wasm.__wbindgen_malloc);
     const len5 = WASM_VECTOR_LEN;
-    const ret = wasm.computeLightVolume(w, h, d, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, has_sky_light, split);
+    const ret = wasm.computeLightVolume(w, h, d, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, has_sky_light, split, neighbors);
     return LightVolume.__wrap(ret);
 }
 

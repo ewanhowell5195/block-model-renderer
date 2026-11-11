@@ -178,6 +178,82 @@ fn spread(
     }
 }
 
+fn layout(w2: usize, h2: usize, d2: usize) -> (usize, usize, usize) {
+    let mut cols = 1;
+    let mut best_side = usize::MAX;
+    let mut best_tiles = usize::MAX;
+    for c in 1..=h2 {
+        let r = (h2 + c - 1) / c;
+        let side = (c * w2).max(r * d2);
+        if side < best_side || (side == best_side && c * r <= best_tiles) {
+            best_side = side;
+            best_tiles = c * r;
+            cols = c;
+        }
+    }
+    (cols, cols * w2, (h2 + cols - 1) / cols * d2)
+}
+
+fn neighbor_bytes(w: usize, h: usize, d: usize, cell_state: &[u16], state_ao: &[bool]) -> Vec<u8> {
+    let (nw, nh, nd) = (w + 2, h + 2, d + 2);
+    let mut bit = [0u8; 65536];
+    for (v, &ao) in bit.iter_mut().zip(state_ao) {
+        *v = (ao as u8) << 2;
+    }
+    let stride = (nw + 7) & !7;
+    let mut runs = vec![0u8; stride * h * d];
+    let mut kinds = vec![0u8; h * d];
+    for ((run, kind), src) in runs.chunks_exact_mut(stride).zip(kinds.iter_mut()).zip(cell_state.chunks_exact(w)) {
+        let mut win = bit[src[0] as usize] >> 2;
+        win |= win << 1 | win << 2;
+        let (mut any, mut all) = (0u8, 7u8);
+        for (v, &si) in run.iter_mut().zip(src) {
+            win = win >> 1 | bit[si as usize];
+            *v = win;
+            any |= win;
+            all &= win;
+        }
+        let end = win >> 1 | (win & 4);
+        run[w] = end;
+        run[w + 1] = end >> 1 | (end & 4);
+        *kind = if any == 0 { 0 } else if all == 7 { 1 } else { 2 };
+    }
+
+    let (cols, tex_w, tex_h) = layout(nw, nh, nd);
+    let mut out = vec![0u8; tex_w * tex_h * 4];
+    let (b0, b1, b2) = (0x0101010101010101u64, 0x0202020202020202u64, 0x0404040404040404u64);
+    for y in 0..nh {
+        let tx = (y % cols) * nw;
+        let ty = (y / cols) * nd;
+        for z in 0..nd {
+            let at = |dy: usize, dz: usize| (z + dz).saturating_sub(2).min(d - 1) * h + (y + dy).saturating_sub(2).min(h - 1);
+            let rows = [at(0, 0), at(1, 0), at(2, 0), at(0, 1), at(1, 1), at(2, 1), at(0, 2), at(1, 2), at(2, 2)];
+            let kind = rows.iter().fold(kinds[rows[0]], |k, &r| if kinds[r] == k { k } else { 2 });
+            if kind == 0 {
+                continue;
+            }
+            let dst = &mut out[((ty + z) * tex_w + tx) * 4..][..nw * 4];
+            if kind == 1 {
+                dst.fill(255);
+                continue;
+            }
+            for (group, x) in dst.chunks_mut(32).zip((0..nw).step_by(8)) {
+                let [mm, zm, pm, ym, c, yp, mp, zp, pp] = rows.map(|r| u64::from_le_bytes(runs[r * stride + x..][..8].try_into().unwrap()));
+                let mid = (c & b0) << 3 | (c & b2) << 2;
+                let r = (mm >> 1 & b0) | (zm & b1) | (pm & b1) << 1 | (ym & b1) << 2 | (yp & b1) << 3 | (mp & b1) << 4 | (zp & b1) << 5 | (pp & b1) << 6;
+                let g = zm | mid | zp << 5;
+                let b = ym | mid | yp << 5;
+                let a = (c >> 1 & b0) * 255;
+                for (i, texel) in group.chunks_exact_mut(4).enumerate() {
+                    let s = i * 8;
+                    texel.copy_from_slice(&[(r >> s) as u8, (g >> s) as u8, (b >> s) as u8, (a >> s) as u8]);
+                }
+            }
+        }
+    }
+    out
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn compute_volume(
     w: usize,
@@ -187,6 +263,7 @@ pub fn compute_volume(
     st: &States,
     has_sky_light: bool,
     split: bool,
+    neighbors: bool,
 ) -> LightVolume {
     let n = w * h * d;
     let stride_y = w;
@@ -325,26 +402,11 @@ pub fn compute_volume(
 
     // y slices tiled into one texture
     let w2 = w + 1;
-    let h2 = h + 1;
     let d2 = d + 1;
-    let mut cols = 1;
-    let mut best_side = usize::MAX;
-    let mut best_tiles = usize::MAX;
-    for c in 1..=h2 {
-        let r = (h2 + c - 1) / c;
-        let side = (c * w2).max(r * d2);
-        if side < best_side || (side == best_side && c * r <= best_tiles) {
-            best_side = side;
-            best_tiles = c * r;
-            cols = c;
-        }
-    }
-    let rows = (h2 + cols - 1) / cols;
-    let tex_w = cols * w2;
-    let tex_h = rows * d2;
+    let (cols, tex_w, tex_h) = layout(w2, h + 1, d2);
     let texels = tex_w * tex_h;
     let mut bytes = vec![0u8; texels * if split { 2 } else { 4 }];
-    let mut ao_bytes = if split { vec![0u8; texels] } else { Vec::new() };
+    let mut ao_bytes = if split && !neighbors { vec![0u8; texels] } else { Vec::new() };
 
     let hw = h * w;
 
@@ -397,7 +459,9 @@ pub fn compute_volume(
                 let (r, g) = (row[lit as u8 as usize], row[(lit >> 8) as u8 as usize]);
                 if split {
                     bytes[ti * 2..ti * 2 + 2].copy_from_slice(&[r, g]);
-                    ao_bytes[ti] = ao;
+                    if !neighbors {
+                        ao_bytes[ti] = ao;
+                    }
                 } else {
                     bytes[ti * 4..ti * 4 + 4].copy_from_slice(&[r, g, ao, 255]);
                 }
@@ -411,6 +475,10 @@ pub fn compute_volume(
             block_light[i] = own_block(i);
             sky_light[i] = 0;
         }
+    }
+
+    if neighbors {
+        ao_bytes = neighbor_bytes(w, h, d, cell_state, &state_ao);
     }
 
     LightVolume {

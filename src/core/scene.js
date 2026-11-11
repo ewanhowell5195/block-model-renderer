@@ -731,7 +731,7 @@ export async function createScene(assets, blocks, args = {}) {
   let tcache = templateCaches.get(assets.cache)
   if (!tcache) templateCaches.set(assets.cache, tcache = new Map())
   const usedEntries = []
-  const envSig = (worldCfg ? JSON.stringify({ ...worldCfg, light: !!light, daytime: 0, fog: 0 }) : String(lighting))
+  const envSig = (worldCfg ? JSON.stringify({ ...worldCfg, light: !!light, aoNeighbors: !!light?.uniforms?.lightAoCols, daytime: 0, fog: 0 }) : String(lighting))
     + "\0" + (args.shaderScale ?? "") + "\0" + (ignoreAtlases ? 1 : 0) + "\0" + (version ?? "") + "\0" + (defaults ?? "") + "\0" + shaderSaltNow()
   const lightSwitches = makeLightSwitches()
   const rebind = { daytime: daytimeUniform, ...lightSwitches, ...(light?.uniforms ?? {}), ...(fog?.uniforms ?? {}) }
