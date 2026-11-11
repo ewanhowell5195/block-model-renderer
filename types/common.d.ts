@@ -144,16 +144,21 @@ export type ItemComponents = Record<string, any>
 export type NeighborBlock = string | boolean | ({ id?: string, occludes?: boolean } & BlockProperties)
 
 /**
- * The blocks surrounding one cell. The six cardinal keys drive face culling; the
- * diagonal and vertical keys shape fluid surfaces, compounded as vertical, then
- * north/south, then east/west (`up_north_east`, `down_west`). `self` is the
- * fluid block itself, whose `level` sets its own height. Anything missing is air.
+ * The six face neighbors {@link getCullFaces} takes, keyed by direction. Anything
+ * missing is air.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/fluids.md
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/culling.md#getcullfacesargs
  */
-export type Neighbors =
-  & Partial<Record<Direction | "self" | "north_east" | "north_west" | "south_east" | "south_west", NeighborBlock>>
-  & { [key: string]: NeighborBlock | undefined }
+export type Neighbors = Partial<Record<Direction, NeighborBlock>>
+
+/**
+ * A lookup for the blocks around one cell, as the render functions, `loadModel`
+ * and {@link fluidHeights} take: called with an `[x, y, z]` offset from the
+ * block, it returns the block there, or `null` for air.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/culling.md#culling-hidden-faces
+ */
+export type NeighborLookup = (offset: [number, number, number]) => ({ id: string } & BlockProperties) | null | undefined
 
 /** Face directions to drop, from {@link getCullFaces} or written out by hand. */
 export type CullOption = Set<Direction> | Partial<Record<Direction, boolean>>
@@ -622,7 +627,7 @@ export interface PlacementContext {
   id: string
   properties?: BlockProperties
   /** Filled from `loadModel`'s `neighbors` arg; don't set it here. */
-  neighbors?: Neighbors | null
+  neighbors?: NeighborLookup | null
 }
 
 export interface LoadModelArgs {
@@ -637,7 +642,7 @@ export interface LoadModelArgs {
   /** Face directions to drop. */
   cull?: CullOption
   /** The surrounding blocks: shapes fluid surfaces and fills `block.neighbors` for loaders. */
-  neighbors?: Neighbors
+  neighbors?: NeighborLookup
   /** A precomputed {@link fluidHeights} result, reused instead of deriving it from `neighbors` again. */
   fluidHeights?: FluidHeights | null
   /** Placement context for placement-aware model loaders. */
@@ -1277,7 +1282,7 @@ export interface BlockRenderInput {
   /** Biome tinting for the colormap tints. */
   biome?: BiomeInput
   /** The blocks surrounding this one: faces they hide are dropped, and fluids shape themselves from it. */
-  neighbors?: Neighbors
+  neighbors?: NeighborLookup
 }
 
 /** What to render for {@link RenderOptionsCommon}, item form. */
@@ -1779,7 +1784,7 @@ export function fluidTypeOf(id: string, properties?: BlockProperties): FluidType
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/fluids.md#fluidheightsassets-type-neighbors
  */
-export function fluidHeights(assets: AssetsInput, type: FluidType, neighbors: Neighbors): Promise<FluidHeights | null>
+export function fluidHeights(assets: AssetsInput, type: FluidType, neighbors: NeighborLookup): Promise<FluidHeights | null>
 
 /**
  * Whether the renderer recognizes a block id as waterloggable, so
