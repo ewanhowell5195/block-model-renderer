@@ -481,7 +481,7 @@ export async function renderModelScene(scene, camera, args) {
     pages: finalFrameCount,
     format: animFormat,
     delay: splitDelay,
-    output: args?.animatedOutput ?? OUTPUT_DEFAULTS[animFormat]
+    output: args?.animatedOutput ?? (animFormat === "webp" ? { lossless: true, effort: 2 } : OUTPUT_DEFAULTS[animFormat])
   })
   if (finalPath) await platform.writeFile(finalPath, buffer)
   return { buffer, format: animFormat }
