@@ -971,3 +971,27 @@ function sceneHandle({ group, palette, blockPalette, templates, blockTemplate, b
     }
   }
 }
+
+const WARM_SINGLES = ["stone", "lava", "water", "red_stained_glass", "end_portal", "end_gateway", "bell", "white_banner", "shulker_box", "chest"].map((id, i) => ({ id, pos: [i * 2, 0, 0] }))
+const WARM_RUNS = []
+for (let x = 0; x < 6; x++) for (let z = 0; z < 6; z++) WARM_RUNS.push({ id: "stone", pos: [x, 0, z] }, { id: "lava", pos: [x + 8, 0, z] }, { id: "water", pos: [x + 16, 0, z] }, { id: "red_stained_glass", pos: [x + 24, 0, z] })
+
+export async function warmShaders(renderer, assets, args = {}) {
+  if (!renderer?.compile) throw new Error("warmShaders requires a WebGLRenderer")
+  const { scene = null, camera = new THREE.PerspectiveCamera(), blocks, ...sceneArgs } = args
+  const lists = blocks ? [blocks] : sceneArgs.sharedAtlas ? [WARM_SINGLES, WARM_RUNS] : [WARM_SINGLES]
+  const handles = []
+  for (const list of lists) {
+    const handle = await createScene(assets, list, sceneArgs)
+    if (!handle) continue
+    handle.group.updateMatrixWorld(true)
+    await (renderer.compileAsync ?? renderer.compile).call(renderer, handle.group, camera, scene)
+    handles.push(handle)
+  }
+  return {
+    programs: renderer.info.programs.length,
+    dispose() {
+      for (const handle of handles) handle.dispose()
+    }
+  }
+}

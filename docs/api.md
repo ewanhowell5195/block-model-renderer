@@ -12,7 +12,7 @@ import {
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
-  makeModelScene, createScene, createSky, createClouds, createFog, loadModel, poseSpecial, resumeSpecial, renderModelScene, optimizeScene, sortTranslucent,
+  makeModelScene, createScene, createSky, createClouds, createFog, loadModel, poseSpecial, resumeSpecial, renderModelScene, optimizeScene, sortTranslucent, warmShaders,
   computeSceneLight, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS, resolveProfile,
   // shared atlases, packing, animation
   createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures,
@@ -79,6 +79,7 @@ import {
 | `renderModelScene(scene, camera, args?)` | Render a scene to output. [Details](scenes.md#rendermodelscenescene-camera-args) |
 | `optimizeScene(placements, options?)` | Merge the whole scene into a handful of draw calls, with far fewer polygons. [Details](optimization.md#scene-optimization) |
 | `sortTranslucent(group, options?)` | Depth-sort a group's translucent faces for a moving camera. [Details](optimization.md#translucent-sorting) |
+| `warmShaders(renderer, assets, args?)` | Compile the shader programs scenes will use before the first one renders. [Details](optimization.md#warming-shaders) |
 | `renderMapColors(assets, colors)` | Render a save's map color bytes into a 128×128 canvas through the vanilla palette. [Details](scenes.md#map-art) |
 | `MAP_COLORS` | The vanilla map palette, `{ base, shade, names }`. [Details](scenes.md#map-art) |
 | `mapIdOf(item)` | The map id from an item's components, `null` when absent. [Details](scenes.md#map-art) |

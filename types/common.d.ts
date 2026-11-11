@@ -1721,6 +1721,36 @@ export function reviveScene(payload: PackedScene["payload"], opts?: ReviveSceneO
  */
 export function rebindUniforms<T extends THREE.Object3D | THREE.Material | THREE.Material[]>(target: T, source: THREE.Object3D | THREE.Material | { uniforms: Record<string, { value: any }> }): T
 
+/** Options for {@link warmShaders}: everything `createScene` takes, plus where the real scenes will draw. */
+export interface WarmShadersOptions extends CreateSceneOptions {
+  /** The scene your real scenes get added to. Its lights and fog are part of what three compiles a program for. */
+  scene?: THREE.Scene
+  /** The camera your real scenes render with. */
+  camera?: THREE.Camera
+  /** Blocks to build instead of the built-in set, which covers every shader variant vanilla blocks produce. */
+  blocks?: SceneBlock[]
+}
+
+/** What {@link warmShaders} resolves to. */
+export interface WarmedShaders {
+  /** How many programs the renderer holds after warming. */
+  programs: number
+  /** Releases the warmed programs that no live scene is using. Keep the handle for as long as new scenes may arrive. */
+  dispose(): void
+}
+
+/**
+ * Compile the shader programs scenes will need before the first one exists, so
+ * its first frame doesn't stall. Pass the same `lighting`, `sharedAtlas` and
+ * other `createScene` options your real scenes use.
+ *
+ * @example
+ * const warmed = await warmShaders(renderer, assets, { scene, camera, sharedAtlas })
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#warming-shaders
+ */
+export function warmShaders(renderer: THREE.WebGLRenderer, assets: AssetsInput, args?: WarmShadersOptions): Promise<WarmedShaders | null>
+
 /**
  * Register the renderer once so animation frame updates upload as GPU subimages
  * instead of full-page texture re-uploads.

@@ -15,7 +15,7 @@ export { renderBlock, renderItem, renderModel, renderTexture, makeModelScene, re
 export { optimizeScene, createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures } from "./core/optimize.js"
 export { packScene, reviveScene } from "./core/pack.js"
 export { sortTranslucent } from "./core/sorting.js"
-export { createScene } from "./core/scene.js"
+export { createScene, warmShaders } from "./core/scene.js"
 export { createSky } from "./core/sky.js"
 export { createClouds } from "./core/clouds.js"
 export { createFog, rebindUniforms } from "./core/models.js"

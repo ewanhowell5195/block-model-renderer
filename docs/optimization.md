@@ -198,6 +198,20 @@ The game runs at 20Hz and interpolated textures look right up to 60Hz. Regions o
 
 Running the standard render functions themselves across a worker pool, and keeping the animation clock in sync between contexts, are covered in the [Advanced API](advanced-api.md#batch-rendering-from-workers).
 
+## Warming shaders
+
+A scene's first frame compiles every shader program it uses, which stalls the page for a few hundred milliseconds. `warmShaders(renderer, assets, args?)` compiles them ahead of time, in the background where the browser supports it, by building a small set of blocks that covers every program vanilla blocks produce:
+
+```js
+const warmed = await warmShaders(renderer, assets, { scene, camera, sharedAtlas, lighting: "world" })
+// ...build and render scenes...
+warmed.dispose()
+```
+
+`args` takes every [`createScene`](scenes.md#createsceneassets-blocks-args) option; pass the ones your real scenes use, since lighting mode and a shared atlas change the programs. `scene` is the scene your real scenes are added to and `camera` the one they render with. `blocks` replaces the built-in set, for packs or loaders with materials of their own.
+
+The handle keeps the programs alive: three frees a program once nothing uses it, so dispose the handle only when no more scenes are coming. `programs` is the renderer's program count after warming.
+
 ## Wasm kernels
 
 Greedy meshing and the scene light volume run as wasm compiled from `rust/`

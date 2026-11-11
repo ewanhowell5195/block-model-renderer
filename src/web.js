@@ -926,6 +926,7 @@ function needsThree(name) {
   }
 }
 
+export const warmShaders = wrap("warmShaders")
 export const optimizeScene = wrap("optimizeScene")
 export const stitchSharedAtlas = wrap("stitchSharedAtlas")
 export const insertSharedTextures = wrap("insertSharedTextures")

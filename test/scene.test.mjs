@@ -1,9 +1,38 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { createScene, prepareAssets, disposeCache } from "../src/node.js"
+import { createScene, prepareAssets, disposeCache, warmShaders, createSharedAtlas } from "../src/node.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
 const jar = await loadMojangJar()
+
+test("warmShaders compiles single blocks, and merged runs too on a shared atlas", async () => {
+  const assets = await prepareAssets([jar], { cache: true })
+  const compiled = []
+  const renderer = {
+    info: { programs: [] },
+    compile(group) {
+      let meshes = 0, tiled = false
+      group.traverse(o => {
+        if (!o.isMesh) return
+        meshes++
+        if (o.geometry.attributes.tileRect) tiled = true
+      })
+      compiled.push({ meshes, tiled })
+    }
+  }
+  const plain = await warmShaders(renderer, assets)
+  assert.equal(compiled.length, 1)
+  assert.ok(compiled[0].meshes > 4)
+  assert.equal(compiled[0].tiled, false)
+  plain.dispose()
+  const shared = createSharedAtlas()
+  const warmed = await warmShaders(renderer, assets, { sharedAtlas: shared })
+  assert.deepEqual(compiled.slice(1).map(c => c.tiled), [false, true])
+  assert.equal(warmed.programs, 0)
+  warmed.dispose()
+  shared.dispose()
+  disposeCache(assets)
+})
 
 test("blockPalette is 16-bit while the palette fits", async () => {
   const blocks = [
