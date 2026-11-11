@@ -39,41 +39,34 @@ function verifyPrograms(frameRenderer, scene, camera) {
 }
 
 
+async function occlusionMasks(assets, rules, id, props, version, defaults) {
+  const cache = assets.cache.occlusion
+  const key = occlusionStateKey(id, props, defaults)
+  let neighbor = cache.get(key), self = cache.get("self\0" + key)
+  if (neighbor === undefined || self === undefined) {
+    try {
+      const g = await buildOcclusionModel(assets, id, props, version, defaults)
+      if (neighbor === undefined) neighbor = g ? occludingFaces(g, id, false, rules) : null
+      if (self === undefined) self = g ? occludingFaces(g, null, true) : null
+    } catch {
+      neighbor ??= null
+      self ??= null
+    }
+    cache.set(key, neighbor)
+    cache.set("self\0" + key, self)
+  }
+  return { neighbor, self }
+}
+
 export async function getCullFaces({ id, blockstates, neighbors, assets, version, defaults } = {}) {
   if (!id) throw new Error("getCullFaces requires the id option")
   if (AIR_BLOCKS.test(id)) return new Set()
   if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
   defaults ??= assets.defaults
-  const occCache = assets.cache.occlusion
   const rules = await blockRules(assets)
-  async function masksFor(bid, props) {
-    if (AIR_BLOCKS.test(bid)) return null
-    const key = occlusionStateKey(bid, props, defaults)
-    let m = occCache.get(key)
-    if (m === undefined) {
-      try {
-        const g = await buildOcclusionModel(assets, bid, props, version, defaults)
-        m = g ? occludingFaces(g, bid, false, rules) : null
-      } catch { m = null }
-      occCache.set(key, m)
-    }
-    return m
-  }
-  async function selfMasksFor() {
-    const key = "self\0" + occlusionStateKey(id, blockstates, defaults)
-    let m = occCache.get(key)
-    if (m === undefined) {
-      try {
-        const g = await buildOcclusionModel(assets, id, blockstates, version, defaults)
-        m = g ? occludingFaces(g, null, true) : null
-      } catch { m = null }
-      occCache.set(key, m)
-    }
-    return m
-  }
   let selfP
-  const selfMasks = () => selfP ??= selfMasksFor()
+  const selfMasks = () => selfP ??= occlusionMasks(assets, rules, id, blockstates, version, defaults).then(m => m.self)
   const cull = new Set()
   for (const dir in OPPOSITE) {
     const n = neighbors?.[dir]
@@ -89,7 +82,7 @@ export async function getCullFaces({ id, blockstates, neighbors, assets, version
     if (selfCulls(id, nid, dir, blockstates, props, rules)) { cull.add(dir); continue }
     const sm = (await selfMasks())?.[dir]
     if (!sm || faceIsEmpty(sm)) continue
-    const nm = await masksFor(nid, props)
+    const nm = AIR_BLOCKS.test(nid) ? null : (await occlusionMasks(assets, rules, nid, props, version, defaults)).neighbor
     if (nm && faceCovered(sm, nm[OPPOSITE[dir]])) cull.add(dir)
   }
   return cull
@@ -102,17 +95,7 @@ export async function fullyOccludes({ id, properties, assets, version, defaults 
   if (assets == null || assets.length === 0) throw new Error("fullyOccludes requires the assets option")
   assets = scopedCache(await prepareAssets(assets))
   defaults ??= assets.defaults
-  const occCache = assets.cache.occlusion
-  const rules = await blockRules(assets)
-  const key = occlusionStateKey(id, properties, defaults)
-  let m = occCache.get(key)
-  if (m === undefined) {
-    try {
-      const g = await buildOcclusionModel(assets, id, properties, version, defaults)
-      m = g ? occludingFaces(g, id, false, rules) : null
-    } catch { m = null }
-    occCache.set(key, m)
-  }
+  const m = (await occlusionMasks(assets, await blockRules(assets), id, properties, version, defaults)).neighbor
   if (!m) return false
   for (const dir of MASK_DIRS) {
     const mask = m[dir]
