@@ -24,7 +24,6 @@ const FACES = {
   east: { shade: 0.9, corners: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]] }
 }
 const DIRECTIONS = Object.keys(FACES)
-const SIDES = [["north", 0, -1], ["south", 0, 1], ["west", -1, 0], ["east", 1, 0]]
 
 const floorMod = (a, n) => ((a % n) + n) % n
 
@@ -54,33 +53,42 @@ async function cloudCells(assets) {
 const vertexShader = `
   attribute float shade;
   uniform vec4 cloudColor;
-  uniform float fogEnd;
   uniform vec3 fogCenter;
-  varying vec4 vColor;
+  varying vec3 vColor;
+  varying vec3 vFog;
   void main() {
     #ifdef USE_INSTANCING
       vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
     #else
       vec4 world = modelMatrix * vec4(position, 1.0);
     #endif
-    float fog = clamp(distance(world.xyz, fogCenter) / fogEnd, 0.0, 1.0);
-    vColor = vec4(cloudColor.rgb * shade, cloudColor.a * (1.0 - fog));
+    vColor = cloudColor.rgb * shade;
+    vFog = world.xyz - fogCenter;
     gl_Position = projectionMatrix * viewMatrix * world;
   }
 `
 
-function cloudMaterial(uniforms, side, depth) {
+const fragmentShader = `
+  uniform vec4 cloudColor;
+  uniform float fogEnd;
+  varying vec3 vColor;
+  varying vec3 vFog;
+  void main() {
+    float alpha = cloudColor.a * (1.0 - clamp(length(vFog) / fogEnd, 0.0, 1.0));
+    if (alpha <= 0.0) discard;
+    gl_FragColor = vec4(vColor, alpha);
+  }
+`
+
+function cloudMaterial(uniforms, side, depth, interior) {
   const material = new THREE.ShaderMaterial({
     uniforms,
     vertexShader,
-    fragmentShader: `
-      varying vec4 vColor;
-      void main() {
-        if (vColor.a <= 0.0) discard;
-        gl_FragColor = vColor;
-      }
-    `,
+    fragmentShader,
     depthFunc: THREE.LessEqualDepth,
+    polygonOffset: interior,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
     side
   })
   if (depth) {
@@ -99,39 +107,9 @@ function cloudMaterial(uniforms, side, depth) {
 }
 
 const flatCorners = corners => Float32Array.from(corners.flatMap(c => [c[0] * CELL * UNIT, c[1] * THICKNESS * UNIT, c[2] * CELL * UNIT]))
-const OUTSIDE = Object.fromEntries(DIRECTIONS.map(dir => [dir, flatCorners(FACES[dir].corners)]))
 const INTERIOR = DIRECTIONS.map(dir => [flatCorners(FACES[dir].corners.slice().reverse()), FACES[dir].shade])
 
-function buildGeometry(cells, eachCell) {
-  const { filled, width, height } = cells
-  const at = (x, z) => filled[floorMod(x, width) + floorMod(z, height) * width]
-  function walk(emit) {
-    for (let z = 0; z < height; z++) {
-      for (let x = 0; x < width; x++) if (filled[x + z * width]) eachCell(x, z, at, emit)
-    }
-  }
-  let quads = 0
-  walk(() => quads++)
-  const position = new Float32Array(quads * 12)
-  const shade = new Float32Array(quads * 4)
-  const index = new Uint32Array(quads * 6)
-  let q = 0
-  walk((x, z, corners, value) => {
-    const px = x * CELL * UNIT, pz = z * CELL * UNIT, v = q * 12, base = q * 4, i = q * 6
-    for (let k = 0; k < 12; k += 3) {
-      position[v + k] = px + corners[k]
-      position[v + k + 1] = corners[k + 1]
-      position[v + k + 2] = pz + corners[k + 2]
-    }
-    shade.fill(value, base, base + 4)
-    index[i] = base
-    index[i + 1] = base + 1
-    index[i + 2] = base + 2
-    index[i + 3] = base
-    index[i + 4] = base + 2
-    index[i + 5] = base + 3
-    q++
-  })
+function cloudGeometry(position, shade, index) {
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute("position", new THREE.BufferAttribute(position, 3))
   geometry.setAttribute("shade", new THREE.BufferAttribute(shade, 1))
@@ -139,18 +117,120 @@ function buildGeometry(cells, eachCell) {
   return geometry
 }
 
-function fancyShell(x, z, at, emit) {
-  emit(x, z, OUTSIDE.up, FACES.up.shade)
-  emit(x, z, OUTSIDE.down, FACES.down.shade)
-  for (const [dir, dx, dz] of SIDES) if (!at(x + dx, z + dz)) emit(x, z, OUTSIDE[dir], FACES[dir].shade)
+function buildInterior(cells) {
+  const { filled, width, height } = cells
+  const quads = filled.reduce((sum, cell) => sum + cell, 0) * INTERIOR.length
+  const position = new Float32Array(quads * 12)
+  const shade = new Float32Array(quads * 4)
+  const index = new Uint32Array(quads * 6)
+  let q = 0
+  for (let z = 0; z < height; z++) {
+    for (let x = 0; x < width; x++) {
+      if (!filled[x + z * width]) continue
+      const px = x * CELL * UNIT, pz = z * CELL * UNIT
+      for (const [corners, value] of INTERIOR) {
+        const v = q * 12, base = q * 4, i = q * 6
+        for (let k = 0; k < 12; k += 3) {
+          position[v + k] = px + corners[k]
+          position[v + k + 1] = corners[k + 1]
+          position[v + k + 2] = pz + corners[k + 2]
+        }
+        shade.fill(value, base, base + 4)
+        index[i] = base
+        index[i + 1] = base + 1
+        index[i + 2] = base + 2
+        index[i + 3] = base
+        index[i + 4] = base + 2
+        index[i + 5] = base + 3
+        q++
+      }
+    }
+  }
+  return cloudGeometry(position, shade, index)
 }
 
-function fancyInterior(x, z, at, emit) {
-  for (const [corners, shade] of INTERIOR) emit(x, z, corners, shade)
+function rowRuns(cells, z) {
+  const { filled, width } = cells
+  const runs = []
+  for (let x = 0; x < width; x++) {
+    if (!filled[x + z * width]) continue
+    const x0 = x
+    while (x < width && filled[x + z * width]) x++
+    runs.push({ x0, x1: x, west: -1, east: -1 })
+  }
+  const first = runs[0], last = runs[runs.length - 1]
+  if (first && first.x0 === 0 && last.x1 === width) {
+    first.west = last.x0
+    last.east = first.x1
+  }
+  return runs
 }
 
-function flatSheet(x, z, at, emit) {
-  emit(x, z, OUTSIDE.down, FACES.up.shade)
+function cloudRects(rows) {
+  const rects = []
+  let open = new Map()
+  rows.forEach((runs, z) => {
+    const next = new Map()
+    for (const run of runs) {
+      const key = run.x0 + "," + run.x1 + "," + run.west + "," + run.east
+      let rect = open.get(key)
+      if (!rect) {
+        rect = { ...run, z0: z, z1: z }
+        rects.push(rect)
+      }
+      rect.z1 = z + 1
+      next.set(key, rect)
+    }
+    open = next
+  })
+  return rects
+}
+
+function edgePoints(runs, rect) {
+  const points = [rect.x0]
+  for (const run of runs) {
+    if (run.x0 > rect.x0 && run.x0 < rect.x1) points.push(run.x0)
+    if (run.x1 > rect.x0 && run.x1 < rect.x1) points.push(run.x1)
+  }
+  points.push(rect.x1)
+  return points
+}
+
+function buildShell(cells, sheet) {
+  const { filled, width, height } = cells
+  const rows = Array.from({ length: height }, (_, z) => rowRuns(cells, z))
+  const position = [], shade = [], index = []
+  function vertex(x, y, z, value) {
+    position.push(x * CELL * UNIT, y * THICKNESS * UNIT, z * CELL * UNIT)
+    shade.push(value)
+    return shade.length - 1
+  }
+  function side(dir, x0, x1, z0, z1) {
+    const [a, b, c, d] = FACES[dir].corners.map(corner => vertex(corner[0] ? x1 : x0, corner[1], corner[2] ? z1 : z0, FACES[dir].shade))
+    index.push(a, b, c, a, c, d)
+  }
+  function cap(y, value, rect, north, south) {
+    const a = north.map(x => vertex(x, y, rect.z0, value)), b = south.map(x => vertex(x, y, rect.z1, value))
+    let i = 0, j = 0
+    while (i < a.length - 1 || j < b.length - 1) {
+      const p = a[i], q = b[j]
+      const r = j === b.length - 1 || (i < a.length - 1 && north[i + 1] <= south[j + 1]) ? a[++i] : b[++j]
+      if (y) index.push(p, q, r)
+      else index.push(p, r, q)
+    }
+  }
+  for (const rect of cloudRects(rows)) {
+    const above = floorMod(rect.z0 - 1, height), below = rect.z1 % height
+    const north = edgePoints(rows[above], rect), south = edgePoints(rows[below], rect)
+    cap(0, sheet ? FACES.up.shade : FACES.down.shade, rect, north, south)
+    if (sheet) continue
+    cap(1, FACES.up.shade, rect, north, south)
+    if (rect.west < 0) side("west", rect.x0, rect.x1, rect.z0, rect.z1)
+    if (rect.east < 0) side("east", rect.x0, rect.x1, rect.z0, rect.z1)
+    for (let i = 0; i < north.length - 1; i++) if (!filled[north[i] + above * width]) side("north", north[i], north[i + 1], rect.z0, rect.z1)
+    for (let i = 0; i < south.length - 1; i++) if (!filled[south[i] + below * width]) side("south", south[i], south[i + 1], rect.z0, rect.z1)
+  }
+  return cloudGeometry(Float32Array.from(position), Float32Array.from(shade), Uint32Array.from(index))
 }
 
 export async function createClouds(assets, args = {}) {
@@ -192,12 +272,12 @@ export async function createClouds(assets, args = {}) {
   const geometries = {}
   const geometry = kind => {
     if (!cells) return new THREE.BufferGeometry()
-    geometries[kind] ??= buildGeometry(cells, { shell: fancyShell, interior: fancyInterior, flat: flatSheet }[kind])
+    geometries[kind] ??= kind === "interior" ? buildInterior(cells) : buildShell(cells, kind === "flat")
     return geometries[kind]
   }
   const side = () => fancy ? THREE.FrontSide : THREE.DoubleSide
-  function pass(depth, order) {
-    const mesh = new THREE.InstancedMesh(new THREE.BufferGeometry(), cloudMaterial(uniforms, side(), depth), tilesX * tilesZ)
+  function pass(depth, order, interior) {
+    const mesh = new THREE.InstancedMesh(new THREE.BufferGeometry(), cloudMaterial(uniforms, side(), depth, interior), tilesX * tilesZ)
     mesh.instanceMatrix = tileMatrices
     mesh.count = 0
     mesh.frustumCulled = false
@@ -206,10 +286,10 @@ export async function createClouds(assets, args = {}) {
     layer.add(mesh)
     return mesh
   }
-  const shellDepth = pass(true, 1000)
-  const interiorDepth = pass(true, 1000.1)
-  const shellColor = pass(false, 1000.2)
-  const interiorColor = pass(false, 1000.3)
+  const shellDepth = pass(true, 1000, false)
+  const interiorDepth = pass(true, 1000.1, true)
+  const shellColor = pass(false, 1000.2, false)
+  const interiorColor = pass(false, 1000.3, true)
   const passes = [shellDepth, interiorDepth, shellColor, interiorColor]
   const interiors = [interiorDepth, interiorColor]
   const shells = [shellDepth, shellColor]
