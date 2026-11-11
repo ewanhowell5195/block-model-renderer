@@ -242,12 +242,11 @@ function builtinFallbackFiles() {
 export async function prepareAssets(assets, opts) {
   if (assets == null || assets.length === 0) throw new Error("prepareAssets requires assets")
   if (Array.isArray(assets) && assets.prepared) {
-    if (opts?.version && opts.version !== assets.version && assets.cache && !assets.cache.ephemeral) {
-      throw new Error(assets.version
-        ? `these cached assets are pinned to version ${assets.version}; a render can't use version ${opts.version} with them`
-        : `cached assets resolve versioned behavior at prepare time; pass { version: "${opts.version}" } to prepareAssets alongside { cache: true }`)
+    if (opts?.version && opts.version !== assets.version) {
+      if (assets.version) throw new Error(`these assets are prepared for version ${assets.version}; prepare the sources again to use version ${opts.version}`)
+      if (assets.cache && !assets.cache.ephemeral) throw new Error(`cached assets resolve versioned behavior at prepare time; pass { version: "${opts.version}" } to prepareAssets alongside { cache: true }`)
+      assets.version = opts.version
     }
-    if (opts?.version && !assets.version) assets.version = opts.version
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
     if (opts?.translucency) assets.translucency = opts.translucency
     if (opts?.defaults) assets.defaults = opts.defaults

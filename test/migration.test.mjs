@@ -97,3 +97,12 @@ test("ignoreAtlases on prepareAssets lifts the atlas rules for blocks, items and
   }
   assert.deepEqual(widths, [2, 16])
 })
+
+test("prepared assets refuse a second version instead of ignoring it", async () => {
+  const pinned = await prepareAssets([jar], { version: "1.21.4" })
+  assert.equal(await prepareAssets(pinned, { version: "1.21.4" }), pinned)
+  await assert.rejects(prepareAssets(pinned, { version: "1.20.1" }), { message: "these assets are prepared for version 1.21.4; prepare the sources again to use version 1.20.1" })
+  await assert.rejects(prepareAssets(assets, { version: "1.20.1" }), /cached assets resolve versioned behavior at prepare time/)
+  const loose = await prepareAssets([jar])
+  assert.equal((await prepareAssets(loose, { version: "1.20.1" })).version, "1.20.1")
+})
