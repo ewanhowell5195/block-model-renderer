@@ -66,19 +66,26 @@ async function makeFolderEntry(folderPath, indexed = false) {
 
 const LARGE_ZIP = 256 * 1048576
 
+const zipHandles = new FinalizationRegistry(fd => fs.close(fd, () => {}))
+
 async function fdZipAssets(filePath, size) {
-  const fh = await fs.promises.open(filePath, "r")
-  const slice = async (start, end) => {
+  const fd = await new Promise((resolve, reject) => fs.open(filePath, "r", (err, opened) => err ? reject(err) : resolve(opened)))
+  function slice(start, end) {
     const buf = Buffer.allocUnsafe(end - start)
-    await fh.read(buf, 0, end - start, start)
-    return new Uint8Array(buf.buffer, buf.byteOffset, end - start)
+    return new Promise((resolve, reject) => fs.read(fd, buf, 0, end - start, start, err => err ? reject(err) : resolve(new Uint8Array(buf.buffer, buf.byteOffset, end - start))))
   }
-  return zipAssetsFromSlices(slice, size)
+  const entry = await zipAssetsFromSlices(slice, size)
+  zipHandles.register(entry, fd)
+  return entry
 }
 
 const tempZips = []
-function spillToTemp(bytes) {
+const spilled = new WeakMap()
+function spillToTemp(bytes, source) {
+  const known = spilled.get(source)
+  if (known) return known
   const p = path.join(os.tmpdir(), `bmr-${process.pid}-${tempZips.length}.zip`)
+  spilled.set(source, p)
   fs.writeFileSync(p, bytes)
   if (!tempZips.length) {
     process.on("exit", () => {
@@ -123,7 +130,7 @@ setPlatform({
   async prepareEntry(entry) {
     if (typeof entry !== "string") {
       const bytes = entry instanceof ArrayBuffer ? new Uint8Array(entry) : entry
-      if (bytes instanceof Uint8Array && bytes.length > LARGE_ZIP) return fdZipAssets(spillToTemp(bytes), bytes.length)
+      if (bytes instanceof Uint8Array && bytes.length > LARGE_ZIP) return fdZipAssets(spillToTemp(bytes, entry), bytes.length)
       return zipAssets(entry)
     }
     let stat
