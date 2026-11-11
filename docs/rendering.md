@@ -223,7 +223,7 @@ scene.add(sky.group)
 | Option | Default | Description |
 |---|---|---|
 | `assets` | required | The assets source, as in [`renderBlock`](standard-api.md#renderblockargs). The sky textures come from the pack stack |
-| `args.dimension` | `"overworld"` | `"overworld"` for the day/night sky, `"the_end"` for the End's tiled skybox, `"the_nether"` for its fog with no sky. An object overrides the parts (`skybox`, `skyColor`, `fogColor`) |
+| `args.dimension` | `"overworld"` | `"overworld"` for the day/night sky, `"the_end"` for the End's tiled skybox, `"the_nether"` for its fog with no sky. An object overrides the parts (`skybox`, `skyColor`, `fogColor`), and also colours the fog made from `args.fog` |
 | `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting). Pass a scene's `userData.daytime` to share one uniform with the blocks |
 | `args.moonPhase` | `0` | The moon phase, `0` (full moon) to `7`, in the game's order. Also settable on the handle |
 | `args.angle` | `0` | Tilts the sun, moon and stars' path, in degrees off overhead; sunrise and sunset stay put on the horizon. Also settable on the handle |
@@ -283,7 +283,7 @@ The handle:
 | `group` | The cloud group; add it to your scene. It follows the camera |
 | `daytime` | The time uniform, `{ value }`. The same object when you passed one in |
 | `anchor` | The camera, object or position the layer is centred on, assignable |
-| `update(anchor?)` | Re-centre the layer now, on the given camera or position, or on the current anchor. Only needed before a single `renderer.render` call when following a camera; a render loop and a position anchor don't need it, and [`renderModelScene`](scenes.md#rendermodelscenescene-camera-args) calls it for you |
+| `update(anchor?)` | Re-centre the layer now, on the given camera or position, or on the current anchor. Only needed before a single `renderer.render` call when following a camera; a render loop and a position anchor don't need it, and [`renderModelScene`](scenes.md#rendermodelscenescene-camera-args) re-centres on its camera for that render, leaving `anchor` unchanged |
 | `time` | The cloud clock in ticks, assignable |
 | `origin` | The world coordinates of the scene's position `0, 0, 0`, assignable |
 | `height` | The bottom of the layer as a world height in blocks, assignable |
