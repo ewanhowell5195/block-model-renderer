@@ -231,47 +231,57 @@ function detectMaxAtlas() {
 }
 
 let _ef = null
+const _fa = new Float64Array(6), _fb = new Float64Array(6), _fu = new Float64Array(6), _fv = new Float64Array(6), _fo = new Int8Array(4)
 function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
   _ef ??= new THREE.Vector3()
-  const pos = geo.attributes.position, uv = geo.attributes.uv, nrm = geo.attributes.normal, idx = geo.index
-  if (!uv) return null
+  const pos = geo.attributes.position, uv = geo.attributes.uv, nrm = geo.attributes.normal, idx = geo.index, n = grp.count
+  if (!uv || n > 6) return null
   _ef.fromBufferAttribute(nrm, idx.getX(grp.start)).applyMatrix3(nm).normalize()
   const na = Math.abs(_ef.x) > 0.99 ? 0 : Math.abs(_ef.y) > 0.99 ? 1 : Math.abs(_ef.z) > 0.99 ? 2 : -1
   if (na < 0) return null
   const ns = _ef.getComponent(na) > 0 ? 1 : -1
-  const [pa, pb] = [0, 1, 2].filter(a => a !== na)
-  const P = []
-  let pc = null
-  for (let i = grp.start; i < grp.start + grp.count; i++) {
-    const a = idx.getX(i)
-    _ef.fromBufferAttribute(pos, a).applyMatrix4(mw)
+  const pa = na === 0 ? 1 : 0, pb = na === 2 ? 1 : 2
+  const A = _fa, B = _fb, U = _fu, V = _fv
+  let pc = 0, a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity, umin = Infinity, umax = -Infinity, vmin = Infinity, vmax = -Infinity
+  for (let k = 0; k < n; k++) {
+    const i = idx.getX(grp.start + k)
+    _ef.fromBufferAttribute(pos, i).applyMatrix4(mw)
     const cn = _ef.getComponent(na)
-    if (pc === null) pc = cn
+    if (k === 0) pc = cn
     else if (Math.abs(cn - pc) > 0.01) return null
-    P.push({ a: _ef.getComponent(pa), b: _ef.getComponent(pb), u: uv.getX(a), v: uv.getY(a) })
+    const a = A[k] = _ef.getComponent(pa), b = B[k] = _ef.getComponent(pb), u = U[k] = uv.getX(i), v = V[k] = uv.getY(i)
+    if (a < a0) a0 = a
+    if (a > a1) a1 = a
+    if (b < b0) b0 = b
+    if (b > b1) b1 = b
+    if (u < umin) umin = u
+    if (u > umax) umax = u
+    if (v < vmin) vmin = v
+    if (v > vmax) vmax = v
   }
-  const a0 = Math.min(...P.map(p => p.a)), a1 = Math.max(...P.map(p => p.a))
-  const b0 = Math.min(...P.map(p => p.b)), b1 = Math.max(...P.map(p => p.b))
   const wa = a1 - a0, wb = b1 - b0
   if (wa < 0.01 || wb < 0.01) return null
-  for (const p of P) if ((Math.abs(p.a - a0) > 0.01 && Math.abs(p.a - a1) > 0.01) || (Math.abs(p.b - b0) > 0.01 && Math.abs(p.b - b1) > 0.01)) return null
-  const umin = Math.min(...P.map(p => p.u)), umax = Math.max(...P.map(p => p.u))
-  const vmin = Math.min(...P.map(p => p.v)), vmax = Math.max(...P.map(p => p.v))
-  if (umax - umin < 1e-4 || vmax - vmin < 1e-4) return null
-  const c0 = P.find(p => Math.abs(p.a - a0) < 0.01)
-  const c1 = P.find(p => Math.abs(p.a - a1) < 0.01 && Math.abs(p.b - c0.b) < 0.01)
-  if (!c1) return null
-  const uAxisIsPa = Math.abs(c1.u - c0.u) > Math.abs(c1.v - c0.v)
+  for (let k = 0; k < n; k++) if ((Math.abs(A[k] - a0) > 0.01 && Math.abs(A[k] - a1) > 0.01) || (Math.abs(B[k] - b0) > 0.01 && Math.abs(B[k] - b1) > 0.01)) return null
+  const du = umax - umin, dv = vmax - vmin
+  if (du < 1e-4 || dv < 1e-4) return null
+  let c0 = 0, c1 = -1
+  while (Math.abs(A[c0] - a0) >= 0.01) c0++
+  for (let k = 0; k < n && c1 < 0; k++) if (Math.abs(A[k] - a1) < 0.01 && Math.abs(B[k] - B[c0]) < 0.01) c1 = k
+  if (c1 < 0) return null
+  const uAxisIsPa = Math.abs(U[c1] - U[c0]) > Math.abs(V[c1] - V[c0])
   const tw = tex.image.width, th = tex.image.height
-  const sub = { sx: Math.round(umin * tw), sy: Math.round((1 - vmax) * th), sw: Math.round((umax - umin) * tw), sh: Math.round((vmax - vmin) * th) }
+  const sub = { sx: Math.round(umin * tw), sy: Math.round((1 - vmax) * th), sw: Math.round(du * tw), sh: Math.round(dv * th) }
   if (sub.sw < 1 || sub.sh < 1) return null
-  if (Math.abs(umin * tw - sub.sx) > 1e-3 || Math.abs((1 - vmax) * th - sub.sy) > 1e-3 || Math.abs((umax - umin) * tw - sub.sw) > 1e-3 || Math.abs((vmax - vmin) * th - sub.sh) > 1e-3) return null
-  const verts = P.map(p => ({ ha: Math.abs(p.a - a1) < 0.01 ? 1 : 0, hb: Math.abs(p.b - b1) < 0.01 ? 1 : 0, u: (p.u - umin) / (umax - umin), v: (p.v - vmin) / (vmax - vmin) }))
-  if (verts.some(c => Math.abs(c.u - Math.round(c.u)) > 1e-3 || Math.abs(c.v - Math.round(c.v)) > 1e-3)) return null
+  if (Math.abs(umin * tw - sub.sx) > 1e-3 || Math.abs((1 - vmax) * th - sub.sy) > 1e-3 || Math.abs(du * tw - sub.sw) > 1e-3 || Math.abs(dv * th - sub.sh) > 1e-3) return null
+  const verts = new Array(n), orient = _fo.fill(-1)
+  for (let k = 0; k < n; k++) {
+    const ha = Math.abs(A[k] - a1) < 0.01 ? 1 : 0, hb = Math.abs(B[k] - b1) < 0.01 ? 1 : 0, u = (U[k] - umin) / du, v = (V[k] - vmin) / dv
+    const ur = Math.round(u), vr = Math.round(v)
+    if (Math.abs(u - ur) > 1e-3 || Math.abs(v - vr) > 1e-3) return null
+    verts[k] = { ha, hb, u, v }
+    orient[ha * 2 + hb] = ur * 2 + vr
+  }
   const srcHash = hashTexture(tex)
-  const corners = {}
-  for (const c of verts) corners[`${c.ha}${c.hb}`] = `${c.u.toFixed(2)},${c.v.toFixed(2)}`
-  const orient = Object.keys(corners).sort().map(k => k + ":" + corners[k]).join("|")
   const col = geo.attributes.color
   let tint = null
   if (col) {
@@ -279,7 +289,7 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
     if (col.array[a] !== 255 || col.array[a + 1] !== 255 || col.array[a + 2] !== 255) tint = [col.array[a], col.array[a + 1], col.array[a + 2]]
   }
   const { id: sigId, sig } = atlasSigs(mat)
-  const cellKey = `${sigId}:${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
+  const cellKey = `${sigId}:${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${Math.round(wa * 100)}x${Math.round(wb * 100)}:${orient.join("")}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
   return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig, tex, mat, srcHash, cull, cellKey, tint }
 }
 
