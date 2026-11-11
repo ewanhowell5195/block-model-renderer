@@ -81,8 +81,8 @@ export interface PrepareAssetsOptions {
    */
   cache?: boolean
   /**
-   * The Minecraft version the assets are for. With `cache: true` the version
-   * must be decided here: a render-call `version` that disagrees throws.
+   * The Minecraft version the assets are for, for every call made with these
+   * assets. Omit it to render unversioned.
    */
   version?: string
   /** Override the alpha cutoffs used for translucency detection. */
@@ -91,9 +91,14 @@ export interface PrepareAssetsOptions {
    * Which default blockstates fill properties a block doesn't carry, for every
    * call made with these assets: `"preferred"` (default) layers the preferred
    * overrides over the block's real default state, `"game"` uses the real
-   * default state alone. A per-call `defaults` overrides this.
+   * default state alone.
    */
   defaults?: "preferred" | "game"
+  /**
+   * Render blocks and items without enforcing texture atlas membership rules,
+   * for every call made with these assets. Default `false`.
+   */
+  ignoreAtlases?: boolean
   /**
    * A URL prefix, or a function given the URL and returning the one to request
    * (`false` requests it directly), for every network request made with these assets.
@@ -387,14 +392,10 @@ export interface SceneLightBlock {
 }
 
 export interface ComputeSceneLightOptions {
-  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
-  version?: string | false
   /** The dimension. Ones without sky light skip the sky seeding. Default `"overworld"`. */
   dimension?: LightDimensionName | LightDimension
   /** Progress while the scene's blocks are processed. The flood fill after the last call is quick. */
   onProgress?(done: number, total: number): void
-  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
-  defaults?: "preferred" | "game"
   /** Drop `blockLight` and `skyLight`, and the texture's CPU copy once it's uploaded. `lightAt` then throws. Default `false`. */
   release?: boolean
   /** Treat absent cells as full occluders, for a volume covering part of a larger world. */
@@ -505,10 +506,6 @@ export interface CreateSceneOptions {
   technical?: boolean
   /** Map art callback for framed maps, as on `renderBlock`. */
   mapArt?: MapArtCallback
-  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
-  version?: string | false
-  /** Skip texture atlas membership rules. Default `false`. */
-  ignoreAtlases?: boolean
   /** Merge the built scene with {@link optimizeScene}. Default `true`. */
   optimize?: boolean
   /** Passed through to the optimize pass. */
@@ -540,8 +537,6 @@ export interface CreateSceneOptions {
   }
   /** Treat absent cells as full occluders, for building a chunk of a larger world. */
   externalOcclusion?(x: number, y: number, z: number): boolean
-  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
-  defaults?: "preferred" | "game"
 }
 
 /** One unique block state a built scene used. */
@@ -614,12 +609,6 @@ export interface ParseBlockstateArgs {
   pos?: [number, number, number]
   /** Shift the blocks the game offsets by position (grass, flowers, bamboo) the same way it does, from `pos`. */
   randomOffset?: boolean
-  /** Skip texture atlas membership rules for the returned models. */
-  ignoreAtlases?: boolean
-  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
-  version?: string | false
-  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
-  defaults?: "preferred" | "game"
 }
 
 export interface ParseItemDefinitionArgs {
@@ -627,10 +616,6 @@ export interface ParseItemDefinitionArgs {
   components?: ItemComponents
   /** Display context, used by `display_context` selects and tint resolution. */
   display?: DisplayOption
-  /** Skip texture atlas membership rules for the returned models. */
-  ignoreAtlases?: boolean
-  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
-  version?: string | false
 }
 
 /** Placement context handed to placement-aware model loaders. */
@@ -664,10 +649,6 @@ export interface LoadModelArgs {
   animate?: boolean
   /** `false` keeps one mesh per element instead of merging them. Default `true`. */
   mergeElements?: boolean
-  /** The Minecraft version the assets are for, defaulting to the prepared assets' pinned version. Sets `model.version` if not already present; `false` renders unversioned despite a pin. */
-  version?: string | false
-  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
-  defaults?: "preferred" | "game"
 }
 
 /** The block entity kinds that load as dynamic models. */
@@ -762,8 +743,6 @@ export interface CreateSkyOptions {
   distance?: number
   /** Fade the sun and moon out once they are well below the horizon, over the game's 13500-14000 nightfall window and its equivalents. Default `false`, as the game itself only ever hides them behind terrain. */
   horizonFade?: boolean
-  /** The Minecraft version the assets are for, which picks the sun and moon texture layout. */
-  version?: string
   /** The horizon's sunrise glow: `"camera"`, `"pixel"`, or a fixed `0` to `1` share. With a fog, the sky follows the fog's setting. Default `"camera"`. */
   sunriseGlow?: "camera" | "pixel" | number | null
   /** Advance the day/night clock in real time, 20 ticks a second. Default `false`. */
@@ -833,10 +812,6 @@ export interface GetCullFacesArgs {
   properties?: BlockProperties
   /** The surrounding blocks. */
   neighbors?: Neighbors
-  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
-  version?: string | false
-  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
-  defaults?: "preferred" | "game"
 }
 
 export interface FullyOccludesArgs {
@@ -846,10 +821,6 @@ export interface FullyOccludesArgs {
   assets: AssetsInput
   /** The block's blockstate property values. */
   properties?: BlockProperties
-  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
-  version?: string | false
-  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
-  defaults?: "preferred" | "game"
 }
 
 // #endregion
@@ -1265,12 +1236,6 @@ export interface RenderOptionsCommon {
   shaderScale?: number
   /** Explicit face directions to drop; overrides `neighbors`. */
   cull?: CullOption
-  /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
-  version?: string | false
-  /** Render without enforcing texture atlas membership rules. Default `false`. */
-  ignoreAtlases?: boolean
-  /** Which default blockstates fill properties that aren't given: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone. */
-  defaults?: "preferred" | "game"
   /** Caps the animation timeline. Default `4096`. */
   maxAnimationFrames?: number
 }

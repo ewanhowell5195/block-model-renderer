@@ -1118,6 +1118,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   let data = args?.properties ?? {}
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   const version = args?.version ?? assets.version
+  const ignoreAtlases = args?.ignoreAtlases ?? assets.ignoreAtlases
   const defaultsMode = args?.defaults ?? assets.defaults
   const defaults = await defaultBlockstates(assets, defaultsMode)
   const rules = await blockRules(assets)
@@ -1178,7 +1179,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   if (!buf && (!overlayBuf || !overlaysStandalone(version))) {
     if (rules.waterlogged(block)) return [waterPart(colors, args?.biome)]
     const m = { type: "block", model: "block-model-renderer:missing" }
-    if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
+    if (ignoreAtlases) m.ignore_atlas_restrictions = true
     if (version) m.version = version
     return [m]
   }
@@ -1305,7 +1306,7 @@ export async function parseBlockstate(assets, blockstate, args) {
 
   for (const model of models) {
     model.type = "block"
-    if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
+    if (ignoreAtlases) model.ignore_atlas_restrictions = true
     if (version) model.version = version
     if (version && isBefore(version, "1.13")) {
       const i = model.model.indexOf(":") + 1
@@ -1687,6 +1688,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   const display = args?.display ?? "gui"
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   const version = args?.version ?? assets.version
+  const ignoreAtlases = args?.ignoreAtlases ?? assets.ignoreAtlases
 
   const { namespace, item } = resolveNamespace(itemId)
   const glint = !!(args?.glint || itemHasFoil({ id: itemId, components: data }, await itemRules(assets)))
@@ -1702,7 +1704,7 @@ export async function parseItemDefinition(assets, itemId, args) {
       const dflt = DEFAULT_SPECIAL_TRANSFORMS[m.special.type]
       if (dflt) m.transformation = parseTransformation(dflt).elements
     }
-    if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true
+    if (ignoreAtlases) m.ignore_atlas_restrictions = true
     if (version) m.version = version
     if (glint) m.glint = true
     return [m]
@@ -1717,7 +1719,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   for (let i = 0; i < models.length; i++) {
     const model = models[i]
     model.type = "item"
-    if (args?.ignoreAtlases) model.ignore_atlas_restrictions = true
+    if (ignoreAtlases) model.ignore_atlas_restrictions = true
     if (version) model.version = version
     if (model.tints) {
       const tints = []

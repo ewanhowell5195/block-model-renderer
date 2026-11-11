@@ -225,13 +225,12 @@ export async function createScene(assets, blocks, args = {}) {
   const raw = flat ? blocks.raw : null
   const count = flat ? raw.length >> 2 : blocks.length
   assets = scopedCache(await prepareAssets(assets))
-  const defaults = args.defaults ?? assets.defaults
+  const { version, defaults, ignoreAtlases } = assets
   const rules = await blockRules(assets)
   const lightingArg = args.lighting ?? "world"
   const worldCfg = lightingArg && typeof lightingArg === "object" ? lightingArg : lightingArg === "world" ? {} : null
   const lighting = worldCfg ? "world" : lightingArg
   const optimize = args.optimize !== false
-  const version = args.version ?? assets.version
   const onProgress = args.onProgress
   const shouldCancel = args.shouldCancel
   const origin = Array.isArray(args.origin) ? args.origin : [0, 0, 0]
@@ -464,13 +463,13 @@ export async function createScene(assets, blocks, args = {}) {
       const pick = rollPicks(entry.rolls, x, 0, 0)
       if (seen.has(pick)) continue
       seen.add(pick)
-      const models = await parseBlockstate(assets, entry.id, { properties: entry.properties ?? {}, pos: [x, 0, 0], ignoreAtlases: args.ignoreAtlases, version, defaults })
+      const models = await parseBlockstate(assets, entry.id, { properties: entry.properties ?? {}, pos: [x, 0, 0], ignoreAtlases, version, defaults })
       if (!await modelsCullAway(entry, models)) return false
     }
     return seen.size === picks
   }
   async function buriesAway(entry) {
-    const key = cullEnv + (args.ignoreAtlases ? 1 : 0) + "\0" + entry.sig
+    const key = cullEnv + (ignoreAtlases ? 1 : 0) + "\0" + entry.sig
     let away = buryCache.get(key)
     if (away === undefined) buryCache.set(key, away = await pickModelsCullAway(entry).catch(() => false))
     return away
@@ -481,7 +480,7 @@ export async function createScene(assets, blocks, args = {}) {
     const rolls = entry.pos ? undefined : {}
     entry.models = await parseBlockstate(assets, entry.id, {
       properties: entry.properties ?? {}, biome: entry.biome ?? undefined, nbt: entry.nbt ?? undefined,
-      mapArt: args.mapArt, pos: entry.pos ?? undefined, rolls, ignoreAtlases: args.ignoreAtlases, version, defaults
+      mapArt: args.mapArt, pos: entry.pos ?? undefined, rolls, ignoreAtlases, version, defaults
     })
     entry.rolls = rolls?.lists?.length ? rolls : null
     entry.offsetLimits = offsetOrigin ? rules.offset(entry.id) : null
@@ -733,7 +732,7 @@ export async function createScene(assets, blocks, args = {}) {
   if (!tcache) templateCaches.set(assets.cache, tcache = new Map())
   const usedEntries = []
   const envSig = (worldCfg ? JSON.stringify({ ...worldCfg, light: !!light, daytime: 0, fog: 0 }) : String(lighting))
-    + "\0" + (args.shaderScale ?? "") + "\0" + (args.ignoreAtlases ? 1 : 0) + "\0" + (version ?? "") + "\0" + (defaults ?? "") + "\0" + shaderSaltNow()
+    + "\0" + (args.shaderScale ?? "") + "\0" + (ignoreAtlases ? 1 : 0) + "\0" + (version ?? "") + "\0" + (defaults ?? "") + "\0" + shaderSaltNow()
   const lightSwitches = makeLightSwitches()
   const rebind = { daytime: daytimeUniform, ...lightSwitches, ...(light?.uniforms ?? {}), ...(fog?.uniforms ?? {}) }
   let built = 0
@@ -762,7 +761,7 @@ export async function createScene(assets, blocks, args = {}) {
       const models = spec.pos
         ? await parseBlockstate(assets, spec.entry.id, {
           properties: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined, nbt: spec.entry.nbt ?? undefined,
-          mapArt: args.mapArt, pos: spec.pos, ignoreAtlases: args.ignoreAtlases, version, defaults
+          mapArt: args.mapArt, pos: spec.pos, ignoreAtlases, version, defaults
         })
         : spec.entry.models
       for (const model of models) {
@@ -847,7 +846,7 @@ export async function createScene(assets, blocks, args = {}) {
           const models = spec.pos
             ? await parseBlockstate(assets, spec.entry.id, {
               properties: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined,
-              pos: spec.pos, ignoreAtlases: args.ignoreAtlases, version, defaults
+              pos: spec.pos, ignoreAtlases, version, defaults
             })
             : spec.entry.models
           for (const model of models) {

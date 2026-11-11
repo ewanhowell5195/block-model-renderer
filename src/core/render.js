@@ -124,14 +124,14 @@ export async function renderBlock(args = {}) {
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
 
-  const models = await parseBlockstate(assets, args.id, { properties: args.properties, nbt: args.nbt, mapArt: args.mapArt, seed: args.seed, pos: args.pos, randomOffset: args.randomOffset, biome: args.biome, ignoreAtlases: args.ignoreAtlases, version: args.version, defaults: args.defaults })
+  const models = await parseBlockstate(assets, args.id, { properties: args.properties, nbt: args.nbt, mapArt: args.mapArt, seed: args.seed, pos: args.pos, randomOffset: args.randomOffset, biome: args.biome })
 
-  const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, properties: args.properties, neighbors: faceNeighbors(args.neighbors), assets, version: args.version, defaults: args.defaults }) : undefined)
+  const cull = args.cull ?? (args.neighbors ? await getCullFaces({ id: args.id, properties: args.properties, neighbors: faceNeighbors(args.neighbors), assets }) : undefined)
 
   const block = { id: args.id, properties: args.properties, pos: args.pos ?? null }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(assets, resolved, { parent: scene, display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
+    await loadModel(assets, resolved, { parent: scene, display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
   }
 
   scene.traverse(o => { if (o.userData.dynamic === "enchanting_book") o.userData.range = 0 })
@@ -153,11 +153,11 @@ export async function renderItem(args = {}) {
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
 
-  const models = await parseItemDefinition(assets, args.id, { components: args.components, display: args.display, ignoreAtlases: args.ignoreAtlases, version: args.version })
+  const models = await parseItemDefinition(assets, args.id, { components: args.components, display: args.display })
 
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(assets, resolved, { parent: scene, display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
+    await loadModel(assets, resolved, { parent: scene, display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
   }
 
   return renderModelScene(scene, camera, args)
@@ -218,7 +218,7 @@ export async function renderModel(args = {}) {
   scene.userData.ephemeral = true
 
   const resolved = await resolveModelData(args.assets, { model: args.model})
-  await loadModel(args.assets, resolved, { parent: scene, display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
+  await loadModel(args.assets, resolved, { parent: scene, display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission })
 
   return renderModelScene(scene, camera, args)
 }
