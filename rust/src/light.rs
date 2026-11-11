@@ -333,7 +333,7 @@ pub fn compute_volume(
     for c in 1..=h2 {
         let r = (h2 + c - 1) / c;
         let side = (c * w2).max(r * d2);
-        if side < best_side || (side == best_side && c * r < best_tiles) {
+        if side < best_side || (side == best_side && c * r <= best_tiles) {
             best_side = side;
             best_tiles = c * r;
             cols = c;

@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { computeSceneLight, wasmStatus } from "../src/node.js"
+import { computeSceneLight, createScene, wasmStatus } from "../src/node.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 import crypto from "node:crypto"
 
@@ -71,4 +71,16 @@ test("a wide flat light volume keeps its texture inside the texture limit", asyn
   assert.equal(light.uniforms.lightVolCols.value, 1)
   assert.equal(light.lightAt(0, 1, 0).block, 14)
   light.dispose()
+})
+
+test("a light volume past the cell or texture limit throws instead of allocating", async () => {
+  const far = [{ id: "stone", pos: [0, 0, 0] }, { id: "stone", pos: [5000, 300, 5000] }]
+  await assert.rejects(computeSceneLight(far, { assets: [jar] }), /5001x301x5001.*cells.*light: false/)
+  await assert.rejects(createScene([jar], far), /light: false/)
+  const long = [{ id: "stone", pos: [0, 0, 0] }, { id: "stone", pos: [100000, 0, 0] }]
+  await assert.rejects(computeSceneLight(long, { assets: [jar] }), /100001x1x1.*texture.*light: false/)
+  const unlit = await createScene([jar], far, { lighting: { light: false } })
+  assert.equal(unlit.light, null)
+  assert.equal(unlit.tris, 24)
+  unlit.dispose()
 })

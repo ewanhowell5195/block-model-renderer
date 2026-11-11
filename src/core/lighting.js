@@ -62,13 +62,16 @@ function splitChannels(bytes) {
   return { rg, ao }
 }
 
+const LIGHT_CELL_LIMIT = 2 ** 28
+const SAFE_TEXTURE_SIZE = 2048
+
 function lightLayout(w, h, d) {
   const W2 = w + 1, H2 = h + 1, D2 = d + 1
   let cols = 1, bestSide = Infinity, bestTiles = Infinity
   for (let c = 1; c <= H2; c++) {
     const r = Math.ceil(H2 / c)
     const side = Math.max(c * W2, r * D2)
-    if (side < bestSide || (side === bestSide && c * r < bestTiles)) {
+    if (side < bestSide || (side === bestSide && c * r <= bestTiles)) {
       bestSide = side
       bestTiles = c * r
       cols = c
@@ -147,8 +150,19 @@ export async function computeSceneLight(blocks, opts = {}) {
   const origin = [minX - 1, minY - 1, minZ - 1]
   const w = maxX - minX + 3, h = maxY - minY + 3, d = maxZ - minZ + 3
   const n = w * h * d
+  const span = `${w - 2}x${h - 2}x${d - 2}`
+  const skip = "Split the area into smaller scenes, or build without a light volume using lighting: { light: false }"
+  if (n > LIGHT_CELL_LIMIT) throw new Error(`computeSceneLight: the blocks span ${span}, a light volume of ${n} cells, over the limit of ${LIGHT_CELL_LIMIT}. ${skip}`)
+  const layout = lightLayout(w, h, d)
+  const texSide = Math.max(layout.texW, layout.texH)
+  const texLimit = texSide > SAFE_TEXTURE_SIZE ? platform.maxTextureSize?.() ?? 16384 : texSide
+  if (texSide > texLimit) throw new Error(`computeSceneLight: the blocks span ${span}, whose light volume needs a ${layout.texW}x${layout.texH} texture, over this device's ${texLimit} limit. ${skip}`)
 
   const states = [null]
+  function addState(state) {
+    if (states.length > 0xFFFF) throw new Error(`computeSceneLight: more than 65,535 distinct light states. ${skip}`)
+    return states.push(state) - 1
+  }
   const stateIds = new Map()
   const cellState = new Uint16Array(n)
   const NO_PROPS = {}
@@ -165,13 +179,12 @@ export async function computeSceneLight(blocks, opts = {}) {
       const masks = await masksFor(id, properties)
       const useShape = rules.shapeOcclusion(id, properties, resolveDefault) && !maskEmpty(masks)
       const partial = rules.dampening(id, properties, resolveDefault)
-      states.push({
+      si = addState({
         emit: rules.emission(id, properties, resolveDefault),
         damp: isFullCube(masks) ? 15 : partial || (fluidTypeOf(id, properties, rules) ? 1 : 0),
         ao: rules.aoBlocking(id, properties, resolveDefault),
         masks: useShape ? masks : null
       })
-      si = states.length - 1
       stateIds.set(key, si)
     }
     return si
@@ -223,8 +236,7 @@ export async function computeSceneLight(blocks, opts = {}) {
 
   const extOcc = opts.externalOcclusion
   if (extOcc) {
-    states.push({ emit: 0, damp: 15, ao: true, masks: null })
-    const solidIdx = states.length - 1
+    const solidIdx = addState({ emit: 0, damp: 15, ao: true, masks: null })
     for (let z = 0, i = 0; z < d; z++) {
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++, i++) if (!cellState[i] && extOcc(x + ox, y + oy, z + oz)) cellState[i] = solidIdx
@@ -349,7 +361,7 @@ export async function computeSceneLight(blocks, opts = {}) {
     }
 
     const W2 = w + 1, D2 = d + 1
-    const { cols, texW, texH } = lightLayout(w, h, d)
+    const { cols, texW, texH } = layout
     const bytes = new Uint8Array(texW * texH * 4)
     const clampIdx = (x, y, z) => ((z < 0 ? 0 : z >= d ? d - 1 : z) * h + (y < 0 ? 0 : y >= h ? h - 1 : y)) * w + (x < 0 ? 0 : x >= w ? w - 1 : x)
     for (let y = 0; y <= h; y++) {
@@ -422,7 +434,7 @@ export async function computeSceneLight(blocks, opts = {}) {
       vol.free()
       settleWasm()
     }
-    ({ cols, texW, texH } = lightLayout(w, h, d))
+    ({ cols, texW, texH } = layout)
   } else {
     ({ bytes, texW, texH, cols, blockLight, skyLight } = await volumeJs())
   }
