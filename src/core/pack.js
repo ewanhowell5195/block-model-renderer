@@ -235,7 +235,8 @@ export function reviveScene(payload, opts = {}) {
   if (Object.keys(lightSwitches).length) group.userData.lightSwitches = lightSwitches
   for (const spec of payload.meshes) {
     const geo = new THREE.BufferGeometry()
-    const shed = release && spec.instanced == null
+    const material = Array.isArray(spec.material) ? spec.material.map(i => materials[i]) : materials[spec.material]
+    const shed = release && spec.instanced == null && ![].concat(material).some(m => m.transparent)
     for (const [name, a] of Object.entries(spec.attrs)) {
       const attr = new THREE.BufferAttribute(a.array, a.itemSize, a.normalized)
       if (shed) attr.onUpload(release)
@@ -253,7 +254,6 @@ export function reviveScene(payload, opts = {}) {
       geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(b[6], b[7], b[8]), b[9])
     }
     owned.geometries.push(geo)
-    const material = Array.isArray(spec.material) ? spec.material.map(i => materials[i]) : materials[spec.material]
     let mesh
     if (spec.instanced != null) {
       mesh = new THREE.InstancedMesh(geo, material, spec.instanced)
