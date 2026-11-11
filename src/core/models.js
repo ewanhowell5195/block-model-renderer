@@ -1390,8 +1390,8 @@ async function getColorMapTint(assets, mapName, temperature, downfall) {
   if (!map) return "#FFFFFF"
   if (map.width !== 256 || map.height !== 256) return "#FF00FF"
 
-  const x = Math.round((1 - temperature) * 255)
-  const y = Math.round((1 - downfall * temperature) * 255)
+  const x = Math.floor((1 - temperature) * 255)
+  const y = Math.floor((1 - downfall * temperature) * 255)
 
   if (x < 0 || x > 255 || y < 0 || y > 255) return "#FF00FF"
 
