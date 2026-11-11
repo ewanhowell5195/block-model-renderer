@@ -1601,7 +1601,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     const demote = new Set()
     for (const arr of byPlane.values()) for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
       const A = arr[i], B = arr[j]
-      if (!rectsOverlap(A.flat, B.flat)) continue
+      if (!rectsOverlap(A.flat, B.flat) || A.mat.side + B.mat.side === 1) continue
       if (A.flat.sig !== B.flat.sig || A.tex !== B.tex || !isOpaque(A.tex) || !isOpaque(B.tex)) { demote.add(A); demote.add(B) }
     }
     const merge = []
