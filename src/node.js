@@ -36,10 +36,15 @@ const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageDat
 let frameCtx = null, frameRenderer = null, frameSize = null
 const pinnedPrograms = new WeakSet()
 
+const bundledIndex = new Map()
+
 async function makeFolderEntry(folderPath, indexed = false) {
   let files = null
   if (indexed) {
-    try { files = new Set((await fs.promises.readdir(folderPath, { recursive: true })).map(p => p.split(path.sep).join("/"))) } catch {}
+    files = bundledIndex.get(folderPath)
+    if (!files) {
+      try { bundledIndex.set(folderPath, files = new Set((await fs.promises.readdir(folderPath, { recursive: true })).map(p => p.split(path.sep).join("/")))) } catch {}
+    }
   }
   function inside(file) {
     const rel = path.relative(folderPath, path.join(folderPath, file))

@@ -14,16 +14,39 @@ export async function getMissingImage(assets) {
 
 export async function zipEntryFromFiles(files, prefix = "") {
   const index = new Map()
-  for (const filePath of files.keys()) {
-    if (prefix && !filePath.startsWith(prefix)) continue
-    const parts = filePath.slice(prefix.length).split("/")
-    let dir = ""
-    for (let i = 0; i < parts.length; i++) {
-      let children = index.get(dir)
-      if (!children) index.set(dir, children = new Set())
-      children.add(parts[i])
-      dir = dir ? `${dir}/${parts[i]}` : parts[i]
+  const indexed = new Set()
+  let rootNames = null
+  function childrenOf(dir) {
+    if (dir === "") {
+      if (!rootNames) {
+        rootNames = new Set()
+        for (const filePath of files.keys()) {
+          if (prefix && !filePath.startsWith(prefix)) continue
+          const rest = filePath.slice(prefix.length)
+          const cut = rest.indexOf("/")
+          rootNames.add(cut === -1 ? rest : rest.slice(0, cut))
+        }
+      }
+      return rootNames
     }
+    const cut = dir.indexOf("/")
+    const top = cut === -1 ? dir : dir.slice(0, cut)
+    if (!indexed.has(top)) {
+      indexed.add(top)
+      const under = prefix + top + "/"
+      for (const filePath of files.keys()) {
+        if (!filePath.startsWith(under)) continue
+        const parts = filePath.slice(prefix.length).split("/")
+        let parent = parts[0]
+        for (let i = 1; i < parts.length; i++) {
+          let children = index.get(parent)
+          if (!children) index.set(parent, children = new Set())
+          children.add(parts[i])
+          parent = `${parent}/${parts[i]}`
+        }
+      }
+    }
+    return index.get(dir)
   }
 
   const entry = {
@@ -36,7 +59,7 @@ export async function zipEntryFromFiles(files, prefix = "") {
       return f.content = f.method === 0 ? data : await platform.inflateRaw(data)
     },
     list(dir) {
-      return Array.from(index.get(dir) ?? [])
+      return Array.from(childrenOf(dir) ?? [])
     }
   }
 
