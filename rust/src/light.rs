@@ -327,7 +327,18 @@ pub fn compute_volume(
     let w2 = w + 1;
     let h2 = h + 1;
     let d2 = d + 1;
-    let cols = (h2 as f64).sqrt().ceil() as usize;
+    let mut cols = 1;
+    let mut best_side = usize::MAX;
+    let mut best_tiles = usize::MAX;
+    for c in 1..=h2 {
+        let r = (h2 + c - 1) / c;
+        let side = (c * w2).max(r * d2);
+        if side < best_side || (side == best_side && c * r < best_tiles) {
+            best_side = side;
+            best_tiles = c * r;
+            cols = c;
+        }
+    }
     let rows = (h2 + cols - 1) / cols;
     let tex_w = cols * w2;
     let tex_h = rows * d2;

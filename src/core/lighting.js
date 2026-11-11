@@ -62,6 +62,21 @@ function splitChannels(bytes) {
   return { rg, ao }
 }
 
+function lightLayout(w, h, d) {
+  const W2 = w + 1, H2 = h + 1, D2 = d + 1
+  let cols = 1, bestSide = Infinity, bestTiles = Infinity
+  for (let c = 1; c <= H2; c++) {
+    const r = Math.ceil(H2 / c)
+    const side = Math.max(c * W2, r * D2)
+    if (side < bestSide || (side === bestSide && c * r < bestTiles)) {
+      bestSide = side
+      bestTiles = c * r
+      cols = c
+    }
+  }
+  return { cols, texW: cols * W2, texH: Math.ceil(H2 / cols) * D2 }
+}
+
 function releaseTextureData(texture) {
   const { width, height } = texture.image
   texture.image = { data: null, width, height }
@@ -333,10 +348,8 @@ export async function computeSceneLight(blocks, opts = {}) {
       skyLight[i] = sl
     }
 
-    const W2 = w + 1, H2 = h + 1, D2 = d + 1
-    const cols = Math.ceil(Math.sqrt(H2))
-    const rows = Math.ceil(H2 / cols)
-    const texW = cols * W2, texH = rows * D2
+    const W2 = w + 1, D2 = d + 1
+    const { cols, texW, texH } = lightLayout(w, h, d)
     const bytes = new Uint8Array(texW * texH * 4)
     const clampIdx = (x, y, z) => ((z < 0 ? 0 : z >= d ? d - 1 : z) * h + (y < 0 ? 0 : y >= h ? h - 1 : y)) * w + (x < 0 ? 0 : x >= w ? w - 1 : x)
     for (let y = 0; y <= h; y++) {
@@ -409,10 +422,7 @@ export async function computeSceneLight(blocks, opts = {}) {
       vol.free()
       settleWasm()
     }
-    const H2 = h + 1
-    cols = Math.ceil(Math.sqrt(H2))
-    texW = cols * (w + 1)
-    texH = Math.ceil(H2 / cols) * (d + 1)
+    ({ cols, texW, texH } = lightLayout(w, h, d))
   } else {
     ({ bytes, texW, texH, cols, blockLight, skyLight } = await volumeJs())
   }

@@ -35,7 +35,9 @@ const cases = [
   ["mixed", 12, 16, 12, 4242, 0.45, {}],
   ["nether", 12, 12, 12, 31337, 0.4, { dimension: "the_nether" }],
   ["thin", 20, 3, 20, 5, 0.5, {}],
-  ["column", 3, 24, 3, 88, 0.35, {}]
+  ["column", 3, 24, 3, 88, 0.35, {}],
+  ["wide", 40, 3, 5, 77, 0.4, {}],
+  ["deep", 4, 9, 30, 61, 0.4, {}]
 ]
 
 test("the light kernel is live", async () => {
@@ -60,3 +62,13 @@ for (const [name, w, h, d, seed, density, extra] of cases) {
     }
   })
 }
+
+test("a wide flat light volume keeps its texture inside the texture limit", async () => {
+  const blocks = [{ id: "stone", pos: [0, 0, 0] }, { id: "torch", pos: [0, 1, 0] }, { id: "stone", pos: [6000, 0, 0] }]
+  const light = await computeSceneLight(blocks, { assets: [jar] })
+  const tex = light.uniforms.lightVolTex.value
+  assert.ok(Math.max(tex.x, tex.y) <= 8192, `${tex.x}x${tex.y}`)
+  assert.equal(light.uniforms.lightVolCols.value, 1)
+  assert.equal(light.lightAt(0, 1, 0).block, 14)
+  light.dispose()
+})
