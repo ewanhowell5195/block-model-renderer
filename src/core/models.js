@@ -2,7 +2,7 @@ import { platform, THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTE
 import { COLORS, parseColor, getPotionColor } from "./colors.js"
 import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
-import { prepareAssets, readFile, readFileAll, readOverlayFile, getMissingImage, getAtlasesContaining, remapPalette, readPaletteTexture } from "./assets.js"
+import { prepareAssets, readFile, readFileAll, readOverlayFile, overlaysStandalone, getMissingImage, getAtlasesContaining, remapPalette, readPaletteTexture } from "./assets.js"
 import { resolveProfile } from "./profiles.js"
 import { buildAnimation, lcmTicks } from "./animation.js"
 import { classifyPngAlpha, hashBytes } from "./png.js"
@@ -950,7 +950,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   const overlayBuf = await readOverlayFile(`assets/${namespace}/blockstates/${block}.json`, assets)
   if (buf && assets[buf.hintIndex]?.overrideRole === "additional") buf = null
 
-  if (!buf && !overlayBuf) {
+  if (!buf && (!overlayBuf || !overlaysStandalone(version))) {
     if (rules.waterlogged(block)) return [waterPart(colors, args?.biome)]
     const m = { type: "block", model: "block-model-renderer:missing" }
     if (args?.ignoreAtlases) m.ignore_atlas_restrictions = true

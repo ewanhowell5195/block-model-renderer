@@ -138,6 +138,10 @@ function entryActive(entry, assets) {
   return !!assets.version && isBefore(assets.version, entry.versionBefore)
 }
 
+export function overlaysStandalone(version) {
+  return !!version && isBefore(version, "1.13")
+}
+
 function entryVisible(entry, assets, file) {
   if (!entryActive(entry, assets)) return false
   if (entry.overrideRole === "additional" && file.startsWith("assets/minecraft/") && !file.startsWith("assets/minecraft/atlases")) return false
@@ -626,6 +630,7 @@ export async function listDirectory(dir, assets) {
   if (!dir) throw new Error("listDirectory requires a directory")
   if (assets == null || assets.length === 0) throw new Error("listDirectory requires assets")
   assets = await prepareAssets(assets)
+  const standalone = overlaysStandalone(assets.version)
   const out = new Set()
   for (let i = 0; i < assets.length; i++) {
     const entry = assets[i]
@@ -635,6 +640,7 @@ export async function listDirectory(dir, assets) {
       files = (await entry.list(dir)) ?? []
     }
     for (const f of files) {
+      if (!standalone && !entryVisible(entry, assets, `${dir}/${f}`)) continue
       if (await isFilteredByHigher(assets, i, `${dir}/${f}`)) continue
       out.add(f)
     }
@@ -685,5 +691,5 @@ export async function readFile(file, assets, hint) {
       } catch {}
     }
   }
-  if (hint === undefined) return readOverlayFile(file, assets)
+  if (hint === undefined && overlaysStandalone(assets.version)) return readOverlayFile(file, assets)
 }

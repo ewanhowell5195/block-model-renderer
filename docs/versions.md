@@ -22,7 +22,7 @@ Each threshold below only kicks in when the `version` you pass falls in its rang
 | Assets from | What changes | Why |
 |---|---|---|
 | **before 1.9** | `display.gui` transforms compose *onto* the era's built-in gui base (rotation `[30, 225, 0]`, scale `0.625`) instead of replacing it, and the legacy `thirdperson` / `firstperson` display names map to their modern `_righthand` forms | The old pipeline layered gui transforms and used the pre-`_righthand` context names |
-| **before 1.13** | Bare blockstate model refs gain a `block/` prefix (`"model": "cactus"` → `block/cactus`) | Matches the implicit folder the game assumed before the 1.13 flattening |
+| **before 1.13** | Bare blockstate model refs gain a `block/` prefix (`"model": "cactus"` → `block/cactus`); the bundled [additional](assets.md#additional-rendered-alongside) block entity overlays render and list without a blockstate in your packs | Matches the implicit folder the game assumed before the 1.13 flattening; chests, banners, skulls and beds had no blockstates before it |
 | **before 1.15** | Mirrored display scales (an odd number of negative components) render solid rather than inside out | The old pipeline compensated the mirror; 1.15 stopped (MC-176864), which is what unversioned renders match |
 | **before 1.21.2** | The element `light_emission` field is ignored | It didn't exist yet |
 | **before 1.21.4** | Items with no [item definition](scenes.md#parseitemdefinitionassets-id-args) fall back to `models/item/<id>.json` | Item definitions didn't exist yet; models lived directly under `models/item` |

@@ -139,6 +139,8 @@ Blocks that vanilla never renders from resource pack models at all: the [technic
 
 Blocks where the game draws an entity model on top of whatever the blockstate produces (vanilla's own blockstates for them point at stub models with no geometry). Here your packs stay fully in effect: [`parseBlockstate`](scenes.md#parseblockstateassets-id-args) returns the models your blockstates resolve to plus the bundled overlay models together, the same layering the game draws. Remodel the block in your pack and both render.
 
+An overlay only applies to blocks your packs have a blockstate for, so a block that doesn't exist in the version you load (copper chests in 1.21.1) renders as missing and isn't listed by [`listDirectory`](#listdirectorydir-assets). Before 1.13, when these blocks had no blockstates, the overlays render on their own (see [versions](versions.md#triggered-behaviors)).
+
 The following categories are covered:
 
 * Banners
