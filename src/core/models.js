@@ -411,6 +411,20 @@ export function primeDynamic(root) {
   dynamicFrame(root, PRIME_RENDERER, _primeCamera)
 }
 
+const instanceHooks = new WeakMap()
+export function setInstanceHook(mesh, hook) {
+  instanceHooks.set(mesh, hook)
+  mesh.onBeforeRender = hook
+}
+
+const SETTLE_RENDERER = { info: { render: { frame: 2e9 } } }
+export function settleInstances(scene, camera) {
+  scene.updateMatrixWorld()
+  if (camera.parent === null) camera.updateMatrixWorld()
+  SETTLE_RENDERER.info.render.frame++
+  scene.traverse(o => instanceHooks.get(o)?.call(o, SETTLE_RENDERER, scene, camera))
+}
+
 export function dynamicFrame(root, renderer, camera) {
   const s = dynState(root)
   const frame = renderer.info.render.frame

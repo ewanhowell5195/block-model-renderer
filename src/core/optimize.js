@@ -1,6 +1,6 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
 import { subUpload, subFlush } from "./subtex.js"
-import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS, loadSpriteTexture, cloneInstance } from "./models.js"
+import { initDynamic, dynamicFrame, primeDynamic, setInstanceHook, REBIND_UNIFORMS, loadSpriteTexture, cloneInstance } from "./models.js"
 import { wasmReady, greedyMeshFast, settleWasm } from "./fast.js"
 import { buildSchedules, evaluateAnimation } from "./animation.js"
 import { listAtlasSprites } from "./assets.js"
@@ -2159,7 +2159,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     im.frustumCulled = false
     im.userData.billboard = true
     im.userData.billboardEntries = entries
-    im.onBeforeRender = billboardHook(entries)
+    setInstanceHook(im, billboardHook(entries))
     primers.push(() => im.onBeforeRender(null, null, _primeCam))
     group.add(im)
     drawCalls++
@@ -2182,7 +2182,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     }
     const im = new THREE.InstancedMesh(merged.geometry, merged.material, entries.length)
     im.frustumCulled = false
-    im.onBeforeRender = dynamicHook(entries)
+    setInstanceHook(im, dynamicHook(entries))
     primers.push(() => {
       _dynInv.copy(im.matrixWorld).invert()
       for (let i = 0; i < entries.length; i++) {

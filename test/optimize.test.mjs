@@ -347,3 +347,15 @@ test("merged faces of every orientation sample the texels their blocks do", asyn
   single.dispose()
   shared.dispose()
 })
+
+const MOVING = [{ id: "white_banner", pos: [0, 0, 0] }, { id: "chest", pos: [2, 0, 0] }, { id: "bell", pos: [4, 0, 0] }, { id: "stone", pos: [1, 0, 1] }]
+
+test("a still shows moving block entity parts posed on its first frame", async () => {
+  const warm = await createScene(assets, MOVING, { lighting: "world" })
+  await shoot(warm)
+  const handle = await createScene(assets, MOVING, { lighting: "world" })
+  const first = await shoot(handle), second = await shoot(handle)
+  assert.ok(first.equals(second))
+  warm.dispose()
+  handle.dispose()
+})

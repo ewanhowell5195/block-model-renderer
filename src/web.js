@@ -1,6 +1,7 @@
 import * as core from "./core.js"
 import { setPlatform, zipEntryFromFiles, overridesRole, computeAnimationTimeline, collectAnimated, buildSchedules, evaluateAnimation, setDynamicClock } from "./core.js"
 import { parseZip } from "./zip.js"
+import { settleInstances } from "./core/models.js"
 import { pngInfo, decodePng, encodeStoredPng } from "./core/png.js"
 
 const config = {}
@@ -130,6 +131,7 @@ function renderScene(scene, camera, width, height, background) {
   const parsed = background != null ? parseColor(background) : null
   if (parsed) renderer.setClearColor(parsed.color, parsed.alpha)
   else renderer.setClearColor(0x000000, 0)
+  settleInstances(scene, camera)
   renderer.render(scene, camera)
   return renderer.domElement
 }

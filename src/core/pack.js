@@ -1,5 +1,5 @@
 import { THREE, Canvas } from "./platform.js"
-import { makeLightSwitches } from "./models.js"
+import { makeLightSwitches, setInstanceHook } from "./models.js"
 import { lightOffsetSetter } from "./lighting.js"
 
 const LIGHT_UNIFORM = /^light(Vol|Ao)/
@@ -266,7 +266,7 @@ export function reviveScene(payload, opts = {}) {
         const entries = spec.billboard.map(b => ({ pos: new THREE.Vector3(...b.p), scale: new THREE.Vector3(...b.s) }))
         const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _flip = new THREE.Quaternion(0, 1, 0, 0), _m = new THREE.Matrix4(), _inv = new THREE.Matrix4()
         mesh.frustumCulled = false
-        mesh.onBeforeRender = function (renderer, scene, camera) {
+        setInstanceHook(mesh, function (renderer, scene, camera) {
           _inv.copy(this.matrixWorld).invert()
           camera.getWorldQuaternion(_q).multiply(_flip)
           for (let i = 0; i < entries.length; i++) {
@@ -275,7 +275,7 @@ export function reviveScene(payload, opts = {}) {
             this.setMatrixAt(i, _m.compose(_p, _q, e.scale).premultiply(_inv))
           }
           this.instanceMatrix.needsUpdate = true
-        }
+        })
       }
     } else if (spec.line) {
       mesh = new THREE.LineSegments(geo, material)

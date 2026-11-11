@@ -5,6 +5,7 @@ import fs from "node:fs"
 import os from "node:os"
 import { setPlatform, parsePackFilter, zipAssets, zipAssetsFromSlices, overridesRole } from "./core.js"
 import { decodePng } from "./core/png.js"
+import { settleInstances } from "./core/models.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -257,6 +258,7 @@ setPlatform({
 
     return {
       renderFrame(scene, cam) {
+        settleInstances(scene, cam)
         renderer.render(scene, cam)
       },
       readPixels() {
