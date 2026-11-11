@@ -29,31 +29,29 @@ const DIR_VECS = Object.values(DIRS)
 const DIR_BITS = DIR_NAMES.map(d => 1 << CULL_DIRS.indexOf(d))
 const _nbr = new Int32Array(6)
 const NO_OFFSET = [0, 0, 0]
-const PK = (x, y, z) => ((x + 1048576) * 2048 + (y + 1024)) * 2097152 + (z + 1048576)
 
 class CellTable {
   constructor(count) {
     let cap = 16
     while (cap < count * 2) cap *= 2
     this.mask = cap - 1
-    this.keys = new Float64Array(cap).fill(-1)
-    this.vals = new Int32Array(cap)
+    this.slots = new Int32Array(cap * 4)
   }
-  slot(key, x, y, z) {
-    let s = (Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) & this.mask
-    while (this.keys[s] !== -1 && this.keys[s] !== key) s = (s + 1) & this.mask
+  slot(x, y, z) {
+    const t = this.slots
+    let s = ((Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791)) & this.mask) * 4
+    while (t[s + 3] !== 0 && (t[s] !== x || t[s + 1] !== y || t[s + 2] !== z)) s = ((s >> 2) + 1 & this.mask) * 4
     return s
   }
   get(x, y, z) {
-    const key = PK(x, y, z)
-    const s = this.slot(key, x, y, z)
-    return this.keys[s] === key ? this.vals[s] : -1
+    return this.slots[this.slot(x, y, z) + 3] - 1
   }
   set(x, y, z, v) {
-    const key = PK(x, y, z)
-    const s = this.slot(key, x, y, z)
-    this.keys[s] = key
-    this.vals[s] = v
+    const t = this.slots, s = this.slot(x, y, z)
+    t[s] = x
+    t[s + 1] = y
+    t[s + 2] = z
+    t[s + 3] = v + 1
   }
 }
 
