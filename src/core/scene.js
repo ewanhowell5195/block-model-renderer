@@ -243,7 +243,7 @@ export async function createScene(assets, blocks, args = {}) {
   }
   const cW = cx1 - cx0 + 3, cH = cy1 - cy0 + 3, cD = cz1 - cz0 + 3
   const cVol = cx0 === Infinity ? 0 : cW * cH * cD
-  const cellIdx = cVol > 0 && cVol <= 24e6 ? new Int32Array(cVol) : null
+  const cellIdx = cVol > 0 && cVol <= Math.min(Math.max(24e6, count * 8), 2 ** 31 - 1) ? new Int32Array(cVol) : null
   const cellMap = cellIdx ? null : new CellTable(count)
   const CI = (x, y, z) => {
     const ix = x - cx0 + 1, iy = y - cy0 + 1, iz = z - cz0 + 1
