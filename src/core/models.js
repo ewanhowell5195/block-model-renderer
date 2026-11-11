@@ -3029,7 +3029,7 @@ export async function loadModel(scene, assets, model, args) {
           },
           buildBlock: async (id, properties = {}) => {
             const g = new THREE.Group()
-            g.userData.lightSwitches = lightSwitches
+            Object.assign(g.userData, { daytime, fog, lightSwitches })
             const blockArgs = { lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults, block: { id, properties, pos: null } }
             for (const m of await parseBlockstate(assets, id, { data: properties, defaults: args?.defaults, version: args?.version })) {
               await loadModel(g, assets, await resolveModelData(assets, m), blockArgs)
@@ -3038,7 +3038,7 @@ export async function loadModel(scene, assets, model, args) {
           },
           buildItem: async (id, context = "none", components = {}) => {
             const g = new THREE.Group()
-            g.userData.lightSwitches = lightSwitches
+            Object.assign(g.userData, { daytime, fog, lightSwitches })
             const display = { type: "fallback", display: context }
             for (const m of await parseItemDefinition(assets, id, { data: components, display, version: args?.version })) {
               await loadModel(g, assets, await resolveModelData(assets, m), { display, lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults })
