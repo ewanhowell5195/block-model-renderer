@@ -118,7 +118,7 @@ An export is only valid for the same pack stack, in the same order, and the same
 
 ### Minecraft version
 
-Pass `{ version }` to set the Minecraft version the assets are for. Every call made with the prepared assets then applies the era behaviors in [Legacy Minecraft versions](versions.md), and the [versioned override packs](#versioned-packs) activate from it:
+Pass `{ version }` to set the Minecraft version the assets are for, as a release number in the `X.Y.Z` format ([version strings](versions.md#version-strings)). Every call made with the prepared assets then applies the era behaviors in [Legacy Minecraft versions](versions.md), and the [versioned override packs](#versioned-packs) activate from it:
 
 ```js
 const assets = await prepareAssets(sources, { version: "1.21.11" })

@@ -81,8 +81,10 @@ export interface PrepareAssetsOptions {
    */
   cache?: boolean
   /**
-   * The Minecraft version the assets are for, for every call made with these
-   * assets. Omit it to render unversioned. On assets that are already prepared
+   * The Minecraft version the assets are for, as a release number in the
+   * `X.Y.Z` format (`"1.21.11"`), for every call made with these assets. A
+   * snapshot id is not a version: pass the release before or after it. Omit
+   * it to render unversioned. On assets that are already prepared
    * it resolves a view for that version, which shares the opened packs and
    * leaves the original as it was.
    */

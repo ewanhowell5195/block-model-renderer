@@ -14,9 +14,11 @@ await renderBlock({
 
 ## Version strings
 
-`version` accepts release-style version strings like `"1.8"`, `"1.16.5"`, or `"26.1.2"`. Trailing segments are optional and treated as `0` (so `"26"` compares as `"26.0.0"`). Anything after a `-` is ignored, so snapshot, pre-release, and release-candidate suffixes work too: `"1.21-pre1"`, `"1.21-rc2"`, `"26.1.2-snapshot-2"`.
+`version` is a release version number in the `X.Y.Z` format: `"1.8"`, `"1.16.5"`, `"26.1.2"`. Trailing parts are optional and count as `0`, so `"26"` compares as `"26.0.0"`.
 
-Anything that doesn't start with a release number, like the weekly snapshot `"24w14a"` or the beta `"b1.7.3"`, counts as no version, so it renders [unversioned](#without-a-version). Pass the release it belongs to instead.
+A snapshot is not a version. To render a snapshot's assets, round it to the release before or after it and pass that: `"1.20.5"` for `24w14a`.
+
+Anything that doesn't start with a release number, like `"24w14a"` or `"b1.7.3"`, counts as no version, so it renders [unversioned](#without-a-version). Anything after the number is ignored, so `"1.21-pre1"` reads as `"1.21"`.
 
 ## Triggered behaviors
 
