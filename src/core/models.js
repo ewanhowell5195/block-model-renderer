@@ -730,6 +730,15 @@ export async function defaultBlockstates(assets, mode) {
   return mode === "game" ? tables.game : tables.preferred
 }
 
+function resolveTextureRef(textures, ref) {
+  const seen = new Set()
+  while (typeof ref === "string" && ref.startsWith("#") && !seen.has(ref)) {
+    seen.add(ref)
+    ref = textures?.[ref.slice(1)]
+  }
+  return typeof ref === "string" && ref.startsWith("#") ? undefined : ref
+}
+
 function getMultipartDefaults(multipart) {
   const first = {}
   function walk(when) {
@@ -1976,21 +1985,7 @@ export async function resolveModelData(assets, model) {
 
   for (const key in merged.textures) {
     handleNestedTexture(key)
-    let value = merged.textures[key]
-    while (value?.startsWith("#")) {
-      const ref = value.slice(1)
-      handleNestedTexture(ref)
-      if (value === merged.textures[key]) {
-        delete merged.textures[key]
-        break
-      }
-      value = merged.textures[ref]
-    }
-    merged.textures[key] = value
-
-    if (!merged.textures[key]) {
-      delete merged.textures[key]
-    }
+    if (!merged.textures[key]) delete merged.textures[key]
   }
 
   if (merged.display) {
@@ -2005,9 +2000,10 @@ export async function resolveModelData(assets, model) {
     if (!merged.elements) {
       merged.generated = true
       merged.elements = []
-      for (const [key, texRef] of Object.entries(merged.textures)) {
+      for (const key of Object.keys(merged.textures ?? {})) {
         const match = key.match(/^layer(\d+)$/)
-        if (match) {
+        const texRef = match && resolveTextureRef(merged.textures, merged.textures[key])
+        if (texRef) {
           const tintIndex = Number(match[1])
           const texId = "#" + key
           const { namespace, item } = resolveNamespace(texRef)
@@ -2367,8 +2363,8 @@ async function modelPassesAtlasRules(model, assets) {
   }
   const entries = []
   for (const slot of usedSlots) {
-    const value = textures[slot]
-    if (typeof value !== "string" || !value || value.startsWith("#")) continue
+    const value = resolveTextureRef(textures, textures[slot])
+    if (typeof value !== "string" || !value) continue
     const { namespace, item } = resolveNamespace(value)
     entries.push(`assets/${namespace}/textures/${item}.png`)
   }
@@ -2636,13 +2632,7 @@ export async function loadModel(scene, assets, model, args) {
     for (let k = 0; k < 6; k++) geo.index.setX(geo.groups[2].start + k, order[k])
     geo.index.needsUpdate = true
     if (heights.angle != null) {
-      let texRef = "#flow"
-      const seenRefs = new Set()
-      while (texRef && texRef.startsWith("#") && !seenRefs.has(texRef)) {
-        seenRefs.add(texRef)
-        texRef = model.textures?.[texRef.slice(1)]
-      }
-      if (texRef?.startsWith("#")) texRef = undefined
+      const texRef = resolveTextureRef(model.textures, "#flow")
       for (const [idx, side] of [[2, false], [8, "back"]]) {
         const mkey = `${texRef ?? ""}\0${side}\0flow`
         let material = materialCache.get(mkey)
@@ -2806,12 +2796,7 @@ export async function loadModel(scene, assets, model, args) {
           faceTints[i] = model.tints[face.tintindex]
         }
 
-        const seenRefs = new Set()
-        while (texRef && texRef.startsWith("#") && !seenRefs.has(texRef)) {
-          seenRefs.add(texRef)
-          texRef = model.textures?.[texRef.slice(1)]
-        }
-        if (texRef?.startsWith("#")) texRef = undefined
+        texRef = resolveTextureRef(model.textures, texRef)
 
         const legacyShade = !model.version || isBefore(model.version, "26.3")
         const modernShade = !model.version || !isBefore(model.version, "26.3")
@@ -3064,15 +3049,7 @@ export async function loadModel(scene, assets, model, args) {
             }
             return g
           },
-          resolveTexture: ref => {
-            let t = ref
-            const seen = new Set()
-            while (typeof t === "string" && t.startsWith("#") && !seen.has(t)) {
-              seen.add(t)
-              t = model.textures?.[t.slice(1)]
-            }
-            return typeof t === "string" && t.startsWith("#") ? undefined : t
-          },
+          resolveTexture: ref => resolveTextureRef(model.textures, ref),
           createMaterial: async (id, opts = {}) => {
             const shadeDir = SHADE_DIR_VECS[opts.shade_direction] ? opts.shade_direction : null
             const emission = Math.max(0, blockEmission, Math.min(15, opts.light_emission ?? 0))
