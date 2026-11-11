@@ -1,8 +1,8 @@
 import { THREE, normalize, platform } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
 import { blockRules } from "./data.js"
-import { defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS, buildOcclusionModel, occlusionStateKey } from "./models.js"
-import { occludingFaces } from "./occlusion.js"
+import { defaultBlockstates, AIR_BLOCKS, LIGHT_DIMENSIONS, occlusionModels, buildOcclusionModel, occlusionStateKey } from "./models.js"
+import { occludingFaces, plainOcclusion } from "./occlusion.js"
 import { fluidTypeOf } from "./fluids.js"
 import { wasmReady, computeLightVolumeFast, settleWasm } from "./fast.js"
 
@@ -104,8 +104,10 @@ export async function computeSceneLight(assets, blocks, opts = {}) {
     let m = occCache.get(key)
     if (m === undefined) {
       try {
-        const g = await buildOcclusionModel(assets, bid, props, version, defaultsMode)
-        m = g ? occludingFaces(g, bid, false, rules) : null
+        const models = await occlusionModels(assets, bid, props, version, defaultsMode)
+        const plain = models && await plainOcclusion(assets, models, bid, rules)
+        const g = models && !plain ? await buildOcclusionModel(assets, models, defaultsMode) : null
+        m = plain ? plain.neighbor : g ? occludingFaces(g, bid, false, rules) : null
       } catch { m = null }
       occCache.set(key, m)
     }

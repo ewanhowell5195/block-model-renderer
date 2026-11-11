@@ -33,8 +33,8 @@ function hiddenMaterial() {
   return _hiddenMaterial ??= new THREE.MeshBasicMaterial({ visible: false })
 }
 
-const FACE_ORDER = ["east", "west", "up", "down", "south", "north"]
-const QUAD_CORNERS = [0, 2, 1, 2, 3, 1]
+export const FACE_ORDER = ["east", "west", "up", "down", "south", "north"]
+export const QUAD_CORNERS = [0, 2, 1, 2, 3, 1]
 const BOX_SIGNS = new Float32Array(72), BOX_UVS = new Float32Array(48), BOX_INDEX = new Uint16Array(36)
 for (let p = 0; p < 6; p++) {
   const [u, v, w, udir, vdir, , , , ds] = BOX_PLANES[p]
@@ -49,7 +49,7 @@ for (let p = 0; p < 6; p++) {
   for (let k = 0; k < 6; k++) BOX_INDEX[p * 6 + k] = p * 4 + QUAD_CORNERS[k]
 }
 
-function fillBox(pos, po, nrm, no, W, H, D) {
+export function fillBox(pos, po, nrm, no, W, H, D) {
   const hw = W / 2, hh = H / 2, hd = D / 2
   for (let j = 0; j < 72; j += 3) {
     pos[po + j] = BOX_SIGNS[j] * hw
@@ -123,7 +123,7 @@ function setUVQuad(ax, ay, bx, by, cx, cy, dx, dy) {
   UV_QUAD[7] = dy
 }
 
-function elementRescale(rotation) {
+export function elementRescale(rotation) {
   let rescaleAxis = rotation.axis
   let rescaleAngle = rotation.angle
   if (rescaleAngle === undefined) {
@@ -155,7 +155,7 @@ function rotationAllowed(model, rotation) {
   return true
 }
 
-function scaleBox(data, o, sx, sy, sz) {
+export function scaleBox(data, o, sx, sy, sz) {
   const s = scratch(), v = s.v
   s.matrix.makeScale(sx, sy, sz)
   for (let j = o, end = o + 72; j < end; j += 3) {
@@ -173,7 +173,7 @@ function scaleBox(data, o, sx, sy, sz) {
   }
 }
 
-function elementMatrix(model, element, W, H, D) {
+export function elementMatrix(model, element, W, H, D) {
   const s = scratch(), from = element.from, rotation = element.rotation
   s.center.set(from[0] + W / 2 - 8, from[1] + H / 2 - 8, from[2] + D / 2 - 8)
   if (element.part && !rotation) {
@@ -202,7 +202,7 @@ function elementMatrix(model, element, W, H, D) {
   return true
 }
 
-function transformBox(data, o, collision, translated) {
+export function transformBox(data, o, collision, translated) {
   const s = scratch(), v = s.v
   let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity
   for (let j = o, end = o + 72; j < end; j += 3) {
@@ -945,7 +945,7 @@ export async function defaultBlockstates(assets, mode) {
   return mode === "game" ? tables.game : tables.preferred
 }
 
-function resolveTextureRef(textures, ref) {
+export function resolveTextureRef(textures, ref) {
   let first, seen
   while (typeof ref === "string" && ref.startsWith("#") && ref !== first && !seen?.has(ref)) {
     if (first === undefined) first = ref
@@ -2579,7 +2579,7 @@ function settledAtlasSets(assets) {
   return sets
 }
 
-function texturePath(id) {
+export function texturePath(id) {
   const { namespace, item } = resolveNamespace(id)
   return `assets/${namespace}/textures/${item}.png`
 }
@@ -3584,12 +3584,17 @@ export function occlusionStateKey(id, props, defaults) {
   return key
 }
 
-export async function buildOcclusionModel(assets, id, props, version, defaults) {
+export async function occlusionModels(assets, id, props, version, defaults) {
+  const models = await parseBlockstate(assets, id, { properties: props ?? {}, ignoreAtlases: true, version, defaults })
+  if (models.some(model => model.model === "block-model-renderer:missing")) return null
+  const resolved = []
+  for (const model of models) resolved.push(await resolveModelData(assets, model))
+  return resolved
+}
+
+export async function buildOcclusionModel(assets, models, defaults) {
   const g = new THREE.Group()
-  for (const model of await parseBlockstate(assets, id, { properties: props ?? {}, ignoreAtlases: true, version, defaults })) {
-    if (model.model === "block-model-renderer:missing") return null
-    await loadModel(assets, await resolveModelData(assets, model), { parent: g, display: {}, animate: false, defaults })
-  }
+  for (const model of models) await loadModel(assets, model, { parent: g, display: {}, animate: false, defaults })
   return g
 }
 

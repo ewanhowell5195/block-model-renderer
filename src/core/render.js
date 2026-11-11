@@ -1,9 +1,9 @@
 import { platform, THREE, loadTexture } from "./platform.js"
 import { prepareAssets, scopedCache, getMissingImage, MASK_DIRS } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
-import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, restoreShaderSalt, shaderSaltNow, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock, freezeDynamics } from "./models.js"
+import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, restoreShaderSalt, shaderSaltNow, occlusionModels, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock, freezeDynamics } from "./models.js"
 import { selfCulls } from "./culling.js"
-import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
+import { occludingFaces, plainOcclusion, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, lcmTicks, collectAnimated, applyFrame, applyTint, readTexture } from "./animation.js"
 import { blockRules } from "./data.js"
 import { faceNeighbors } from "./neighbors.js"
@@ -45,9 +45,11 @@ async function occlusionMasks(assets, rules, id, props, version, defaults) {
   let neighbor = cache.get(key), self = cache.get("self\0" + key)
   if (neighbor === undefined || self === undefined) {
     try {
-      const g = await buildOcclusionModel(assets, id, props, version, defaults)
-      if (neighbor === undefined) neighbor = g ? occludingFaces(g, id, false, rules) : null
-      if (self === undefined) self = g ? occludingFaces(g, null, true) : null
+      const models = await occlusionModels(assets, id, props, version, defaults)
+      const plain = models && await plainOcclusion(assets, models, id, rules)
+      const g = models && !plain ? await buildOcclusionModel(assets, models, defaults) : null
+      if (neighbor === undefined) neighbor = plain ? plain.neighbor : g ? occludingFaces(g, id, false, rules) : null
+      if (self === undefined) self = plain ? plain.self : g ? occludingFaces(g, null, true) : null
     } catch {
       neighbor ??= null
       self ??= null
