@@ -1,7 +1,7 @@
 import { THREE, Canvas, loadTexture, platform } from "./platform.js"
 import { subUpload, subFlush } from "./subtex.js"
 import { initDynamic, dynamicFrame, primeDynamic, REBIND_UNIFORMS, loadSpriteTexture, cloneInstance } from "./models.js"
-import { wasmReady, wasmLoaded, greedyMeshFast, emitQuadsFast, settleWasm } from "./fast.js"
+import { wasmReady, greedyMeshFast, settleWasm } from "./fast.js"
 import { buildSchedules, evaluateAnimation } from "./animation.js"
 import { listAtlasSprites } from "./assets.js"
 import { sortTranslucent } from "./sorting.js"
@@ -537,6 +537,21 @@ function greedyRects(coords, g, out) {
   }
 }
 
+const SPARSE_AREA = 256
+function sparseCells(triples, gridCount) {
+  const lo = new Int32Array(gridCount * 2).fill(2147483647), hi = new Int32Array(gridCount * 2).fill(-2147483648)
+  for (let i = 0; i < triples.length; i += 3) {
+    const g = triples[i] * 2, a = triples[i + 1], b = triples[i + 2]
+    if (a < lo[g]) lo[g] = a
+    if (a > hi[g]) hi[g] = a
+    if (b < lo[g + 1]) lo[g + 1] = b
+    if (b > hi[g + 1]) hi[g + 1] = b
+  }
+  let area = 0
+  for (let g = 0; g < gridCount * 2; g += 2) if (hi[g] >= lo[g]) area += (hi[g] - lo[g] + 1) * (hi[g + 1] - lo[g + 1] + 1)
+  return area > SPARSE_AREA * (triples.length / 3)
+}
+
 const GROW_IN_PLACE = typeof ArrayBuffer.prototype.transfer === "function"
 
 class GrowI32 {
@@ -610,7 +625,48 @@ function releaseArray() {
   this.array = null
 }
 
-function packMesh(P, N, U, T, F, n) {
+function byteFaceData(emission, flags) {
+  const k = emission * 15
+  return Math.abs(k - Math.round(k)) < 1e-4 && k >= 0 && k <= 255 && Number.isInteger(flags) && flags >= 0 && flags <= 255
+}
+
+function quadLayout(f) {
+  const corners = [], index = []
+  for (const vert of f.verts) {
+    let c = corners.findIndex(o => o.ha === vert.ha && o.hb === vert.hb && o.u === vert.u && o.v === vert.v)
+    if (c < 0) c = corners.push(vert) - 1
+    index.push(c)
+  }
+  return { corners, index }
+}
+
+function emitQuads(quads, from, to) {
+  for (let i = from; i < to; i++) {
+    const q = quads[i], f = q.f, tile = q.tile, out = tile.acc.out, rect = tile.rect, size = tile.size
+    const P = out.position, N = out.normal, U = out.uv, T = out.color, F = out.faceData, I = out.index
+    const na = f.na, pa = f.pa, pb = f.pb, rw = f.sub.sw * q.ur, rh = f.sub.sh * q.vr, tint = f.tint, nv = f.ns * out.unit
+    const tr = tint ? tint[0] : 255, tg = tint ? tint[1] : 255, tb = tint ? tint[2] : 255
+    const fe = !F ? 0 : out.bytes ? Math.round(f.fd[0] * 15) : f.fd[0] * 15, ff = F ? f.fd[1] : 0
+    const corners = f.layout.corners, order = f.layout.index, v0 = out.verts, i0 = out.indices
+    for (let c = 0; c < corners.length; c++) {
+      const vert = corners[c], o3 = (v0 + c) * 3, o2 = (v0 + c) * 2
+      P[o3 + na] = q.wpc
+      P[o3 + pa] = vert.ha ? q.wAHi : q.wALo
+      P[o3 + pb] = vert.hb ? q.wBHi : q.wBLo
+      N[o3 + na] = nv
+      U[o2] = (rect.x + vert.u * rw) / size.w
+      U[o2 + 1] = 1 - (rect.y + (1 - vert.v) * rh) / size.h
+      T[o3] = tr; T[o3 + 1] = tg; T[o3 + 2] = tb
+      if (F) { F[o2] = fe; F[o2 + 1] = ff }
+    }
+    for (let k = 0; k < 6; k++) I[i0 + k] = v0 + order[k]
+    out.verts = v0 + corners.length
+    out.indices = i0 + 6
+  }
+}
+
+function packMesh(acc) {
+  const P = acc.P.a, N = acc.N.a, U = acc.U.a, T = acc.T.a, F = acc.F.length ? acc.F.a : null, n = acc.P.length / 3
   const index = new Uint32Array(n), src = new Int32Array(n)
   function same(o, i) {
     const s3 = src[o] * 3, i3 = i * 3, s2 = src[o] * 2, i2 = i * 2
@@ -634,7 +690,8 @@ function packMesh(P, N, U, T, F, n) {
     }
     p0 = c0; p1 = c1; p2 = c2
   }
-  const position = new Float32Array(w * 3), uv = new Float32Array(w * 2), color = new Uint8Array(w * 3)
+  const verts = w + acc.quadVerts
+  const position = new Float32Array(verts * 3), uv = new Float32Array(verts * 2), color = new Uint8Array(verts * 3)
   let byteNormals = true
   for (let o = 0; o < w; o++) {
     const s3 = src[o] * 3, s2 = src[o] * 2, o3 = o * 3, o2 = o * 2
@@ -645,43 +702,34 @@ function packMesh(P, N, U, T, F, n) {
   }
   let normal
   if (byteNormals) {
-    normal = new Int8Array(w * 3)
+    normal = new Int8Array(verts * 3)
     for (let o = 0; o < w; o++) {
       const s3 = src[o] * 3, o3 = o * 3
       normal[o3] = Math.round(N[s3] * 127); normal[o3 + 1] = Math.round(N[s3 + 1] * 127); normal[o3 + 2] = Math.round(N[s3 + 2] * 127)
     }
   } else {
-    normal = new Int16Array(w * 3)
+    normal = new Int16Array(verts * 3)
     for (let o = 0; o < w; o++) {
       const s3 = src[o] * 3, o3 = o * 3
       normal[o3] = Math.round(N[s3] * 32767); normal[o3 + 1] = Math.round(N[s3 + 1] * 32767); normal[o3 + 2] = Math.round(N[s3 + 2] * 32767)
     }
   }
-  let faceData = null
-  if (F) {
-    let bytes = true
-    for (let o = 0; o < w && bytes; o++) {
-      const s2 = src[o] * 2, k = F[s2] * 15, flags = F[s2 + 1]
-      bytes = Math.abs(k - Math.round(k)) < 1e-4 && k >= 0 && k <= 255 && Number.isInteger(flags) && flags >= 0 && flags <= 255
-    }
-    faceData = bytes ? new Uint8Array(w * 2) : new Float32Array(w * 2)
-    for (let o = 0; o < w; o++) {
+  let faceData = null, bytes = acc.quadBytes
+  if (F || acc.quadFaceData) {
+    if (F) for (let o = 0; o < w && bytes; o++) bytes = byteFaceData(F[src[o] * 2], F[src[o] * 2 + 1])
+    faceData = bytes ? new Uint8Array(verts * 2) : new Float32Array(verts * 2)
+    if (F) for (let o = 0; o < w; o++) {
       const s2 = src[o] * 2
       faceData[o * 2] = bytes ? Math.round(F[s2] * 15) : F[s2] * 15
       faceData[o * 2 + 1] = F[s2 + 1]
     }
   }
-  return {
-    position,
-    normal,
-    uv,
-    color,
-    faceData,
-    index: w <= 65536 ? Uint16Array.from(index) : index
-  }
+  const out = { position, normal, uv, color, faceData, index: new (verts <= 65536 ? Uint16Array : Uint32Array)(n + acc.quads * 6), verts: w, indices: n, unit: byteNormals ? 127 : 32767, bytes }
+  out.index.set(index)
+  return out
 }
 
-const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0 })
+const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0, quads: 0, quadVerts: 0, quadFaceData: false, quadBytes: true, out: null })
 
 const BAKE_STRIDE = 13
 
@@ -1479,8 +1527,9 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     }
   }
   const cellData = cellRuns.data()
-  let rectRun = grids.length ? greedyMeshFast(cellData, grids.length) : new Int32Array(0)
+  let rectRun = !grids.length ? new Int32Array(0) : sparseCells(cellData, grids.length) ? null : greedyMeshFast(cellData, grids.length)
   if (!rectRun) rectRun = greedyMeshJs(cellData, grids.length)
+  settleWasm()
   // where each grid's rectangles start, the run is grouped and ascending
   const rectAt = new Int32Array(grids.length + 1).fill(rectRun.length)
   for (let i = rectRun.length - 5; i >= 0; i -= 5) rectAt[rectRun[i]] = i
@@ -1783,161 +1832,50 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     }
   }
 
+  const packs = []
+  for (const { materials, accs } of atlases.values()) for (let i = 0; i < accs.length; i++) packs.push({ acc: accs[i], material: materials[i] })
+  for (const { material, acc } of anims.values()) packs.push({ acc, material })
+  for (const tile of tiles.values()) {
+    const at = atlases.get(tile.sig), rect = at.rects.get(tile.pseudo)
+    tile.rect = rect
+    tile.size = at.sizes[rect.ai]
+    tile.acc = at.accs[rect.ai]
+  }
+  for (const q of greedyQuads) {
+    const f = q.f, acc = q.tile.acc
+    if (!f.layout) {
+      f.layout = quadLayout(f)
+      f.fd = faceDataOf(f.mat)
+      f.fdBytes = !f.fd || byteFaceData(f.fd[0], f.fd[1])
+    }
+    acc.quads++
+    acc.quadVerts += f.layout.corners.length
+    if (f.fd) acc.quadFaceData = true
+    if (!f.fdBytes) acc.quadBytes = false
+  }
+
+  stage(900)
+  for (let i = 0; i < packs.length; i++) {
+    const acc = packs[i].acc
+    acc.out = packMesh(acc)
+    acc.P = acc.N = acc.U = acc.T = acc.F = null
+    report((i + 1) / packs.length)
+    await breathe()
+  }
+
   stage(1500)
-  const QUAD_STRIDE = 16, FACE_STRIDE = 31, BATCH = 16384
-
-  // rust wants the quads flat, so accumulators and faces get an index each and
-  // a batch is handed over at a time to keep the frame budget
-  const accList = []
-  const accId = new Map()
-  for (const at of atlases.values()) for (const acc of at.accs) {
-    if (!accId.has(acc)) { accId.set(acc, accList.length); accList.push(acc) }
-  }
-  const faceRows = []
-  const faceId = new Map()
-  function faceIndex(f) {
-    let id = faceId.get(f)
-    if (id !== undefined) return id
-    const fd = faceDataOf(f.mat)
-    const row = [f.na, f.pa, f.pb, f.ns, fd ? 1 : -1, fd ? fd[0] : 0, fd ? fd[1] : 0]
-    for (let v = 0; v < 6; v++) {
-      const vert = f.verts[v]
-      row.push(vert.ha ? 1 : 0, vert.hb ? 1 : 0, vert.u, vert.v)
-    }
-    faceId.set(f, id = faceRows.length)
-    faceRows.push(row)
-    return id
-  }
-
-  let faceFlat = null, faceFlatRows = -1
-  function faceTable() {
-    if (faceFlatRows !== faceRows.length) {
-      faceFlat = new Float64Array(faceRows.length * FACE_STRIDE)
-      for (let i = 0; i < faceRows.length; i++) faceFlat.set(faceRows[i], i * FACE_STRIDE)
-      faceFlatRows = faceRows.length
-    }
-    return faceFlat
-  }
-
-  async function flush(quadBuf, used) {
-    if (!used) return true
-    const emitted = emitQuadsFast(quadBuf.subarray(0, used * QUAD_STRIDE), faceTable(), accList.length)
-    if (!emitted) return false
-    try {
-      for (let i = 0; i < accList.length; i++) {
-        const acc = accList[i]
-        acc.P.append(emitted.position(i))
-        acc.N.append(emitted.normal(i))
-        acc.U.append(emitted.uv(i))
-        acc.T.append(emitted.color(i))
-        acc.F.append(emitted.faceData(i))
-      }
-    } finally {
-      emitted.free()
-    }
-    return true
-  }
-
-  let wasmEmit = accList.length > 0 && wasmLoaded()
-  const mark = accList.map(a => [a.P.length, a.N.length, a.U.length, a.F.length, a.T.length])
-  if (wasmEmit) {
-    const qAcc = new Int32Array(greedyQuads.length)
-    const qRect = new Array(greedyQuads.length)
-    const qSize = new Array(greedyQuads.length)
-    const verts = new Int32Array(accList.length)
-    let lastSig, lastPseudo, at, rect, ai, size
-    for (let i = 0; i < greedyQuads.length; i++) {
-      const q = greedyQuads[i]
-      if (q.tile.sig !== lastSig) {
-        at = atlases.get(lastSig = q.tile.sig)
-        lastPseudo = undefined
-      }
-      if (q.tile.pseudo !== lastPseudo) {
-        rect = at.rects.get(lastPseudo = q.tile.pseudo)
-        ai = accId.get(at.accs[rect.ai])
-        size = at.sizes[rect.ai]
-      }
-      qAcc[i] = ai
-      qRect[i] = rect
-      qSize[i] = size
-      verts[ai] += 6
-    }
-    for (let i = 0; i < accList.length; i++) {
-      const a = accList[i], n = verts[i]
-      if (!n) continue
-      a.P.ensure(n * 3); a.N.ensure(n * 3); a.U.ensure(n * 2); a.T.ensure(n * 3)
-    }
-
-    const quadBuf = new Float64Array(BATCH * QUAD_STRIDE)
-    let used = 0, done = 0
-    for (let i = 0; i < greedyQuads.length; i++) {
-      const q = greedyQuads[i], rect = qRect[i], s = qSize[i], f = q.f
-      const o = used * QUAD_STRIDE
-      quadBuf[o] = qAcc[i]
-      quadBuf[o + 1] = faceIndex(f)
-      quadBuf[o + 2] = q.wpc
-      quadBuf[o + 3] = q.wALo; quadBuf[o + 4] = q.wAHi
-      quadBuf[o + 5] = q.wBLo; quadBuf[o + 6] = q.wBHi
-      quadBuf[o + 7] = rect.x; quadBuf[o + 8] = rect.y
-      quadBuf[o + 9] = f.sub.sw * q.ur; quadBuf[o + 10] = f.sub.sh * q.vr
-      quadBuf[o + 11] = s.w; quadBuf[o + 12] = s.h
-      const ft = f.tint
-      quadBuf[o + 13] = ft ? ft[0] : -1
-      quadBuf[o + 14] = ft ? ft[1] : 0
-      quadBuf[o + 15] = ft ? ft[2] : 0
-      if (++used === BATCH) {
-        if (!await flush(quadBuf, used)) { wasmEmit = false; break }
-        used = 0
-        done += BATCH
-        report(done / greedyQuads.length)
-        await breathe()
-        if (shouldCancel?.()) return null
-      }
-    }
-    if (wasmEmit && !await flush(quadBuf, used)) wasmEmit = false
-    settleWasm()
-  }
-
-  if (!wasmEmit) {
-    for (let i = 0; i < accList.length; i++) {
-      const a = accList[i], m = mark[i]
-      a.P.length = m[0]; a.N.length = m[1]; a.U.length = m[2]; a.F.length = m[3]; a.T.length = m[4]
-    }
-    let appended = 0
-    for (const q of greedyQuads) {
-      if (++appended % 512 === 0) {
-        report(appended / greedyQuads.length)
-        await breathe()
-        if (shouldCancel?.()) return null
-      }
-      const at = atlases.get(q.tile.sig), rect = at.rects.get(q.tile.pseudo), s = at.sizes[rect.ai], acc = at.accs[rect.ai], f = q.f
-      const rw = f.sub.sw * q.ur, rh = f.sub.sh * q.vr
-      const fd = faceDataOf(f.mat)
-      const ft = f.tint
-      for (const vert of f.verts) {
-        const p = [0, 0, 0], nn = [0, 0, 0]
-        p[f.na] = q.wpc
-        p[f.pa] = vert.ha ? q.wAHi : q.wALo
-        p[f.pb] = vert.hb ? q.wBHi : q.wBLo
-        nn[f.na] = f.ns
-        acc.P.push3(p[0], p[1], p[2])
-        acc.N.push3(nn[0], nn[1], nn[2])
-        acc.U.push2((rect.x + vert.u * rw) / s.w, 1 - (rect.y + (1 - vert.v) * rh) / s.h)
-        if (ft) acc.T.push3(ft[0], ft[1], ft[2])
-        else acc.T.push3(255, 255, 255)
-        if (fd) acc.F.push2(fd[0], fd[1])
-      }
-    }
+  for (let i = 0; i < greedyQuads.length; i += 4096) {
+    emitQuads(greedyQuads, i, Math.min(i + 4096, greedyQuads.length))
+    report(i / greedyQuads.length)
+    await breathe()
+    if (shouldCancel?.()) return null
   }
 
   const group = new THREE.Group()
   let drawCalls = 0, tris = 0
-  function addMesh(acc, material) {
-    if (!acc.P.length) return
+  function addMesh(packed, material) {
+    if (!packed.index.length) return
     const geo = new THREE.BufferGeometry()
-    const verts = acc.P.length / 3
-    const packed = packMesh(acc.P.a, acc.N.a, acc.U.a, acc.T.a, acc.F?.length ? acc.F.a : null, verts)
-    acc.P = acc.N = acc.U = acc.T = acc.F = null
     const pd = packed.position
     geo.setAttribute("position", new THREE.BufferAttribute(pd, 3))
     geo.setAttribute("normal", new THREE.BufferAttribute(packed.normal, 3, true))
@@ -1968,23 +1906,9 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     if (material.transparent) mesh.renderOrder = material.side === THREE.BackSide ? 0 : 1
     group.add(mesh)
     drawCalls++
-    tris += verts / 3
+    tris += packed.index.length / 3
   }
-  stage(900)
-  let meshCount = anims.size, mi = 0
-  for (const at of atlases.values()) meshCount += at.accs.length
-  for (const { materials, accs } of atlases.values()) {
-    for (let i = 0; i < accs.length; i++) {
-      addMesh(accs[i], materials[i])
-      report(++mi / meshCount)
-      await breathe()
-    }
-  }
-  for (const { material, acc } of anims.values()) {
-    addMesh(acc, material)
-    report(++mi / meshCount)
-    await breathe()
-  }
+  for (const { acc, material } of packs) addMesh(acc.out, material)
   for (const bucket of lineBuckets.values()) {
     if (!bucket.positions.length) continue
     const geo = new THREE.BufferGeometry()

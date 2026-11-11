@@ -1,4 +1,4 @@
-import init, { greedyMesh as rsGreedyMesh, emitQuads as rsEmitQuads, computeLightVolume as rsLightVolume, memoryBytes as rsMemoryBytes, reinstantiate as rsReinstantiate } from "../../wasm/block_model_renderer.js"
+import init, { greedyMesh as rsGreedyMesh, computeLightVolume as rsLightVolume, memoryBytes as rsMemoryBytes, reinstantiate as rsReinstantiate } from "../../wasm/block_model_renderer.js"
 
 let ready = null
 let broken = false
@@ -57,15 +57,6 @@ export function greedyMeshFast(triples, gridCount) {
   if (broken || off() || !ready) return null
   try {
     return rsGreedyMesh(triples, gridCount)
-  } catch {
-    return recover()
-  }
-}
-
-export function emitQuadsFast(quads, faces, accCount) {
-  if (broken || off() || !ready) return null
-  try {
-    return rsEmitQuads(quads, faces, accCount)
   } catch {
     return recover()
   }
