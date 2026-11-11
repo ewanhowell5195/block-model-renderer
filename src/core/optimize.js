@@ -70,14 +70,38 @@ function mergeInstanceSource(geometry, material) {
   return { geometry: geo, material: materials.length > 1 ? materials : materials[0] }
 }
 
+const alphaSignature = m => [m.opacity, m.uniforms?.opacity?.value, m.blending, m.blendSrc, m.blendDst, m.blendEquation, m.transparent, m.depthWrite, m.alphaTest, m.defines ? Object.keys(m.defines).filter(k => k !== "FACE_ATTRS").sort().join(",") : ""].join("|")
+
+const atlasSigCache = new WeakMap()
 function atlasSignature(m) {
+  let hit = atlasSigCache.get(m)
+  if (hit === undefined) atlasSigCache.set(m, hit = computeAtlasSignature(m))
+  return hit
+}
+
+function computeAtlasSignature(m) {
   if (!m.uniforms) return matSignature(m)
   const u = m.uniforms
   return ["shader", m.side, u.d0?.value, u.d1?.value, u.ambient?.value,
     u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(","),
     u.blockLightTint?.value?.toArray().join(","), u.skyLightColor?.value?.toArray().join(","), u.ambientColor?.value?.toArray().join(","),
     u.skyLightFactor?.value, u.brightness?.value, u.shadePos?.value?.toArray().join(","), u.shadeNeg?.value?.toArray().join(","), u.shadeMat?.value?.elements?.join(","), u.worldShade?.value,
-    u.diffuseOn?.value, u.diffuse0?.value?.toArray().join(","), u.diffuse1?.value?.toArray().join(","), u.diffuseMix?.value?.toArray().join(",")].join("|")
+    u.diffuseOn?.value, u.diffuse0?.value?.toArray().join(","), u.diffuse1?.value?.toArray().join(","), u.diffuseMix?.value?.toArray().join(","), alphaSignature(m)].join("|")
+}
+
+const sigIds = new Map()
+function sigId(sig) {
+  let id = sigIds.get(sig)
+  if (id === undefined) sigIds.set(sig, id = sigIds.size)
+  return id
+}
+
+const sheetIds = new WeakMap()
+let sheetCount = 0
+function sheetId(sheet) {
+  let id = sheetIds.get(sheet)
+  if (id === undefined) sheetIds.set(sheet, id = ++sheetCount)
+  return id
 }
 
 const fdCache = new WeakMap()
@@ -117,9 +141,9 @@ function computeSignature(m) {
       u.light0?.value?.toArray().join(","), u.light1?.value?.toArray().join(","), u.emission?.value,
       u.blockLightTint?.value?.toArray().join(","), u.skyLightColor?.value?.toArray().join(","), u.ambientColor?.value?.toArray().join(","),
       u.skyLightFactor?.value, u.brightness?.value, u.shadePos?.value?.toArray().join(","), u.shadeNeg?.value?.toArray().join(","), u.aoEnabled?.value,
-      u.diffuseOn?.value, u.diffuse0?.value?.toArray().join(","), u.diffuse1?.value?.toArray().join(","), u.diffuseMix?.value?.toArray().join(",")].join("|")
+      u.diffuseOn?.value, u.diffuse0?.value?.toArray().join(","), u.diffuse1?.value?.toArray().join(","), u.diffuseMix?.value?.toArray().join(","), alphaSignature(m)].join("|")
   }
-  return [m.type, m.side].join("|")
+  return [m.type, m.side, alphaSignature(m)].join("|")
 }
 
 let _pixelCanvas = null, _pixelCtx = null
@@ -255,8 +279,9 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
     const a = idx.getX(grp.start) * 3
     if (col.array[a] !== 255 || col.array[a + 1] !== 255 || col.array[a + 2] !== 255) tint = [col.array[a], col.array[a + 1], col.array[a + 2]]
   }
-  const cellKey = `${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
-  return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig: atlasSignature(mat), tex, mat, srcHash, cull, cellKey, tint }
+  const sig = atlasSignature(mat)
+  const cellKey = `${sigId(sig)}:${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
+  return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig, tex, mat, srcHash, cull, cellKey, tint }
 }
 
 function extractFlats(geo, grp, mw, nm, tex, mat, cull) {
@@ -1173,7 +1198,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   const atlasGroups = new Map()
   const anims = new Map(), animTexId = new Map()
   const tdata = new Map()
-  const scanKey = (shared ? (shared.frozen ? "f" : "s") : "n") + "\0" + JSON.stringify(cutoff ?? null)
+  const frozenSheet = shared?.frozen ? shared.sheets.get("*") : null
+  const scanKey = (!shared ? "n" : !shared.frozen ? "s" : frozenSheet ? "f" + sheetId(frozenSheet) : "f") + "\0" + JSON.stringify(cutoff ?? null)
 
   function registerAnim(mat, tex) {
     const id = tex ?? mat
@@ -1181,8 +1207,10 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     const key = matSignature(mat) + "|a" + animTexId.get(id)
     if (!anims.has(key)) {
       const tr = mat.userData?.glint ? true : tex ? isTranslucent(tex, cutoff) : false
-      mat.transparent = tr
-      mat.depthWrite = !tr
+      if (tr && !mat.transparent) {
+        mat.transparent = true
+        mat.depthWrite = false
+      }
       anims.set(key, { material: mat, acc: makeAcc() })
     }
     return key
@@ -1377,7 +1405,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       }
     }
     for (const m of meshMap.values()) rec.meshes.push(m.rec)
-    ;(tmpl.__scanCache ??= new Map()).set(scanKey, rec)
+    ;((source ?? tmpl).__scanCache ??= new Map()).set(scanKey, rec)
     tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards, dynamics, lines })
     report(ti / scanOrder.length)
     await breathe()
@@ -1536,8 +1564,10 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
           m.defines = { ...m.defines, FACE_ATTRS: "" }
         }
         else m.map = pg.texture
-        m.transparent = grp.translucent
-        m.depthWrite = !grp.translucent
+        if (grp.translucent && !m.transparent) {
+          m.transparent = true
+          m.depthWrite = false
+        }
         created.materials.push(m)
         return m
       })
@@ -1572,8 +1602,10 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         m.defines = { ...m.defines, FACE_ATTRS: "" }
       }
       else m.map = a
-      m.transparent = grp.translucent
-      m.depthWrite = !grp.translucent
+      if (grp.translucent && !m.transparent) {
+        m.transparent = true
+        m.depthWrite = false
+      }
       created.materials.push(m)
       return m
     })
