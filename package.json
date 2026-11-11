@@ -18,7 +18,9 @@
         "types": "./types/web.d.ts",
         "default": "./dist/block-model-renderer.min.js"
       }
-    }
+    },
+    "./assets.zip": "./assets.zip",
+    "./package.json": "./package.json"
   },
   "files": [
     "index.js",

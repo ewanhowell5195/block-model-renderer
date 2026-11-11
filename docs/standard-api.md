@@ -186,7 +186,7 @@ await renderBlock({
 A few mechanics worth knowing:
 
 * **The `path` extension is corrected to match the actual output.** `path: "water.png"` with `animated: true` writes `water.webp` when the model animates (and `water.png` when it doesn't). Passing an explicit `format` disables this and the path is used as given
-* **Encoder defaults**: animated WebP is encoded lossless by default. Pass `animatedOutput` to override (e.g. `{ quality: 80, lossless: false }`)
+* **Encoder defaults**: animated WebP is encoded lossless at `effort: 2` by default. Pass `animatedOutput` to override (e.g. `{ quality: 80, lossless: false }`)
 * **Frame budget**: alongside `maxAnimationFrames`, the total decoded animation is capped at roughly 268 million pixels (`frames × width × height`), so very large `animatedWidth`/`animatedHeight` values reduce the frame cap. Loops are truncated to whole cycles of the longest texture where possible
 * Interpolated textures (`interpolate` in the mcmeta) render with sub-frame blending, up to 8 blend steps per frame, reduced automatically if the frame budget would overflow
 
@@ -363,7 +363,7 @@ await renderBlock({ id: "oak_log", assets: [file, basePackZipBytes] })
 
 The zip reader handles standard stored/deflate zips (what every normal tool produces) but not zip64, encryption, or exotic compression; use a virtual handler for those.
 
-The bundled block entity overrides are fetched once as a single `assets.zip` resolved relative to the module URL (works on jsDelivr and through most bundlers). If yours lives somewhere unusual, or your build inlines the library so the module URL is lost, point at it with [`configure({ assetsUrl })`](#browser-only-exports), e.g. `https://cdn.jsdelivr.net/npm/block-model-renderer/assets.zip`. A failed fetch logs a one-time warning and rendering continues without the bundled entries instead of erroring; the failure isn't cached, and changing `assetsUrl` refetches. Either applies to assets prepared afterwards, while already-prepared assets keep the entries they were built with.
+The bundled block entity overrides are fetched once as a single `assets.zip` resolved relative to the module URL (works on jsDelivr and through most bundlers). If yours lives somewhere unusual, or your build inlines the library so the module URL is lost, point at it with [`configure({ assetsUrl })`](#browser-only-exports), e.g. `https://cdn.jsdelivr.net/npm/block-model-renderer/assets.zip`, or the URL your bundler gives for the package's `block-model-renderer/assets.zip` export. A failed fetch logs a one-time warning and rendering continues without the bundled entries instead of erroring; the failure isn't cached, and changing `assetsUrl` refetches. Either applies to assets prepared afterwards, while already-prepared assets keep the entries they were built with.
 
 The zip's contents track new Minecraft versions, so loading the library from a major-pinned CDN URL (`block-model-renderer@3`) keeps the bundled packs current on their own; pinning an exact version freezes them where that release left them, and a hand-set `assetsUrl` wants the same treatment.
 
