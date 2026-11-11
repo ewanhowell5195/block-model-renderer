@@ -93,7 +93,7 @@ A released scene can't be raycast, packed with [`packScene`](#packing-scenes-acr
 
 ## Translucent sorting
 
-Translucent faces (water, stained glass, ice) blend, and blending is order dependent: they must draw far-to-near or things behind show through things in front. The render functions handle this automatically against their fixed camera. [`optimizeScene`](#scene-optimization) attaches a movement-gated sorter to its merged translucent meshes: whenever the live camera has moved `resortDistance` units (default 16, one block) since a mesh last sorted, its triangles re-sort far-to-near, budgeted to one mesh per frame.
+Translucent faces (water, stained glass, ice) blend, and blending is order dependent: they must draw far-to-near or things behind show through things in front. The render functions handle this automatically against their fixed camera. [`optimizeScene`](#scene-optimization) attaches a movement-gated sorter to its merged translucent meshes: whenever the live camera has moved `resortDistance` units (default 16, one block) since a mesh last sorted, its triangles re-sort far-to-near, budgeted to about 50,000 triangles a frame (always at least one mesh), longest-waiting mesh first.
 
 For your own live scenes (a model viewer orbiting a [`loadModel`](scenes.md#loadmodelscene-assets-model-args) group), attach the same behavior manually:
 
@@ -109,7 +109,7 @@ It traverses the object, hooks every mesh with translucent materials, and needs 
 
 ## Shared atlases
 
-A shared atlas is an atlas pool that outlives any one scene: pass it as `sharedAtlas` to [`createScene`](scenes.md#createsceneassets-blocks-args) / [`optimizeScene`](#scene-optimization) and every scene using the handle resolves its textures against the same pages instead of building per-scene atlases.
+A shared atlas is an atlas pool that outlives any one scene: pass it as `sharedAtlas` to [`createScene`](scenes.md#createsceneassets-blocks-args) / [`optimizeScene`](#scene-optimization) and every scene using the handle resolves its textures against the same pages instead of building per-scene atlases. Main-thread scenes on a stitched handle use its pages and stitch any missing texture into them.
 
 | Export | Description |
 |---|---|
@@ -126,7 +126,7 @@ For streaming-scale apps, scenes build in web workers and ship to the main threa
 | Export | Description |
 |---|---|
 | `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references |
-| `reviveScene(payload, { atlas?, release? })` | Rebuild a packed payload into `{ group, light, dispose() }` of live meshes. `light` is the scene's light volume as `{ uniforms }`, or `null`, which world lighting takes as `lighting: { light }`. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain meshes only), roughly a third of a big scene's heap |
+| `reviveScene(payload, { atlas?, release? })` | Rebuild a packed payload into `{ group, light, dispose() }` of live meshes. `light` is the scene's light volume as `{ uniforms }`, or `null`, which world lighting takes as `lighting: { light }`. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain opaque meshes only; translucent ones keep theirs for the sorter), roughly a third of a big scene's heap |
 
 The whole flow:
 
@@ -198,8 +198,8 @@ Running the standard render functions themselves across a worker pool, and keepi
 
 ## Wasm kernels
 
-Greedy meshing, greedy quad vertex emission and the scene light volume run as
-wasm compiled from `rust/`. The module ships as `block_model_renderer_bg.wasm`
+Greedy meshing and the scene light volume run as wasm compiled from `rust/`
+(sparse grids mesh with the JavaScript walk, which is faster there). The module ships as `block_model_renderer_bg.wasm`
 next to the bundle and is fetched on first use.
 
 `wasmStatus()` resolves `true` when the kernels are in use and `false` when the
