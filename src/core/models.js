@@ -3293,7 +3293,8 @@ function makeGlintMaterial(glintTexture, baseTexture, side) {
       #include <clipping_planes_pars_fragment>
       void main() {
         #include <clipping_planes_fragment>
-        if (vUv.x < 0.0 || vUv.x > 1.0 || vUv.y < 0.0 || vUv.y > 1.0) discard;
+        vec2 uvEdge = fwidth(vUv) * 0.5;
+        if (vUv.x < -uvEdge.x || vUv.x > 1.0 + uvEdge.x || vUv.y < -uvEdge.y || vUv.y > 1.0 + uvEdge.y) discard;
         if (texture2D(map, vUv).a < 0.5) discard;
         float ticks = GameTime * 24000.0;
         vec2 offset = vec2(-fract(ticks / 550.0), fract(ticks / 150.0));
@@ -3302,6 +3303,7 @@ function makeGlintMaterial(glintTexture, baseTexture, side) {
       }
     `,
     clipping: true,
+    extensions: { derivatives: true },
     transparent: true,
     depthWrite: false,
     blending: THREE.CustomBlending,
@@ -3693,7 +3695,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         #else
           vec2 texUv = vUv;
         #endif
-        if (texUv.x < 0.0 || texUv.x > 1.0 || texUv.y < 0.0 || texUv.y > 1.0) discard;
+        vec2 uvEdge = fwidth(texUv) * 0.5;
+        if (texUv.x < -uvEdge.x || texUv.x > 1.0 + uvEdge.x || texUv.y < -uvEdge.y || texUv.y > 1.0 + uvEdge.y) discard;
         vec4 texColor = texture2D(map, texUv);
         #ifdef CUTOUT
           if (texColor.a < 0.1) discard;
@@ -3829,6 +3832,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     depthWrite: !blend || translucent === true,
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     clipping: true,
+    extensions: { derivatives: true }
   })
   return material
 }
