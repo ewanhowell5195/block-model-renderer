@@ -512,6 +512,7 @@ export async function createScene(assets, blocks, args = {}) {
   // two integers rather than built as a string. -1 is "nothing there" and -2 is
   // "occluded from outside", which sit just past the palette
   const hoodPal = new Int32Array(27), fluidMemo = new Map()
+  const palHidden = Uint8Array.from(palette, e => !args.technical && TECHNICAL_BLOCKS.has(e.id) ? 1 : 0)
 
   const cullCache = (assets.cache.cullFaces ??= new Map())
   const cullMemo = new Map()
@@ -554,7 +555,7 @@ export async function createScene(assets, blocks, args = {}) {
     if (cellPi < 0) continue
     const entry = palette[cellPi]
 
-    if (cellCtx[c] || (!args.technical && TECHNICAL_BLOCKS.has(entry.id))) continue
+    if (cellCtx[c] || palHidden[cellPi]) continue
 
     const px = cellX[c], py = cellY[c], pz = cellZ[c]
     const bi = cellIdx ? CI(px, py, pz) : -1
@@ -632,7 +633,7 @@ export async function createScene(assets, blocks, args = {}) {
       cellCull[c] = ci
     }
 
-    let fh = null, fk = ""
+    let fh = null, fk = "", shape = null
     if (entry.fluid) {
       if (bi >= 0) {
         for (let k = 0; k < 27; k++) {
@@ -647,18 +648,24 @@ export async function createScene(assets, blocks, args = {}) {
       let h = 0x811c9dc5
       for (let k = 0; k < 27; k++) h = Math.imul(h ^ hoodPal[k], 16777619)
       const bucket = fluidMemo.get(h)
-      const hit = bucket?.find(e => e[0].every((v, k) => v === hoodPal[k]))
-      if (hit) [, fh, fk] = hit
-      else {
-        const key = Int32Array.from(hoodPal)
-        fh = await fluidHeights(assets, entry.fluid, ([x, y, z]) => {
-          const p = key[(y + 1) * 9 + (z + 1) * 3 + (x + 1)]
+      if (bucket) for (let b = 0; b < bucket.length && !shape; b++) {
+        const hood = bucket[b].hood
+        let k = 0
+        while (k < 27 && hood[k] === hoodPal[k]) k++
+        if (k === 27) shape = bucket[b]
+      }
+      if (!shape) {
+        const hood = Int32Array.from(hoodPal)
+        const heights = await fluidHeights(assets, entry.fluid, ([x, y, z]) => {
+          const p = hood[(y + 1) * 9 + (z + 1) * 3 + (x + 1)]
           return p >= 0 ? palette[p].flat : null
         })
-        fk = fh ? fluidKey(fh) : ""
-        if (bucket) bucket.push([key, fh, fk])
-        else fluidMemo.set(h, [[key, fh, fk]])
+        shape = { hood, heights, key: heights ? fluidKey(heights) : "", template: -1 }
+        if (bucket) bucket.push(shape)
+        else fluidMemo.set(h, [shape])
       }
+      fh = shape.heights
+      fk = shape.key
     }
 
     const pick = entry.rolls ? rollPicks(entry.rolls, px + origin[0], py + origin[1], pz + origin[2]) : null
@@ -670,17 +677,22 @@ export async function createScene(assets, blocks, args = {}) {
         if (k !== null) vk = vk === null ? k : vk + "\u0001" + k
       }
     }
-    const packed = fh === null && pick !== null ? pick * palette.length + cellPi : -1
-    const templateKey = vk !== null
-      ? cellPi + "|" + (pick ?? "") + "|" + fk + "|" + vk
-      : pick === null && fh === null
-        ? cellPi
-        : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + fk
-    let ti = templateIds.get(templateKey)
-    if (ti === undefined) {
-      templateIds.set(templateKey, ti = templateKeys.push(templateKey) - 1)
-      block ??= { id: entry.id, properties: entry.properties ?? {}, pos: [px + origin[0], py + origin[1], pz + origin[2]], neighbors: neighborsAt(px, py, pz) }
-      templateSpecs.set(templateKey, { entry, palette: cellPi, pick, pos: pick === null ? null : [px + origin[0], py + origin[1], pz + origin[2]], fh, block, vk })
+    const shaped = shape !== null && pick === null && vk === null
+    let ti = shaped ? shape.template : -1
+    if (ti < 0) {
+      const packed = fh === null && pick !== null ? pick * palette.length + cellPi : -1
+      const templateKey = vk !== null
+        ? cellPi + "|" + (pick ?? "") + "|" + fk + "|" + vk
+        : pick === null && fh === null
+          ? cellPi
+          : packed >= 0 && packed <= Number.MAX_SAFE_INTEGER ? -1 - packed : cellPi + "|" + (pick ?? "") + "|" + fk
+      ti = templateIds.get(templateKey) ?? -1
+      if (ti < 0) {
+        templateIds.set(templateKey, ti = templateKeys.push(templateKey) - 1)
+        block ??= { id: entry.id, properties: entry.properties ?? {}, pos: [px + origin[0], py + origin[1], pz + origin[2]], neighbors: neighborsAt(px, py, pz) }
+        templateSpecs.set(templateKey, { entry, palette: cellPi, pick, pos: pick === null ? null : [px + origin[0], py + origin[1], pz + origin[2]], fh, block, vk })
+      }
+      if (shaped) shape.template = ti
     }
     cellTmpl[c] = ti
 
@@ -768,13 +780,13 @@ export async function createScene(assets, blocks, args = {}) {
         const entry = { group: tmpl, users: 1 }
         tcache.set(cacheKey, entry)
         usedEntries.push(entry)
-        sweepTemplateCache(tcache)
       }
     }
     report(++built, templateSpecs.size)
     await breathe()
     if (shouldCancel?.()) return null
   }
+  sweepTemplateCache(tcache)
   report(1, 1)
   if (daytimeUniform) group.userData.daytime = daytimeUniform
   if (fog) group.userData.fog = fog
