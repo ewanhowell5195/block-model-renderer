@@ -950,6 +950,31 @@ export interface SharedAtlas {
   requestSpace?: (items: SharedTextureItem[]) => Promise<SharedTextureResult>
   /** Resolve a page's texture. This is what revived scenes reference. */
   texture(sig: string, page: number): THREE.Texture | null
+  /**
+   * Stitch every sprite the packs' atlas definitions list into the atlas up front,
+   * the way the game builds its block atlas at startup. After this, scene builds
+   * are pure rect lookups and every scene shares the exact same coordinates.
+   *
+   * @returns The same handle, or `null` if `shouldCancel` aborted it.
+   */
+  stitch(assets: AssetsInput, opts?: StitchSharedAtlasOptions): Promise<SharedAtlas | null>
+  /** The atlas's coordinate table with no pixels, structured-cloneable. Send it to workers once. */
+  exportLayout(): SharedAtlasLayout
+  /**
+   * Turn a fresh handle into a pixel-less adopter of an exported layout: scenes
+   * built against it bake UVs to the fixed coordinates and {@link packScene} emits
+   * page references only. Adopters never stitch locally.
+   *
+   * @returns The same handle.
+   */
+  adoptLayout(layout: SharedAtlasLayout): SharedAtlas
+  /**
+   * Add runtime textures (sign text, patterned banners, map art) to a live atlas.
+   * Already-present keys dedup to the existing rect.
+   *
+   * @returns The rects and page count, to merge into worker layouts.
+   */
+  insert(items: SharedTextureItem[]): Promise<SharedTextureResult>
   /** Free the pages and stop the animator. */
   dispose(): void
 }
@@ -969,7 +994,7 @@ export interface SharedAtlasLayout {
   rects: unknown
 }
 
-/** A runtime texture handed to {@link insertSharedTextures}. */
+/** A runtime texture handed to a shared atlas's `insert`. */
 export interface SharedTextureItem {
   /** Your stable content hash. Already-present keys dedup to the existing rect. */
   key: string
@@ -1672,44 +1697,6 @@ export function createTranslucentSorter(object: THREE.Object3D, options?: { reso
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#shared-atlases
  */
 export function createSharedAtlas(options?: CreateSharedAtlasOptions): SharedAtlas
-
-/**
- * Stitch every sprite the packs' atlas definitions list into the atlas up front,
- * the way the game builds its block atlas at startup. After this, scene builds
- * are pure rect lookups and every scene shares the exact same coordinates.
- *
- * @returns The same handle, or `null` if `shouldCancel` aborted it.
- *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#shared-atlases
- */
-export function stitchSharedAtlas(shared: SharedAtlas, assets: AssetsInput, opts?: StitchSharedAtlasOptions): Promise<SharedAtlas | null>
-
-/**
- * The atlas's coordinate table with no pixels, structured-cloneable. Send it to
- * workers once.
- *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#shared-atlases
- */
-export function exportSharedAtlasLayout(shared: SharedAtlas): SharedAtlasLayout
-
-/**
- * Turn a fresh handle into a pixel-less adopter of an exported layout: scenes
- * built against it bake UVs to the fixed coordinates and {@link packScene} emits
- * page references only. Adopters never stitch locally.
- *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#shared-atlases
- */
-export function adoptSharedAtlasLayout(shared: SharedAtlas, layout: SharedAtlasLayout): SharedAtlas
-
-/**
- * Add runtime textures (sign text, patterned banners, map art) to a live atlas.
- * Already-present keys dedup to the existing rect.
- *
- * @returns The rects and page count, to merge into worker layouts.
- *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#shared-atlases
- */
-export function insertSharedTextures(shared: SharedAtlas, items: SharedTextureItem[]): Promise<SharedTextureResult>
 
 /**
  * Pack a built scene's group into transferable data for `postMessage`. Textures

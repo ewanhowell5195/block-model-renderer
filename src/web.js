@@ -928,13 +928,10 @@ function needsThree(name) {
 
 export const warmShaders = wrap("warmShaders")
 export const optimizeScene = wrap("optimizeScene")
-export const stitchSharedAtlas = wrap("stitchSharedAtlas")
-export const insertSharedTextures = wrap("insertSharedTextures")
 export const packScene = wrap("packScene")
 export const renderMapColors = wrap("renderMapColors")
 export const createSharedAtlas = needsThree("createSharedAtlas")
-export const adoptSharedAtlasLayout = needsThree("adoptSharedAtlasLayout")
 export const reviveScene = needsThree("reviveScene")
 export const createFog = needsThree("createFog")
 
-export { wasmStatus, COLORS, isWaterloggable, isWaterlogged, getLightEmission, isFlatModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, exportSharedAtlasLayout, createTranslucentSorter, poseSpecial, resumeSpecial, rebindUniforms, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, disposeMapArt, mapIdOf, MAP_COLORS, collectAnimated, buildSchedules, evaluateAnimation, setAnimationRenderer } from "./core.js"
+export { wasmStatus, COLORS, isWaterloggable, isWaterlogged, getLightEmission, isFlatModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, createTranslucentSorter, poseSpecial, resumeSpecial, rebindUniforms, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, disposeMapArt, mapIdOf, MAP_COLORS, collectAnimated, buildSchedules, evaluateAnimation, setAnimationRenderer } from "./core.js"

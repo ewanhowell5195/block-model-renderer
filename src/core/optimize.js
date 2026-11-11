@@ -1011,7 +1011,7 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
   }
 }
 
-export async function stitchSharedAtlas(shared, assets, opts = {}) {
+async function stitchSharedAtlas(shared, assets, opts = {}) {
   const sprites = await listAtlasSprites(assets, opts.atlases ?? ["blocks", "items"])
   let sheet = shared.sheets.get("*")
   if (!sheet) shared.sheets.set("*", sheet = { pages: [], rects: new Map() })
@@ -1055,7 +1055,7 @@ export async function stitchSharedAtlas(shared, assets, opts = {}) {
   return shared
 }
 
-export function exportSharedAtlasLayout(shared) {
+function exportSharedAtlasLayout(shared) {
   const sheet = shared.sheets.get("*")
   return {
     size: shared.size,
@@ -1064,7 +1064,7 @@ export function exportSharedAtlasLayout(shared) {
   }
 }
 
-export function adoptSharedAtlasLayout(shared, layout) {
+function adoptSharedAtlasLayout(shared, layout) {
   const pages = []
   for (let i = 0; i < layout.pages; i++) {
     pages.push({ canvas: null, ctx: null, texture: new THREE.Texture(), x: 0, y: layout.size, rowH: 0, index: i })
@@ -1075,7 +1075,7 @@ export function adoptSharedAtlasLayout(shared, layout) {
   return shared
 }
 
-export async function insertSharedTextures(shared, items) {
+async function insertSharedTextures(shared, items) {
   let sheet = shared.sheets.get("*")
   if (!sheet) shared.sheets.set("*", sheet = { pages: [], rects: new Map() })
   const rects = []
@@ -1165,6 +1165,18 @@ export function createSharedAtlas(opts = {}) {
     animation: null,
     texture(sig, page) {
       return this.sheets.get(sig)?.pages[page]?.texture ?? null
+    },
+    stitch(assets, opts) {
+      return stitchSharedAtlas(this, assets, opts)
+    },
+    exportLayout() {
+      return exportSharedAtlasLayout(this)
+    },
+    adoptLayout(layout) {
+      return adoptSharedAtlasLayout(this, layout)
+    },
+    insert(items) {
+      return insertSharedTextures(this, items)
     },
     dispose() {
       this.animation?.dispose()

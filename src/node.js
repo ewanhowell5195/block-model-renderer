@@ -325,7 +325,7 @@ export {
   makeModelScene, renderModelScene, createSky, createClouds, createFog, rebindUniforms,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, warmShaders, isFlatModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,
-  optimizeScene, createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures, createTranslucentSorter, poseSpecial, resumeSpecial,
+  optimizeScene, createSharedAtlas, createTranslucentSorter, poseSpecial, resumeSpecial,
   packScene, reviveScene, collectAnimated, buildSchedules, evaluateAnimation, setAnimationRenderer,
   zipAssets, zipAssetsFromSlices, readTexture,
   renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS, resolveProfile

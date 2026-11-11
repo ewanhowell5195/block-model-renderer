@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { createScene, prepareAssets, createSharedAtlas, packScene, reviveScene, createTranslucentSorter } from "../src/node.js"
+import * as lib from "../src/node.js"
+import { createScene, prepareAssets, createSharedAtlas, packScene, reviveScene, createTranslucentSorter, readTexture } from "../src/node.js"
 import { THREE } from "../src/core/platform.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
@@ -58,6 +59,34 @@ test("a revived scene keeps the faces it repeats in the shader", async () => {
   tile.dispose()
   handle.dispose()
   shared.dispose()
+})
+
+test("a shared atlas stitches, shares its layout and takes textures through its own methods", async () => {
+  const shared = createSharedAtlas()
+  assert.equal(await shared.stitch(assets, { atlases: ["blocks"] }), shared)
+  const layout = shared.exportLayout()
+  assert.equal(layout.size, shared.size)
+  assert.ok(layout.pages >= 1)
+  assert.ok(layout.rects.length > 500)
+
+  const adopter = createSharedAtlas()
+  assert.equal(adopter.adoptLayout(structuredClone(layout)), adopter)
+  assert.equal(adopter.frozen, true)
+  assert.deepEqual(adopter.exportLayout(), layout)
+
+  const { image } = await readTexture(assets, "assets/minecraft/textures/item/apple.png")
+  const added = await shared.insert([{ key: "test:apple", image }])
+  assert.equal(added.pages, shared.exportLayout().pages)
+  assert.equal(added.rects.length, 1)
+  assert.equal(added.rects[0][0], "test:apple")
+  assert.equal(added.rects[0][1].w, 16)
+  assert.equal(shared.exportLayout().rects.length, layout.rects.length + 1)
+  assert.deepEqual((await shared.insert([{ key: "test:apple", image }])).rects, added.rects)
+
+  assert.equal(await createSharedAtlas().stitch(assets, { shouldCancel: () => true }), null)
+  for (const name of ["stitchSharedAtlas", "exportSharedAtlasLayout", "adoptSharedAtlasLayout", "insertSharedTextures"]) assert.equal(name in lib, false, name)
+  shared.dispose()
+  adopter.dispose()
 })
 
 test("reviveScene refuses the old atlas option", () => {
