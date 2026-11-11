@@ -391,7 +391,7 @@ Setting [`configure({ assetsUrl: false })`](#browser-only-exports) skips the bun
 
 | Export | Description |
 |---|---|
-| `configure({ THREE, assetsUrl, clockStart })` | Optional overrides, call before first use (`three` is accepted too). See [Providing three.js](#providing-threejs-browser), [Asset sources](#in-the-browser), and [Syncing the animation clock](advanced-api.md#syncing-the-animation-clock) |
+| `configure({ THREE, assetsUrl, clockStart, webgl2 })` | Optional overrides, call before first use (`three` is accepted too). See [Providing three.js](#providing-threejs-browser), [Asset sources](#in-the-browser), and [Syncing the animation clock](advanced-api.md#syncing-the-animation-clock). `webgl2: false` builds scenes a WebGL1 renderer can draw |
 | `THREE` | The instance [`getThree()`](#getthree) resolves, as a live binding (populated after first use) |
 | `pauseAnimations()` / `resumeAnimations(clockStart?)` | Pause and resume the page-global animation clock. See [Animated renders](#animated-renders-browser). Resuming with a `clockStart` rebases onto that absolute epoch instead of the locally measured pause, for [multi-context sync](advanced-api.md#syncing-the-animation-clock) |
 | `createAnimator(root)` | Manual animation control for [`loadModel`](scenes.md#loadmodelassets-model-args) scenes. See [Animation in the browser](scenes.md#animation-browser) |

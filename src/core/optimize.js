@@ -2168,7 +2168,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
   for (const d of dynamicInstances) group.add(d.holder)
   const _dynM = new THREE.Matrix4(), _dynInv = new THREE.Matrix4()
-  const canBatch = opts.batchDynamics !== false && parseInt(THREE.REVISION) >= 159 && typeof THREE.BatchedMesh === "function" && platform.batchedMesh !== false
+  const canBatch = opts.batchDynamics !== false && parseInt(THREE.REVISION) >= 159 && typeof THREE.BatchedMesh === "function" && platform.batchedMesh !== false && platform.webgl2?.() !== false
   const batchGroups = new Map()
   for (const bucket of dynBuckets.values()) {
     const entries = bucket.entries

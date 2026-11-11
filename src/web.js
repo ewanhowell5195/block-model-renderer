@@ -535,6 +535,7 @@ function makePlatform() {
     },
 
     webgl2() {
+      if (config.webgl2 === false) return false
       if (hasWebGL2 !== null) return hasWebGL2
       try {
         const gl = new OffscreenCanvas(1, 1).getContext("webgl2")

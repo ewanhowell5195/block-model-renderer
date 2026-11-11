@@ -384,6 +384,12 @@ export interface ConfigureOptions {
    * the primary context and hand that same number to every other one.
    */
   clockStart?: number
+  /**
+   * `false` builds scenes for a WebGL1 renderer in a browser that has WebGL2:
+   * light volumes and variant lookups use the layouts WebGL1 can upload, and
+   * dynamic parts use `InstancedMesh`. Applies to scenes built afterwards.
+   */
+  webgl2?: false
 }
 
 /**
