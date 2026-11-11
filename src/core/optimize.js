@@ -73,9 +73,14 @@ function mergeInstanceSource(geometry, material) {
 const alphaSignature = m => [m.opacity, m.uniforms?.opacity?.value, m.blending, m.blendSrc, m.blendDst, m.blendEquation, m.transparent, m.depthWrite, m.alphaTest, m.defines ? Object.keys(m.defines).filter(k => k !== "FACE_ATTRS").sort().join(",") : ""].join("|")
 
 const atlasSigCache = new WeakMap()
-function atlasSignature(m) {
+const atlasSigTable = new Map()
+function atlasSigs(m) {
   let hit = atlasSigCache.get(m)
-  if (hit === undefined) atlasSigCache.set(m, hit = computeAtlasSignature(m))
+  if (hit !== undefined) return hit
+  const sig = computeAtlasSignature(m)
+  hit = atlasSigTable.get(sig)
+  if (!hit) atlasSigTable.set(sig, hit = { id: atlasSigTable.size, sig, opaque: sig + "|O", translucent: sig + "|T" })
+  atlasSigCache.set(m, hit)
   return hit
 }
 
@@ -87,13 +92,6 @@ function computeAtlasSignature(m) {
     u.blockLightTint?.value?.toArray().join(","), u.skyLightColor?.value?.toArray().join(","), u.ambientColor?.value?.toArray().join(","),
     u.skyLightFactor?.value, u.brightness?.value, u.shadePos?.value?.toArray().join(","), u.shadeNeg?.value?.toArray().join(","), u.shadeMat?.value?.elements?.join(","), u.worldShade?.value,
     u.diffuseOn?.value, u.diffuse0?.value?.toArray().join(","), u.diffuse1?.value?.toArray().join(","), u.diffuseMix?.value?.toArray().join(","), alphaSignature(m)].join("|")
-}
-
-const sigIds = new Map()
-function sigId(sig) {
-  let id = sigIds.get(sig)
-  if (id === undefined) sigIds.set(sig, id = sigIds.size)
-  return id
 }
 
 const sheetIds = new WeakMap()
@@ -279,8 +277,8 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
     const a = idx.getX(grp.start) * 3
     if (col.array[a] !== 255 || col.array[a + 1] !== 255 || col.array[a + 2] !== 255) tint = [col.array[a], col.array[a + 1], col.array[a + 2]]
   }
-  const sig = atlasSignature(mat)
-  const cellKey = `${sigId(sig)}:${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
+  const { id: sigId, sig } = atlasSigs(mat)
+  const cellKey = `${sigId}:${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${wa.toFixed(2)}x${wb.toFixed(2)}:${orient}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
   return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig, tex, mat, srcHash, cull, cellKey, tint }
 }
 
@@ -1177,8 +1175,8 @@ export async function optimizeScene(placements, opts = {}) {
 export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup, pos: P, culls, ci: placeCull }, opts = {}) {
   await wasmReady()
   const shared = opts.sharedAtlas ?? null
-  const maxAtlas = opts.maxAtlas ?? detectMaxAtlas()
-  const maxTile = Math.max(64, maxAtlas >> 5)
+  let maxAtlasSize = opts.maxAtlas
+  const maxAtlas = () => maxAtlasSize ??= detectMaxAtlas()
   const cutoff = opts.translucency
   const onProgress = opts.onProgress
   const shouldCancel = opts.shouldCancel
@@ -1328,7 +1326,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     }
     function toAtlas(mat, tex, face) {
       const translucent = isTranslucent(tex, cutoff)
-      const sig = atlasSignature(mat) + (translucent ? "|T" : "|O")
+      const sig = translucent ? atlasSigs(mat).translucent : atlasSigs(mat).opaque
       registerAtlas(mat, tex, sig, translucent)
       return { ...face, sig, fd: faceDataOf(mat), translucent }
     }
@@ -1490,6 +1488,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
 
   const greedyQuads = []
   const tiles = new Map()
+  const maxTile = grids.length ? Math.max(64, maxAtlas() >> 5) : 0
   stage(2500)
   let gi = 0
   for (const grid of grids) {
@@ -1575,7 +1574,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       atlases.set(sig, { rects, sizes, materials, accs: sheet.pages.map(makeAcc) })
       continue
     }
-    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas, breathe, !!opts.release)
+    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas(), breathe, !!opts.release)
     const regionLists = ats.map(() => [])
     const claimed = new Set()
     for (const t of grp.textures) {
