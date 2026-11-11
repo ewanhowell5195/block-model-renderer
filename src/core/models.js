@@ -2442,7 +2442,7 @@ export async function loadModel(scene, assets, model, args) {
   async function loadModelTexture(id, tint, source = {}) {
     const direct = source.image ?? (id != null ? model.texture_images?.[id] : undefined)
     const atlas = shouldIgnoreAtlases(model) ? "" : (model.type ?? "")
-    const srgb = lighting === "scene" || lighting === "off" ? "\0srgb" : ""
+    const srgb = lighting === "scene" ? "\0srgb" : ""
     const cacheKey = `${id ?? ""}\0${tint ?? ""}\0${atlas}${srgb}${source.palette ? `\0${source.palette}` : ""}`
     if (!direct && textureCache.has(cacheKey)) return textureCache.get(cacheKey)
 
@@ -2850,7 +2850,13 @@ export async function loadModel(scene, assets, model, args) {
       for (let i = 0; i < 6; i++) {
         const t = faceTints[i]
         if (t == null) continue
-        const [r, g, b] = tintRGB(t)
+        let [r, g, b] = tintRGB(t)
+        if (lighting === "scene") {
+          const lin = new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace)
+          r = Math.round(lin.r * 255)
+          g = Math.round(lin.g * 255)
+          b = Math.round(lin.b * 255)
+        }
         for (let v = i * 4; v < i * 4 + 4 && v * 3 + 2 < tintAttr.length; v++) {
           tintAttr[v * 3] = r
           tintAttr[v * 3 + 1] = g
@@ -3392,29 +3398,24 @@ function unitVector(v, flipY = false) {
 async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true, opacity = 1, translucent, uvOffset = null, shading = null) {
   const levelLights = shading?.[lightConfig?.nether ? "nether" : "level"]
   const gui = shading ? { light0: unitVector(shading.ui.lights[0], true), light1: unitVector(shading.ui.lights[1], true), d0: shading.ui.power, d1: shading.ui.power, ambient: shading.ui.ambient } : { light0: new THREE.Vector3(...(lightConfig?.light0 ?? [0, 0, 1])), light1: new THREE.Vector3(...(lightConfig?.light1 ?? [0, 1, 0])), d0: lightConfig?.d0 ?? 0.6, d1: lightConfig?.d1 ?? 0.6, ambient: lightConfig?.ambient ?? 0.4 }
-  if (uvOffset && (lighting === "scene" || lighting === "off")) {
+  if (uvOffset && lighting === "scene") {
     texture = texture.clone()
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
     texture.offset = uvOffset
     texture.needsUpdate = true
   }
   const blend = (translucent ?? texture?.userData?.translucent === true) || opacity < 1
-  const forced = opacity < 1 || translucent === true
-  const cutoff = translucent === false ? 0.1 : forced ? 0.01 : 0.5
-  if ((lighting === "scene" || lighting === "off") && shader?.type !== "end_portal") {
+  if (lighting === "scene" && shader?.type !== "end_portal") {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.needsUpdate = true
     const side = doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide
-    if (lighting === "scene") {
-      const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: cutoff, side, vertexColors: true, opacity, transparent: forced })
-      if (emission > 0) {
-        mat.emissive = new THREE.Color(0xffffff)
-        mat.emissiveMap = texture
-        mat.emissiveIntensity = emission / 15
-      }
-      return mat
+    const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: translucent === false ? 0.1 : 0.01, side, vertexColors: true, opacity, transparent: blend, depthWrite: !blend || translucent === true })
+    if (emission > 0) {
+      mat.emissive = new THREE.Color(0xffffff)
+      mat.emissiveMap = texture
+      mat.emissiveIntensity = emission / 15
     }
-    return new THREE.MeshBasicMaterial({ map: texture, alphaTest: cutoff, side, vertexColors: true, opacity, transparent: forced })
+    return mat
   }
   if (shader?.type === "end_portal") {
     const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
@@ -3544,7 +3545,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       diffuse0: { value: levelLights ? unitVector(levelLights.lights[0]) : new THREE.Vector3() },
       diffuse1: { value: levelLights ? unitVector(levelLights.lights[1]) : new THREE.Vector3() },
       diffuseMix: { value: new THREE.Vector2(levelLights?.power ?? 0, levelLights?.ambient ?? 0) },
-      shadeEnabled: { value: shadeEnabled !== false },
+      shadeEnabled: { value: shadeEnabled !== false && lighting !== "off" },
       shadeOverride: { value: new THREE.Vector3(...(SHADE_DIR_VECS[shadeDir] ?? [0, 0, 0])) },
       worldShade: { value: lighting === "world" },
       ...(lightConfig?.switches ?? makeLightSwitches()),

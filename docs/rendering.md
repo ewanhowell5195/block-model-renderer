@@ -40,8 +40,8 @@ The `lighting` option picks how faces are shaded:
 |---|---|---|
 | `"item"` (default) | custom shader | The built-in Minecraft item shading, picking the flat (gui) or 3d (inventory) light config from the model's `gui_light` like vanilla. Lights are world-fixed, so faces stay consistently lit as the camera orbits. Matches the snapshot renderers |
 | `"world"`, or an object | custom shader | Minecraft's in-world lighting: the game's lightmap driven by dimension, time of day, and brightness, plus its flat per-face shade constants. The right mode for blocks placed in world orientation, like structures and dioramas. An object configures it (below); the bare string is world mode with every default |
-| `"scene"` | `MeshStandardMaterial` | Reacts to lights you add to the scene (`roughness: 1`, `metalness: 0`, cutout `alphaTest`, sRGB texture). Renders black until you add lights |
-| `"off"` | `MeshBasicMaterial` | Unlit and flat: the texture at full brightness, ignoring all lighting |
+| `"scene"` | `MeshStandardMaterial` | Reacts to lights you add to the scene (`roughness: 1`, `metalness: 0`, sRGB texture, translucent textures blended). Renders black until you add lights |
+| `"off"` | custom shader | Unlit and flat: the tinted texture at full brightness, ignoring all lighting |
 
 Tints apply as per-vertex colors multiplied with the texture in the shader, like the game, in every mode; tinted and untinted faces of the same texture share one material and one atlas entry. The end portal keeps its own emissive shader.
 
