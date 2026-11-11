@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { createScene, renderBlock, ModelLoader } from "../src/node.js"
+import { createScene, renderBlock, getCullFaces, prepareAssets, ModelLoader } from "../src/node.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
 const jar = await loadMojangJar()
@@ -60,4 +60,23 @@ test("renderBlock passes its neighbors function through to loaders", async () =>
   } finally {
     ModelLoader.remove(loader)
   }
+})
+
+test("getCullFaces takes a neighbors function as well as the six faces", async () => {
+  const assets = await prepareAssets([jar], { cache: true })
+  const faces = { up: { id: "stone" }, down: { id: "oak_slab", type: "top" }, north: { id: "glass" }, east: { id: "oak_stairs", facing: "west" }, west: { id: "oak_stairs", facing: "west" } }
+  const offsets = { up: [0, 1, 0], down: [0, -1, 0], north: [0, 0, -1], south: [0, 0, 1], west: [-1, 0, 0], east: [1, 0, 0] }
+  const asked = []
+  function lookup(offset) {
+    asked.push(offset.join())
+    return faces[Object.keys(offsets).find(dir => offsets[dir].join() === offset.join())] ?? null
+  }
+  for (const [id, properties] of [["stone", undefined], ["oak_stairs", { facing: "east" }], ["glass", undefined]]) {
+    const fromFaces = await getCullFaces({ id, properties, neighbors: faces, assets })
+    const fromLookup = await getCullFaces({ id, properties, neighbors: lookup, assets })
+    assert.deepEqual(fromLookup, fromFaces, id)
+    assert.ok(fromFaces.size > 0, id)
+  }
+  assert.deepEqual(new Set(asked), new Set(Object.values(offsets).map(offset => offset.join())))
+  assert.deepEqual(await getCullFaces({ id: "stone", neighbors: () => null, assets }), new Set())
 })

@@ -62,6 +62,7 @@ export async function getCullFaces({ id, properties, neighbors, assets, version,
   if (!id) throw new Error("getCullFaces requires the id option")
   if (AIR_BLOCKS.test(id)) return new Set()
   if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
+  if (typeof neighbors === "function") neighbors = faceNeighbors(neighbors)
   assets = scopedCache(await prepareAssets(assets))
   defaults ??= assets.defaults
   const rules = await blockRules(assets)

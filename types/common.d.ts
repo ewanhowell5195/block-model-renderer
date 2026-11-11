@@ -157,8 +157,8 @@ export type NeighborBlock = string | boolean | ({ id?: string, occludes?: boolea
 export type Neighbors = Partial<Record<Direction, NeighborBlock>>
 
 /**
- * A lookup for the blocks around one cell, as the render functions, `loadModel`
- * and {@link fluidHeights} take: called with an `[x, y, z]` offset from the
+ * A lookup for the blocks around one cell, as the render functions, `loadModel`,
+ * {@link getCullFaces} and {@link fluidHeights} take: called with an `[x, y, z]` offset from the
  * block, it returns the block there, or `null` for air.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/culling.md#culling-hidden-faces
@@ -810,8 +810,8 @@ export interface GetCullFacesArgs {
   assets: AssetsInput
   /** The block's blockstate property values. */
   properties?: BlockProperties
-  /** The surrounding blocks. */
-  neighbors?: Neighbors
+  /** The surrounding blocks: one entry per face, or a lookup that is asked for the six face neighbors. */
+  neighbors?: Neighbors | NeighborLookup
 }
 
 export interface FullyOccludesArgs {
