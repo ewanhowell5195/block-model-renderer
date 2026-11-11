@@ -919,4 +919,21 @@ export function createAnimator(root) {
   }
 }
 
-export { wasmStatus, COLORS, isWaterloggable, isWaterlogged, getLightEmission, isFlatModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, optimizeScene, createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures, packScene, reviveScene, sortTranslucent, poseSpecial, resumeSpecial, createFog, rebindUniforms, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS, collectAnimated, buildSchedules, evaluateAnimation, setAnimationRenderer } from "./core.js"
+function needsThree(name) {
+  return (...args) => {
+    if (!THREE) throw new Error(`${name} needs three.js loaded: await getThree() first, or any async call such as prepareAssets`)
+    return core[name](...args)
+  }
+}
+
+export const optimizeScene = wrap("optimizeScene")
+export const stitchSharedAtlas = wrap("stitchSharedAtlas")
+export const insertSharedTextures = wrap("insertSharedTextures")
+export const packScene = wrap("packScene")
+export const renderMapColors = wrap("renderMapColors")
+export const createSharedAtlas = needsThree("createSharedAtlas")
+export const adoptSharedAtlasLayout = needsThree("adoptSharedAtlasLayout")
+export const reviveScene = needsThree("reviveScene")
+export const createFog = needsThree("createFog")
+
+export { wasmStatus, COLORS, isWaterloggable, isWaterlogged, getLightEmission, isFlatModel, disposeCache, fluidHeights, fluidTypeOf, ModelLoader, exportSharedAtlasLayout, sortTranslucent, poseSpecial, resumeSpecial, rebindUniforms, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, disposeMapArt, mapIdOf, MAP_COLORS, collectAnimated, buildSchedules, evaluateAnimation, setAnimationRenderer } from "./core.js"
