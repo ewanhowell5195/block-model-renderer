@@ -1,7 +1,7 @@
 import { platform, THREE, loadTexture } from "./platform.js"
 import { prepareAssets, scopedCache, getMissingImage } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
-import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, restoreShaderSalt, shaderSaltNow, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock } from "./models.js"
+import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, restoreShaderSalt, shaderSaltNow, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock, freezeDynamics } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, lcmTicks, collectAnimated, applyFrame, applyTint, readTexture } from "./animation.js"
@@ -358,9 +358,15 @@ export async function renderModelScene(scene, camera, args) {
   if (!hasAnimation) {
     const still = platform.createFrameRenderer({ width: baseWidth, height: baseHeight, background: args?.background, camera })
     applyShaderSalt(scene)
-    still.renderFrame(scene, camera)
-    verifyPrograms(still, scene, camera)
-    const data = still.readPixels()
+    freezeDynamics(true)
+    let data
+    try {
+      still.renderFrame(scene, camera)
+      verifyPrograms(still, scene, camera)
+      data = still.readPixels()
+    } finally {
+      freezeDynamics(false)
+    }
     if (scene.userData.ephemeral) still.release(scene)
     const buffer = await platform.encodeStill({ data, width: baseWidth, height: baseHeight, format: finalFormat, output: args?.output ?? OUTPUT_DEFAULTS[finalFormat] })
     if (finalPath) await platform.writeFile(finalPath, buffer)

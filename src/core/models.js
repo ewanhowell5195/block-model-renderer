@@ -187,6 +187,8 @@ export function initDynamic(root) {
 
 let dynClock = null
 export function setDynamicClock(fn) { dynClock = fn }
+let dynFrozen = false
+export function freezeDynamics(frozen) { dynFrozen = frozen }
 const dynNow = () => dynClock ? dynClock() : typeof performance !== "undefined" ? performance.now() : Date.now()
 
 function dynamicBeforeRender(renderer, scene, camera) {
@@ -205,7 +207,7 @@ export function primeDynamic(root) {
 export function dynamicFrame(root, renderer, camera) {
   const s = dynState(root)
   const frame = renderer.info.render.frame
-  if (s.frame === frame) return s.moved
+  if (s.frame === frame || dynFrozen && s.frame !== -1) return s.moved
   s.frame = frame
   const now = dynNow()
   const kind = root.userData.dynamic
