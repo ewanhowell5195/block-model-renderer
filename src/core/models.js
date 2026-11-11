@@ -9,6 +9,7 @@ import { classifyPngAlpha, hashBytes } from "./png.js"
 import { modelLoaders, activeLoaders, shadings } from "./loaders.js"
 import { mapArtFor, mapIdOf } from "./maps.js"
 import { neighborLookup } from "./neighbors.js"
+import { matchesComponentPredicate } from "./predicates.js"
 
 const LEGACY_ITEM_PROPS = { holder_type: "context_entity_type", shift_down: "extended_view" }
 
@@ -1884,6 +1885,8 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
       } else if (prop === "has_component") {
         const component = normalize(def.component ?? "")
         isTruthy = component in data && data[component] !== undefined && data[component] !== null
+      } else if (prop === "component") {
+        isTruthy = matchesComponentPredicate(data, def.predicate, def.value)
       } else {
         const v = normalize(data[prop])
         isTruthy = v === true || v === "true"
