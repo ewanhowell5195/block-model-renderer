@@ -1223,10 +1223,18 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
 
   stage(500)
-  let ti = 0
+  const scanOrder = []
+  const scanSeen = new Uint8Array(groups.length)
   for (let i = 0; i < placeCount; i++) {
+    const g = placeGroup[i]
+    if (g < 0 || scanSeen[g]) continue
+    scanSeen[g] = 1
+    scanOrder.push(g)
+  }
+  let ti = 0
+  for (const gid of scanOrder) {
     ti++
-    const tmpl = placeGroup[i] < 0 ? null : groups[placeGroup[i]]
+    const tmpl = groups[gid]
     if (!tmpl || tdata.has(tmpl)) continue
     const source = tmpl.__templateSource
     const cachedScan = source?.__scanCache?.get(scanKey)
@@ -1253,7 +1261,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       const dynamics = cachedScan.dynamics.map(d => ({ node: nodes[d.ni], parentMatrix: d.parentMatrix }))
       const lines = (cachedScan.lines ?? []).map(l => ({ geo: nodes[l.ni].geometry, material: nodes[l.ni].material, matrix: l.matrix }))
       tdata.set(tmpl, { merge, meshes, billboards, dynamics, lines })
-      report(ti / placeCount)
+      report(ti / scanOrder.length)
       await breathe()
       if (shouldCancel?.()) return null
       continue
@@ -1371,13 +1379,25 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     for (const m of meshMap.values()) rec.meshes.push(m.rec)
     ;(tmpl.__scanCache ??= new Map()).set(scanKey, rec)
     tdata.set(tmpl, { merge, meshes: Array.from(meshMap.values()), billboards, dynamics, lines })
-    report(ti / placeCount)
+    report(ti / scanOrder.length)
     await breathe()
     if (shouldCancel?.()) return null
   }
 
   const _primeCam = new THREE.Object3D()
   const groupTd = groups.map(g => tdata.get(g))
+  for (const td of tdata.values()) {
+    let bits = 0, free = false
+    for (const f of td.merge) {
+      f.cb = f.cull ? cullBit(f.cull) : 0
+      if (f.cb === 0 || f.cb === 64) free = true
+      else bits |= f.cb
+    }
+    td.mergeBits = bits
+    td.mergeFree = free
+    td.simple = !td.lines.length && !td.billboards.length && !td.dynamics.length
+    td.inert = td.simple && !td.meshes.length
+  }
   const cullMask = Int32Array.from(culls, cullMaskOf)
   const grids = []
   const cellRuns = new GrowI32()
@@ -1401,9 +1421,11 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
     if (!td) continue
     const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
-    const o3 = i * 3
-    for (const f of td.merge) {
-      if (cm && f.cull && faceCulled(f, cm, cull)) continue
+    if (!td.mergeFree && (td.mergeBits & ~cm) === 0) continue
+    const o3 = i * 3, merge = td.merge
+    for (let k = 0; k < merge.length; k++) {
+      const f = merge[k]
+      if (cm && f.cb && (f.cb < 64 ? (cm & f.cb) !== 0 : cull.has(f.cull))) continue
       let cid = f.cid
       if (cid === undefined) {
         cid = cellIds.get(f.cellKey)
@@ -1443,9 +1465,11 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   stage(2500)
   let gi = 0
   for (const grid of grids) {
-    report(++gi / grids.length)
-    await breathe()
-    if (shouldCancel?.()) return null
+    if ((++gi & 255) === 0) {
+      report(gi / grids.length)
+      await breathe()
+      if (shouldCancel?.()) return null
+    }
     const f = grid.f
     let tile = f.tile
     if (!tile) {
@@ -1640,9 +1664,11 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
   for (let i = 0; i < placeCount; i++) {
     const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
-    if (!td) continue
+    if (!td || td.inert) continue
     const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
-    for (const [acc, n, nF] of planFor(td, cm, cull).need) {
+    const need = planFor(td, cm, cull).need
+    for (let k = 0; k < need.length; k++) {
+      const [acc, n, nF] = need[k]
       if (acc.need === 0) touched.push(acc)
       acc.need += n
       acc.needF += nF
@@ -1658,13 +1684,19 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     acc.needF = 0
   }
   for (let i = 0; i < placeCount; i++) {
+    if ((i & 8191) === 8191) {
+      report((i + 1) / placeCount)
+      await breathe()
+      if (shouldCancel?.()) return null
+    }
     const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
-    if (!td) continue
+    if (!td || td.inert) continue
     const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
+    const { faces, meshes, offs } = planFor(td, cm, cull), B = bakes.buf
+    if (!faces.length && td.simple) continue
     const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2]
     const tx = px * 16, ty = py * 16, tz = pz * 16
     blockT.makeTranslation(tx, ty, tz)
-    const { faces, meshes, offs } = planFor(td, cm, cull), B = bakes.buf
     let fullFor = null
     for (let k = 0; k < faces.length; k++) {
       const f = faces[k], off = offs[k]
@@ -1716,11 +1748,6 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       initDynamic(inst)
       holder.add(inst)
       dynamicInstances.push({ holder, object: inst, pos: [px, py, pz] })
-    }
-    if (i % 2000 === 1999) {
-      report((i + 1) / placeCount)
-      await nextTask()
-      if (shouldCancel?.()) return null
     }
   }
 
