@@ -780,8 +780,8 @@ function emitQuads(quads, from, to) {
     const corners = f.layout.corners, order = f.layout.index
     const split = f.tiled && !R
     const ca = !split ? 1 : f.uAxisIsPa ? q.ur : q.vr, cb = !split ? 1 : f.uAxisIsPa ? q.vr : q.ur
-    const ox = f.tiled ? rect.x + sub.sx : rect.x, oy = f.tiled ? rect.y + sub.sy : rect.y
-    const rw = f.tiled ? sub.sw : sub.sw * q.ur, rh = f.tiled ? sub.sh : sub.sh * q.vr
+    const ox = tile.direct ? rect.x + sub.sx : rect.x, oy = tile.direct ? rect.y + sub.sy : rect.y
+    const rw = tile.direct ? sub.sw : sub.sw * q.ur, rh = tile.direct ? sub.sh : sub.sh * q.vr
     let v0 = out.verts, i0 = out.indices
     for (let a = 0; a < ca; a++) for (let b = 0; b < cb; b++) {
       const aLo = split ? q.wALo + a * f.wa : q.wALo, aHi = split ? q.wALo + (a + 1) * f.wa : q.wAHi
@@ -1682,8 +1682,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
   for (const tile of tiles.values()) {
     const tf = tile.f, img = tf.tex.image, sub = tf.sub
-    const whole = tile.ur === 1 && tile.vr === 1 && sub.sx === 0 && sub.sy === 0 && sub.sw === img.width && sub.sh === img.height
-    tile.pseudo = whole || tf.tiled ? tf.tex : { image: tiledSub(img, tile.content, sub, tile.ur, tile.vr), colorSpace: tf.tex.colorSpace }
+    tile.direct = tf.tiled || (tile.ur === 1 && tile.vr === 1)
+    tile.pseudo = tile.direct ? tf.tex : { image: tiledSub(img, tile.content, sub, tile.ur, tile.vr), colorSpace: tf.tex.colorSpace }
     tile.grp.textures.add(tile.pseudo)
   }
 
