@@ -52,14 +52,14 @@ export function lcmTicks(a, b) {
   return a * b / x
 }
 
-export function computeAnimationTimeline(animatedTextures, maxFrameCount, dynamicLoop = 0, excerptFrames = maxFrameCount) {
+export function computeAnimationTimeline(animatedTextures, maxFrameCount, dynamicLoop = 0, excerptFrames = maxFrameCount, buildFrames = true) {
   let schedules, totalDuration, events, frameCount
   for (let maxSubFrames = 8; maxSubFrames >= 1; maxSubFrames--) {
     schedules = animatedTextures.flatMap(textureChannels).map(ch => {
       let frames = ch.frames
       let times = ch.times ?? frames.map(() => 1)
       if (ch.interpolate) {
-        const exp = expandInterpolated(frames, times, maxSubFrames)
+        const exp = expandInterpolated(frames, times, maxSubFrames, buildFrames)
         frames = exp.frames
         times = exp.times
       }
@@ -250,7 +250,7 @@ export function applyTint(img, tint) {
   return canvas
 }
 
-function expandInterpolated(frames, times, maxSubFrames) {
+function expandInterpolated(frames, times, maxSubFrames, buildFrames) {
   const expanded = []
   const expandedTimes = []
   for (let i = 0; i < frames.length; i++) {
@@ -260,7 +260,7 @@ function expandInterpolated(frames, times, maxSubFrames) {
     const steps = Math.min(time, maxSubFrames)
     const subTime = time / steps
     for (let t = 0; t < steps; t++) {
-      expanded.push(interpolateFrames(a, b, t / steps))
+      expanded.push(buildFrames ? interpolateFrames(a, b, t / steps) : a)
       expandedTimes.push(subTime)
     }
   }

@@ -327,7 +327,7 @@ function makePlayer({ scene, camera, width, height, animatedTextures, args, targ
 
   let timeline = null
   let framesMeta = null
-  const getTimeline = () => timeline ??= computeAnimationTimeline(animatedTextures, args?.maxAnimationFrames ?? 4096)
+  const getTimeline = () => timeline ??= computeAnimationTimeline(animatedTextures, args?.maxAnimationFrames ?? 4096, 0, undefined, false)
 
   const CACHE_DROP_MS = 10000
   const cacheMode = args?.cache ?? "auto"
