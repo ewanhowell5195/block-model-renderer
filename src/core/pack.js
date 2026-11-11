@@ -291,6 +291,7 @@ export function reviveScene(payload, opts = {}) {
   return {
     group,
     light,
+    lightSwitches: group.userData.lightSwitches ?? null,
     dispose() {
       group.removeFromParent()
       for (const g of owned.geometries) { try { g.dispose() } catch {} }

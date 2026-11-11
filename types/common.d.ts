@@ -578,6 +578,12 @@ export interface SceneHandle {
   bounds: THREE.Box3
   /** The light volume when world lighting ran, else `null`. */
   light: SceneLight | null
+  /** The shared time-of-day uniform under world lighting, else `null`. Set its `value` to a tick for a live cycle. */
+  daytime: DaytimeUniform | null
+  /** The scene's fog under world lighting, else `null`. */
+  fog: FogHandle | null
+  /** The scene's shared lighting switches. */
+  lightSwitches: LightSwitches
   /** Draw call count from the optimize pass. */
   drawCalls: number
   /** Triangle count from the optimize pass. */
@@ -694,9 +700,9 @@ export interface SpecialPose {
 }
 
 /**
- * Shared lighting switches, as `scene.userData.lightSwitches` after
- * {@link loadModel} and `group.userData.lightSwitches` on a {@link createScene}
- * result. Setting a `value` takes effect on the next frame with no rebuild.
+ * Shared lighting switches, as `lightSwitches` on a {@link createScene} or
+ * {@link reviveScene} result and `scene.userData.lightSwitches` after
+ * {@link loadModel}. Setting a `value` takes effect on the next frame with no rebuild.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#lighting-switches
  */
@@ -1006,10 +1012,11 @@ export interface ReviveSceneOptions {
 
 /** A revived scene: inert live meshes, not a {@link SceneHandle}. */
 export interface RevivedScene {
-  /** The revived meshes. World-lit ones share one {@link LightSwitches} at `userData.lightSwitches`. */
   group: THREE.Group
   /** The scene's light volume, to pass as `lighting: { light }`, or `null` without one. */
   light: LightUniforms | null
+  /** The switches every world-lit material in the group shares, or `null` when it has none. */
+  lightSwitches: LightSwitches | null
   dispose(): void
 }
 

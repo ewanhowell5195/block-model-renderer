@@ -131,6 +131,9 @@ Resolves to a handle, or `null` when cancelled:
 | `blockOffset` | With `keepTemplates` and `randomOffset`: `Float32Array` of each input block's offset in blocks, `[x, y, z]` per block. Templates are built without it, so add it when placing a template's geometry. `null` otherwise |
 | `bounds` | `THREE.Box3` of the built geometry, for camera fitting |
 | `light` | The [`computeSceneLight`](rendering.md#scene-lighting) handle when world lighting ran, else `null`. If you reposition the group, call `light.setOffset(group.position)` so torchlight stays aligned |
+| `daytime` | The shared [time-of-day uniform](rendering.md#world-lighting) under world lighting, else `null`: set `daytime.value` to a tick for a live cycle |
+| `fog` | The scene's [fog handle](rendering.md#fog) under world lighting, else `null` |
+| `lightSwitches` | The scene's [lighting switches](rendering.md#lighting-switches) |
 | `drawCalls`, `tris` | Draw call and triangle counts from the optimize pass |
 | `sortTranslucent(camera)` | Force a translucent sort now, before a single-frame capture |
 | `dispose()` | Frees the geometry, materials, and atlas textures, and removes the group from its parent |

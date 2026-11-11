@@ -82,14 +82,14 @@ Each dimension carries the game's lightmap attributes; pass an object as `dimens
 | `fogColor` | `#C0D8FF` | `#330808` | `#181318` | The base fog colour, what `fog` fades terrain into. The overworld's follows the day/night curve and the sunrise glow, like the sky's |
 | `skyColor` | `#78A7FF` | `#000000` | `#000000` | The base sky colour, mixed into the fog colour at short render distances as the game does |
 
-Colors can be a hex number, a `"#rrggbb"` string, an `[r, g, b]` array of `0`-`1` floats, or a `THREE.Color`. The presets are exported as `LIGHT_DIMENSIONS` if you need the values. The day/night curve runs in the shader from a shared uniform exposed as `scene.userData.daytime`, so a live cycle is just `scene.userData.daytime.value = tick` per frame, with no rebuild.
+Colors can be a hex number, a `"#rrggbb"` string, an `[r, g, b]` array of `0`-`1` floats, or a `THREE.Color`. The presets are exported as `LIGHT_DIMENSIONS` if you need the values. The day/night curve runs in the shader from a shared uniform, `handle.daytime` on a `createScene` result and `scene.userData.daytime` after `loadModel`, so a live cycle is just `handle.daytime.value = tick` per frame, with no rebuild.
 
 ### Lighting switches
 
-Face shading, ambient occlusion and the lightmap can be switched on a built scene with no rebuild. They are shared uniforms at `group.userData.lightSwitches` on a `createScene` result and `scene.userData.lightSwitches` after `loadModel`:
+Face shading, ambient occlusion and the lightmap can be switched on a built scene with no rebuild. They are shared uniforms: `handle.lightSwitches` on a `createScene` or `reviveScene` result, and `scene.userData.lightSwitches` after `loadModel`:
 
 ```js
-const switches = handle.group.userData.lightSwitches
+const switches = handle.lightSwitches
 switches.shading.value = false
 switches.fullbright.value = true
 ```
@@ -125,10 +125,10 @@ await createScene(assets, blocks, { lighting: { fog: { distance: 12, color: "#c0
 
 Terrain fades into the fog colour over the last stretch before the render distance, with the overworld's faint distance haze on top, matching the game's two fog terms.
 
-The built scene keeps a fog handle, at `group.userData.fog` on a `createScene` result and `scene.userData.fog` after `loadModel`. The same three settings are assignable on it at any time with no rebuild, and `update()` re-reads an object anchor's position after it moves. `fog` also accepts a handle, so one made by [`createSky`](#createskyassets-args) can be shared with the blocks, and `createFog(config, dimension?)` makes one on its own for scenes built elsewhere (a worker's scene rebinds to it by uniform name, like `daytime`):
+The built scene keeps a fog handle, `handle.fog` on a `createScene` result and `scene.userData.fog` after `loadModel`. The same three settings are assignable on it at any time with no rebuild, and `update()` re-reads an object anchor's position after it moves. `fog` also accepts a handle, so one made by [`createSky`](#createskyassets-args) can be shared with the blocks, and `createFog(config, dimension?)` makes one on its own for scenes built elsewhere (a worker's scene rebinds to it by uniform name, like `daytime`):
 
 ```js
-const fog = handle.group.userData.fog
+const fog = handle.fog
 fog.distance = 8
 fog.anchor = camera
 ```
@@ -204,6 +204,8 @@ The result:
 
 The volume uploads as 2D textures of stacked slices with trilinear filtering done in the shader, so it behaves identically on the web and on Node's WebGL1 context. In browsers with WebGL2 it takes 3 bytes a cell, as a two-channel light texture and a one-channel ambient occlusion texture, so the renderer there must be WebGL2 too. Node packs both into one 4 byte texture. Lighting is static: it's computed once from the block list, so moving or removing emitters means computing a fresh volume and rebuilding the scene.
 
+The volume covers the blocks' bounding box. It throws when the box passes 268,435,456 cells, when its texture would exceed the device's maximum texture size, or past 65,535 distinct light states; split the area or pass `lighting: { light: false }`.
+
 ## Sky
 
 `createSky` builds the game's sky as a three.js group: the sky gradient, the sun and moon textures from the pack, the star field, and the sunrise and sunset glow. It sits behind the scene, follows the camera, and reads the same time of day as [world lighting](#world-lighting), so one value moves the sun and relights the blocks together.
@@ -214,7 +216,7 @@ import { createScene, createSky } from "block-model-renderer"
 const handle = await createScene(assets, blocks, { lighting: { daytime: 13000 } })
 scene.add(handle.group)
 
-const sky = await createSky(assets, { daytime: handle.group.userData.daytime })
+const sky = await createSky(assets, { daytime: handle.daytime })
 scene.add(sky.group)
 ```
 
@@ -224,7 +226,7 @@ scene.add(sky.group)
 |---|---|---|
 | `assets` | required | The assets source, as in [`renderBlock`](standard-api.md#renderblockargs). The sky textures come from the pack stack |
 | `args.dimension` | `"overworld"` | `"overworld"` for the day/night sky, `"the_end"` for the End's tiled skybox, `"the_nether"` for its fog with no sky. An object overrides the parts (`skybox`, `skyColor`, `fogColor`), and also colours the fog made from `args.fog` |
-| `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting). Pass a scene's `userData.daytime` to share one uniform with the blocks |
+| `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting). Pass a scene's `daytime` to share one uniform with the blocks |
 | `args.moonPhase` | `0` | The moon phase, `0` (full moon) to `7`, in the game's order. Also settable on the handle |
 | `args.angle` | `0` | Tilts the sun, moon and stars' path, in degrees off overhead; sunrise and sunset stay put on the horizon. Also settable on the handle |
 | `args.skyColor` | the dimension's | The base sky color, the biome's in game. The day/night curve scales it |
@@ -254,7 +256,7 @@ The handle:
 `createClouds` builds the game's cloud layer from the pack's `environment/clouds.png`. It runs on its own clock and takes its colour from the sky's day/night curve.
 
 ```js
-const clouds = await createClouds(assets, { daytime: handle.group.userData.daytime })
+const clouds = await createClouds(assets, { daytime: handle.daytime })
 scene.add(clouds.group)
 clouds.height = 200
 ```
@@ -264,7 +266,7 @@ clouds.height = 200
 | Option | Default | Description |
 |---|---|---|
 | `assets` | required | The assets source, as in [`renderBlock`](standard-api.md#renderblockargs). The cloud texture comes from the pack stack; without one the group draws nothing |
-| `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting), for the colour only. Pass a scene's `userData.daytime` to share one uniform with the blocks and sky |
+| `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting), for the colour only. Pass a scene's `daytime` to share one uniform with the blocks and sky |
 | `args.anchor` | the rendering camera | What the layer is centred on: a camera or any object, followed as it moves, or a fixed position in world units (`[x, y, z]`, `{ x, y, z }` or a `Vector3`). Also settable on the handle |
 | `args.origin` | `[0, 0, 0]` | The world coordinates of your scene's position `0, 0, 0`, the same as [`createScene`](scenes.md#createsceneassets-blocks-args)'s `origin`, so a scene built away from its real position gets the clouds and cloud height that sit over it in game. Also settable on the handle |
 | `args.height` | `192.33` | The bottom of the layer, as a world height in blocks. Also settable on the handle |
