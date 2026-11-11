@@ -1,8 +1,4 @@
-import { Canvas as SkiaCanvas, Image, ImageData, loadImage } from "skia-canvas"
 import { fileURLToPath } from "node:url"
-import getTHREE from "headless-three"
-import createContext from "gl"
-import sharp from "sharp"
 import zlib from "node:zlib"
 import path from "node:path"
 import fs from "node:fs"
@@ -10,6 +6,17 @@ import os from "node:os"
 import { setPlatform, parsePackFilter, zipAssets, zipAssetsFromSlices, overridesRole } from "./core.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const missingPeers = []
+function peer(name, loading) {
+  return loading.catch(cause => {
+    if (cause?.code !== "ERR_MODULE_NOT_FOUND" || !cause.message.includes(`'${name}'`)) throw cause
+    missingPeers.push(name)
+    return {}
+  })
+}
+const [{ Canvas: SkiaCanvas, Image, ImageData, loadImage }, { default: getTHREE }, { default: createContext }, { default: sharp }] = await Promise.all([peer("skia-canvas", import("skia-canvas")), peer("headless-three", import("headless-three")), peer("gl", import("gl")), peer("sharp", import("sharp"))])
+if (missingPeers.length) throw new Error(`block-model-renderer is missing packages it needs to render on Node: ${missingPeers.sort().join(", ")}. Install them with: npm install gl headless-three sharp skia-canvas`)
 
 let canvasGPU = false
 
