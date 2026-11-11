@@ -1010,20 +1010,14 @@ export async function parseBlockstate(assets, blockstate, args) {
       const ranges = new Set
       const multipartDefaults = getMultipartDefaults(json.multipart)
 
-      const scoredParts = json.multipart.map((part, index) => {
-        const when = part.when
-        if (!when) return { score: 0, values: [], part, index, match: true }
-
-        const conds = when.OR ?? when.AND ?? [when]
+      function evalWhen(when) {
+        const group = when.OR ?? when.AND
         const isOr = !!when.OR
-
         let score = 0
-        let match = isOr ? false : true
-
+        let match = !isOr
         const values = {}
-
-        for (const cond of conds) {
-          const matches = Object.entries(cond).every(([k, v]) => {
+        if (!group) {
+          match = Object.entries(when).every(([k, v]) => {
             const allowed = v.toString().split("|")
             const raw = data[k] ?? defaults.unique(defaultsId)[k] ?? defaults.properties[k] ?? multipartDefaults[k]
             let actuals
@@ -1037,23 +1031,24 @@ export async function parseBlockstate(assets, blockstate, args) {
             if (matchIndex !== -1) score += actuals.length - matchIndex
             return matchIndex !== -1
           })
-
-          if (matches) {
-            for (const key in cond) {
-              values[key] = cond[key]
-            }
-          }
-
-          if (isOr && matches) {
-            match = true
-            break
-          }
-          if (!isOr && !matches) {
-            match = false
+          if (match) Object.assign(values, when)
+          return { score, match, values }
+        }
+        for (const cond of group) {
+          const result = evalWhen(cond)
+          score += result.score
+          if (result.match) Object.assign(values, result.values)
+          if (isOr === result.match) {
+            match = result.match
             break
           }
         }
+        return { score, match, values }
+      }
 
+      const scoredParts = json.multipart.map((part, index) => {
+        if (!part.when) return { score: 0, values: [], part, index, match: true }
+        const { score, match, values } = evalWhen(part.when)
         return { score, values: Object.entries(values), part, index, match }
       }).filter(p => p.match)
 
