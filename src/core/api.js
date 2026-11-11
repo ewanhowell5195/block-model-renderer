@@ -43,6 +43,10 @@ export async function warmShaders(assets, renderer, args) {
   return scene.warmShaders(assets, renderer, args)
 }
 
+export async function makeModelScene() {
+  return render.makeModelScene()
+}
+
 export function reviveScene(payload, opts) {
   renamed("reviveScene", opts, "atlas", "sharedAtlas")
   return pack.reviveScene(payload, opts)

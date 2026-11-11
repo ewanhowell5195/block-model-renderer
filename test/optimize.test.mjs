@@ -109,7 +109,7 @@ function wall(ids, width, height) {
 }
 
 async function shoot(handle) {
-  const { scene, camera } = makeModelScene()
+  const { scene, camera } = await makeModelScene()
   scene.add(handle.group)
   const { min, max } = handle.bounds
   handle.group.position.set(-(min.x + max.x) / 2, -(min.y + max.y) / 2, -(min.z + max.z) / 2)

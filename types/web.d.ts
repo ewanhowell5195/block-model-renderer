@@ -274,7 +274,7 @@ export function renderTexture(args: RenderTextureArgs): Promise<BrowserCanvas>
 
 /**
  * A fresh three.js scene and orthographic camera configured for block rendering.
- * Async in the browser, since three resolves lazily.
+ * Async on both platforms.
  *
  * The camera carries `fitAspect = true`, telling {@link renderModelScene} to
  * match the camera frustum to the output aspect ratio so non-square renders
@@ -394,8 +394,8 @@ export interface ConfigureOptions {
 export function configure(opts: ConfigureOptions): void
 
 /**
- * Browser only. Resolve and return the three.js instance the library uses:
- * whatever {@link configure} was given, an `import("three")`, or a `THREE` global.
+ * Resolve and return the three.js instance the library uses: whatever
+ * {@link configure} was given, an `import("three")`, or a `THREE` global.
  * Build your own scenes from it rather than a second three copy.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/standard-api.md#providing-threejs-browser

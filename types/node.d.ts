@@ -111,7 +111,7 @@ export function renderTexture(args: RenderTextureArgs): Promise<ImageBuffer>
 
 /**
  * A fresh three.js scene and orthographic camera configured for block rendering.
- * Sync on Node, async in the browser.
+ * Async on both platforms.
  *
  * The camera carries `fitAspect = true`, telling {@link renderModelScene} to
  * match the camera frustum to the output aspect ratio so non-square renders
@@ -119,7 +119,7 @@ export function renderTexture(args: RenderTextureArgs): Promise<ImageBuffer>
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#makemodelscene
  */
-export function makeModelScene(): { scene: THREE.Scene, camera: FitAspect<THREE.OrthographicCamera> }
+export function makeModelScene(): Promise<{ scene: THREE.Scene, camera: FitAspect<THREE.OrthographicCamera> }>
 
 /**
  * Render a scene to an image, taking the same output options as the standard
@@ -191,6 +191,15 @@ export function readTexture(assets: AssetsInput, path: string, opts?: ReadTextur
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#map-art
  */
 export function renderMapColors(assets: AssetsInput, colors: Uint8Array | number[]): Promise<NodeCanvas>
+
+/**
+ * Resolve and return the three.js instance the library uses: the one
+ * headless-three provides, which every scene on Node is built with. Build your
+ * own scenes from it rather than a second three copy.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/standard-api.md#providing-threejs-browser
+ */
+export function getThree(): Promise<typeof THREE>
 
 /**
  * Let skia-canvas draw 2D canvases on the GPU. Off by default, since GPU mode

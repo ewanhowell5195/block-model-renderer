@@ -34,6 +34,10 @@ function setCanvasGPU(enabled) {
 
 const { THREE, loadTexture: loadCanvasTexture, render } = (await getTHREE({ Canvas, Image, ImageData }))
 
+async function getThree() {
+  return THREE
+}
+
 class PixelImage extends ImageData {
   toJSON() {
     return {}
@@ -327,4 +331,4 @@ export {
   renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS, resolveProfile
 } from "./core.js"
 export { parseZip } from "./zip.js"
-export { setCanvasGPU }
+export { setCanvasGPU, getThree }

@@ -104,7 +104,7 @@ test("cloud interior is built when the anchor first enters the layer", async () 
 
 test("renderModelScene follows its camera and leaves the anchor unset", async () => {
   const clouds = await createClouds([await cloudPack(PATTERNS.ring)], { tick: false })
-  const { scene, camera } = makeModelScene()
+  const { scene, camera } = await makeModelScene()
   scene.add(clouds.group)
   const center = meshes(clouds)[0].material.uniforms.fogCenter.value
   await renderModelScene(scene, camera, { width: 16, height: 16 })
@@ -122,7 +122,7 @@ test("cloud fog is measured in the layer's units under a scaled parent", async (
   const centers = []
   for (const scale of [1, 0.25]) {
     const clouds = await createClouds(pack, { tick: false })
-    const { scene } = makeModelScene()
+    const { scene } = await makeModelScene()
     scene.scale.setScalar(scale)
     scene.add(clouds.group)
     scene.updateMatrixWorld(true)
@@ -135,7 +135,7 @@ test("cloud fog is measured in the layer's units under a scaled parent", async (
 test("fast clouds and a pack with no cloud texture render", async () => {
   for (const [assets, args] of [[[await cloudPack(PATTERNS.ring)], { fancy: false }], [[{ read: () => null }], {}]]) {
     const clouds = await createClouds(assets, args)
-    const { scene, camera } = makeModelScene()
+    const { scene, camera } = await makeModelScene()
     scene.add(clouds.group)
     await renderModelScene(scene, camera, { width: 16, height: 16 })
   }
