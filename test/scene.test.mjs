@@ -115,6 +115,30 @@ test("buried cells are skipped without changing the geometry", async () => {
   walled.dispose()
 })
 
+test("the scene handle carries the daytime, fog and light switches its materials share", async () => {
+  const blocks = [{ id: "stone", pos: [0, 0, 0] }, { id: "torch", pos: [0, 1, 0] }]
+  const world = await createScene([jar], blocks, { lighting: { daytime: 18000 } })
+  assert.equal(world.daytime.value, 18000)
+  assert.equal(world.daytime, world.group.userData.daytime)
+  assert.ok(world.fog.uniforms)
+  assert.equal(world.fog, world.group.userData.fog)
+  assert.equal(world.lightSwitches, world.group.userData.lightSwitches)
+  let bound = 0
+  world.group.traverse(o => {
+    for (const m of [].concat(o.material ?? [])) {
+      if (!m.uniforms?.daytime) continue
+      bound++
+      assert.equal(m.uniforms.daytime, world.daytime)
+    }
+  })
+  assert.ok(bound > 0)
+  world.dispose()
+  const item = await createScene([jar], blocks, { lighting: "item" })
+  assert.equal(item.fog, null)
+  assert.equal(item.lightSwitches, item.group.userData.lightSwitches)
+  item.dispose()
+})
+
 test("disposeCache empties every cross-call cache and rebuilds the same scene", async () => {
   const assets = await prepareAssets([jar], { cache: true })
   const blocks = [{ id: "stone", pos: [0, 0, 0] }, { id: "grass_block", pos: [1, 0, 0] }, { id: "water", properties: { level: "0" }, pos: [0, 1, 0] }, { id: "oak_stairs", pos: [1, 1, 0] }]

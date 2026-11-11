@@ -920,14 +920,14 @@ export async function createScene(assets, blocks, args = {}) {
     }
   }
 
-  return sceneHandle({ group, palette, blockPalette, templates, blockTemplate, blockOffset, bounds, light, drawCalls, tris, optimized, ownsLight: computeLight, usedEntries, tcache })
+  return sceneHandle({ group, palette, blockPalette, templates, blockTemplate, blockOffset, bounds, light, daytime: daytimeUniform ?? null, fog, lightSwitches, drawCalls, tris, optimized, ownsLight: computeLight, usedEntries, tcache })
 }
 
 function relayProgress(onProgress, stage) {
   return onProgress ? (done, total) => onProgress(stage, done, total) : undefined
 }
 
-function sceneHandle({ group, palette, blockPalette, templates, blockTemplate, blockOffset, bounds, light, drawCalls, tris, optimized, ownsLight, usedEntries, tcache }) {
+function sceneHandle({ group, palette, blockPalette, templates, blockTemplate, blockOffset, bounds, light, daytime, fog, lightSwitches, drawCalls, tris, optimized, ownsLight, usedEntries, tcache }) {
   return {
     group,
     palette,
@@ -937,6 +937,9 @@ function sceneHandle({ group, palette, blockPalette, templates, blockTemplate, b
     blockOffset,
     bounds,
     light,
+    daytime,
+    fog,
+    lightSwitches,
     drawCalls,
     tris,
     sortTranslucent: camera => optimized?.sortTranslucent(camera),
