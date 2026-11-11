@@ -1,7 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import sharp from "sharp"
-import { createClouds } from "../src/node.js"
+import { createClouds, makeModelScene, renderModelScene } from "../src/node.js"
 
 const CELL = 12 * 16
 const THICKNESS = 4 * 16
@@ -91,3 +91,22 @@ for (const [name, rows] of Object.entries(PATTERNS)) {
     assert.ok(sheet.triangles <= cells * 2)
   })
 }
+
+test("cloud interior is built when the anchor first enters the layer", async () => {
+  const clouds = await createClouds([await cloudPack(PATTERNS.ring)], { tick: false, height: 100 })
+  const interior = meshes(clouds)[1]
+  clouds.update([0, 90 * 16, 0])
+  assert.equal(interior.geometry.index.count, 0)
+  clouds.update([0, 101 * 16, 0])
+  assert.equal(interior.geometry.index.count, expected(PATTERNS.ring).cells * 36)
+  assert.ok(interior.count > 0)
+})
+
+test("fast clouds and a pack with no cloud texture render", async () => {
+  for (const [assets, args] of [[[await cloudPack(PATTERNS.ring)], { fancy: false }], [[{ read: () => null }], {}]]) {
+    const clouds = await createClouds(assets, args)
+    const { scene, camera } = makeModelScene()
+    scene.add(clouds.group)
+    await renderModelScene(scene, camera, { width: 16, height: 16 })
+  }
+})

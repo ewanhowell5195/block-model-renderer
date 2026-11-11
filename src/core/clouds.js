@@ -269,15 +269,15 @@ export async function createClouds(assets, args = {}) {
   const periodX = (cells?.width ?? 1) * CELL, periodZ = (cells?.height ?? 1) * CELL
   const tilesX = Math.ceil(2 * reach / periodX) + 1, tilesZ = Math.ceil(2 * reach / periodZ) + 1
   const tileMatrices = new THREE.InstancedBufferAttribute(new Float32Array(tilesX * tilesZ * 16), 16)
-  const geometries = {}
-  const geometry = kind => {
-    if (!cells) return new THREE.BufferGeometry()
+  const geometries = { empty: cloudGeometry(new Float32Array(0), new Float32Array(0), new Uint32Array(0)) }
+  function geometry(kind) {
+    if (!cells) return geometries.empty
     geometries[kind] ??= kind === "interior" ? buildInterior(cells) : buildShell(cells, kind === "flat")
     return geometries[kind]
   }
   const side = () => fancy ? THREE.FrontSide : THREE.DoubleSide
   function pass(depth, order, interior) {
-    const mesh = new THREE.InstancedMesh(new THREE.BufferGeometry(), cloudMaterial(uniforms, side(), depth, interior), tilesX * tilesZ)
+    const mesh = new THREE.InstancedMesh(geometries.empty, cloudMaterial(uniforms, side(), depth, interior), tilesX * tilesZ)
     mesh.instanceMatrix = tileMatrices
     mesh.count = 0
     mesh.frustumCulled = false
@@ -299,7 +299,6 @@ export async function createClouds(assets, args = {}) {
   function applyFancy() {
     for (const mesh of shells) mesh.geometry = geometry(fancy ? "shell" : "flat")
     for (const mesh of passes) mesh.material.side = side()
-    if (fancy) for (const mesh of interiors) mesh.geometry = geometry("interior")
   }
   applyFancy()
 
@@ -346,7 +345,10 @@ export async function createClouds(assets, args = {}) {
     layer.position.set((camX - cloudX) * UNIT, bottom * UNIT, (camZ - cloudZ) * UNIT)
     const inside = fancy && camY >= bottom && camY <= bottom + THICKNESS
     for (const mesh of shells) mesh.count = tiles
-    for (const mesh of interiors) mesh.count = inside ? tiles : 0
+    for (const mesh of interiors) {
+      mesh.count = inside ? tiles : 0
+      if (inside) mesh.geometry = geometry("interior")
+    }
     curveAt(COLOR_CURVE, daytime.value, tint)
     cloudColor.set(base.x * tint.x, base.y * tint.y, base.z * tint.z, alpha)
     group.updateMatrixWorld(true)
