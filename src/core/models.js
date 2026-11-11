@@ -33,34 +33,240 @@ function hiddenMaterial() {
   return _hiddenMaterial ??= new THREE.MeshBasicMaterial({ visible: false })
 }
 
-function boxGeometry(W, H, D) {
-  const dims = [W, H, D], vec = [0, 0, 0]
-  const pos = new Float32Array(72), nrm = new Float32Array(72), uv = new Float32Array(48), idx = new Uint16Array(36)
-  const geometry = new THREE.BufferGeometry()
-  for (let p = 0; p < 6; p++) {
-    const [u, v, w, udir, vdir, wi, hi, di, ds] = BOX_PLANES[p]
-    const width = dims[wi], height = dims[hi], depth = ds < 0 ? -dims[di] : dims[di]
-    const widthHalf = width / 2, heightHalf = height / 2, depthHalf = depth / 2
-    for (let iy = 0; iy < 2; iy++) {
-      const y = iy * height - heightHalf
-      for (let ix = 0; ix < 2; ix++) {
-        const x = ix * width - widthHalf, k = p * 4 + iy * 2 + ix
-        vec[u] = x * udir; vec[v] = y * vdir; vec[w] = depthHalf
-        pos[k * 3] = vec[0]; pos[k * 3 + 1] = vec[1]; pos[k * 3 + 2] = vec[2]
-        vec[u] = 0; vec[v] = 0; vec[w] = depth > 0 ? 1 : -1
-        nrm[k * 3] = vec[0]; nrm[k * 3 + 1] = vec[1]; nrm[k * 3 + 2] = vec[2]
-        uv[k * 2] = ix; uv[k * 2 + 1] = 1 - iy
-      }
-    }
-    const a = p * 4
-    idx.set([a, a + 2, a + 1, a + 2, a + 3, a + 1], p * 6)
-    geometry.addGroup(p * 6, 6, p)
+const FACE_ORDER = ["east", "west", "up", "down", "south", "north"]
+const QUAD_CORNERS = [0, 2, 1, 2, 3, 1]
+const BOX_SIGNS = new Float32Array(72), BOX_UVS = new Float32Array(48), BOX_INDEX = new Uint16Array(36)
+for (let p = 0; p < 6; p++) {
+  const [u, v, w, udir, vdir, , , , ds] = BOX_PLANES[p]
+  for (let k = 0; k < 4; k++) {
+    const j = (p * 4 + k) * 3
+    BOX_SIGNS[j + u] = (k & 1 ? 1 : -1) * udir
+    BOX_SIGNS[j + v] = (k & 2 ? 1 : -1) * vdir
+    BOX_SIGNS[j + w] = ds
+    BOX_UVS[(p * 4 + k) * 2] = k & 1
+    BOX_UVS[(p * 4 + k) * 2 + 1] = k & 2 ? 0 : 1
   }
+  for (let k = 0; k < 6; k++) BOX_INDEX[p * 6 + k] = p * 4 + QUAD_CORNERS[k]
+}
+
+function fillBox(pos, po, nrm, no, W, H, D) {
+  const hw = W / 2, hh = H / 2, hd = D / 2
+  for (let j = 0; j < 72; j += 3) {
+    pos[po + j] = BOX_SIGNS[j] * hw
+    pos[po + j + 1] = BOX_SIGNS[j + 1] * hh
+    pos[po + j + 2] = BOX_SIGNS[j + 2] * hd
+  }
+  for (let p = 0; p < 6; p++) {
+    const axis = p >> 1, dim = axis === 0 ? W : axis === 1 ? H : D
+    const n = (p & 1 ? -dim : dim) > 0 ? 1 : -1
+    for (let j = no + p * 12 + axis, end = j + 12; j < end; j += 3) nrm[j] = n
+  }
+}
+
+function boxGeometry(W, H, D) {
+  const pos = new Float32Array(72), nrm = new Float32Array(72), uv = new Float32Array(48), idx = new Uint16Array(36)
+  fillBox(pos, 0, nrm, 0, W, H, D)
+  uv.set(BOX_UVS)
+  idx.set(BOX_INDEX)
+  const geometry = new THREE.BufferGeometry()
+  for (let p = 0; p < 6; p++) geometry.addGroup(p * 6, 6, p)
   geometry.setIndex(new THREE.BufferAttribute(idx, 1))
   geometry.setAttribute("position", new THREE.BufferAttribute(pos, 3))
   geometry.setAttribute("normal", new THREE.BufferAttribute(nrm, 3))
   geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2))
   return geometry
+}
+
+let _scratch = null
+function scratch() {
+  return _scratch ??= {
+    v: new THREE.Vector3(),
+    v2: new THREE.Vector2(),
+    center: new THREE.Vector3(),
+    pivot: new THREE.Vector3(),
+    one: new THREE.Vector3(1, 1, 1),
+    quat: new THREE.Quaternion(),
+    q1: new THREE.Quaternion(),
+    identity: new THREE.Quaternion(),
+    xAxis: new THREE.Vector3(1, 0, 0),
+    yAxis: new THREE.Vector3(0, 1, 0),
+    zAxis: new THREE.Vector3(0, 0, 1),
+    matrix: new THREE.Matrix4(),
+    parent: new THREE.Matrix4(),
+    local: new THREE.Matrix4(),
+    normalMatrix: new THREE.Matrix3()
+  }
+}
+
+const UV_QUAD = new Float64Array(8)
+const NO_TEXTURE = Symbol()
+const worldCullfaceTables = new Map()
+
+function rotateUVQuad(angle) {
+  if (!angle) return
+  const rad = THREE.MathUtils.degToRad(angle), vec = scratch().v2
+  for (let k = 0; k < 8; k += 2) {
+    vec.set(UV_QUAD[k], UV_QUAD[k + 1]).rotateAround(UV_CENTER, rad)
+    UV_QUAD[k] = vec.x
+    UV_QUAD[k + 1] = vec.y
+  }
+}
+
+function setUVQuad(ax, ay, bx, by, cx, cy, dx, dy) {
+  UV_QUAD[0] = ax
+  UV_QUAD[1] = ay
+  UV_QUAD[2] = bx
+  UV_QUAD[3] = by
+  UV_QUAD[4] = cx
+  UV_QUAD[5] = cy
+  UV_QUAD[6] = dx
+  UV_QUAD[7] = dy
+}
+
+function elementRescale(rotation) {
+  let rescaleAxis = rotation.axis
+  let rescaleAngle = rotation.angle
+  if (rescaleAngle === undefined) {
+    for (const a of ["x", "y", "z"]) {
+      if (rotation[a]) {
+        rescaleAxis = a
+        rescaleAngle = rotation[a]
+        break
+      }
+    }
+  }
+  if (!rescaleAngle) return null
+  const angle = Math.abs(rescaleAngle)
+  const rescale = 1 / Math.cos(THREE.MathUtils.degToRad(angle > 45 ? 90 - angle : angle))
+  const axis = rescaleAxis || "y"
+  return [axis === "x" ? 1 : rescale, axis === "y" ? 1 : rescale, axis === "z" ? 1 : rescale]
+}
+
+function rotationAllowed(model, rotation) {
+  const { axis, angle } = rotation
+  if (!isNaN(angle) || axis) {
+    if (isNaN(angle) || !axis) return false
+  }
+  if (model.version && !model.overridden) {
+    const preMultiAxis = isBefore(model.version, "1.21.11")
+    if (axis && preMultiAxis && (Math.abs(angle) > 45 || (isBefore(model.version, "1.21.6") && angle % 22.5 !== 0))) return false
+    if (!axis && preMultiAxis) return false
+  }
+  return true
+}
+
+function scaleBox(data, o, sx, sy, sz) {
+  const s = scratch(), v = s.v
+  s.matrix.makeScale(sx, sy, sz)
+  for (let j = o, end = o + 72; j < end; j += 3) {
+    v.set(data[j], data[j + 1], data[j + 2]).applyMatrix4(s.matrix)
+    data[j] = v.x
+    data[j + 1] = v.y
+    data[j + 2] = v.z
+  }
+  s.normalMatrix.getNormalMatrix(s.matrix)
+  for (let j = o + 72, end = o + 144; j < end; j += 12) {
+    v.set(data[j], data[j + 1], data[j + 2]).applyNormalMatrix(s.normalMatrix)
+    data[j] = v.x
+    data[j + 1] = v.y
+    data[j + 2] = v.z
+  }
+}
+
+function elementMatrix(model, element, W, H, D) {
+  const s = scratch(), from = element.from, rotation = element.rotation
+  s.center.set(from[0] + W / 2 - 8, from[1] + H / 2 - 8, from[2] + D / 2 - 8)
+  if (element.part && !rotation) {
+    s.pivot.set((element.pivot?.[0] ?? 8) - 8, (element.pivot?.[1] ?? 8) - 8, (element.pivot?.[2] ?? 8) - 8)
+    s.center.sub(s.pivot)
+    s.matrix.multiplyMatrices(s.parent.compose(s.pivot, s.identity, s.one), s.local.compose(s.center, s.identity, s.one))
+    return true
+  }
+  if (!rotation) {
+    s.matrix.compose(s.center, s.identity, s.one)
+    return true
+  }
+  if (!rotationAllowed(model, rotation)) return false
+  const { origin, axis, angle, x, y, z } = rotation
+  s.pivot.set(origin[0] - 8, origin[1] - 8, origin[2] - 8)
+  s.center.sub(s.pivot)
+  s.quat.identity()
+  if (axis) {
+    s.quat.multiply(s.q1.setFromAxisAngle(AXIS_VECTORS[axis], THREE.MathUtils.degToRad(angle)))
+  } else {
+    s.quat.multiply(s.q1.setFromAxisAngle(s.zAxis, THREE.MathUtils.degToRad(z ?? 0)))
+    s.quat.multiply(s.q1.setFromAxisAngle(s.yAxis, THREE.MathUtils.degToRad(y ?? 0)))
+    s.quat.multiply(s.q1.setFromAxisAngle(s.xAxis, THREE.MathUtils.degToRad(x ?? 0)))
+  }
+  s.matrix.multiplyMatrices(s.parent.compose(s.pivot, s.quat, s.one), s.local.compose(s.center, s.identity, s.one))
+  return true
+}
+
+function transformBox(data, o, collision, translated) {
+  const s = scratch(), v = s.v
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity
+  for (let j = o, end = o + 72; j < end; j += 3) {
+    v.set(data[j], data[j + 1], data[j + 2]).applyMatrix4(s.matrix)
+    if (v.x < x0) x0 = v.x
+    if (v.y < y0) y0 = v.y
+    if (v.z < z0) z0 = v.z
+    if (v.x > x1) x1 = v.x
+    if (v.y > y1) y1 = v.y
+    if (v.z > z1) z1 = v.z
+    data[j] = v.x
+    data[j + 1] = v.y
+    data[j + 2] = v.z
+  }
+  if (x0 !== Infinity) collision.push([x0, y0, z0, x1, y1, z1])
+  if (translated) return
+  s.normalMatrix.getNormalMatrix(s.matrix)
+  for (let j = o + 72, end = o + 144; j < end; j += 12) {
+    v.set(data[j], data[j + 1], data[j + 2]).applyMatrix3(s.normalMatrix).normalize()
+    data[j] = v.x
+    data[j + 1] = v.y
+    data[j + 2] = v.z
+  }
+}
+
+function addMergedMeshes(target, buckets, data, tints) {
+  for (const [material, dirs] of buckets) {
+    for (const [dir, faces] of dirs) {
+      const count = faces.length * 6
+      const position = new THREE.Float32BufferAttribute(count * 3, 3), normal = new THREE.Float32BufferAttribute(count * 3, 3), uv = new THREE.Float32BufferAttribute(count * 2, 2)
+      const color = new THREE.BufferAttribute(new Uint8Array(count * 3), 3, true)
+      const index = count > 65535 ? new THREE.Uint32BufferAttribute(count, 1) : new THREE.Uint16BufferAttribute(count, 1)
+      const positions = position.array, normals = normal.array, uvs = uv.array, colors = color.array, indices = index.array
+      let n = 0
+      for (let f = 0; f < faces.length; f++) {
+        const face = faces[f], p = face % 6, base = (face - p) * 32
+        const pv = base + p * 12, nv = base + 72 + p * 12, tv = base + 144 + p * 8, cv = face * 3
+        for (let k = 0; k < 6; k++, n++) {
+          const corner = QUAD_CORNERS[k], a = pv + corner * 3, b = tv + corner * 2
+          positions[n * 3] = data[a]
+          positions[n * 3 + 1] = data[a + 1]
+          positions[n * 3 + 2] = data[a + 2]
+          normals[n * 3] = data[nv]
+          normals[n * 3 + 1] = data[nv + 1]
+          normals[n * 3 + 2] = data[nv + 2]
+          uvs[n * 2] = data[b]
+          uvs[n * 2 + 1] = data[b + 1]
+          colors[n * 3] = tints[cv]
+          colors[n * 3 + 1] = tints[cv + 1]
+          colors[n * 3 + 2] = tints[cv + 2]
+          indices[n] = n
+        }
+      }
+      const geo = new THREE.BufferGeometry()
+      geo.setAttribute("position", position)
+      geo.setAttribute("normal", normal)
+      geo.setAttribute("uv", uv)
+      geo.setAttribute("color", color)
+      geo.setIndex(index)
+      const mesh = new THREE.Mesh(geo, material)
+      mesh.userData.cullface = [dir]
+      target.add(mesh)
+    }
+  }
 }
 
 const X_CYCLE = { north: "up", up: "south", south: "down", down: "north" }
@@ -740,9 +946,10 @@ export async function defaultBlockstates(assets, mode) {
 }
 
 function resolveTextureRef(textures, ref) {
-  const seen = new Set()
-  while (typeof ref === "string" && ref.startsWith("#") && !seen.has(ref)) {
-    seen.add(ref)
+  let first, seen
+  while (typeof ref === "string" && ref.startsWith("#") && ref !== first && !seen?.has(ref)) {
+    if (first === undefined) first = ref
+    else (seen ??= new Set()).add(ref)
     ref = textures?.[ref.slice(1)]
   }
   return typeof ref === "string" && ref.startsWith("#") ? undefined : ref
@@ -2357,29 +2564,25 @@ function shouldIgnoreAtlases(model) {
   return model.ignore_atlas_restrictions || (model.version && isBefore(model.version, "1.21.11"))
 }
 
-async function modelPassesAtlasRules(model, assets) {
-  if (model.type !== "block" && model.type !== "item") return true
-  if (shouldIgnoreAtlases(model)) return true
-  const textures = model.textures ?? {}
-  const usedSlots = new Set()
-  for (const el of model.elements ?? []) {
-    for (const face of Object.values(el.faces ?? {})) {
-      if (typeof face?.texture === "string" && face.texture.startsWith("#")) {
-        usedSlots.add(face.texture.slice(1))
-      }
-    }
-  }
-  const entries = []
-  for (const slot of usedSlots) {
-    const value = resolveTextureRef(textures, textures[slot])
-    if (typeof value !== "string" || !value) continue
-    const { namespace, item } = resolveNamespace(value)
-    entries.push(`assets/${namespace}/textures/${item}.png`)
-  }
-  if (!entries.length) return true
+const settledAtlases = new WeakMap()
 
-  const memberships = await Promise.all(entries.map(p => getAtlasesContaining(p, assets)))
+function settledAtlasSets(assets) {
+  const memo = assets.atlasMembership
+  if (!memo) return null
+  let versions = settledAtlases.get(memo)
+  if (!versions) settledAtlases.set(memo, versions = new Map())
+  const version = assets.version ?? ""
+  let sets = versions.get(version)
+  if (!sets) versions.set(version, sets = new Map())
+  return sets
+}
 
+function texturePath(id) {
+  const { namespace, item } = resolveNamespace(id)
+  return `assets/${namespace}/textures/${item}.png`
+}
+
+function atlasMembershipsPass(model, memberships) {
   let anyInItems = false
   let anyBlocksOnly = false
   for (const atlases of memberships) {
@@ -2394,6 +2597,37 @@ async function modelPassesAtlasRules(model, assets) {
   }
   if (model.type === "item" && anyInItems && anyBlocksOnly) return
   return true
+}
+
+function modelPassesAtlasRules(model, assets) {
+  if (model.type !== "block" && model.type !== "item") return true
+  if (shouldIgnoreAtlases(model)) return true
+  const textures = model.textures ?? {}
+  const usedSlots = new Set(), usedRefs = new Set()
+  for (const el of model.elements ?? []) {
+    for (const face of Object.values(el.faces ?? {})) {
+      const ref = face?.texture
+      if (typeof ref === "string" && ref.startsWith("#") && !usedRefs.has(ref)) {
+        usedRefs.add(ref)
+        usedSlots.add(ref.slice(1))
+      }
+    }
+  }
+  const values = []
+  for (const slot of usedSlots) {
+    const value = resolveTextureRef(textures, textures[slot])
+    if (typeof value !== "string" || !value) continue
+    values.push(value)
+  }
+  if (!values.length) return true
+
+  const sets = settledAtlasSets(assets)
+  const known = sets ? values.map(value => sets.get(value)) : null
+  if (known && !known.includes(undefined)) return atlasMembershipsPass(model, known)
+  return Promise.all(values.map(value => getAtlasesContaining(texturePath(value), assets))).then(memberships => {
+    if (sets) for (let i = 0; i < values.length; i++) sets.set(values[i], memberships[i])
+    return atlasMembershipsPass(model, memberships)
+  })
 }
 
 export async function loadModel(scene, assets, model, args) {
@@ -2411,7 +2645,7 @@ export async function loadModel(scene, assets, model, args) {
   const lightSwitches = scene?.userData?.lightSwitches ?? makeLightSwitches()
   if (scene) scene.userData.lightSwitches = lightSwitches
   const block = args?.block ? { ...args.block, neighbors: args.neighbors ? neighborLookup(args.neighbors) : args.block.neighbors ?? neighborLookup() } : null
-  assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
+  if (args?.version || !Array.isArray(assets) || !assets.prepared) assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   if (!model.version && (args?.version ?? assets.version)) model.version = args?.version ?? assets.version
 
   let blockEmission = 0
@@ -2429,7 +2663,9 @@ export async function loadModel(scene, assets, model, args) {
     if (model.light_emission != null) blockEmission = Math.max(blockEmission, Math.max(0, Math.min(15, model.light_emission)))
   }
 
-  if (!(await modelPassesAtlasRules(model, assets))) {
+  let passesAtlasRules = modelPassesAtlasRules(model, assets)
+  if (passesAtlasRules instanceof Promise) passesAtlasRules = await passesAtlasRules
+  if (!passesAtlasRules) {
     const missing = await resolveModelData(assets, { model: "block-model-renderer:missing" })
     for (const k of Object.keys(model)) delete model[k]
     Object.assign(model, missing)
@@ -2445,7 +2681,7 @@ export async function loadModel(scene, assets, model, args) {
     return `assets/${namespace}/textures/${item}.png`
   }
 
-  async function loadModelTexture(id, tint, source = {}) {
+  function loadModelTexture(id, tint, source = {}) {
     const direct = source.image ?? (id != null ? model.texture_images?.[id] : undefined)
     const atlas = shouldIgnoreAtlases(model) ? "" : (model.type ?? "")
     const srgb = lighting === "scene" ? "\0srgb" : ""
@@ -2507,10 +2743,10 @@ export async function loadModel(scene, assets, model, args) {
   if (typeof display === "object") {
     const own = context ? model.display?.[context] : null
     if (!context) {
-      settings = structuredClone(display)
+      settings = cloneSettings(display)
     } else if (display.type === "fallback") {
       const withheld = display.generated === false && model.generated
-      settings = own ? structuredClone(own) : withheld ? {} : structuredClone(display)
+      settings = own ? cloneSettings(own) : withheld ? {} : cloneSettings(display)
     } else {
       settings = { ...own, ...display }
     }
@@ -2533,7 +2769,7 @@ export async function loadModel(scene, assets, model, args) {
       }
     }
   } else {
-    settings = leftHandFix(structuredClone(model.display?.[display] ?? {}), context)
+    settings = leftHandFix(cloneSettings(model.display?.[display] ?? {}), context)
   }
 
   if (model.billboard) {
@@ -2592,14 +2828,27 @@ export async function loadModel(scene, assets, model, args) {
     THREE.MathUtils.degToRad(-(model?.x ?? 0)),
     THREE.MathUtils.degToRad(-(model?.y ?? 0)),
     THREE.MathUtils.degToRad(model?.z ?? 0), "ZYX")
+  const cullRotation = `${model?.x ?? 0},${model?.y ?? 0},${model?.z ?? 0}`
+  let worldCullfaces = worldCullfaceTables.get(cullRotation)
+  if (!worldCullfaces) {
+    worldCullfaces = new Map()
+    if (worldCullfaceTables.size < 256) worldCullfaceTables.set(cullRotation, worldCullfaces)
+  }
   function worldCullface(dir) {
+    let out = worldCullfaces.get(dir)
+    if (out !== undefined) return out
     const v = CULL_VECS[dir]
-    if (!v) return null
-    const w = new THREE.Vector3(v[0], v[1], v[2]).applyEuler(cullEuler)
-    const ax = Math.abs(w.x), ay = Math.abs(w.y), az = Math.abs(w.z)
-    if (ax >= ay && ax >= az) return w.x > 0 ? "east" : "west"
-    if (ay >= az) return w.y > 0 ? "up" : "down"
-    return w.z > 0 ? "south" : "north"
+    if (!v) {
+      out = null
+    } else {
+      const w = scratch().v.set(v[0], v[1], v[2]).applyEuler(cullEuler)
+      const ax = Math.abs(w.x), ay = Math.abs(w.y), az = Math.abs(w.z)
+      if (ax >= ay && ax >= az) out = w.x > 0 ? "east" : "west"
+      else if (ay >= az) out = w.y > 0 ? "up" : "down"
+      else out = w.z > 0 ? "south" : "north"
+    }
+    if (worldCullfaces.size < 64) worldCullfaces.set(dir, out)
+    return out
   }
 
   if (model.translation) {
@@ -2684,48 +2933,22 @@ export async function loadModel(scene, assets, model, args) {
     }
   }
 
-  async function buildElement(element, target) {
-    const from = new THREE.Vector3().fromArray(element.from)
-    const to = new THREE.Vector3().fromArray(element.to)
-    const size = new THREE.Vector3().subVectors(to, from)
-    size.x ||= 0.001
-    size.y ||= 0.001
-    size.z ||= 0.001
-
-    const geometry = boxGeometry(size.x, size.y, size.z)
-
-    if (element.rotation?.rescale) {
-      let rescaleAxis = element.rotation.axis
-      let rescaleAngle = element.rotation.angle
-      if (rescaleAngle === undefined) {
-        for (const a of ["x", "y", "z"]) {
-          if (element.rotation[a]) {
-            rescaleAxis = a
-            rescaleAngle = element.rotation[a]
-            break
-          }
-        }
-      }
-      if (rescaleAngle) {
-        const angle = Math.abs(rescaleAngle)
-        const rescale = 1 / Math.cos(THREE.MathUtils.degToRad(angle > 45 ? 90 - angle : angle))
-        const scale = new THREE.Vector3(rescale, rescale, rescale)
-        scale[rescaleAxis || "y"] = 1
-        geometry.scale(scale.x, scale.y, scale.z)
-      }
-    }
-
-    const faceOrder = ["east", "west", "up", "down", "south", "north"]
-
-    const cullDirs = new Array(6).fill(null)
-
-    for (let i = 0; i < faceOrder.length; i++) {
-      const faceName = faceOrder[i]
-      const face = element.faces?.[faceName]
+  function elementFaces(element, uv, o, cullDirs) {
+    const faces = element.faces
+    for (let i = 0; i < 6; i++) {
+      const faceName = FACE_ORDER[i]
+      const face = faces?.[faceName]
       if (face?.cullface != null && face.cullface !== "" && !model.transformation) cullDirs[i] = worldCullface(face.cullface)
       if (!face) continue
-      let [u1, v1, u2, v2] = face.uv || []
-      if (!face.uv) {
+      let u1, v1, u2, v2
+      if (Array.isArray(face.uv)) {
+        u1 = face.uv[0]
+        v1 = face.uv[1]
+        u2 = face.uv[2]
+        v2 = face.uv[3]
+      } else if (face.uv) {
+        [u1, v1, u2, v2] = face.uv
+      } else {
         const [fx, fy, fz] = element.from
         const [tx, ty, tz] = element.to
         switch (faceName) {
@@ -2738,292 +2961,278 @@ export async function loadModel(scene, assets, model, args) {
         }
       }
 
-      let uv = [
-        [u1, v1],
-        [u2, v1],
-        [u1, v2],
-        [u2, v2]
-      ]
-
       const rot = face.rotation ?? 0
-      if (rot === 90) uv = [uv[2], uv[0], uv[3], uv[1]]
-      else if (rot === 180) uv = [uv[3], uv[2], uv[1], uv[0]]
-      else if (rot === 270) uv = [uv[1], uv[3], uv[0], uv[2]]
+      if (rot === 90) setUVQuad(u1, v2, u1, v1, u2, v2, u2, v1)
+      else if (rot === 180) setUVQuad(u2, v2, u1, v2, u2, v1, u1, v1)
+      else if (rot === 270) setUVQuad(u2, v1, u2, v2, u1, v1, u1, v2)
+      else setUVQuad(u1, v1, u2, v1, u1, v2, u2, v2)
 
       if (model?.uvlock) {
         let dir = faceName
-        let x = ((model.x ?? 0) % 360 + 360) % 360
-
-        function rotateUV(angle) {
-          if (!angle) return
-          const rad = THREE.MathUtils.degToRad(angle)
-          uv = uv.map(([u, v]) => {
-            const vec = new THREE.Vector2(u, v)
-            vec.rotateAround(UV_CENTER, rad)
-            return [vec.x, vec.y]
-          })
-        }
+        const x = ((model.x ?? 0) % 360 + 360) % 360
 
         if (x) {
           switch (faceName) {
-            case "east":  rotateUV(model.x); break
-            case "west":  rotateUV(-model.x); break
-            case "north": rotateUV(180); break
-            case "south": rotateUV(x === 180 ? 180 : 0); break
-            case "up":    rotateUV(x === 90 ? 180 : 0); break
-            case "down":  rotateUV(x === 270 ? 180 : 0); break
+            case "east":  rotateUVQuad(model.x); break
+            case "west":  rotateUVQuad(-model.x); break
+            case "north": rotateUVQuad(180); break
+            case "south": rotateUVQuad(x === 180 ? 180 : 0); break
+            case "up":    rotateUVQuad(x === 90 ? 180 : 0); break
+            case "down":  rotateUVQuad(x === 270 ? 180 : 0); break
           }
-          for (let i = 0; i < x / 90; i++) dir = X_CYCLE[dir] ?? dir
+          for (let n = 0; n < x / 90; n++) dir = X_CYCLE[dir] ?? dir
         }
 
         if (model.y) {
           const y = ((model.y % 360) + 360) % 360
-          for (let i = 0; i < y / 90; i++) dir = Y_CYCLE[dir] ?? dir
+          for (let n = 0; n < y / 90; n++) dir = Y_CYCLE[dir] ?? dir
 
           if (dir === "up" || dir === "down") {
-            rotateUV((dir === "up") ^ !!(x % 180) ? model.y : -model.y)
+            rotateUVQuad((dir === "up") ^ !!(x % 180) ? model.y : -model.y)
           }
         }
 
         if (model.z) {
-          rotateUV(dir === "north" ? -model.z : dir === "south" ? model.z : model.z)
+          rotateUVQuad(dir === "north" ? -model.z : dir === "south" ? model.z : model.z)
         }
       }
 
-      geometry.attributes.uv.array.set(uv.flatMap(([u, v]) => [u / 16, 1 - v / 16]), i * 8)
+      for (let k = 0, j = o + i * 8; k < 8; k += 2) {
+        uv[j + k] = UV_QUAD[k] / 16
+        uv[j + k + 1] = 1 - UV_QUAD[k + 1] / 16
+      }
     }
-    geometry.attributes.uv.needsUpdate = true
+  }
 
-    const faceTints = []
-    async function faceMaterials(back) {
-      const out = []
-      for (let i = 0; i < faceOrder.length; i++) {
-        const faceName = faceOrder[i]
-        const face = element.faces?.[faceName]
-        if (!face || !face.texture || (cull && cullDirs[i] && cull.has(cullDirs[i]) && !(model.fluid && faceName === "up"))) {
-          out.push(hiddenMaterial())
+  function writeTint(tint, out, o, verts) {
+    let [r, g, b] = tintRGB(tint)
+    if (lighting === "scene") {
+      const lin = new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace)
+      r = Math.round(lin.r * 255)
+      g = Math.round(lin.g * 255)
+      b = Math.round(lin.b * 255)
+    }
+    for (const end = o + verts * 3; o < end; o += 3) {
+      out[o] = r
+      out[o + 1] = g
+      out[o + 2] = b
+    }
+  }
+
+  async function buildElements(elements, target, merge, strict) {
+    let list = elements
+    if (!Array.isArray(list)) {
+      list = []
+      for (const element of elements) list.push(element)
+    }
+    const data = merge ? new Float32Array(list.length * 192) : null
+    const tints = merge ? new Uint8Array(list.length * 18).fill(255) : null
+    const collision = [], buckets = new Map(), texRefs = new Map()
+    const faceTints = [undefined, undefined, undefined, undefined, undefined, undefined]
+    const mergedDirs = [null, null, null, null, null, null], mergedMaterials = []
+    const ao = model.ambientocclusion !== false && blockEmission === 0
+    let versioned = false, legacyShade = false, modernShade = false, elementEmission = false
+    for (let e = 0; e < list.length; e++) {
+      const element = list[e]
+      const from = element.from, to = element.to
+      const W = (to[0] - from[0]) || 0.001, H = (to[1] - from[1]) || 0.001, D = (to[2] - from[2]) || 0.001
+      const rescale = element.rotation?.rescale ? elementRescale(element.rotation) : null
+      const geometry = merge ? null : boxGeometry(W, H, D)
+      const cullDirs = merge ? mergedDirs : [null, null, null, null, null, null]
+      const materials = merge ? mergedMaterials : []
+      if (merge) {
+        const o = e * 192
+        fillBox(data, o, data, o + 72, W, H, D)
+        if (rescale) scaleBox(data, o, rescale[0], rescale[1], rescale[2])
+        data.set(BOX_UVS, o + 144)
+        for (let i = 0; i < 6; i++) cullDirs[i] = null
+        elementFaces(element, data, o + 144, cullDirs)
+      } else {
+        if (rescale) geometry.scale(rescale[0], rescale[1], rescale[2])
+        elementFaces(element, geometry.attributes.uv.array, 0, cullDirs)
+        geometry.attributes.uv.needsUpdate = true
+      }
+
+      const faces = element.faces
+      let shadeDir = null, emission = 0, described = false, sides = 1, tinted = false
+      for (let s = 0; s < 2; s++) {
+        if (s === 1) {
+          if (!model.double_sided) break
+          sides = 2
+        }
+        const side = s ? "back" : false
+        let suffix = null, lastRef = NO_TEXTURE, lastMaterial = null
+        for (let i = 0; i < 6; i++) {
+          const faceName = FACE_ORDER[i]
+          const face = faces?.[faceName]
+          if (!face || !face.texture || (cull && cullDirs[i] && cull.has(cullDirs[i]) && !(model.fluid && faceName === "up"))) {
+            materials[s * 6 + i] = hiddenMaterial()
+            continue
+          }
+
+          if (!s && model.tints) {
+            if (!tinted) faceTints.fill(undefined)
+            faceTints[i] = model.tints[face.tintindex]
+            tinted = true
+          }
+
+          let texRef = texRefs.get(face.texture)
+          if (texRef === undefined) {
+            texRef = face.texture
+            if (texRef && !texRef.startsWith("#")) texRef = "#" + texRef
+            texRef = resolveTextureRef(model.textures, texRef)
+            texRefs.set(face.texture, texRef)
+          }
+
+          if (texRef !== lastRef) {
+            if (suffix === null) {
+              if (!described) {
+                if (!versioned) {
+                  legacyShade = !model.version || isBefore(model.version, "26.3")
+                  modernShade = !model.version || !isBefore(model.version, "26.3")
+                  elementEmission = !model.version || !isBefore(model.version, "1.21.2")
+                  versioned = true
+                }
+                if (model.type !== "item") {
+                  if (modernShade && SHADE_DIR_VECS[element.shade_direction_override]) shadeDir = element.shade_direction_override
+                  else if (legacyShade && element.shade === false) shadeDir = "up"
+                }
+                emission = Math.max(blockEmission, elementEmission ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0)
+                described = true
+              }
+              suffix = `\0${shadeDir ?? ""}\0${side}\0${emission}\0${ao}`
+            }
+            const mkey = `${texRef ?? ""}${suffix}`
+            let material = materialCache.get(mkey)
+            if (!material) {
+              let texture = loadModelTexture(texRef)
+              if (texture instanceof Promise) texture = await texture
+              material = makeMaterial(texture, assets, model.shader, side, true, lightConfig, lighting, shadeDir, emission, ao)
+              if (material instanceof Promise) material = await material
+              if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
+              materialCache.set(mkey, material)
+            }
+            lastRef = texRef
+            lastMaterial = material
+          }
+          materials[s * 6 + i] = lastMaterial
+        }
+      }
+
+      if (merge) {
+        for (let i = 0; tinted && i < 6; i++) {
+          if (faceTints[i] != null) writeTint(faceTints[i], tints, (e * 6 + i) * 3, 1)
+        }
+        if (!elementMatrix(model, element, W, H, D)) {
+          if (strict) return false
           continue
         }
-
-        let texRef = face.texture
-        if (texRef && !texRef.startsWith("#")) texRef = "#" + texRef
-
-        if (!back && model.tints) {
-          faceTints[i] = model.tints[face.tintindex]
+        transformBox(data, e * 192, collision, !element.rotation && !element.part)
+        for (let s = sides - 1; s >= 0; s--) {
+          for (let p = 0; p < 6; p++) {
+            const material = materials[s * 6 + p]
+            if (!material || material.visible === false) continue
+            const dir = cullDirs[p] ?? null
+            let dirs = buckets.get(material)
+            if (!dirs) buckets.set(material, dirs = new Map())
+            let quads = dirs.get(dir)
+            if (!quads) dirs.set(dir, quads = [])
+            quads.push(e * 6 + p)
+          }
         }
-
-        texRef = resolveTextureRef(model.textures, texRef)
-
-        const legacyShade = !model.version || isBefore(model.version, "26.3")
-        const modernShade = !model.version || !isBefore(model.version, "26.3")
-        let shadeDir = null
-        if (model.type !== "item") {
-          if (modernShade && SHADE_DIR_VECS[element.shade_direction_override]) shadeDir = element.shade_direction_override
-          else if (legacyShade && element.shade === false) shadeDir = "up"
-        }
-        const side = back ? "back" : false
-        const emission = Math.max(blockEmission, !model.version || !isBefore(model.version, "1.21.2") ? Math.max(0, Math.min(15, element.light_emission ?? 0)) : 0)
-        const ao = model.ambientocclusion !== false && blockEmission === 0
-        const mkey = `${texRef ?? ""}\0${shadeDir ?? ""}\0${side}\0${emission}\0${ao}`
-        let material = materialCache.get(mkey)
-        if (!material) {
-          material = await makeMaterial(await loadModelTexture(texRef), assets, model.shader, side, true, lightConfig, lighting, shadeDir, emission, ao)
-          if (args?.shaderScale && material.uniforms?.Scale) material.uniforms.Scale.value = args.shaderScale
-          materialCache.set(mkey, material)
-        }
-        out.push(material)
+        continue
       }
-      return out
-    }
 
-    const materials = await faceMaterials(false)
-    if (model.double_sided) {
-      materials.push(...await faceMaterials("back"))
-      const groups = geometry.groups.map(g => ({ ...g }))
-      geometry.clearGroups()
-      for (const g of groups) geometry.addGroup(g.start, g.count, g.materialIndex + 6)
-      for (const g of groups) geometry.addGroup(g.start, g.count, g.materialIndex)
-      cullDirs.push(...cullDirs)
-    }
+      if (sides === 2) {
+        geometry.clearGroups()
+        for (let p = 0; p < 6; p++) geometry.addGroup(p * 6, 6, p + 6)
+        for (let p = 0; p < 6; p++) geometry.addGroup(p * 6, 6, p)
+        cullDirs.push(...cullDirs)
+      }
 
-    {
       const tintAttr = new Uint8Array(geometry.attributes.position.count * 3).fill(255)
-      for (let i = 0; i < 6; i++) {
-        const t = faceTints[i]
-        if (t == null) continue
-        let [r, g, b] = tintRGB(t)
-        if (lighting === "scene") {
-          const lin = new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace)
-          r = Math.round(lin.r * 255)
-          g = Math.round(lin.g * 255)
-          b = Math.round(lin.b * 255)
-        }
-        for (let v = i * 4; v < i * 4 + 4 && v * 3 + 2 < tintAttr.length; v++) {
-          tintAttr[v * 3] = r
-          tintAttr[v * 3 + 1] = g
-          tintAttr[v * 3 + 2] = b
-        }
+      for (let i = 0; tinted && i < 6; i++) {
+        if (faceTints[i] != null) writeTint(faceTints[i], tintAttr, i * 12, 4)
       }
       geometry.setAttribute("color", new THREE.BufferAttribute(tintAttr, 3, true))
-    }
 
-    const mesh = new THREE.Mesh(geometry, materials)
-    mesh.userData.cullface = cullDirs
-    mesh.userData.element = element
-    mesh.position.set(
-      from.x + size.x / 2 - 8,
-      from.y + size.y / 2 - 8,
-      from.z + size.z / 2 - 8
-    )
-
-    const fh = args?.fluidHeights ?? (model.fluid && args?.neighbors ? await fluidHeights(assets, model.fluid, args.neighbors) : null)
-    if (model.fluid && fh) await applyFluidHeights(mesh, fh)
-
-    if (element.part && !element.rotation) {
-      const pivot = new THREE.Vector3(
-        (element.pivot?.[0] ?? 8) - 8,
-        (element.pivot?.[1] ?? 8) - 8,
-        (element.pivot?.[2] ?? 8) - 8
-      )
-      const partGroup = new THREE.Group()
-      partGroup.name = "part:" + element.part
-      partGroup.userData.partPivot = [pivot.x, pivot.y, pivot.z]
-      partGroup.position.copy(pivot)
-      mesh.position.sub(pivot)
-      partGroup.add(mesh)
-      target.add(partGroup)
-      return true
-    }
-
-    if (element.rotation) {
-      let { origin, axis, angle, x, y, z } = element.rotation
-      if (!isNaN(angle) || axis) {
-        if (isNaN(angle) || !axis) {
-          return false
-        }
-      }
-      if (model.version && !model.overridden) {
-        const preMultiAxis = isBefore(model.version, "1.21.11")
-        if (axis && preMultiAxis && (Math.abs(angle) > 45 || (isBefore(model.version, "1.21.6") && angle % 22.5 !== 0))) {
-          return false
-        }
-        if (!axis && preMultiAxis) {
-          return false
-        }
-      }
-
-      const pivot = new THREE.Vector3(
-        origin[0] - 8,
-        origin[1] - 8,
-        origin[2] - 8
+      const mesh = new THREE.Mesh(geometry, materials)
+      mesh.userData.cullface = cullDirs
+      mesh.userData.element = element
+      mesh.position.set(
+        from[0] + W / 2 - 8,
+        from[1] + H / 2 - 8,
+        from[2] + D / 2 - 8
       )
 
-      const rotGroup = new THREE.Group()
-      rotGroup.position.copy(pivot)
-      if (element.part) {
-        rotGroup.name = "part:" + element.part
-        rotGroup.userData.partPivot = [pivot.x, pivot.y, pivot.z]
-        rotGroup.userData.partAxis = axis ?? null
+      const fh = args?.fluidHeights ?? (model.fluid && args?.neighbors ? await fluidHeights(assets, model.fluid, args.neighbors) : null)
+      if (model.fluid && fh) await applyFluidHeights(mesh, fh)
+
+      if (element.part && !element.rotation) {
+        const pivot = new THREE.Vector3(
+          (element.pivot?.[0] ?? 8) - 8,
+          (element.pivot?.[1] ?? 8) - 8,
+          (element.pivot?.[2] ?? 8) - 8
+        )
+        const partGroup = new THREE.Group()
+        partGroup.name = "part:" + element.part
+        partGroup.userData.partPivot = [pivot.x, pivot.y, pivot.z]
+        partGroup.position.copy(pivot)
+        mesh.position.sub(pivot)
+        partGroup.add(mesh)
+        target.add(partGroup)
+        continue
       }
 
-      mesh.position.sub(pivot)
-      rotGroup.add(mesh)
+      if (element.rotation) {
+        if (!rotationAllowed(model, element.rotation)) {
+          if (strict) return false
+          continue
+        }
+        const { origin, axis, angle, x, y, z } = element.rotation
 
-      if (axis) {
-        rotGroup.rotateOnAxis(AXIS_VECTORS[axis], THREE.MathUtils.degToRad(angle))
+        const pivot = new THREE.Vector3(
+          origin[0] - 8,
+          origin[1] - 8,
+          origin[2] - 8
+        )
+
+        const rotGroup = new THREE.Group()
+        rotGroup.position.copy(pivot)
+        if (element.part) {
+          rotGroup.name = "part:" + element.part
+          rotGroup.userData.partPivot = [pivot.x, pivot.y, pivot.z]
+          rotGroup.userData.partAxis = axis ?? null
+        }
+
+        mesh.position.sub(pivot)
+        rotGroup.add(mesh)
+
+        if (axis) {
+          rotGroup.rotateOnAxis(AXIS_VECTORS[axis], THREE.MathUtils.degToRad(angle))
+        } else {
+          rotGroup.rotateZ(THREE.MathUtils.degToRad(z ?? 0))
+          rotGroup.rotateY(THREE.MathUtils.degToRad(y ?? 0))
+          rotGroup.rotateX(THREE.MathUtils.degToRad(x ?? 0))
+        }
+
+        target.add(rotGroup)
       } else {
-        rotGroup.rotateZ(THREE.MathUtils.degToRad(z ?? 0))
-        rotGroup.rotateY(THREE.MathUtils.degToRad(y ?? 0))
-        rotGroup.rotateX(THREE.MathUtils.degToRad(x ?? 0))
+        target.add(mesh)
       }
-
-      target.add(rotGroup)
-    } else {
-      target.add(mesh)
+    }
+    if (merge) {
+      target.userData.collision = collision
+      addMergedMeshes(target, buckets, data, tints)
     }
     return true
   }
 
   const replaceElements = modelLoaders.some(l => l.replaceElements && l.match?.(model))
-  for (const element of replaceElements ? [] : model.elements || []) {
-    if (!(await buildElement(element, containerGroup))) {
-      return await loadModel(scene, assets, await resolveModelData(assets, "block-model-renderer:missing"), { ...args, display })
-    }
+  const mergeElements = args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1 && !(model.dynamic && model.elements?.some(e => e?.part))
+  if (!(await buildElements(replaceElements ? [] : model.elements || [], containerGroup, mergeElements, true))) {
+    return await loadModel(scene, assets, await resolveModelData(assets, "block-model-renderer:missing"), { ...args, display })
   }
-
-  function mergeElementMeshes(group) {
-    const buckets = new Map()
-    const vert = new THREE.Vector3()
-    const norm = new THREE.Vector3()
-    const matrix = new THREE.Matrix4()
-    const normalMatrix = new THREE.Matrix3()
-    const collision = []
-    for (const child of Array.from(group.children)) {
-      const mesh = child.isMesh ? child : child.children.length === 1 && child.children[0].isMesh ? child.children[0] : null
-      if (!mesh) continue
-      child.updateMatrix()
-      if (mesh === child) {
-        matrix.copy(child.matrix)
-      } else {
-        mesh.updateMatrix()
-        matrix.multiplyMatrices(child.matrix, mesh.matrix)
-      }
-      normalMatrix.getNormalMatrix(matrix)
-      const geo = mesh.geometry
-      const pos = geo.attributes.position
-      const nrm = geo.attributes.normal
-      const uv = geo.attributes.uv
-      let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity
-      for (let i = 0; i < pos.count; i++) {
-        vert.fromBufferAttribute(pos, i).applyMatrix4(matrix)
-        if (vert.x < x0) x0 = vert.x
-        if (vert.y < y0) y0 = vert.y
-        if (vert.z < z0) z0 = vert.z
-        if (vert.x > x1) x1 = vert.x
-        if (vert.y > y1) y1 = vert.y
-        if (vert.z > z1) z1 = vert.z
-      }
-      if (x0 !== Infinity) collision.push([x0, y0, z0, x1, y1, z1])
-      for (const group of geo.groups) {
-        const material = mesh.material[group.materialIndex]
-        if (!material || material.visible === false) continue
-        const dir = mesh.userData.cullface?.[group.materialIndex] ?? null
-        let dirs = buckets.get(material)
-        if (!dirs) buckets.set(material, dirs = new Map())
-        let acc = dirs.get(dir)
-        if (!acc) dirs.set(dir, acc = { positions: [], normals: [], uvs: [], tints: [] })
-        const col = geo.attributes.color
-        for (let i = group.start; i < group.start + group.count; i++) {
-          const a = geo.index.getX(i)
-          vert.fromBufferAttribute(pos, a).applyMatrix4(matrix)
-          norm.fromBufferAttribute(nrm, a).applyMatrix3(normalMatrix).normalize()
-          acc.positions.push(vert.x, vert.y, vert.z)
-          acc.normals.push(norm.x, norm.y, norm.z)
-          acc.uvs.push(uv.getX(a), uv.getY(a))
-          if (col) acc.tints.push(col.array[a * 3], col.array[a * 3 + 1], col.array[a * 3 + 2])
-          else acc.tints.push(255, 255, 255)
-        }
-      }
-      group.remove(child)
-      geo.dispose()
-    }
-    group.userData.collision = collision
-    for (const [material, dirs] of buckets) {
-      for (const [dir, acc] of dirs) {
-        const geo = new THREE.BufferGeometry()
-        geo.setAttribute("position", new THREE.Float32BufferAttribute(acc.positions, 3))
-        geo.setAttribute("normal", new THREE.Float32BufferAttribute(acc.normals, 3))
-        geo.setAttribute("uv", new THREE.Float32BufferAttribute(acc.uvs, 2))
-        geo.setAttribute("color", new THREE.BufferAttribute(new Uint8Array(acc.tints), 3, true))
-        geo.setIndex(Array.from(Array(acc.positions.length / 3).keys()))
-        const mesh = new THREE.Mesh(geo, material)
-        mesh.userData.cullface = [dir]
-        group.add(mesh)
-      }
-    }
-  }
-
-  if (args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1 && !(model.dynamic && model.elements?.some(e => e?.part))) mergeElementMeshes(containerGroup)
 
   const loaderAnimations = []
   for (const loader of activeLoaders()) {
@@ -3039,12 +3248,11 @@ export async function loadModel(scene, assets, model, args) {
           lighting,
           daytime,
           readFile: (path, hint) => readFile(path, assets, hint),
-          loadTexture: (id, tint) => loadModelTexture(id, tint),
+          loadTexture: async (id, tint) => loadModelTexture(id, tint),
           resolveProfile: profile => resolveProfile(assets, profile),
           buildElements: async (elements = []) => {
             const g = new THREE.Group()
-            for (const element of elements) await buildElement(element, g)
-            if (args?.mergeElements !== false && !model.fluid && elements.length > 1) mergeElementMeshes(g)
+            await buildElements(elements, g, args?.mergeElements !== false && !model.fluid && elements.length > 1, false)
             return g
           },
           buildBlock: async (id, properties = {}) => {
@@ -3382,6 +3590,11 @@ export async function buildOcclusionModel(assets, id, props, version, defaults) 
   return g
 }
 
+function cloneSettings(settings) {
+  if (settings !== null && typeof settings === "object" && Object.getPrototypeOf(settings) === Object.prototype && Object.keys(settings).length === 0) return {}
+  return structuredClone(settings)
+}
+
 function leftHandFix(settings, context) {
   if (context !== "thirdperson_lefthand" && context !== "firstperson_lefthand") return settings
   if (settings.translation) settings.translation = [-settings.translation[0], settings.translation[1], settings.translation[2]]
@@ -3389,60 +3602,50 @@ function leftHandFix(settings, context) {
   return settings
 }
 
+let _vertexSource = null, _vertexRevision = null, _fragmentSource = null, _fragmentSalt = null
+
+function setVertexSource(source) {
+  _vertexRevision = THREE.REVISION
+  _vertexSource = source
+  return source
+}
+
+function setFragmentSource(source) {
+  _fragmentSalt = shaderSalt
+  _fragmentSource = source
+  return source
+}
+
 function unitVector(v, flipY = false) {
   return new THREE.Vector3(v[0], flipY ? -v[1] : v[1], v[2]).normalize()
 }
 
-async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true, opacity = 1, translucent, uvOffset = null, shading = null) {
-  const levelLights = shading?.[lightConfig?.nether ? "nether" : "level"]
-  const gui = shading ? { light0: unitVector(shading.ui.lights[0], true), light1: unitVector(shading.ui.lights[1], true), d0: shading.ui.power, d1: shading.ui.power, ambient: shading.ui.ambient } : { light0: new THREE.Vector3(...(lightConfig?.light0 ?? [0, 0, 1])), light1: new THREE.Vector3(...(lightConfig?.light1 ?? [0, 1, 0])), d0: lightConfig?.d0 ?? 0.6, d1: lightConfig?.d1 ?? 0.6, ambient: lightConfig?.ambient ?? 0.4 }
-  if (uvOffset && lighting === "scene") {
-    texture = texture.clone()
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
-    texture.offset = uvOffset
-    texture.needsUpdate = true
+async function endPortalMaterial(texture, assets, shader) {
+  const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
+  const skyTexture = await makeThreeTexture(skyBuf ? await loadImage(skyBuf) : new Canvas(1, 1))
+  for (const t of [skyTexture, texture]) {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    t.needsUpdate = true
   }
-  const blend = (translucent ?? texture?.userData?.translucent === true) || opacity < 1
-  if (lighting === "scene" && shader?.type !== "end_portal") {
-    if (texture.colorSpace !== THREE.SRGBColorSpace) {
-      texture.colorSpace = THREE.SRGBColorSpace
-      texture.needsUpdate = true
-    }
-    const side = doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide
-    const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: translucent === false ? 0.1 : 0.01, side, vertexColors: true, opacity, transparent: blend, depthWrite: !blend || translucent === true })
-    if (emission > 0) {
-      mat.emissive = new THREE.Color(0xffffff)
-      mat.emissiveMap = texture
-      mat.emissiveIntensity = emission / 15
-    }
-    return mat
-  }
-  if (shader?.type === "end_portal") {
-    const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
-    const skyTexture = await makeThreeTexture(skyBuf ? await loadImage(skyBuf) : new Canvas(1, 1))
-    for (const t of [skyTexture, texture]) {
-      t.wrapS = t.wrapT = THREE.RepeatWrapping
-      t.needsUpdate = true
-    }
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        GameTime: {
-          value: 0.727
-        },
-        Scale: {
-          value: 1
-        },
-        Aspect: {
-          value: 1
-        },
-        Sampler0: {
-          value: skyTexture
-        },
-        Sampler1: {
-          value: texture
-        }
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      GameTime: {
+        value: 0.727
       },
-      vertexShader: `
+      Scale: {
+        value: 1
+      },
+      Aspect: {
+        value: 1
+      },
+      Sampler0: {
+        value: skyTexture
+      },
+      Sampler1: {
+        value: texture
+      }
+    },
+    vertexShader: `
         varying vec4 texProj0;
         #include <clipping_planes_pars_vertex>
 
@@ -3461,7 +3664,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           texProj0 = projection_from_position(gl_Position);
         }
       `,
-      fragmentShader: `
+    fragmentShader: `
         varying vec4 texProj0;
         #include <clipping_planes_pars_fragment>
 
@@ -3528,9 +3731,35 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           gl_FragColor = vec4(color, 1.0);
         }
         //salt:${shaderSalt}`,
-      clipping: true
-    })
+    clipping: true
+  })
+}
+
+function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightConfig, lighting, shadeDir, emission = 0, ao = true, opacity = 1, translucent, uvOffset = null, shading = null) {
+  const levelLights = shading?.[lightConfig?.nether ? "nether" : "level"]
+  const gui = shading ? { light0: unitVector(shading.ui.lights[0], true), light1: unitVector(shading.ui.lights[1], true), d0: shading.ui.power, d1: shading.ui.power, ambient: shading.ui.ambient } : { light0: new THREE.Vector3(...(lightConfig?.light0 ?? [0, 0, 1])), light1: new THREE.Vector3(...(lightConfig?.light1 ?? [0, 1, 0])), d0: lightConfig?.d0 ?? 0.6, d1: lightConfig?.d1 ?? 0.6, ambient: lightConfig?.ambient ?? 0.4 }
+  if (uvOffset && lighting === "scene") {
+    texture = texture.clone()
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.offset = uvOffset
+    texture.needsUpdate = true
   }
+  const blend = (translucent ?? texture?.userData?.translucent === true) || opacity < 1
+  if (lighting === "scene" && shader?.type !== "end_portal") {
+    if (texture.colorSpace !== THREE.SRGBColorSpace) {
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.needsUpdate = true
+    }
+    const side = doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide
+    const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: translucent === false ? 0.1 : 0.01, side, vertexColors: true, opacity, transparent: blend, depthWrite: !blend || translucent === true })
+    if (emission > 0) {
+      mat.emissive = new THREE.Color(0xffffff)
+      mat.emissiveMap = texture
+      mat.emissiveIntensity = emission / 15
+    }
+    return mat
+  }
+  if (shader?.type === "end_portal") return endPortalMaterial(texture, assets, shader)
   const volume = lightConfig?.light?.uniforms ? lightConfig.light : null
   const material = new THREE.ShaderMaterial({
     defines: Object.assign(volume ? { LIGHT_VOLUME: "" } : {}, translucent === false ? { CUTOUT: "" } : {}, uvOffset ? { UV_OFFSET: "" } : {}),
@@ -3565,7 +3794,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       ...(lightConfig?.fog?.uniforms ?? makeFog(0).uniforms),
       ...(volume ? volume.uniforms : {}),
     },
-    vertexShader: `
+    vertexShader: _vertexRevision === THREE.REVISION ? _vertexSource : setVertexSource(`
       ${parseInt(THREE.REVISION) >= 159 ? "#include <batching_pars_vertex>" : ""}
       varying vec2 vUv;
       varying vec3 vNormal;
@@ -3626,8 +3855,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         #include <clipping_planes_vertex>
         gl_Position = projectionMatrix * mvPosition;
       }
-    `,
-    fragmentShader: `
+    `),
+    fragmentShader: _fragmentSalt === shaderSalt ? _fragmentSource : setFragmentSource(`
       uniform sampler2D map;
       uniform float opacity;
       uniform vec2 uvOffset;
@@ -3866,7 +4095,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         }
         gl_FragColor = vec4(rgb, texColor.a * opacity);
       }
-      //salt:${shaderSalt}`,
+      //salt:${shaderSalt}`),
     transparent: blend,
     depthWrite: !blend || translucent === true,
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
