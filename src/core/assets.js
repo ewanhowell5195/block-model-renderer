@@ -234,6 +234,7 @@ export async function prepareAssets(assets, opts) {
   await platform.addBundledEntries(prepared)
   prepared.push(await zipEntryFromFiles(await builtinFallbackFiles()))
   prepared.prepared = true
+  prepared.atlasMembership = new Map()
   if (opts?.cache) prepared.cache = makeCache()
   if (opts?.translucency) prepared.translucency = opts.translucency
   if (opts?.version) prepared.version = opts.version
@@ -614,7 +615,16 @@ async function isSpriteInAtlas(atlasId, spritePath, assets) {
   return present
 }
 
-export async function getAtlasesContaining(spritePath, assets) {
+export function getAtlasesContaining(spritePath, assets) {
+  const memo = assets.atlasMembership
+  if (!memo) return findAtlasesContaining(spritePath, assets)
+  const key = (assets.version ?? "") + "\0" + spritePath
+  let hit = memo.get(key)
+  if (!hit) memo.set(key, hit = findAtlasesContaining(spritePath, assets))
+  return hit
+}
+
+async function findAtlasesContaining(spritePath, assets) {
   const atlases = new Set()
   const ids = new Set()
   for (const entry of assets) {
