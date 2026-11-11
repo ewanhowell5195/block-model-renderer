@@ -1679,7 +1679,7 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
       const defaultValue = prop === "count" ? 1 : 0
       const num = parseFloat(prop === "custom_model_data" ? data["custom_model_data"]?.floats?.[def.index ?? 0] ?? defaultValue : data[prop] ?? defaultValue)
       const scaled = (def.scale ?? 1) * num
-      const entries = def.entries || []
+      const entries = (def.entries || []).slice().sort((a, b) => a.threshold - b.threshold)
       let chosen = def.fallback
       for (const entry of entries) {
         if (scaled >= entry.threshold) chosen = entry.model
