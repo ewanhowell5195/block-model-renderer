@@ -171,6 +171,18 @@ function entryVisible(entry, assets, file) {
   return true
 }
 
+export async function readJsonText(file, assets, overlay) {
+  const files = assets.cache ? (assets.cache.jsonText ??= new Map()) : null
+  const key = overlay ? "\0" + file : file
+  let hit = files?.get(key)
+  if (hit === undefined) {
+    const buf = await (overlay ? readOverlayFile(file, assets) : readFile(file, assets))
+    hit = buf ? { text: typeof buf === "string" ? buf : textDecoder.decode(buf), hintIndex: buf.hintIndex } : null
+    files?.set(key, hit)
+  }
+  return hit
+}
+
 export async function readOverlayFile(file, assets) {
   assets = await prepareAssets(assets)
   for (let i = 0; i < assets.length; i++) {

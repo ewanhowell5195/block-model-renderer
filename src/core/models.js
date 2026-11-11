@@ -2,7 +2,7 @@ import { platform, THREE, Canvas, loadImage, loadTexture, AXIS_VECTORS, UV_CENTE
 import { COLORS, parseColor, getPotionColor } from "./colors.js"
 import { blockRules, colorTables, itemRules } from "./data.js"
 import { fluidHeights } from "./fluids.js"
-import { prepareAssets, readFile, readFileAll, readOverlayFile, overlaysStandalone, getMissingImage, getAtlasesContaining, remapPalette, readPaletteTexture } from "./assets.js"
+import { prepareAssets, readFile, readFileAll, readJsonText, overlaysStandalone, getMissingImage, getAtlasesContaining, remapPalette, readPaletteTexture } from "./assets.js"
 import { resolveProfile } from "./profiles.js"
 import { buildAnimation, lcmTicks } from "./animation.js"
 import { classifyPngAlpha, hashBytes } from "./png.js"
@@ -964,8 +964,8 @@ export async function parseBlockstate(assets, blockstate, args) {
     if (!frameMapArt) data = { ...data, map: "false" }
   }
 
-  let buf = await readFile(`assets/${namespace}/blockstates/${block}.json`, assets)
-  const overlayBuf = await readOverlayFile(`assets/${namespace}/blockstates/${block}.json`, assets)
+  let buf = await readJsonText(`assets/${namespace}/blockstates/${block}.json`, assets)
+  const overlayBuf = await readJsonText(`assets/${namespace}/blockstates/${block}.json`, assets, true)
   if (buf && assets[buf.hintIndex]?.overrideRole === "additional") buf = null
 
   if (!buf && (!overlayBuf || !overlaysStandalone(version))) {
@@ -980,8 +980,8 @@ export async function parseBlockstate(assets, blockstate, args) {
   let invalid = false
   let multipartFirst = null
   let multipartGroup = null
-  if (buf) collectStateModels(parseJson(buf))
-  if (overlayBuf) collectStateModels(parseJson(overlayBuf))
+  if (buf) collectStateModels(parseJson(buf.text))
+  if (overlayBuf) collectStateModels(parseJson(overlayBuf.text))
   if (invalid) return ["block-model-renderer:missing.json"]
 
   function collectStateModels(json) {
@@ -1887,14 +1887,14 @@ export async function resolveModelData(assets, model) {
       if (typeof currentItem === "object") {
         json = currentItem
       } else {
-        const buf = await readFile(`assets/${currentNamespace}/models/${currentItem}.json`, assets)
+        const file = await readJsonText(`assets/${currentNamespace}/models/${currentItem}.json`, assets)
 
-        const sourceEntry = assets[buf.hintIndex]
+        const sourceEntry = assets[file.hintIndex]
         if (sourceEntry?.bundledOverrides) {
           merged.overridden = true
         }
 
-        json = parseJson(buf)
+        json = parseJson(file.text)
       }
 
       stack.push(json)
