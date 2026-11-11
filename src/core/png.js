@@ -89,12 +89,23 @@ async function rawScanlines(info) {
 
 // { opaque, translucent } from the file bytes, or null when the fast path
 // can't answer (not a PNG, interlaced, 16-bit, exotic filters)
-export async function classifyPngAlpha(bytes, cutoff) {
+function classifyPixels(pixels, min, max) {
+  let opaque = true
+  for (let i = 3; i < pixels.length; i += 4) {
+    const a = pixels[i]
+    if (a < 255) opaque = false
+    if (a > min && a < max) return { opaque, translucent: true }
+  }
+  return { opaque, translucent: false }
+}
+
+export async function classifyPngAlpha(bytes, cutoff, pixels) {
   const info = pngInfo(bytes)
   if (!info || info.interlace !== 0) return null
   const min = cutoff?.min ?? 5
   const max = cutoff?.max ?? 240
   const ct = info.colorType
+  if (pixels?.length !== info.width * info.height * 4) pixels = null
   if (ct === 0 || ct === 2) {
     if (!info.tRNS) return { opaque: true, translucent: false }
     return { opaque: false, translucent: false }
@@ -108,6 +119,7 @@ export async function classifyPngAlpha(bytes, cutoff) {
     }
     if (!mid) return { opaque: !below, translucent: false }
     if (info.bitDepth !== 8) return null
+    if (pixels) return classifyPixels(pixels, min, max)
     const raw = await rawScanlines(info).catch(() => null)
     if (!raw) return null
     let opaque = true, translucent = false
@@ -119,6 +131,7 @@ export async function classifyPngAlpha(bytes, cutoff) {
     return { opaque, translucent }
   }
   if ((ct === 4 || ct === 6) && info.bitDepth === 8) {
+    if (pixels) return classifyPixels(pixels, min, max)
     const raw = await rawScanlines(info).catch(() => null)
     if (!raw) return null
     const step = raw.channels

@@ -1725,13 +1725,15 @@ async function loadMinecraftTexture(path, assets, type) {
   const buf = await readFile(path, assets)
   if (!buf) return { image: await getMissingImage(assets) }
 
-  const cls = isImage(buf) ? null : await classifyPngAlpha(buf, assets.translucency).catch(() => null)
-  const srcHash = isImage(buf) ? null : hashBytes(buf)
   const image = await loadImage(buf)
+  const cls = isImage(buf) ? null : await classifyPngAlpha(buf, assets.translucency, platform.imagePixels?.(image)).catch(() => null)
+  const srcHash = isImage(buf) ? null : hashBytes(buf)
 
+  const metaBuf = await readFile(path + ".mcmeta", assets, buf.hintIndex)
+  if (!metaBuf) return { image, cls, srcHash }
   let meta
   try {
-    meta = parseJson(await readFile(path + ".mcmeta", assets, buf.hintIndex)).animation ?? {}
+    meta = parseJson(metaBuf).animation ?? {}
   } catch {
     return { image, cls, srcHash }
   }
