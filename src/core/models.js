@@ -2630,20 +2630,21 @@ function modelPassesAtlasRules(model, assets) {
   })
 }
 
-export async function loadModel(scene, assets, model, args) {
+export async function loadModel(assets, model, args) {
   if (model == null) throw new Error("loadModel requires a model")
   if (assets == null || assets.length === 0) throw new Error("loadModel requires assets")
+  const parent = args?.parent
   const display = args?.display ?? "gui"
   const lightingArg = args?.lighting
   const lighting = lightingArg && typeof lightingArg === "object" ? "world" : lightingArg
   const world = lighting === "world" ? resolveWorldLighting(lightingArg) : null
   const light = world?.light && typeof world.light === "object" ? world.light : null
-  const daytime = scene?.userData?.daytime ?? { value: parseDaytime(world?.daytime) }
-  if (scene) scene.userData.daytime = daytime
-  const fog = scene?.userData?.fog ?? (world?.fog?.uniforms ? world.fog : makeFog(world?.fog, world?.dim))
-  if (scene) scene.userData.fog = fog
-  const lightSwitches = scene?.userData?.lightSwitches ?? makeLightSwitches()
-  if (scene) scene.userData.lightSwitches = lightSwitches
+  const daytime = parent?.userData?.daytime ?? { value: parseDaytime(world?.daytime) }
+  if (parent) parent.userData.daytime = daytime
+  const fog = parent?.userData?.fog ?? (world?.fog?.uniforms ? world.fog : makeFog(world?.fog, world?.dim))
+  if (parent) parent.userData.fog = fog
+  const lightSwitches = parent?.userData?.lightSwitches ?? makeLightSwitches()
+  if (parent) parent.userData.lightSwitches = lightSwitches
   const block = args?.block ? { ...args.block, neighbors: args.neighbors ? neighborLookup(args.neighbors) : args.block.neighbors ?? neighborLookup() } : null
   if (args?.version || !Array.isArray(assets) || !assets.prepared) assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   if (!model.version && (args?.version ?? assets.version)) model.version = args?.version ?? assets.version
@@ -3231,7 +3232,7 @@ export async function loadModel(scene, assets, model, args) {
   const replaceElements = modelLoaders.some(l => l.replaceElements && l.match?.(model))
   const mergeElements = args?.mergeElements !== false && !model.fluid && (model.elements?.length ?? 0) > 1 && !(model.dynamic && model.elements?.some(e => e?.part))
   if (!(await buildElements(replaceElements ? [] : model.elements || [], containerGroup, mergeElements, true))) {
-    return await loadModel(scene, assets, await resolveModelData(assets, "block-model-renderer:missing"), { ...args, display })
+    return await loadModel(assets, await resolveModelData(assets, "block-model-renderer:missing"), { ...args, display })
   }
 
   const loaderAnimations = []
@@ -3258,9 +3259,9 @@ export async function loadModel(scene, assets, model, args) {
           buildBlock: async (id, properties = {}) => {
             const g = new THREE.Group()
             Object.assign(g.userData, { daytime, fog, lightSwitches })
-            const blockArgs = { lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults, block: { id, properties, pos: null } }
+            const blockArgs = { parent: g, lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults, block: { id, properties, pos: null } }
             for (const m of await parseBlockstate(assets, id, { properties, defaults: args?.defaults, version: args?.version })) {
-              await loadModel(g, assets, await resolveModelData(assets, m), blockArgs)
+              await loadModel(assets, await resolveModelData(assets, m), blockArgs)
             }
             return g
           },
@@ -3269,7 +3270,7 @@ export async function loadModel(scene, assets, model, args) {
             Object.assign(g.userData, { daytime, fog, lightSwitches })
             const display = { type: "fallback", display: context }
             for (const m of await parseItemDefinition(assets, id, { components, display, version: args?.version })) {
-              await loadModel(g, assets, await resolveModelData(assets, m), { display, lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults })
+              await loadModel(assets, await resolveModelData(assets, m), { parent: g, display, lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults })
             }
             return g
           },
@@ -3427,7 +3428,7 @@ export async function loadModel(scene, assets, model, args) {
   }
 
   rootGroup.userData.model = model
-  if (scene) scene.add(rootGroup)
+  if (parent) parent.add(rootGroup)
 
   return rootGroup
 }
@@ -3585,7 +3586,7 @@ export async function buildOcclusionModel(assets, id, props, version, defaults) 
   const g = new THREE.Group()
   for (const model of await parseBlockstate(assets, id, { properties: props ?? {}, ignoreAtlases: true, version, defaults })) {
     if (model.model === "block-model-renderer:missing") return null
-    await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false, defaults })
+    await loadModel(assets, await resolveModelData(assets, model), { parent: g, display: {}, animate: false, defaults })
   }
   return g
 }

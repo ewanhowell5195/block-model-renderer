@@ -43,6 +43,11 @@ export async function warmShaders(assets, renderer, args) {
   return scene.warmShaders(assets, renderer, args)
 }
 
+export async function loadModel(assets, model, args) {
+  assetsFirst(assets === null || assets?.isObject3D === true, "loadModel", "assets, model, { parent }")
+  return models.loadModel(assets, model, args)
+}
+
 export async function makeModelScene() {
   return render.makeModelScene()
 }

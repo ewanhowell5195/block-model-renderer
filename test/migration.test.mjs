@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { prepareAssets, renderBlock, parseBlockstate, parseItemDefinition, getCullFaces, readFile, listDirectory, readTexture, computeSceneLight, warmShaders } from "../src/node.js"
+import { prepareAssets, renderBlock, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, getCullFaces, readFile, listDirectory, readTexture, computeSceneLight, warmShaders, getThree } from "../src/node.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
 const jar = await loadMojangJar()
@@ -38,4 +38,22 @@ test("assets come first when reading files, textures and light", async () => {
   const light = await computeSceneLight(assets, [{ id: "torch", pos: [0, 0, 0] }])
   assert.equal(light.lightAt(0, 0, 0).block, 14)
   light.dispose()
+})
+
+test("loadModel returns the group and adds it to the parent option", async () => {
+  const THREE = await getThree()
+  const [reference] = await parseBlockstate(assets, "stone")
+  const model = await resolveModelData(assets, reference)
+  const alone = await loadModel(assets, model)
+  assert.ok(alone instanceof THREE.Group)
+  assert.equal(alone.parent, null)
+  const parent = new THREE.Group()
+  const first = await loadModel(assets, model, { parent, lighting: "world" })
+  const second = await loadModel(assets, model, { parent, lighting: "world" })
+  assert.equal(parent.children.length, 2)
+  assert.equal(parent.children[0], first)
+  assert.equal(parent.children[1], second)
+  assert.ok(parent.userData.daytime)
+  await assert.rejects(loadModel(parent, assets, model), { message: "loadModel takes assets first: loadModel(assets, model, { parent })" })
+  await assert.rejects(loadModel(null, assets, model), { message: "loadModel takes assets first: loadModel(assets, model, { parent })" })
 })

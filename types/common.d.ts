@@ -642,6 +642,8 @@ export interface PlacementContext {
 }
 
 export interface LoadModelArgs {
+  /** An object to add the built group to. Models loaded into the same parent share one time of day, fog and set of lighting switches. */
+  parent?: THREE.Object3D
   /** Display transform to apply to the model. */
   display?: DisplayOption
   /** Lighting mode or world lighting config. Default `"item"`. */

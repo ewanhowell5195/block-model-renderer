@@ -860,9 +860,9 @@ function attachTexturePlayer(texture, onChange) {
   texture.stop = () => players.delete(sub)
 }
 
-export async function loadModel(scene, assets, model, args) {
+export async function loadModel(assets, model, args) {
   await init()
-  const group = await core.loadModel(scene, assets, model, args)
+  const group = await core.loadModel(assets, model, args)
   if (args?.animate !== false) attachAutoAnimation(group)
   return group
 }

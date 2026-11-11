@@ -133,14 +133,14 @@ export function renderModelScene(scene: THREE.Scene, camera: FitAspect<THREE.Cam
 
 /**
  * Build a resolved model's geometry and materials as a three.js group, adding it
- * to `scene` when one is given. Pass `null` for `scene` to just get the group.
+ * to `args.parent` when one is given.
  *
  * The group carries the model it was built from as `userData.model`, and meshes
  * that map to one element carry it as `userData.element`.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#loadmodelscene-assets-model-args
  */
-export function loadModel(scene: THREE.Object3D | null, assets: AssetsInput, model: ResolvedModel, args?: LoadModelArgs): Promise<THREE.Group>
+export function loadModel(assets: AssetsInput, model: ResolvedModel, args?: LoadModelArgs): Promise<THREE.Group>
 
 /**
  * Build a whole block scene in one call: blockstate parsing, per-position

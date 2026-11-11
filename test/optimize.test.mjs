@@ -9,7 +9,7 @@ const assets = await prepareAssets([await loadMojangJar()], { cache: true })
 
 async function build(id, lighting = "world") {
   const group = new THREE.Group()
-  for (const model of await parseBlockstate(assets, id)) await loadModel(group, assets, await resolveModelData(assets, model), { lighting })
+  for (const model of await parseBlockstate(assets, id)) await loadModel(assets, await resolveModelData(assets, model), { parent: group, lighting })
   return group
 }
 

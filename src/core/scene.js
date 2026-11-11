@@ -452,7 +452,7 @@ export async function createScene(assets, blocks, args = {}) {
   const palFull = new Uint8Array(palette.length), palBury = new Uint8Array(palette.length)
   async function modelsCullAway(entry, models) {
     const g = new THREE.Group()
-    for (const model of models) await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false, block: { id: entry.id, properties: entry.properties ?? {} }, version, defaults })
+    for (const model of models) await loadModel(assets, await resolveModelData(assets, model), { parent: g, display: {}, animate: false, block: { id: entry.id, properties: entry.properties ?? {} }, version, defaults })
     return cullsAway(g)
   }
   async function pickModelsCullAway(entry) {
@@ -767,8 +767,8 @@ export async function createScene(assets, blocks, args = {}) {
         : spec.entry.models
       for (const model of models) {
         try {
-          await loadModel(tmpl, assets, await resolveModelData(assets, model), {
-            display: {}, animate: false, lighting: lightingOpt,
+          await loadModel(assets, await resolveModelData(assets, model), {
+            parent: tmpl, display: {}, animate: false, lighting: lightingOpt,
             shaderScale: args.shaderScale,
             block: spec.block ?? { id: spec.entry.id, properties: spec.entry.properties ?? {} },
             fluidHeights: spec.fh, version, defaults
@@ -852,8 +852,8 @@ export async function createScene(assets, blocks, args = {}) {
             : spec.entry.models
           for (const model of models) {
             try {
-              await loadModel(culled, assets, await resolveModelData(assets, model), {
-                display: {}, animate: false, lighting: lightingOpt, cull: cellCullSet,
+              await loadModel(assets, await resolveModelData(assets, model), {
+                parent: culled, display: {}, animate: false, lighting: lightingOpt, cull: cellCullSet,
                 shaderScale: args.shaderScale,
                 block: spec.block ?? { id: spec.entry.id, properties: spec.entry.properties ?? {} },
                 fluidHeights: spec.fh, version, defaults

@@ -296,7 +296,7 @@ export function renderModelScene(scene: ThreeModule.Scene, camera: FitAspect<Thr
 
 /**
  * Build a resolved model's geometry and materials as a three.js group, adding it
- * to `scene` when one is given. Pass `null` for `scene` to just get the group.
+ * to `args.parent` when one is given.
  *
  * In the browser the loaded model animates on its own, driven off the
  * page-global clock via `onBeforeRender`, so an app with a render loop needs
@@ -305,7 +305,7 @@ export function renderModelScene(scene: ThreeModule.Scene, camera: FitAspect<Thr
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#loadmodelscene-assets-model-args
  */
-export function loadModel(scene: ThreeModule.Object3D | null, assets: AssetsInput, model: ResolvedModel, args?: LoadModelArgs): Promise<ThreeModule.Group>
+export function loadModel(assets: AssetsInput, model: ResolvedModel, args?: LoadModelArgs): Promise<ThreeModule.Group>
 
 /**
  * Build a whole block scene in one call: blockstate parsing, per-position

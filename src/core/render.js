@@ -131,7 +131,7 @@ export async function renderBlock(args = {}) {
   const block = { id: args.id, properties: args.properties, pos: args.pos ?? null }
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
+    await loadModel(assets, resolved, { parent: scene, display: args.display, cull, block, neighbors: args.neighbors, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
   }
 
   scene.traverse(o => { if (o.userData.dynamic === "enchanting_book") o.userData.range = 0 })
@@ -157,7 +157,7 @@ export async function renderItem(args = {}) {
 
   for (const model of models) {
     const resolved = await resolveModelData(assets, model)
-    await loadModel(scene, assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
+    await loadModel(assets, resolved, { parent: scene, display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
   }
 
   return renderModelScene(scene, camera, args)
@@ -218,7 +218,7 @@ export async function renderModel(args = {}) {
   scene.userData.ephemeral = true
 
   const resolved = await resolveModelData(args.assets, { model: args.model})
-  await loadModel(scene, args.assets, resolved, { display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
+  await loadModel(args.assets, resolved, { parent: scene, display: args.display, cull: args.cull, lighting: args.lighting, shaderScale: args.shaderScale, emission: args.emission, defaults: args.defaults })
 
   return renderModelScene(scene, camera, args)
 }
