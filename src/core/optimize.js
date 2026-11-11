@@ -385,11 +385,17 @@ async function buildAtlas(textures, maxAtlas, breathe, owned) {
   }
   const items = Array.from(rep.values()).map(t => ({ t, img: t.image, w: t.image.width, h: t.image.height }))
   items.sort((a, b) => b.h - a.h)
+  let area = 0, widest = 0
+  for (const it of items) {
+    area += (it.w + pad * 2) * (it.h + pad * 2)
+    widest = Math.max(widest, it.w + pad * 2)
+  }
+  const pageW = Math.min(maxAtlas, Math.max(widest, Math.ceil(Math.sqrt(area))))
   let ai = 0, x = 0, y = 0, rowH = 0
   const sizes = [{ w: 0, h: 0 }]
   for (const it of items) {
     const cw = it.w + pad * 2, ch = it.h + pad * 2
-    if (x + cw > maxAtlas) { y += rowH; x = 0; rowH = 0 }
+    if (x + cw > pageW) { y += rowH; x = 0; rowH = 0 }
     if (y + ch > maxAtlas) { ai++; x = 0; y = 0; rowH = 0; sizes[ai] = { w: 0, h: 0 } }
     it.ai = ai; it.px = x; it.py = y
     x += cw; rowH = Math.max(rowH, ch)
@@ -1017,10 +1023,16 @@ async function sharedLocate(shared, sheet, tex) {
 }
 
 const tiledCache = new Map()
+const TILED_CACHE_BYTES = 64 * 1024 * 1024
+let tiledBytes = 0
 function tiledSub(srcImg, key, sub, ur, vr) {
   const k = key + "|" + ur + "x" + vr
   let c = tiledCache.get(k)
-  if (c) return c
+  if (c) {
+    tiledCache.delete(k)
+    tiledCache.set(k, c)
+    return c
+  }
   const px = platform.imageFromPixels ? pixelData(srcImg) : null
   if (px) {
     const W = sub.sw * ur, rowBytes = sub.sw * 4, out = new Uint8ClampedArray(W * sub.sh * vr * 4)
@@ -1039,7 +1051,12 @@ function tiledSub(srcImg, key, sub, ur, vr) {
   }
   texHash.set(c, k + "_" + c.width + "x" + c.height)
   tiledCache.set(k, c)
-  if (tiledCache.size > 4096) tiledCache.delete(tiledCache.keys().next().value)
+  tiledBytes += c.width * c.height * 4
+  for (const [old, img] of tiledCache) {
+    if (tiledBytes <= TILED_CACHE_BYTES || old === k) break
+    tiledCache.delete(old)
+    tiledBytes -= img.width * img.height * 4
+  }
   return c
 }
 
@@ -1422,7 +1439,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   for (let g = grids.length - 1; g >= 0; g--) if (rectAt[g] === rectRun.length) rectAt[g] = rectAt[g + 1]
 
   const greedyQuads = []
-  const pseudoCache = []
+  const tiles = new Map()
   stage(2500)
   let gi = 0
   for (const grid of grids) {
@@ -1430,10 +1447,18 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     await breathe()
     if (shouldCancel?.()) return null
     const f = grid.f
-    const translucent = isTranslucent(f.tex, cutoff)
-    const sig = f.sig + (translucent ? "|T" : "|O")
-    let grp = atlasGroups.get(sig)
-    if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: f.mat, translucent })
+    let tile = f.tile
+    if (!tile) {
+      const translucent = isTranslucent(f.tex, cutoff)
+      const sig = f.sig + (translucent ? "|T" : "|O")
+      let grp = atlasGroups.get(sig)
+      if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: f.mat, translucent })
+      const content = f.srcHash + ":" + f.sub.sx + "," + f.sub.sy + "," + f.sub.sw + "," + f.sub.sh
+      const tileKey = sig + "#" + content
+      tile = tiles.get(tileKey)
+      if (!tile) tiles.set(tileKey, tile = { sig, grp, f, content, ur: 0, vr: 0, pseudo: null })
+      f.tile = tile
+    }
     const maxA = Math.max(1, Math.floor(maxTile / f.sub.sw)), maxB = Math.max(1, Math.floor(maxTile / f.sub.sh))
     for (let ri = rectAt[grid.index], rEnd = rectAt[grid.index + 1]; ri < rEnd; ri += 5) {
       const i0 = rectRun[ri + 1], i1 = rectRun[ri + 2], j0 = rectRun[ri + 3], j1 = rectRun[ri + 4]
@@ -1443,15 +1468,17 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         const wALo = grid.phaseA + ci * f.wa, wAHi = grid.phaseA + (ei + 1) * f.wa
         const wBLo = grid.phaseB + cj * f.wb, wBHi = grid.phaseB + (ej + 1) * f.wb
         const ur = f.uAxisIsPa ? Na : Nb, vr = f.uAxisIsPa ? Nb : Na
-        let byCell = pseudoCache[f.cid]
-        if (!byCell) pseudoCache[f.cid] = byCell = new Map()
-        const pk = ur * 4096 + vr
-        let pseudo = byCell.get(pk)
-        if (!pseudo) byCell.set(pk, pseudo = { image: tiledSub(f.tex.image, f.cellKey, f.sub, ur, vr), colorSpace: f.tex.colorSpace })
-        grp.textures.add(pseudo)
-        greedyQuads.push({ sig, pseudo, f, wpc: grid.wpc, wALo, wAHi, wBLo, wBHi })
+        if (ur > tile.ur) tile.ur = ur
+        if (vr > tile.vr) tile.vr = vr
+        greedyQuads.push({ tile, ur, vr, f, wpc: grid.wpc, wALo, wAHi, wBLo, wBHi })
       }
     }
+  }
+  for (const tile of tiles.values()) {
+    const tf = tile.f, img = tf.tex.image, sub = tf.sub
+    const whole = tile.ur === 1 && tile.vr === 1 && sub.sx === 0 && sub.sy === 0 && sub.sw === img.width && sub.sh === img.height
+    tile.pseudo = whole ? tf.tex : { image: tiledSub(img, tile.content, sub, tile.ur, tile.vr), colorSpace: tf.tex.colorSpace }
+    tile.grp.textures.add(tile.pseudo)
   }
 
   const atlases = new Map()
@@ -1762,12 +1789,12 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     let lastSig, lastPseudo, at, rect, ai, size
     for (let i = 0; i < greedyQuads.length; i++) {
       const q = greedyQuads[i]
-      if (q.sig !== lastSig) {
-        at = atlases.get(lastSig = q.sig)
+      if (q.tile.sig !== lastSig) {
+        at = atlases.get(lastSig = q.tile.sig)
         lastPseudo = undefined
       }
-      if (q.pseudo !== lastPseudo) {
-        rect = at.rects.get(lastPseudo = q.pseudo)
+      if (q.tile.pseudo !== lastPseudo) {
+        rect = at.rects.get(lastPseudo = q.tile.pseudo)
         ai = accId.get(at.accs[rect.ai])
         size = at.sizes[rect.ai]
       }
@@ -1793,7 +1820,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       quadBuf[o + 3] = q.wALo; quadBuf[o + 4] = q.wAHi
       quadBuf[o + 5] = q.wBLo; quadBuf[o + 6] = q.wBHi
       quadBuf[o + 7] = rect.x; quadBuf[o + 8] = rect.y
-      quadBuf[o + 9] = rect.w; quadBuf[o + 10] = rect.h
+      quadBuf[o + 9] = f.sub.sw * q.ur; quadBuf[o + 10] = f.sub.sh * q.vr
       quadBuf[o + 11] = s.w; quadBuf[o + 12] = s.h
       const ft = f.tint
       quadBuf[o + 13] = ft ? ft[0] : -1
@@ -1824,7 +1851,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         await breathe()
         if (shouldCancel?.()) return null
       }
-      const at = atlases.get(q.sig), rect = at.rects.get(q.pseudo), s = at.sizes[rect.ai], acc = at.accs[rect.ai], f = q.f
+      const at = atlases.get(q.tile.sig), rect = at.rects.get(q.tile.pseudo), s = at.sizes[rect.ai], acc = at.accs[rect.ai], f = q.f
+      const rw = f.sub.sw * q.ur, rh = f.sub.sh * q.vr
       const fd = faceDataOf(f.mat)
       const ft = f.tint
       for (const vert of f.verts) {
@@ -1835,7 +1863,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         nn[f.na] = f.ns
         acc.P.push3(p[0], p[1], p[2])
         acc.N.push3(nn[0], nn[1], nn[2])
-        acc.U.push2((rect.x + vert.u * rect.w) / s.w, 1 - (rect.y + (1 - vert.v) * rect.h) / s.h)
+        acc.U.push2((rect.x + vert.u * rw) / s.w, 1 - (rect.y + (1 - vert.v) * rh) / s.h)
         if (ft) acc.T.push3(ft[0], ft[1], ft[2])
         else acc.T.push3(255, 255, 255)
         if (fd) acc.F.push2(fd[0], fd[1])
