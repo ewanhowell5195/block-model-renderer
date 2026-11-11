@@ -102,6 +102,21 @@ test("cloud interior is built when the anchor first enters the layer", async () 
   assert.ok(interior.count > 0)
 })
 
+test("renderModelScene follows its camera and leaves the anchor unset", async () => {
+  const clouds = await createClouds([await cloudPack(PATTERNS.ring)], { tick: false })
+  const { scene, camera } = makeModelScene()
+  scene.add(clouds.group)
+  const center = meshes(clouds)[0].material.uniforms.fogCenter.value
+  await renderModelScene(scene, camera, { width: 16, height: 16 })
+  assert.equal(clouds.anchor, null)
+  const first = center.x
+  const moved = camera.clone()
+  moved.position.x += 80
+  await renderModelScene(scene, moved, { width: 16, height: 16 })
+  assert.equal(clouds.anchor, null)
+  assert.equal(center.x - first, 80)
+})
+
 test("fast clouds and a pack with no cloud texture render", async () => {
   for (const [assets, args] of [[[await cloudPack(PATTERNS.ring)], { fancy: false }], [[{ read: () => null }], {}]]) {
     const clouds = await createClouds(assets, args)

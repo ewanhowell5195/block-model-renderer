@@ -293,7 +293,7 @@ export async function createClouds(assets, args = {}) {
   const passes = [shellDepth, interiorDepth, shellColor, interiorColor]
   const interiors = [interiorDepth, interiorColor]
   const shells = [shellDepth, shellColor]
-  shellDepth.userData.prepare = view => anchor ? update() : update(view)
+  shellDepth.userData.prepare = refresh
   shellDepth.onBeforeRender = (renderer, scene, view) => sync(view)
 
   function applyFancy() {
@@ -321,8 +321,13 @@ export async function createClouds(assets, args = {}) {
 
   function update(target) {
     if (target !== undefined) anchor = toAnchor(target)
-    anchor?.object?.updateMatrixWorld(true)
-    sync(null)
+    refresh(null)
+  }
+
+  function refresh(view) {
+    const object = anchor ? anchor.object : view
+    object?.updateMatrixWorld(true)
+    sync(view)
   }
 
   function sync(view) {
