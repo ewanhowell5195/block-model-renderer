@@ -111,6 +111,8 @@ It traverses the object, hooks every mesh with translucent materials, and needs 
 
 A shared atlas is an atlas pool that outlives any one scene: pass it as `sharedAtlas` to [`createScene`](scenes.md#createsceneassets-blocks-args) / [`optimizeScene`](#scene-optimization) and every scene using the handle resolves its textures against the same pages instead of building per-scene atlases. Main-thread scenes on a stitched handle use its pages and stitch any missing texture into them.
 
+Faces merged on a shared atlas repeat their texture in the library's shader: such a mesh has a `tileRect` attribute and its `uv` holds repeat counts, so it only textures correctly with the material it was built with.
+
 | Export | Description |
 |---|---|
 | `createSharedAtlas({ size?, headroom?, renderer?, animate? })` | The atlas handle. With a `renderer`, page updates upload as GPU subimages instead of full re-uploads. `animate: true` makes the atlas [tick its own animated regions](#atlas-animation). `texture(sig, page)` resolves a page's texture (what revived scenes reference); `dispose()` frees the pages and stops the animator. Page size auto-picks at stitch time (below); pass `size` to force one, or `headroom` to set how much of the page the stitch leaves free (default `0.25`, clamped to `0.95`) |

@@ -267,6 +267,7 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
   if (sub.sw < 1 || sub.sh < 1) return null
   if (Math.abs(umin * tw - sub.sx) > 1e-3 || Math.abs((1 - vmax) * th - sub.sy) > 1e-3 || Math.abs((umax - umin) * tw - sub.sw) > 1e-3 || Math.abs((vmax - vmin) * th - sub.sh) > 1e-3) return null
   const verts = P.map(p => ({ ha: Math.abs(p.a - a1) < 0.01 ? 1 : 0, hb: Math.abs(p.b - b1) < 0.01 ? 1 : 0, u: (p.u - umin) / (umax - umin), v: (p.v - vmin) / (vmax - vmin) }))
+  if (verts.some(c => Math.abs(c.u - Math.round(c.u)) > 1e-3 || Math.abs(c.v - Math.round(c.v)) > 1e-3)) return null
   const srcHash = hashTexture(tex)
   const corners = {}
   for (const c of verts) corners[`${c.ha}${c.hb}`] = `${c.u.toFixed(2)},${c.v.toFixed(2)}`
@@ -282,12 +283,13 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
   return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig, tex, mat, srcHash, cull, cellKey, tint }
 }
 
-function extractFlats(geo, grp, mw, nm, tex, mat, cull) {
+function extractFlats(geo, grp, mw, nm, tex, mat, cull, tiled) {
   if (grp.count % 6) return null
   const out = []
   for (let s = grp.start; s < grp.start + grp.count; s += 6) {
     const flat = extractFlat(geo, { start: s, count: 6 }, mw, nm, tex, mat, cull)
     if (!flat) return null
+    flat.tiled = tiled
     out.push({ flat, start: s, count: 6 })
   }
   return out
@@ -401,6 +403,8 @@ function scanCells(scan, from, to) {
   }
 }
 
+const TILED_SPAN = 4096, TILED_SORT_SPAN = 32
+
 function splitQuads(scan, from, to) {
   const { grids, rectRun, rectAt, maxTile, tiles, atlasGroups, cutoff, greedyQuads } = scan
   for (let gi = from; gi < to; gi++) {
@@ -417,7 +421,8 @@ function splitQuads(scan, from, to) {
       if (!tile) tiles.set(tileKey, tile = { sig, grp, f, content, ur: 0, vr: 0, pseudo: null })
       f.tile = tile
     }
-    const maxA = Math.max(1, Math.floor(maxTile / f.sub.sw)), maxB = Math.max(1, Math.floor(maxTile / f.sub.sh))
+    const span = tile.grp.translucent ? TILED_SORT_SPAN : TILED_SPAN
+    const maxA = f.tiled ? span : Math.max(1, Math.floor(maxTile / f.sub.sw)), maxB = f.tiled ? span : Math.max(1, Math.floor(maxTile / f.sub.sh))
     for (let ri = rectAt[grid.index], rEnd = rectAt[grid.index + 1]; ri < rEnd; ri += 5) {
       const i0 = rectRun[ri + 1], i1 = rectRun[ri + 2], j0 = rectRun[ri + 3], j1 = rectRun[ri + 4]
       for (let ci = i0; ci <= i1; ci += maxA) for (let cj = j0; cj <= j1; cj += maxB) {
@@ -758,29 +763,47 @@ function quadLayout(f) {
 function emitQuads(quads, from, to) {
   for (let i = from; i < to; i++) {
     const q = quads[i], f = q.f, tile = q.tile, out = tile.acc.out, rect = tile.rect, size = tile.size
-    const P = out.position, N = out.normal, U = out.uv, T = out.color, F = out.faceData, I = out.index
-    const na = f.na, pa = f.pa, pb = f.pb, rw = f.sub.sw * q.ur, rh = f.sub.sh * q.vr, tint = f.tint, nv = f.ns * out.unit
+    const P = out.position, N = out.normal, U = out.uv, T = out.color, F = out.faceData, I = out.index, R = f.tiled ? out.tileRect : null
+    const na = f.na, pa = f.pa, pb = f.pb, sub = f.sub, tint = f.tint, nv = f.ns * out.unit
     const tr = tint ? tint[0] : 255, tg = tint ? tint[1] : 255, tb = tint ? tint[2] : 255
     const fe = !F ? 0 : out.bytes ? Math.round(f.fd[0] * 15) : f.fd[0] * 15, ff = F ? f.fd[1] : 0
-    const corners = f.layout.corners, order = f.layout.index, v0 = out.verts, i0 = out.indices
-    for (let c = 0; c < corners.length; c++) {
-      const vert = corners[c], o3 = (v0 + c) * 3, o2 = (v0 + c) * 2
-      P[o3 + na] = q.wpc
-      P[o3 + pa] = vert.ha ? q.wAHi : q.wALo
-      P[o3 + pb] = vert.hb ? q.wBHi : q.wBLo
-      N[o3 + na] = nv
-      U[o2] = (rect.x + vert.u * rw) / size.w
-      U[o2 + 1] = 1 - (rect.y + (1 - vert.v) * rh) / size.h
-      T[o3] = tr; T[o3 + 1] = tg; T[o3 + 2] = tb
-      if (F) { F[o2] = fe; F[o2 + 1] = ff }
+    const corners = f.layout.corners, order = f.layout.index
+    const split = f.tiled && !R
+    const ca = !split ? 1 : f.uAxisIsPa ? q.ur : q.vr, cb = !split ? 1 : f.uAxisIsPa ? q.vr : q.ur
+    const ox = f.tiled ? rect.x + sub.sx : rect.x, oy = f.tiled ? rect.y + sub.sy : rect.y
+    const rw = f.tiled ? sub.sw : sub.sw * q.ur, rh = f.tiled ? sub.sh : sub.sh * q.vr
+    let v0 = out.verts, i0 = out.indices
+    for (let a = 0; a < ca; a++) for (let b = 0; b < cb; b++) {
+      const aLo = split ? q.wALo + a * f.wa : q.wALo, aHi = split ? q.wALo + (a + 1) * f.wa : q.wAHi
+      const bLo = split ? q.wBLo + b * f.wb : q.wBLo, bHi = split ? q.wBLo + (b + 1) * f.wb : q.wBHi
+      for (let c = 0; c < corners.length; c++) {
+        const vert = corners[c], o3 = (v0 + c) * 3, o2 = (v0 + c) * 2
+        P[o3 + na] = q.wpc
+        P[o3 + pa] = vert.ha ? aHi : aLo
+        P[o3 + pb] = vert.hb ? bHi : bLo
+        N[o3 + na] = nv
+        if (R) {
+          const o4 = (v0 + c) * 4
+          U[o2] = q.ur + Math.round(vert.u) * 0.5
+          U[o2 + 1] = q.vr + Math.round(vert.v) * 0.5
+          R[o4] = ox; R[o4 + 1] = oy; R[o4 + 2] = rw; R[o4 + 3] = rh
+        } else {
+          U[o2] = (ox + vert.u * rw) / size.w
+          U[o2 + 1] = 1 - (oy + (1 - vert.v) * rh) / size.h
+        }
+        T[o3] = tr; T[o3 + 1] = tg; T[o3 + 2] = tb
+        if (F) { F[o2] = fe; F[o2 + 1] = ff }
+      }
+      for (let k = 0; k < 6; k++) I[i0 + k] = v0 + order[k]
+      v0 += corners.length
+      i0 += 6
     }
-    for (let k = 0; k < 6; k++) I[i0 + k] = v0 + order[k]
-    out.verts = v0 + corners.length
-    out.indices = i0 + 6
+    out.verts = v0
+    out.indices = i0
   }
 }
 
-function packMesh(acc) {
+function dedupMesh(acc) {
   const P = acc.P.a, N = acc.N.a, U = acc.U.a, T = acc.T.a, F = acc.F.length ? acc.F.a : null, n = acc.P.length / 3
   const index = new Uint32Array(n), src = new Int32Array(n)
   function same(o, i) {
@@ -805,6 +828,18 @@ function packMesh(acc) {
     }
     p0 = c0; p1 = c1; p2 = c2
   }
+  return { index, src, verts: w, indices: n }
+}
+
+const VERTEX_BYTES = 28, TILE_BYTES = 8
+function meshBytes(acc, quads, vertexBytes) {
+  const verts = acc.dedup.verts + quads * 4
+  return verts * vertexBytes + (acc.dedup.indices + quads * 6) * (verts <= 65536 ? 2 : 4)
+}
+
+function packMesh(acc) {
+  const P = acc.P.a, N = acc.N.a, U = acc.U.a, T = acc.T.a, F = acc.F.length ? acc.F.a : null
+  const { index, src, verts: w, indices: n } = acc.dedup
   const verts = w + acc.quadVerts
   const position = new Float32Array(verts * 3), uv = new Float32Array(verts * 2), color = new Uint8Array(verts * 3)
   let byteNormals = true
@@ -839,12 +874,12 @@ function packMesh(acc) {
       faceData[o * 2 + 1] = F[s2 + 1]
     }
   }
-  const out = { position, normal, uv, color, faceData, index: new (verts <= 65536 ? Uint16Array : Uint32Array)(n + acc.quads * 6), verts: w, indices: n, unit: byteNormals ? 127 : 32767, bytes }
+  const out = { position, normal, uv, color, faceData, tileRect: acc.tiled ? new Uint16Array(verts * 4) : null, index: new (verts <= 65536 ? Uint16Array : Uint32Array)(n + acc.quads * 6), verts: w, indices: n, unit: byteNormals ? 127 : 32767, bytes }
   out.index.set(index)
   return out
 }
 
-const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0, quads: 0, quadVerts: 0, quadFaceData: false, quadBytes: true, out: null })
+const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0, quads: 0, quadVerts: 0, quadFaceData: false, quadBytes: true, tiled: false, tiledQuads: 0, tiledCells: 0, dedup: null, out: null })
 
 const BAKE_STRIDE = 13
 
@@ -1518,8 +1553,14 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         if (!tex && !matAnimated(mat)) continue
         const cull = o.userData.cullface?.[g.materialIndex] ?? null
         const offAtlas = shared?.frozen && (!tex || !shared.sheets.get("*")?.rects.has(hashTexture(tex)))
+        const tiled = !!shared && !!mat.userData?.atlasTiling
         if (matAnimated(mat) || offAtlas) {
           if (!offAtlas && tex?.userData?.frames && !mat.userData?.glint) {
+            const fls = tiled ? extractFlats(geo, g, o.matrixWorld, nm, tex, mat, cull, true) : null
+            if (fls) {
+              for (const fl of fls) flats.push({ flat: fl.flat, o, mi: g.materialIndex, mat, tex, start: fl.start, count: fl.count, cull })
+              continue
+            }
             const face = toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull })
             rec.regs.push({ kind: 0, ni: nodeIdx.get(o), mi: g.materialIndex, tex, sig: face.sig, translucent: face.translucent })
             atlasFace(o, face, { kind: 0, start: g.start, count: g.count, tex, cull, sig: face.sig, fd: face.fd })
@@ -1531,7 +1572,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
           atlasFace(o, { start: g.start, count: g.count, animKey: key, cull }, { kind: 1, ri, start: g.start, count: g.count, cull })
           continue
         }
-        const fls = shared ? null : extractFlats(geo, g, o.matrixWorld, nm, tex, mat, cull)
+        const fls = shared && !tiled ? null : extractFlats(geo, g, o.matrixWorld, nm, tex, mat, cull, tiled)
         if (fls) for (const fl of fls) flats.push({ flat: fl.flat, o, mi: g.materialIndex, mat, tex, start: fl.start, count: fl.count, cull })
         else {
           const face = toAtlas(mat, tex, { start: g.start, count: g.count, tex, cull })
@@ -1619,7 +1660,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
 
   const greedyQuads = []
   const tiles = new Map()
-  const maxTile = grids.length ? Math.max(64, maxAtlas() >> 5) : 0
+  const maxTile = grids.length && !shared ? Math.max(64, maxAtlas() >> 5) : 0
   stage(2500)
   const quadScan = { grids, rectRun, rectAt, maxTile, tiles, atlasGroups, cutoff, greedyQuads }
   for (let i = 0; i < grids.length; i += 1024) {
@@ -1632,7 +1673,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   for (const tile of tiles.values()) {
     const tf = tile.f, img = tf.tex.image, sub = tf.sub
     const whole = tile.ur === 1 && tile.vr === 1 && sub.sx === 0 && sub.sy === 0 && sub.sw === img.width && sub.sh === img.height
-    tile.pseudo = whole ? tf.tex : { image: tiledSub(img, tile.content, sub, tile.ur, tile.vr), colorSpace: tf.tex.colorSpace }
+    tile.pseudo = whole || tf.tiled ? tf.tex : { image: tiledSub(img, tile.content, sub, tile.ur, tile.vr), colorSpace: tf.tex.colorSpace }
     tile.grp.textures.add(tile.pseudo)
   }
 
@@ -1860,7 +1901,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
 
   const packs = []
-  for (const { materials, accs } of atlases.values()) for (let i = 0; i < accs.length; i++) packs.push({ acc: accs[i], material: materials[i] })
+  for (const { materials, accs, sizes } of atlases.values()) for (let i = 0; i < accs.length; i++) packs.push({ acc: accs[i], material: materials[i], size: sizes[i] })
   for (const { material, acc } of anims.values()) packs.push({ acc, material })
   for (const tile of tiles.values()) {
     const at = atlases.get(tile.sig), rect = at.rects.get(tile.pseudo)
@@ -1868,6 +1909,18 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     tile.size = at.sizes[rect.ai]
     tile.acc = at.accs[rect.ai]
   }
+  stage(900)
+  for (let i = 0; i < packs.length; i++) {
+    packs[i].acc.dedup = dedupMesh(packs[i].acc)
+    report((i + 1) / packs.length)
+    await breathe()
+  }
+  for (const q of greedyQuads) {
+    if (!q.f.tiled) continue
+    q.tile.acc.tiledQuads++
+    q.tile.acc.tiledCells += q.ur * q.vr
+  }
+  for (const { acc } of packs) acc.tiled = acc.tiledQuads > 0 && meshBytes(acc, acc.tiledQuads, VERTEX_BYTES + TILE_BYTES) <= meshBytes(acc, acc.tiledCells, VERTEX_BYTES)
   for (const q of greedyQuads) {
     const f = q.f, acc = q.tile.acc
     if (!f.layout) {
@@ -1875,19 +1928,15 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       f.fd = faceDataOf(f.mat)
       f.fdBytes = !f.fd || byteFaceData(f.fd[0], f.fd[1])
     }
-    acc.quads++
-    acc.quadVerts += f.layout.corners.length
+    const count = f.tiled && !acc.tiled ? q.ur * q.vr : 1
+    acc.quads += count
+    acc.quadVerts += f.layout.corners.length * count
     if (f.fd) acc.quadFaceData = true
     if (!f.fdBytes) acc.quadBytes = false
   }
-
-  stage(900)
-  for (let i = 0; i < packs.length; i++) {
-    const acc = packs[i].acc
+  for (const { acc } of packs) {
     acc.out = packMesh(acc)
-    acc.P = acc.N = acc.U = acc.T = acc.F = null
-    report((i + 1) / packs.length)
-    await breathe()
+    acc.P = acc.N = acc.U = acc.T = acc.F = acc.dedup = null
   }
 
   stage(1500)
@@ -1909,6 +1958,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     geo.setAttribute("uv", new THREE.BufferAttribute(packed.uv, 2))
     geo.setAttribute("color", new THREE.BufferAttribute(packed.color, 3, true))
     if (packed.faceData) geo.setAttribute("faceData", new THREE.BufferAttribute(packed.faceData, 2))
+    if (packed.tileRect) geo.setAttribute("tileRect", new THREE.BufferAttribute(packed.tileRect, 4))
     geo.setIndex(new THREE.BufferAttribute(packed.index, 1))
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
     for (let i = 0; i < pd.length; i += 3) {
@@ -1935,7 +1985,13 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     drawCalls++
     tris += packed.index.length / 3
   }
-  for (const { acc, material } of packs) addMesh(acc.out, material)
+  for (const { acc, material, size } of packs) {
+    if (acc.out.tileRect) {
+      material.defines = { ...material.defines, TILED: "" }
+      material.uniforms.atlasSize = { value: new THREE.Vector2(size.w, size.h) }
+    }
+    addMesh(acc.out, material)
+  }
   for (const bucket of lineBuckets.values()) {
     if (!bucket.positions.length) continue
     const geo = new THREE.BufferGeometry()

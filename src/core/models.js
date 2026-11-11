@@ -3575,6 +3575,11 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         attribute vec2 faceData;
         varying vec2 vFaceData;
       #endif
+      #ifdef TILED
+        attribute vec4 tileRect;
+        varying vec4 vTileRect;
+        varying vec2 vTileSpan;
+      #endif
       #ifdef LIGHT_VOLUME
         uniform vec3 lightVolOrigin;
         varying vec3 vLightPos;
@@ -3586,6 +3591,11 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
         vTint = color;
         #ifdef FACE_ATTRS
           vFaceData = faceData;
+        #endif
+        #ifdef TILED
+          vTileRect = tileRect;
+          vTileSpan = tileRect.z > 0.5 ? floor(uv) : vec2(0.0);
+          if (tileRect.z > 0.5) vUv = (uv - vTileSpan) * 2.0 * vTileSpan;
         #endif
         ${parseInt(THREE.REVISION) >= 159 ? "#include <batching_vertex>" : ""}
         vec4 pos = vec4(position, 1.0);
@@ -3664,6 +3674,11 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       #ifdef FACE_ATTRS
         varying vec2 vFaceData;
       #endif
+      #ifdef TILED
+        uniform vec2 atlasSize;
+        varying vec4 vTileRect;
+        varying vec2 vTileSpan;
+      #endif
       #ifdef LIGHT_VOLUME
         varying vec3 vLightPos;
         uniform vec3 lightVolOrigin;
@@ -3708,6 +3723,16 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           vec2 texUv = vUv;
         #endif
         vec2 uvEdge = fwidth(texUv) * 0.5;
+        #ifdef TILED
+          if (vTileSpan.x > 0.5) {
+            vec4 tile = floor(vTileRect + 0.5);
+            vec2 span = floor(vTileSpan + 0.5);
+            vec2 at = clamp(texUv, vec2(0.0), span);
+            vec2 px = clamp(mix(fract(at), vec2(1.0), step(span, at)) * tile.zw, vec2(0.015625), tile.zw - 0.015625);
+            texUv = vec2(tile.x + px.x, atlasSize.y - tile.y - tile.w + px.y) / atlasSize;
+            uvEdge = vec2(0.0);
+          }
+        #endif
         if (texUv.x < -uvEdge.x || texUv.x > 1.0 + uvEdge.x || texUv.y < -uvEdge.y || texUv.y > 1.0 + uvEdge.y) discard;
         vec4 texColor = texture2D(map, texUv);
         #ifdef CUTOUT
@@ -3846,5 +3871,6 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
     clipping: true,
     extensions: { derivatives: true }
   })
+  if (!uvOffset) material.userData.atlasTiling = true
   return material
 }

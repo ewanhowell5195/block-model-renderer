@@ -41,3 +41,21 @@ test("a revived scene with release keeps what translucent sorting needs", async 
   handle.dispose()
   shared.dispose()
 })
+
+test("a revived scene keeps the faces it repeats in the shader", async () => {
+  const blocks = []
+  for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++) blocks.push({ id: "oak_planks", pos: [x, 0, z] })
+  const shared = createSharedAtlas()
+  const handle = await createScene(assets, blocks, { lighting: "world", sharedAtlas: shared })
+  const { payload } = await packScene(handle, { sharedAtlas: shared })
+  const tile = reviveScene(payload, { atlas: shared })
+  const [mesh] = tile.group.children
+  assert.equal(mesh.geometry.index.count, 36)
+  assert.ok(mesh.geometry.attributes.tileRect.array instanceof Uint16Array)
+  assert.ok("TILED" in mesh.material.defines)
+  assert.equal(mesh.material.uniforms.atlasSize.value.x, shared.size)
+  assert.equal(mesh.material.uniforms.atlasSize.value.y, shared.size)
+  tile.dispose()
+  handle.dispose()
+  shared.dispose()
+})
