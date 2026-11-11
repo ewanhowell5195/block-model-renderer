@@ -1592,7 +1592,7 @@ function colormapPixels(assets, mapName) {
   const cache = store ? (store.colormapPixels ??= new Map()) : null
   let pixels = cache?.get(mapName)
   if (!pixels) {
-    pixels = readFile(`assets/minecraft/textures/colormap/${mapName}.png`, assets).then(buf => buf ? platform.decodeToRaw(buf) : null)
+    pixels = readFile(assets, `assets/minecraft/textures/colormap/${mapName}.png`).then(buf => buf ? platform.decodeToRaw(buf) : null)
     cache?.set(mapName, pixels)
   }
   return pixels
@@ -1657,7 +1657,7 @@ async function legacyEntityModel(assets, namespace, item) {
   let ns = namespace
   let path = `item/${item}`
   for (let i = 0; i < 8; i++) {
-    const buf = await readFile(`assets/${ns}/models/${path}.json`, assets)
+    const buf = await readFile(assets, `assets/${ns}/models/${path}.json`)
     if (!buf) return false
     let parent
     try {
@@ -1691,10 +1691,10 @@ export async function parseItemDefinition(assets, itemId, args) {
   const { namespace, item } = resolveNamespace(itemId)
   const glint = !!(args?.glint || itemHasFoil({ id: itemId, components: data }, await itemRules(assets)))
 
-  const buf = await readFile(`assets/${namespace}/items/${item}.json`, assets)
+  const buf = await readFile(assets, `assets/${namespace}/items/${item}.json`)
 
   if (!buf) {
-    const legacy = (!version || isBefore(version, "1.21.4")) && await readFile(`assets/${namespace}/models/item/${item}.json`, assets)
+    const legacy = (!version || isBefore(version, "1.21.4")) && await readFile(assets, `assets/${namespace}/models/item/${item}.json`)
     const m = { type: "item", model: legacy ? `${namespace}:item/${item}` : "block-model-renderer:missing" }
     const special = legacy && namespace === "minecraft" && LEGACY_SPECIAL_ITEMS[item]
     if (special && await legacyEntityModel(assets, namespace, item)) {
@@ -1929,14 +1929,14 @@ async function loadMinecraftTexture(path, assets, type, drawn) {
     if (!allowed.some(a => atlases.has(a))) return { image: await getMissingImage(assets) }
   }
 
-  const buf = await readFile(path, assets)
+  const buf = await readFile(assets, path)
   if (!buf) return { image: await getMissingImage(assets) }
 
   const image = (drawn || isImage(buf) ? null : await platform.loadPixelImage?.(buf)) ?? await loadImage(buf)
   const cls = isImage(buf) ? null : await classifyPngAlpha(buf, assets.translucency, platform.imagePixels?.(image)).catch(() => null)
   const srcHash = isImage(buf) ? null : hashBytes(buf)
 
-  const metaBuf = await readFile(path + ".mcmeta", assets, buf.hintIndex)
+  const metaBuf = await readFile(assets, path + ".mcmeta", buf.hintIndex)
   if (!metaBuf) return { image, cls, srcHash }
   let meta
   try {
@@ -1949,11 +1949,11 @@ async function loadMinecraftTexture(path, assets, type, drawn) {
 }
 
 async function loadPalettedTexture(path, palette, assets) {
-  const buf = await readFile(path, assets)
+  const buf = await readFile(assets, path)
   if (!buf) return { image: await getMissingImage(assets) }
   let basePalette
   try {
-    basePalette = parseJson(await readFile(path + ".mcmeta", assets, buf.hintIndex)).palette?.base_palette
+    basePalette = parseJson(await readFile(assets, path + ".mcmeta", buf.hintIndex)).palette?.base_palette
   } catch {}
   if (!basePalette) return { image: await loadImage(buf) }
   const [keyBuf, palBuf] = await Promise.all([readPaletteTexture(basePalette, assets), readPaletteTexture(palette, assets)])
@@ -2361,9 +2361,9 @@ async function resolveSpecialModel(assets, data, base) {
       : "block-model-renderer:block/bed/_template_bed"
   } else {
     const baseItem = base ? resolveNamespace(base).item : null
-    if (baseItem && await readFile(`assets/block-model-renderer/models/${baseItem}.json`, assets)) {
+    if (baseItem && await readFile(assets, `assets/block-model-renderer/models/${baseItem}.json`)) {
       modelPath = `block-model-renderer:${baseItem}`
-    } else if (await readFile(`assets/block-model-renderer/models/item/${data.type}.json`, assets)) {
+    } else if (await readFile(assets, `assets/block-model-renderer/models/item/${data.type}.json`)) {
       modelPath = `block-model-renderer:item/${data.type}`
     } else {
       return
@@ -3247,7 +3247,7 @@ export async function loadModel(scene, assets, model, args) {
           THREE,
           lighting,
           daytime,
-          readFile: (path, hint) => readFile(path, assets, hint),
+          readFile: (path, hint) => readFile(assets, path, hint),
           loadTexture: async (id, tint) => loadModelTexture(id, tint),
           resolveProfile: profile => resolveProfile(assets, profile),
           buildElements: async (elements = []) => {
@@ -3478,7 +3478,7 @@ async function loadGlintTexture(assets) {
   const cached = cache?.get("\0glint")
   if (cached !== undefined) return cached
   let texture = null
-  const buf = await readFile("assets/minecraft/textures/misc/enchanted_glint_item.png", assets)
+  const buf = await readFile(assets, "assets/minecraft/textures/misc/enchanted_glint_item.png")
   if (buf) {
     texture = await makeThreeTexture(await loadImage(buf))
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
@@ -3621,7 +3621,7 @@ function unitVector(v, flipY = false) {
 }
 
 async function endPortalMaterial(texture, assets, shader) {
-  const skyBuf = await readFile(`assets/minecraft/textures/environment/end_sky.png`, assets)
+  const skyBuf = await readFile(assets, `assets/minecraft/textures/environment/end_sky.png`)
   const skyTexture = await makeThreeTexture(skyBuf ? await loadImage(skyBuf) : new Canvas(1, 1))
   for (const t of [skyTexture, texture]) {
     t.wrapS = t.wrapT = THREE.RepeatWrapping

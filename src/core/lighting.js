@@ -85,12 +85,12 @@ function releaseTextureData(texture) {
   texture.image = { data: null, width, height }
 }
 
-export async function computeSceneLight(blocks, opts = {}) {
+export async function computeSceneLight(assets, blocks, opts = {}) {
   const flat = isFlatBlocks(blocks)
   const count = flat ? blocks.raw.length >> 2 : Array.isArray(blocks) ? blocks.length : 0
   if (!count) throw new Error("computeSceneLight requires an array of blocks, or a { palette, raw } run")
-  if (opts.assets == null || opts.assets.length === 0) throw new Error("computeSceneLight requires the assets option")
-  const assets = scopedCache(await prepareAssets(opts.assets))
+  if (assets == null || assets.length === 0) throw new Error("computeSceneLight requires assets")
+  assets = scopedCache(await prepareAssets(assets))
   const version = opts.version
   const occCache = assets.cache.occlusion
   const defaultsMode = opts.defaults ?? assets.defaults

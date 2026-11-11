@@ -718,7 +718,7 @@ export async function createScene(assets, blocks, args = {}) {
         lightRaw[q++] = cellZ[c]
       }
       const lightPalette = palette.map(e => ({ id: e.id, properties: e.properties ?? undefined }))
-      light = await computeSceneLight({ palette: lightPalette, raw: lightRaw }, { assets, version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs, externalOcclusion: extOcc, release: args.release })
+      light = await computeSceneLight(assets, { palette: lightPalette, raw: lightRaw }, { version, defaults, dimension: worldCfg?.dimension, sliceMs: args.sliceMs, externalOcclusion: extOcc, release: args.release })
     }
     report(1, 1)
     if (shouldCancel?.()) return null
@@ -976,7 +976,7 @@ const WARM_SINGLES = ["stone", "lava", "water", "red_stained_glass", "end_portal
 const WARM_RUNS = []
 for (let x = 0; x < 6; x++) for (let z = 0; z < 6; z++) WARM_RUNS.push({ id: "stone", pos: [x, 0, z] }, { id: "lava", pos: [x + 8, 0, z] }, { id: "water", pos: [x + 16, 0, z] }, { id: "red_stained_glass", pos: [x + 24, 0, z] })
 
-export async function warmShaders(renderer, assets, args = {}) {
+export async function warmShaders(assets, renderer, args = {}) {
   if (!renderer?.compile) throw new Error("warmShaders requires a WebGLRenderer")
   const { scene = null, camera = new THREE.PerspectiveCamera(), blocks, ...sceneArgs } = args
   const lists = blocks ? [blocks] : sceneArgs.sharedAtlas ? [WARM_SINGLES, WARM_RUNS] : [WARM_SINGLES]

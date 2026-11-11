@@ -191,12 +191,12 @@ export function buildAnimation(image, meta) {
   return { image: playback[0], frames: playback, times: playbackTimes, order, interpolate: !!meta.interpolate, animated: playback.length > 1 }
 }
 
-export async function readTexture(path, assets) {
-  const buf = await readFile(path, assets)
+export async function readTexture(assets, path) {
+  const buf = await readFile(assets, path)
   if (!buf) return null
   const image = await loadImage(buf)
   let meta = null
-  const metaBuf = await readFile(path + ".mcmeta", assets, buf.hintIndex)
+  const metaBuf = await readFile(assets, path + ".mcmeta", buf.hintIndex)
   if (metaBuf) try { meta = parseJson(metaBuf) } catch {}
   const anim = meta?.animation ? buildAnimation(image, meta.animation) : { image, frames: [image], times: [1], order: [0], interpolate: false, animated: false }
   const boundaries = [0]

@@ -48,9 +48,9 @@ for (const [name, w, h, d, seed, density, extra] of cases) {
   test(`light volume matches the js walk: ${name}`, async () => {
     const blocks = build(w, h, d, seed, density)
     delete globalThis.__BMR_NO_WASM
-    const fast = await computeSceneLight(blocks, { assets: [jar], ...extra })
+    const fast = await computeSceneLight([jar], blocks, extra)
     globalThis.__BMR_NO_WASM = 1
-    const slow = await computeSceneLight(blocks, { assets: [jar], ...extra })
+    const slow = await computeSceneLight([jar], blocks, extra)
     delete globalThis.__BMR_NO_WASM
     try {
       assert.equal(hash(fast.blockLight), hash(slow.blockLight), "block light")
@@ -65,7 +65,7 @@ for (const [name, w, h, d, seed, density, extra] of cases) {
 
 test("a wide flat light volume keeps its texture inside the texture limit", async () => {
   const blocks = [{ id: "stone", pos: [0, 0, 0] }, { id: "torch", pos: [0, 1, 0] }, { id: "stone", pos: [6000, 0, 0] }]
-  const light = await computeSceneLight(blocks, { assets: [jar] })
+  const light = await computeSceneLight([jar], blocks)
   const tex = light.uniforms.lightVolTex.value
   assert.ok(Math.max(tex.x, tex.y) <= 8192, `${tex.x}x${tex.y}`)
   assert.equal(light.uniforms.lightVolCols.value, 1)
@@ -75,10 +75,10 @@ test("a wide flat light volume keeps its texture inside the texture limit", asyn
 
 test("a light volume past the cell or texture limit throws instead of allocating", async () => {
   const far = [{ id: "stone", pos: [0, 0, 0] }, { id: "stone", pos: [5000, 300, 5000] }]
-  await assert.rejects(computeSceneLight(far, { assets: [jar] }), /5001x301x5001.*cells.*light: false/)
+  await assert.rejects(computeSceneLight([jar], far), /5001x301x5001.*cells.*light: false/)
   await assert.rejects(createScene([jar], far), /light: false/)
   const long = [{ id: "stone", pos: [0, 0, 0] }, { id: "stone", pos: [100000, 0, 0] }]
-  await assert.rejects(computeSceneLight(long, { assets: [jar] }), /100001x1x1.*texture.*light: false/)
+  await assert.rejects(computeSceneLight([jar], long), /100001x1x1.*texture.*light: false/)
   const unlit = await createScene([jar], far, { lighting: { light: false } })
   assert.equal(unlit.light, null)
   assert.equal(unlit.tris, 24)

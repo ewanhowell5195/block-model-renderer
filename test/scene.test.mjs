@@ -20,13 +20,13 @@ test("warmShaders compiles single blocks, and merged runs too on a shared atlas"
       compiled.push({ meshes, tiled })
     }
   }
-  const plain = await warmShaders(renderer, assets)
+  const plain = await warmShaders(assets, renderer)
   assert.equal(compiled.length, 1)
   assert.ok(compiled[0].meshes > 4)
   assert.equal(compiled[0].tiled, false)
   plain.dispose()
   const shared = createSharedAtlas()
-  const warmed = await warmShaders(renderer, assets, { sharedAtlas: shared })
+  const warmed = await warmShaders(assets, renderer, { sharedAtlas: shared })
   assert.deepEqual(compiled.slice(1).map(c => c.tiled), [false, true])
   assert.equal(warmed.programs, 0)
   warmed.dispose()

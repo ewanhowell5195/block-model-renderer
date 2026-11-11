@@ -206,7 +206,7 @@ export async function renderTexture(args = {}) {
   if (args.assets == null || args.assets.length === 0) throw new Error("renderTexture requires the assets option")
 
   args.assets = await prepareAssets(args.assets)
-  const texture = await readTexture(args.texture, args.assets)
+  const texture = await readTexture(args.assets, args.texture)
   let frames = texture?.frames
   if (args.tint && frames) frames = frames.map(f => applyTint(f, args.tint))
   const frame = frames ? frames[0] : await getMissingImage(args.assets)

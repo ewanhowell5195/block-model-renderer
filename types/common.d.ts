@@ -380,8 +380,6 @@ export interface SceneLightBlock {
 }
 
 export interface ComputeSceneLightOptions {
-  /** The assets source. */
-  assets: AssetsInput
   /** The Minecraft version the assets are for. Defaults to the prepared assets' pinned version; `false` renders unversioned despite a pin. */
   version?: string | false
   /** The dimension. Ones without sky light skip the sky seeding. Default `"overworld"`. */
@@ -1420,7 +1418,7 @@ export function importModelCache(assets: AssetsInput, data: ModelCacheData): Pro
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#readfilepath-assets-hint
  */
-export function readFile(path: string, assets: AssetsInput, hint?: number): Promise<AssetFile | undefined>
+export function readFile(assets: AssetsInput, path: string, hint?: number): Promise<AssetFile | undefined>
 
 /**
  * List the files in a directory across every assets entry, merging results and
@@ -1428,7 +1426,7 @@ export function readFile(path: string, assets: AssetsInput, hint?: number): Prom
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#listdirectorydir-assets
  */
-export function listDirectory(dir: string, assets: AssetsInput): Promise<string[]>
+export function listDirectory(assets: AssetsInput, dir: string): Promise<string[]>
 
 /**
  * Wrap a zip as an assets entry. Zips passed straight into `assets` are detected
@@ -1545,11 +1543,11 @@ export function importOcclusionCache(assets: AssetsInput, entries: OcclusionCach
  * Lighting is static: moving an emitter means computing a fresh volume.
  *
  * @example
- * const light = await computeSceneLight([{ id: "torch", pos: [0, 1, 0] }], { assets })
+ * const light = await computeSceneLight(assets, [{ id: "torch", pos: [0, 1, 0] }])
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#scene-lighting
  */
-export function computeSceneLight(blocks: SceneLightBlock[] | FlatBlocks, options: ComputeSceneLightOptions): Promise<SceneLight>
+export function computeSceneLight(assets: AssetsInput, blocks: SceneLightBlock[] | FlatBlocks, options?: ComputeSceneLightOptions): Promise<SceneLight>
 
 /**
  * Make a fog handle on its own, to share between scenes built elsewhere and a sky.
@@ -1772,11 +1770,11 @@ export interface WarmedShaders {
  * other `createScene` options your real scenes use.
  *
  * @example
- * const warmed = await warmShaders(renderer, assets, { scene, camera, sharedAtlas })
+ * const warmed = await warmShaders(assets, renderer, { scene, camera, sharedAtlas })
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/optimization.md#warming-shaders
  */
-export function warmShaders(renderer: THREE.WebGLRenderer, assets: AssetsInput, args?: WarmShadersOptions): Promise<WarmedShaders | null>
+export function warmShaders(assets: AssetsInput, renderer: THREE.WebGLRenderer, args?: WarmShadersOptions): Promise<WarmedShaders | null>
 
 /**
  * Register the renderer once so animation frame updates upload as GPU subimages

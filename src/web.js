@@ -732,7 +732,7 @@ export async function renderTexture(args = {}) {
     activePlayer?.onUpdate?.(texture.animated ? texture.playhead : undefined)
   }
   let activePlayer = null
-  let texture = await readTexture(args.texture, args.assets, args.animated ? { onChange: draw } : undefined)
+  let texture = await readTexture(args.assets, args.texture, args.animated ? { onChange: draw } : undefined)
   if (!texture) {
     const image = await core.getMissingImage(await core.prepareAssets(args.assets))
     texture = { image, animated: false }
@@ -827,9 +827,9 @@ export async function renderTexture(args = {}) {
   return { canvas, toAnimated, dispose }
 }
 
-export async function readTexture(path, assets, opts) {
+export async function readTexture(assets, path, opts) {
   await init()
-  const texture = await core.readTexture(path, assets)
+  const texture = await core.readTexture(assets, path)
   if (!texture) return texture
   if (texture.animated && opts?.onChange) attachTexturePlayer(texture, opts.onChange)
   return texture

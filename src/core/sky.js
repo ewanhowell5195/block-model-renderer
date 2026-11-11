@@ -346,7 +346,7 @@ function starGeometry() {
 
 async function firstImage(paths, assets) {
   for (const path of paths) {
-    const buf = await readFile(path, assets)
+    const buf = await readFile(assets, path)
     if (buf) return loadImage(buf)
   }
   return null
@@ -361,7 +361,7 @@ async function sunTexture(assets, modern) {
 
 async function moonTexture(assets, modern) {
   const phases = modern
-    ? await Promise.all(MOON_PHASES.map(name => readFile(`assets/minecraft/textures/environment/celestial/moon/${name}.png`, assets)))
+    ? await Promise.all(MOON_PHASES.map(name => readFile(assets, `assets/minecraft/textures/environment/celestial/moon/${name}.png`)))
     : []
   if (!phases[0]) {
     const image = await firstImage(["assets/minecraft/textures/environment/moon_phases.png"], assets)

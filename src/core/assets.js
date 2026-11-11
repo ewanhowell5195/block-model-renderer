@@ -7,7 +7,7 @@ import preferredBlockstatesData from "./data/default_blockstates_preferred.json"
 export async function getMissingImage(assets) {
   if (assets.__missingImage) return assets.__missingImage
   return assets.__missingImage = (async () => {
-    const buf = await readFile("assets/block-model-renderer/textures/missing.png", assets)
+    const buf = await readFile(assets, "assets/block-model-renderer/textures/missing.png")
     return loadImage(buf)
   })()
 }
@@ -176,7 +176,7 @@ export async function readJsonText(file, assets, overlay) {
   const key = overlay ? "\0" + file : file
   let hit = files?.get(key)
   if (hit === undefined) {
-    const buf = await (overlay ? readOverlayFile(file, assets) : readFile(file, assets))
+    const buf = await (overlay ? readOverlayFile(file, assets) : readFile(assets, file))
     hit = buf ? { text: typeof buf === "string" ? buf : textDecoder.decode(buf), hintIndex: buf.hintIndex } : null
     files?.set(key, hit)
   }
@@ -348,10 +348,10 @@ async function readEntryText(entry, file) {
 }
 
 async function loadAtlases(assets) {
-  const namespaces = await listDirectory("assets", assets)
+  const namespaces = await listDirectory(assets, "assets")
   const atlasesByNs = new Map()
   for (const ns of namespaces) {
-    const files = await listDirectory(`assets/${ns}/atlases`, assets)
+    const files = await listDirectory(assets, `assets/${ns}/atlases`)
     const ids = files.filter(f => f.endsWith(".json")).map(f => f.slice(0, -5))
     if (ids.length) atlasesByNs.set(ns, ids)
   }
@@ -390,7 +390,7 @@ async function loadAtlases(assets) {
 
 async function walkTextureDir(dir, assets, out, rel = "", depth = 0) {
   if (depth > 4) return out
-  const names = await listDirectory(dir, assets)
+  const names = await listDirectory(assets, dir)
   for (const name of names) {
     if (name.endsWith(".png")) out.push(rel + name)
     else if (!name.includes(".")) await walkTextureDir(`${dir}/${name}`, assets, out, `${rel}${name}/`, depth + 1)
@@ -401,7 +401,7 @@ async function walkTextureDir(dir, assets, out, rel = "", depth = 0) {
 export async function listAtlasSprites(assets, ids = ["blocks", "items"]) {
   assets = await prepareAssets(assets)
   const sprites = new Set()
-  const namespaces = await listDirectory("assets", assets)
+  const namespaces = await listDirectory(assets, "assets")
   for (const entry of assets) {
     for (const id of ids) {
       for (const src of entry.atlasSources?.get(id) ?? []) {
@@ -467,7 +467,7 @@ function spritePathOf(id) {
 }
 
 async function getMissingTexturePng(assets) {
-  return await readFile("assets/block-model-renderer/textures/missing.png", assets)
+  return await readFile(assets, "assets/block-model-renderer/textures/missing.png")
 }
 
 function applyUnstitchSource(src, sprites, assets) {
@@ -479,7 +479,7 @@ function applyUnstitchSource(src, sprites, assets) {
     if (!region?.sprite) continue
     const outPath = spritePathOf(region.sprite)
     const generator = memoizeAsync(async () => {
-      const srcBuf = await readFile(srcPath, assets)
+      const srcBuf = await readFile(assets, srcPath)
       if (!srcBuf) return await getMissingTexturePng(assets)
       try {
         const meta = await platform.getImageSize(srcBuf)
@@ -533,8 +533,8 @@ export function readPaletteTexture(id, assets) {
   const { namespace, item } = resolveNamespace(normalize(id))
   const modern = `assets/${namespace}/textures/palettes/${item}.png`
   const legacy = `assets/${namespace}/textures/${item}.png`
-  if (assets.version) return readFile(isBefore(assets.version, "26.3") ? legacy : modern, assets)
-  return readFile(modern, assets).then(buf => buf ?? readFile(legacy, assets))
+  if (assets.version) return readFile(assets, isBefore(assets.version, "26.3") ? legacy : modern)
+  return readFile(assets, modern).then(buf => buf ?? readFile(assets, legacy))
 }
 
 function applyPalettedPermutationsSource(src, sprites, assets) {
@@ -550,7 +550,7 @@ function applyPalettedPermutationsSource(src, sprites, assets) {
       const outPath = `assets/${texNs}/textures/${texItem}${separator}${suffix}.png`
       const generator = memoizeAsync(async () => {
         const [baseBuf, keyBuf, palBuf] = await Promise.all([
-          readFile(basePath, assets),
+          readFile(assets, basePath),
           readPaletteTexture(src.palette_key, assets),
           readPaletteTexture(palId, assets)
         ])
@@ -640,7 +640,7 @@ function sourceEmitsSprite(src, decomposed, assets) {
     if (!spriteId.startsWith(prefix)) return
     const rel = spriteId.slice(prefix.length)
     const diskPath = `assets/${namespace}/textures/${source ? source + "/" : ""}${rel}.png`
-    return readFile(diskPath, assets).then(buf => !!buf)
+    return readFile(assets, diskPath).then(buf => !!buf)
   }
 }
 
@@ -696,7 +696,7 @@ async function findAtlasesContaining(spritePath, assets) {
   return atlases
 }
 
-export async function listDirectory(dir, assets) {
+export async function listDirectory(assets, dir) {
   if (!dir) throw new Error("listDirectory requires a directory")
   if (assets == null || assets.length === 0) throw new Error("listDirectory requires assets")
   assets = await prepareAssets(assets)
@@ -728,7 +728,7 @@ export async function listDirectory(dir, assets) {
   return Array.from(out)
 }
 
-export async function readFile(file, assets, hint) {
+export async function readFile(assets, file, hint) {
   if (!file) throw new Error("readFile requires a file path")
   if (assets == null || assets.length === 0) throw new Error("readFile requires assets")
   assets = await prepareAssets(assets)

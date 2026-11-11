@@ -37,7 +37,7 @@ function toAnchor(value) {
 const toOrigin = value => [Number(value?.[0]) || 0, Number(value?.[1]) || 0, Number(value?.[2]) || 0]
 
 async function cloudCells(assets) {
-  const buf = await readFile("assets/minecraft/textures/environment/clouds.png", assets)
+  const buf = await readFile(assets, "assets/minecraft/textures/environment/clouds.png")
   if (!buf) return null
   const image = await loadImage(buf)
   const { width, height } = image

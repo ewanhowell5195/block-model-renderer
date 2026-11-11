@@ -40,7 +40,7 @@ export function mapIdOf(item) {
 const backgrounds = new WeakMap()
 
 function mapBackground(assets) {
-  if (!backgrounds.has(assets)) backgrounds.set(assets, readFile("assets/minecraft/textures/map/map_background.png", assets).then(bytes => bytes ? loadImage(bytes) : null))
+  if (!backgrounds.has(assets)) backgrounds.set(assets, readFile(assets, "assets/minecraft/textures/map/map_background.png").then(bytes => bytes ? loadImage(bytes) : null))
   return backgrounds.get(assets)
 }
 

@@ -179,7 +179,7 @@ export function createSky(assets: AssetsInput, args?: CreateSkyOptions): Promise
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#readtexturepath-assets-opts
  */
-export function readTexture(path: string, assets: AssetsInput, opts?: ReadTextureOptions<NodeImage>): Promise<TextureData<NodeImage> | null>
+export function readTexture(assets: AssetsInput, path: string, opts?: ReadTextureOptions<NodeImage>): Promise<TextureData<NodeImage> | null>
 
 /**
  * Render 16384 map color bytes through the vanilla map palette over
