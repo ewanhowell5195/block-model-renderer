@@ -622,6 +622,8 @@ export interface ParseItemDefinitionArgs {
 export interface PlacementContext {
   id: string
   properties?: BlockProperties
+  /** The block's world position, or `null` when the caller gave none. */
+  pos?: [number, number, number] | null
   /** Filled from `loadModel`'s `neighbors` arg; don't set it here. */
   neighbors?: NeighborLookup | null
 }
