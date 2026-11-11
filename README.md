@@ -128,7 +128,7 @@ The full documentation lives in [`docs/`](docs/):
 
 | Doc | Covers |
 |---|---|
-| [API reference](docs/api.md) | Every export in one place, grouped and linked to its full docs, and [migrating from 2.x](docs/api.md#migrating-from-2x) |
+| [API reference](docs/api.md) | Every export in one place, grouped and linked to its full docs |
 | [Standard API](docs/standard-api.md) | The render functions on both platforms: all options, file and buffer output, animated WebP/GIF, canvases, animation players, providing three.js |
 | [Advanced API](docs/advanced-api.md) | Upgradable renders, batch rendering from worker pools, syncing the animation clock, the frame cache, texture players |
 | [Rendering](docs/rendering.md) | How a render looks: backgrounds, lighting modes, [`computeSceneLight`](docs/api.md) volumes, the [sky](docs/rendering.md#sky) and [clouds](docs/rendering.md#clouds) |

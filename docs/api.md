@@ -146,33 +146,3 @@ Not exported in the browser.
 | Export | Description |
 |---|---|
 | `setCanvasGPU(enabled)` | Let skia-canvas draw 2D canvases on the GPU, off by default. [Details](standard-api.md#node-only-exports) |
-
-## Migrating from 2.x
-
-The old option names and argument orders throw an error that names the new form.
-
-| 2.x | 3.0 |
-|---|---|
-| `renderBlock({ blockstates })`, `getCullFaces({ blockstates })` | `{ properties }` |
-| `parseBlockstate(assets, id, { data })` | `parseBlockstate(assets, id, { properties })` |
-| `parseItemDefinition(assets, id, { data })` | `parseItemDefinition(assets, id, { components })` |
-| `version`, `defaults`, `ignoreAtlases` passed per call, `version: false` | Set once: `prepareAssets(sources, { version, defaults, ignoreAtlases })` |
-| `readFile(path, assets, hint?)` | `readFile(assets, path, hint?)` |
-| `listDirectory(dir, assets)` | `listDirectory(assets, dir)` |
-| `readTexture(path, assets, opts?)` | `readTexture(assets, path, opts?)` |
-| `computeSceneLight(blocks, { assets, ...options })` | `computeSceneLight(assets, blocks, options?)` |
-| `warmShaders(renderer, assets, args?)` | `warmShaders(assets, renderer, args?)` |
-| `loadModel(scene, assets, model, args)` | `loadModel(assets, model, { ...args, parent: scene })` |
-| `loadModel(null, assets, model, args)` | `loadModel(assets, model, args)` |
-| `makeModelScene()` synchronous on Node | `await makeModelScene()` on both platforms |
-| `getThree()` browser only | `await getThree()` on both platforms |
-| `exportModelCache(assets)`, `exportOcclusionCache(assets)` | `exportCache(assets)`, resolving `{ files, models, occlusion }` |
-| `importModelCache(assets, data)`, `importOcclusionCache(assets, entries)` | `importCache(assets, data)` |
-| `sortTranslucent(object, options)` | `createTranslucentSorter(object, options)` |
-| `stitchSharedAtlas(shared, assets, opts)` | `shared.stitch(assets, opts)` |
-| `exportSharedAtlasLayout(shared)` | `shared.exportLayout()` |
-| `adoptSharedAtlasLayout(shared, layout)` | `shared.adoptLayout(layout)` |
-| `insertSharedTextures(shared, items)` | `shared.insert(items)` |
-| `reviveScene(payload, { atlas })` | `reviveScene(payload, { sharedAtlas })` |
-| A revived scene's `light` is `{ uniforms }` | `{ uniforms, setOffset }` |
-| `getCullFaces({ neighbors })` takes the six-face object | Also takes the `([x, y, z]) => block` lookup |
