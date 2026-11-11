@@ -2404,6 +2404,8 @@ export async function loadModel(scene, assets, model, args) {
   if (scene) scene.userData.daytime = daytime
   const fog = scene?.userData?.fog ?? (world?.fog?.uniforms ? world.fog : makeFog(world?.fog, world?.dim))
   if (scene) scene.userData.fog = fog
+  const lightSwitches = scene?.userData?.lightSwitches ?? makeLightSwitches()
+  if (scene) scene.userData.lightSwitches = lightSwitches
   const block = args?.block ? { ...args.block, neighbors: args.neighbors ? neighborLookup(args.neighbors) : args.block.neighbors ?? neighborLookup() } : null
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
   if (!model.version && (args?.version ?? assets.version)) model.version = args?.version ?? assets.version
@@ -2552,6 +2554,7 @@ export async function loadModel(scene, assets, model, args) {
   lightConfig.cardinal = world?.cardinal
   lightConfig.nether = world?.dim.cardinalLight === "nether"
   lightConfig.fog = fog
+  lightConfig.switches = lightSwitches
   if (world && world.rotateShade && settings?.rotation) {
     const [x, y, z] = settings.rotation
     const euler = new THREE.Euler(THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z))
@@ -3039,6 +3042,7 @@ export async function loadModel(scene, assets, model, args) {
           },
           buildBlock: async (id, properties = {}) => {
             const g = new THREE.Group()
+            g.userData.lightSwitches = lightSwitches
             const blockArgs = { lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults, block: { id, properties, pos: null } }
             for (const m of await parseBlockstate(assets, id, { data: properties, defaults: args?.defaults, version: args?.version })) {
               await loadModel(g, assets, await resolveModelData(assets, m), blockArgs)
@@ -3047,6 +3051,7 @@ export async function loadModel(scene, assets, model, args) {
           },
           buildItem: async (id, context = "none", components = {}) => {
             const g = new THREE.Group()
+            g.userData.lightSwitches = lightSwitches
             const display = { type: "fallback", display: context }
             for (const m of await parseItemDefinition(assets, id, { data: components, display, version: args?.version })) {
               await loadModel(g, assets, await resolveModelData(assets, m), { display, lighting: args?.lighting, shaderScale: args?.shaderScale, emission: args?.emission, defaults: args?.defaults })
@@ -3352,7 +3357,11 @@ export function rebindUniforms(target, source) {
   return target
 }
 
-export const REBIND_UNIFORMS = ["daytime", "lightVol", "lightAo", "lightAoMask", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise", "fogGlow"]
+export function makeLightSwitches() {
+  return { shading: { value: true }, ambientOcclusion: { value: true }, fullbright: { value: false } }
+}
+
+export const REBIND_UNIFORMS = ["daytime", ...Object.keys(makeLightSwitches()), "lightVol","lightAo", "lightAoMask", "lightVolOrigin", "lightVolSize", "lightVolTex", "lightVolCols", "fogStart", "fogEnd", "fogNear", "fogFar", "fogBase", "skyBase", "fogSkyMix", "fogCenter", "fogFromCamera", "fogSunrise", "fogGlow"]
 
 export function occlusionStateKey(id, props, defaults) {
   let key = defaults === "game" ? id + "\0game" : id
@@ -3538,6 +3547,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       shadeEnabled: { value: shadeEnabled !== false },
       shadeOverride: { value: new THREE.Vector3(...(SHADE_DIR_VECS[shadeDir] ?? [0, 0, 0])) },
       worldShade: { value: lighting === "world" },
+      ...(lightConfig?.switches ?? makeLightSwitches()),
       daytime: lightConfig?.daytime ?? { value: NAMED_TIMES.noon },
       emission: { value: emission / 15 },
       blockLightTint: { value: lightConfig?.blockLightTint ?? tintVec(null, 0xFFD88C) },
@@ -3618,6 +3628,9 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
       uniform bool shadeEnabled;
       uniform vec3 shadeOverride;
       uniform bool worldShade;
+      uniform bool shading;
+      uniform bool ambientOcclusion;
+      uniform bool fullbright;
       uniform float daytime;
       uniform float emission;
       uniform vec3 blockLightTint;
@@ -3723,6 +3736,8 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
           bool shadeOn = shadeEnabled;
           vec3 shadeDirV = shadeOverride;
         #endif
+        shadeOn = shadeOn && shading;
+        aoOn = aoOn && ambientOcclusion;
         float shade = 1.0;
         vec3 light = vec3(1.0);
         if (worldShade) {
@@ -3806,6 +3821,7 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
             vec3 lmScaled = light * ((1.0 - lmInv * lmInv * lmInv * lmInv) / lmMax);
             light = mix(light, lmScaled, brightness);
           }
+          if (fullbright) light = vec3(1.0);
           light *= ao;
         } else if (shadeOn) {
           mat3 v = mat3(viewMatrix);

@@ -688,6 +688,22 @@ export interface SpecialPose {
   right?: number
 }
 
+/**
+ * Shared lighting switches, as `scene.userData.lightSwitches` after
+ * {@link loadModel} and `group.userData.lightSwitches` on a {@link createScene}
+ * result. Setting a `value` takes effect on the next frame with no rebuild.
+ *
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#lighting-switches
+ */
+export interface LightSwitches {
+  /** Per-face shade in `"item"` and `"world"` modes. Default `true`. */
+  shading: { value: boolean }
+  /** The light volume's ambient occlusion. Default `true`. */
+  ambientOcclusion: { value: boolean }
+  /** Full brightness in place of the lightmap, `"world"` mode only. Default `false`. */
+  fullbright: { value: boolean }
+}
+
 // #endregion
 // #region Sky
 
@@ -985,6 +1001,7 @@ export interface ReviveSceneOptions {
 
 /** A revived scene: inert live meshes, not a {@link SceneHandle}. */
 export interface RevivedScene {
+  /** The revived meshes. World-lit ones share one {@link LightSwitches} at `userData.lightSwitches`. */
   group: THREE.Group
   /** The scene's light volume, to pass as `lighting: { light }`, or `null` without one. */
   light: LightUniforms | null
@@ -1681,7 +1698,7 @@ export function packScene(handle: SceneHandle | { group: THREE.Group }, opts?: P
 export function reviveScene(payload: PackedScene["payload"], opts?: ReviveSceneOptions): RevivedScene
 
 /**
- * Bind a scene's shared light volume, time of day and fog uniforms onto meshes
+ * Bind a scene's shared light volume, time of day, fog and lighting switch uniforms onto meshes
  * built separately, so they draw lit like the scene. Adds the light volume to
  * materials built without one.
  *

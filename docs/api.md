@@ -97,7 +97,7 @@ import {
 | `insertSharedTextures(shared, items)` | Add runtime textures (sign text, banners), animated included, to a live atlas. [Details](optimization.md#shared-atlases) |
 | `packScene(handle, opts?)` | Pack a built scene into transferable data for `postMessage`. [Details](optimization.md#packing-scenes-across-workers) |
 | `reviveScene(payload, opts?)` | Rebuild a packed scene into live meshes. [Details](optimization.md#packing-scenes-across-workers) |
-| `rebindUniforms(target, source)` | Bind a scene's light volume, time of day and fog onto separately built meshes. [Details](optimization.md#packing-scenes-across-workers) |
+| `rebindUniforms(target, source)` | Bind a scene's light volume, time of day, fog and lighting switches onto separately built meshes. [Details](optimization.md#packing-scenes-across-workers) |
 | `setAnimationRenderer(renderer)` | Register the renderer for GPU subimage animation updates. [Details](optimization.md#atlas-animation) |
 | `collectAnimated(root)` | Gather a group's animated textures and `GameTime` shaders. [Details](optimization.md#atlas-animation) |
 | `buildSchedules(textures)` | Precompute animation schedules for atlas textures. [Details](optimization.md#atlas-animation) |

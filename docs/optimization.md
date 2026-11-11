@@ -152,7 +152,9 @@ world.add(tile.group)
 
 Revived groups are inert data, not `createScene` handles: no palette, no light handle, no [dynamic model](scenes.md#dynamic-models) rigs (dynamic parts can't cross the thread boundary as live objects; build those separately on the main thread; the main thread's own scenes can keep stitching into the same live atlas). Billboards re-attach their camera-facing behavior on revive.
 
-Pieces built separately on the main thread draw with the revived scene's light volume, time of day and fog through `rebindUniforms(target, source)`. `target` is a group or material, and `source` is a scene group, a material, or anything with `uniforms`, such as `tile.light` or a fog handle:
+A revived group keeps one set of [lighting switches](rendering.md#lighting-switches) for all its materials at `group.userData.lightSwitches`.
+
+Pieces built separately on the main thread draw with the revived scene's light volume, time of day, fog and lighting switches through `rebindUniforms(target, source)`. `target` is a group or material, and `source` is a scene group, a material, or anything with `uniforms`, such as `tile.light` or a fog handle:
 
 ```js
 const dynamics = await createScene(assets, chests, { lighting: { light: tile.light } })

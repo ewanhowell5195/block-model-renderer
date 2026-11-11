@@ -1,6 +1,6 @@
 import { THREE, normalize, jsonKey } from "./platform.js"
 import { prepareAssets, scopedCache } from "./assets.js"
-import { cloneInstance, rebindSkins, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, resolveWorldLighting, makeFog, randomOffset, rollPicks } from "./models.js"
+import { cloneInstance, rebindSkins, parseBlockstate, resolveModelData, loadModel, billboardBeforeRender, AIR_BLOCKS, TECHNICAL_BLOCKS, parseDaytime, shaderSaltNow, REBIND_UNIFORMS, makeLightSwitches,resolveWorldLighting, makeFog, randomOffset, rollPicks } from "./models.js"
 import { getCullFaces } from "./render.js"
 import { computeSceneLight, isFlatBlocks } from "./lighting.js"
 import { fluidTypeOf, fluidHeights } from "./fluids.js"
@@ -620,7 +620,8 @@ export async function createScene(assets, blocks, args = {}) {
   const usedEntries = []
   const envSig = (worldCfg ? JSON.stringify({ ...worldCfg, light: !!light, daytime: 0, fog: 0 }) : String(lighting))
     + "\0" + (args.shaderScale ?? "") + "\0" + (args.ignoreAtlases ? 1 : 0) + "\0" + (version ?? "") + "\0" + (defaults ?? "") + "\0" + shaderSaltNow()
-  const rebind = { daytime: daytimeUniform, ...(light?.uniforms ?? {}), ...(fog?.uniforms ?? {}) }
+  const lightSwitches = makeLightSwitches()
+  const rebind = { daytime: daytimeUniform, ...lightSwitches, ...(light?.uniforms ?? {}), ...(fog?.uniforms ?? {}) }
   let built = 0
   for (const [key, spec] of templateSpecs) {
     const cacheable = !spec.entry.nbt && !spec.entry.pos
@@ -636,11 +637,13 @@ export async function createScene(assets, blocks, args = {}) {
       hit.users++
       usedEntries.push(hit)
       tmpl = cloneTemplate(hit.group, rebind)
+      tmpl.userData.lightSwitches = lightSwitches
       if (daytimeUniform) tmpl.userData.daytime = daytimeUniform
       daytimeUniform ??= tmpl.userData.daytime
       templateOf.set(key, tmpl)
     } else {
       tmpl = new THREE.Group()
+      tmpl.userData.lightSwitches = lightSwitches
       if (daytimeUniform) tmpl.userData.daytime = daytimeUniform
       const models = spec.pos
         ? await parseBlockstate(assets, spec.entry.id, {
@@ -674,6 +677,7 @@ export async function createScene(assets, blocks, args = {}) {
   report(1, 1)
   if (daytimeUniform) group.userData.daytime = daytimeUniform
   if (fog) group.userData.fog = fog
+  group.userData.lightSwitches = lightSwitches
 
   let drawCalls = 0, tris = 0
   let optimized = null
@@ -725,6 +729,7 @@ export async function createScene(assets, blocks, args = {}) {
           const spec = templateSpecs.get(templateKey)
           culled = new THREE.Group()
           culled.userData.daytime = daytimeUniform
+          culled.userData.lightSwitches = lightSwitches
           const models = spec.pos
             ? await parseBlockstate(assets, spec.entry.id, {
               data: spec.entry.properties ?? {}, biome: spec.entry.biome ?? undefined,

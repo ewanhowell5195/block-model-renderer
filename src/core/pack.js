@@ -1,6 +1,8 @@
 import { THREE, Canvas } from "./platform.js"
+import { makeLightSwitches } from "./models.js"
 
 const LIGHT_UNIFORM = /^light(Vol|Ao)/
+const LIGHT_SWITCHES = Object.keys(makeLightSwitches())
 
 export async function packScene(handle, opts = {}) {
   const shared = opts.sharedAtlas ?? null
@@ -223,7 +225,14 @@ export function reviveScene(payload, opts = {}) {
     } else for (const k of Object.keys(light.uniforms)) mat.uniforms[k] = light.uniforms[k]
   }
 
+  const lightSwitches = {}
+  for (const mat of materials) {
+    if (!mat.uniforms?.worldShade) continue
+    for (const k of LIGHT_SWITCHES) if (mat.uniforms[k]) mat.uniforms[k] = lightSwitches[k] ??= mat.uniforms[k]
+  }
+
   const group = new THREE.Group()
+  if (Object.keys(lightSwitches).length) group.userData.lightSwitches = lightSwitches
   for (const spec of payload.meshes) {
     const geo = new THREE.BufferGeometry()
     const shed = release && spec.instanced == null

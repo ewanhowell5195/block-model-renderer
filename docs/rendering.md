@@ -84,6 +84,24 @@ Each dimension carries the game's lightmap attributes; pass an object as `dimens
 
 Colors can be a hex number, a `"#rrggbb"` string, an `[r, g, b]` array of `0`-`1` floats, or a `THREE.Color`. The presets are exported as `LIGHT_DIMENSIONS` if you need the values. The day/night curve runs in the shader from a shared uniform exposed as `scene.userData.daytime`, so a live cycle is just `scene.userData.daytime.value = tick` per frame, with no rebuild.
 
+### Lighting switches
+
+Face shading, ambient occlusion and the lightmap can be switched on a built scene with no rebuild. They are shared uniforms at `group.userData.lightSwitches` on a `createScene` result and `scene.userData.lightSwitches` after `loadModel`:
+
+```js
+const switches = handle.group.userData.lightSwitches
+switches.shading.value = false
+switches.fullbright.value = true
+```
+
+| Switch | Default | Description |
+|---|---|---|
+| `shading` | `true` | The per-face shade, in `"item"` and `"world"` modes. `false` draws every face at full shade |
+| `ambientOcclusion` | `true` | The [light volume](#scene-lighting)'s ambient occlusion. Only scenes built with a volume have any |
+| `fullbright` | `false` | `true` replaces the lightmap with full brightness, ignoring sky light, block light and `daytime`. `"world"` mode only |
+
+Switching on never overrides a model: faces with `shade: false` or `ambientocclusion: false` stay that way. With `shading` and `ambientOcclusion` off and `fullbright` on, a `"world"` scene draws its textures flat at full brightness. Worker-built scenes take the switches through [`rebindUniforms`](optimization.md#packing-scenes-across-workers), like `daytime`.
+
 ### Fog
 
 Set `fog` on the world lighting config to turn on the game's fog. A number is the render distance in chunks:
