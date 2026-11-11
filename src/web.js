@@ -114,7 +114,6 @@ function getRenderer(width, height) {
       for (const p of players) p._stale = true
     })
     sharedRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, premultipliedAlpha: true })
-    sharedRenderer.outputColorSpace = THREE.LinearSRGBColorSpace
     const ext = sharedRenderer.extensions
     if (!ext.has("WEBGL_multi_draw")) {
       const get = ext.get.bind(ext)

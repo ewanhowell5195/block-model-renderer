@@ -220,7 +220,7 @@ export async function renderTexture(args = {}) {
   scene.userData.ephemeral = true
 
   const tex = await loadTexture(frame)
-  tex.colorSpace = THREE.NoColorSpace
+  tex.colorSpace = THREE.SRGBColorSpace
   tex.magFilter = THREE.NearestFilter
   tex.minFilter = THREE.NearestFilter
   tex.generateMipmaps = false
@@ -357,8 +357,7 @@ export async function renderModelScene(scene, camera, args) {
       path: finalPath,
       format: finalFormat,
       output: args?.output ?? OUTPUT_DEFAULTS[finalFormat],
-      background: args?.background,
-      colorSpace: THREE.LinearSRGBColorSpace
+      background: args?.background
     })
     return args?.animated ? { buffer, format: "png" } : buffer
   }

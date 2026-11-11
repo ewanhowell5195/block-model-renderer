@@ -178,7 +178,6 @@ setPlatform({
     if (!frameCtx) {
       frameCtx = createContext(width, height)
       frameRenderer = new THREE.WebGLRenderer({ context: frameCtx })
-      frameRenderer.outputColorSpace = THREE.LinearSRGBColorSpace
       frameSize = { width, height }
     } else if (frameSize.width !== width || frameSize.height !== height) {
       frameCtx.getExtension("STACKGL_resize_drawingbuffer").resize(width, height)
