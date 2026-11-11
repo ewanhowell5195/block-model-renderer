@@ -26,6 +26,11 @@ export const AIR_BLOCKS = new RegExp(`(^|:)(${Array.from(SKIP_BLOCKS).join("|")}
 
 const BOX_PLANES = [[2, 1, 0, -1, -1, 2, 1, 0, 1], [2, 1, 0, 1, -1, 2, 1, 0, -1], [0, 2, 1, 1, 1, 0, 2, 1, 1], [0, 2, 1, 1, -1, 0, 2, 1, -1], [0, 1, 2, 1, -1, 0, 1, 2, 1], [0, 1, 2, -1, -1, 0, 1, 2, -1]]
 
+let _hiddenMaterial = null
+function hiddenMaterial() {
+  return _hiddenMaterial ??= new THREE.MeshBasicMaterial({ visible: false })
+}
+
 function boxGeometry(W, H, D) {
   const dims = [W, H, D], vec = [0, 0, 0]
   const pos = new Float32Array(72), nrm = new Float32Array(72), uv = new Float32Array(48), idx = new Uint16Array(36)
@@ -49,10 +54,10 @@ function boxGeometry(W, H, D) {
     idx.set([a, a + 2, a + 1, a + 2, a + 3, a + 1], p * 6)
     geometry.addGroup(p * 6, 6, p)
   }
-  geometry.setIndex(new THREE.Uint16BufferAttribute(idx, 1))
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3))
-  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3))
-  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2))
+  geometry.setIndex(new THREE.BufferAttribute(idx, 1))
+  geometry.setAttribute("position", new THREE.BufferAttribute(pos, 3))
+  geometry.setAttribute("normal", new THREE.BufferAttribute(nrm, 3))
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2))
   return geometry
 }
 
@@ -2619,7 +2624,7 @@ export async function loadModel(scene, assets, model, args) {
           materialCache.set(mkey, material)
         }
         mesh.material[mi] = material
-        mesh.material[mi + 6] = new THREE.MeshBasicMaterial({ visible: false })
+        mesh.material[mi + 6] = hiddenMaterial()
       }
     }
     const vertIdx = {}
@@ -2649,7 +2654,7 @@ export async function loadModel(scene, assets, model, args) {
     }
     uv.needsUpdate = true
     if (heights.same) {
-      const hidden = new THREE.MeshBasicMaterial({ visible: false })
+      const hidden = hiddenMaterial()
       const FACE_INDEX = { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 }
       for (const dir in FACE_INDEX) {
         if (heights.same[dir]) {
@@ -2781,7 +2786,7 @@ export async function loadModel(scene, assets, model, args) {
         const faceName = faceOrder[i]
         const face = element.faces?.[faceName]
         if (!face || !face.texture || (cull && cullDirs[i] && cull.has(cullDirs[i]) && !(model.fluid && faceName === "up"))) {
-          out.push(new THREE.MeshBasicMaterial({ visible: false }))
+          out.push(hiddenMaterial())
           continue
         }
 
@@ -3166,9 +3171,7 @@ export async function loadModel(scene, assets, model, args) {
         const overlayMats = source.map(m => {
           const baseTexture = m && m.visible !== false ? (m.uniforms?.map?.value ?? m.map) : null
           if (!baseTexture) {
-            let hidden = materialCache.get("glint\0hidden")
-            if (!hidden) materialCache.set("glint\0hidden", hidden = new THREE.MeshBasicMaterial({ visible: false }))
-            return hidden
+            return hiddenMaterial()
           }
           const key = `glint\0${baseTexture.uuid}\0${m.side}`
           let material = materialCache.get(key)
@@ -3379,8 +3382,10 @@ async function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, 
   }
   const blend = (translucent ?? texture?.userData?.translucent === true) || opacity < 1
   if (lighting === "scene" && shader?.type !== "end_portal") {
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.needsUpdate = true
+    if (texture.colorSpace !== THREE.SRGBColorSpace) {
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.needsUpdate = true
+    }
     const side = doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide
     const mat = new THREE.MeshStandardMaterial({ map: texture, roughness: 1, metalness: 0, alphaTest: translucent === false ? 0.1 : 0.01, side, vertexColors: true, opacity, transparent: blend, depthWrite: !blend || translucent === true })
     if (emission > 0) {
