@@ -224,7 +224,7 @@ export async function createScene(assets, blocks, args = {}) {
   if (!flat && !Array.isArray(blocks)) throw new Error("createScene requires an array of blocks, or a { palette, raw } run")
   const raw = flat ? blocks.raw : null
   const count = flat ? raw.length >> 2 : blocks.length
-  assets = scopedCache(await prepareAssets(assets))
+  assets = scopedCache(await prepareAssets(assets, { version: args.version }))
   const { version, defaults, ignoreAtlases } = assets
   const rules = await blockRules(assets)
   const lightingArg = args.lighting ?? "world"

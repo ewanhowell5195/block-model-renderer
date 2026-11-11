@@ -242,11 +242,7 @@ function builtinFallbackFiles() {
 export async function prepareAssets(assets, opts) {
   if (assets == null || assets.length === 0) throw new Error("prepareAssets requires assets")
   if (Array.isArray(assets) && assets.prepared) {
-    if (opts?.version && opts.version !== assets.version) {
-      if (assets.version) throw new Error(`these assets are prepared for version ${assets.version}; prepare the sources again to use version ${opts.version}`)
-      if (assets.cache && !assets.cache.ephemeral) throw new Error(`cached assets resolve versioned behavior at prepare time; pass { version: "${opts.version}" } to prepareAssets alongside { cache: true }`)
-      assets.version = opts.version
-    }
+    if (opts?.version && opts.version !== assets.version) assets = await versionView(assets, opts.version)
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
     if (opts?.translucency) assets.translucency = opts.translucency
     if (opts?.defaults) assets.defaults = opts.defaults
@@ -281,6 +277,27 @@ export async function prepareAssets(assets, opts) {
   return prepared
 }
 
+function versionView(assets, version) {
+  const root = assets.root ?? assets
+  if (version === root.version) return root
+  const views = root.views ??= { pending: new Map(), ready: [] }
+  let view = views.pending.get(version)
+  if (!view) views.pending.set(version, view = buildView(root, version))
+  return view
+}
+
+async function buildView(root, version) {
+  const view = Object.assign([], root)
+  view.root = root
+  view.version = version
+  view.atlasMembership = new Map()
+  view.tables = {}
+  if (root.cache) view.cache = makeCache()
+  await loadAtlases(view)
+  root.views.ready.push(view)
+  return view
+}
+
 function makeCache() {
   return { textures: new Map(), models: new Map(), occlusion: new Map() }
 }
@@ -288,12 +305,15 @@ function makeCache() {
 export function scopedCache(assets) {
   if (assets.cache) return assets
   const scoped = Object.assign([], assets)
+  scoped.root = assets.root ?? assets
   scoped.cache = Object.assign(makeCache(), { ephemeral: true })
   return scoped
 }
 
 export function disposeCache(assets) {
-  const c = Array.isArray(assets) ? assets.cache : null
+  if (!Array.isArray(assets)) return
+  if (!assets.root) for (const view of assets.views?.ready ?? []) disposeCache(view)
+  const c = assets.cache
   if (!c) return
   for (const t of c.textures.values()) { try { t?.dispose?.() } catch {} }
   for (const v of Object.values(c)) if (v instanceof Map) v.clear()
@@ -368,6 +388,7 @@ async function readEntryText(entry, file) {
 }
 
 async function loadAtlases(assets) {
+  const atlasData = assets.atlasData = new Map()
   const namespaces = await listDirectory(assets, "assets")
   const atlasesByNs = new Map()
   for (const ns of namespaces) {
@@ -391,9 +412,8 @@ async function loadAtlases(assets) {
         arr.push(...parsed.sources)
       }
     }
-    entry.atlasSources = byAtlas
-
     const sprites = new Map()
+    atlasData.set(entry, { sources: byAtlas, sprites })
     for (const [, sources] of byAtlas) {
       for (const src of sources) {
         const type = normalize(src.type ?? "")
@@ -404,7 +424,6 @@ async function loadAtlases(assets) {
         else if (type === "single") applySingleSource(src, sprites, entry)
       }
     }
-    entry.virtualSprites = sprites
   }
 }
 
@@ -424,7 +443,7 @@ export async function listAtlasSprites(assets, ids = ["blocks", "items"]) {
   const namespaces = await listDirectory(assets, "assets")
   for (const entry of assets) {
     for (const id of ids) {
-      for (const src of entry.atlasSources?.get(id) ?? []) {
+      for (const src of assets.atlasData.get(entry)?.sources.get(id) ?? []) {
         const type = normalize(src.type ?? "")
         if (type === "directory") {
           const source = (src.source ?? "").replace(/\/$/, "")
@@ -680,7 +699,7 @@ async function isSpriteInAtlas(atlasId, spritePath, assets) {
   let present = false
   for (let i = assets.length - 1; i >= 0; i--) {
     const entry = assets[i]
-    const sources = entry.atlasSources?.get(atlasId)
+    const sources = assets.atlasData?.get(entry)?.sources.get(atlasId)
     if (!sources) continue
     for (const src of sources) {
       const type = normalize(src.type ?? "")
@@ -708,7 +727,7 @@ async function findAtlasesContaining(spritePath, assets) {
   const atlases = new Set()
   const ids = new Set()
   for (const entry of assets) {
-    if (entry.atlasSources) for (const id of entry.atlasSources.keys()) ids.add(id)
+    for (const id of assets.atlasData?.get(entry)?.sources.keys() ?? []) ids.add(id)
   }
   await Promise.all(Array.from(ids, async id => {
     if (await isSpriteInAtlas(id, spritePath, assets)) atlases.add(id)
@@ -734,9 +753,10 @@ export async function listDirectory(assets, dir) {
       if (await isFilteredByHigher(assets, i, `${dir}/${f}`)) continue
       out.add(f)
     }
-    if (entry.virtualSprites) {
+    const sprites = assets.atlasData?.get(entry)?.sprites
+    if (sprites) {
       const prefix = `${dir}/`
-      for (const filePath of entry.virtualSprites.keys()) {
+      for (const filePath of sprites.keys()) {
         if (!filePath.startsWith(prefix)) continue
         const rest = filePath.slice(prefix.length)
         if (rest.includes("/")) continue
@@ -758,7 +778,7 @@ export async function readFile(assets, file, hint) {
     if (!entryVisible(entry, assets, file)) continue
     if (await isFilteredByHigher(assets, i, file)) continue
 
-    const resolver = entry.virtualSprites?.get(file)
+    const resolver = assets.atlasData?.get(entry)?.sprites.get(file)
     if (resolver) {
       const data = await resolver()
       if (data) {

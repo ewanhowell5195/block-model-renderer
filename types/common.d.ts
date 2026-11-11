@@ -82,7 +82,9 @@ export interface PrepareAssetsOptions {
   cache?: boolean
   /**
    * The Minecraft version the assets are for, for every call made with these
-   * assets. Omit it to render unversioned.
+   * assets. Omit it to render unversioned. On assets that are already prepared
+   * it resolves a view for that version, which shares the opened packs and
+   * leaves the original as it was.
    */
   version?: string
   /** Override the alpha cutoffs used for translucency detection. */
@@ -392,6 +394,8 @@ export interface SceneLightBlock {
 }
 
 export interface ComputeSceneLightOptions {
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. */
+  version?: string
   /** The dimension. Ones without sky light skip the sky seeding. Default `"overworld"`. */
   dimension?: LightDimensionName | LightDimension
   /** Progress while the scene's blocks are processed. The flood fill after the last call is quick. */
@@ -496,6 +500,8 @@ export interface ProgressStage {
 }
 
 export interface CreateSceneOptions {
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. */
+  version?: string
   /** Scene-wide biome tinting; a block's own `biome` overrides it. */
   biome?: BiomeInput
   /** Lighting mode or world lighting config. Default `"world"`, which computes the light volume from the blocks. */
@@ -597,6 +603,8 @@ export interface SceneHandle {
 export interface ParseBlockstateArgs {
   /** Blockstate property values. Missing ones fall back to the default blockstate rules. */
   properties?: BlockProperties
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. */
+  version?: string
   /** Seeded randomness for weighted variants. The same seed always picks the same variants. Omit to pick from `pos` the way the game does. */
   seed?: number
   /** Biome tinting for the colormap tints. */
@@ -614,6 +622,8 @@ export interface ParseBlockstateArgs {
 export interface ParseItemDefinitionArgs {
   /** Item components used by the definition. */
   components?: ItemComponents
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. */
+  version?: string
   /** Display context, used by `display_context` selects and tint resolution. */
   display?: DisplayOption
 }
@@ -631,6 +641,8 @@ export interface PlacementContext {
 export interface LoadModelArgs {
   /** An object to add the built group to. Models loaded into the same parent share one time of day, fog and set of lighting switches. */
   parent?: THREE.Object3D
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. Sets `model.version` if the model has none. */
+  version?: string
   /** Display transform to apply to the model. */
   display?: DisplayOption
   /** Lighting mode or world lighting config. Default `"item"`. */
@@ -729,6 +741,8 @@ export interface SkyDimension {
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#createskyassets-args
  */
 export interface CreateSkyOptions {
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. */
+  version?: string
   /** The dimension's sky, by name or as an override object. Default `"overworld"`. */
   dimension?: LightDimensionName | SkyDimension
   /** The time of day, or a uniform to share with a scene's `userData.daytime`. Default `"noon"`. */
@@ -810,6 +824,8 @@ export interface GetCullFacesArgs {
   id: string
   /** The assets source. */
   assets: AssetsInput
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. */
+  version?: string
   /** The block's blockstate property values. */
   properties?: BlockProperties
   /** The surrounding blocks: one entry per face, or a lookup that is asked for the six face neighbors. */
@@ -821,6 +837,8 @@ export interface FullyOccludesArgs {
   id: string
   /** The assets source. */
   assets: AssetsInput
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. */
+  version?: string
   /** The block's blockstate property values. */
   properties?: BlockProperties
 }
@@ -1222,6 +1240,8 @@ export interface ShadingDefinition {
 export interface RenderOptionsCommon {
   /** The assets source. Vanilla assets aren't bundled, so provide a base pack. */
   assets: AssetsInput
+  /** The Minecraft version to use, when it differs from the one the assets were prepared with. */
+  version?: string
   /** Output size in pixels. Default `256`. */
   width?: number
   /** Output size in pixels. Default `256`. */

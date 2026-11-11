@@ -70,6 +70,7 @@ Options, grouped by what they affect. How the scene looks:
 
 | Option | Default | Description |
 |---|---|---|
+| `version` | | The [Minecraft version](assets.md#minecraft-version) to build as, when it differs from the one the assets were prepared with |
 | `biome` | | Scene-wide biome tinting; a block's own `biome` overrides it |
 | `lighting` | `"world"` | Lighting mode (`"item"`, `"world"`, `"scene"`, `"off"`), or a [world lighting config object](rendering.md#world-lighting): dimension, daytime, brightness, and `light`. World mode computes the light volume from the blocks automatically (respecting the dimension's `hasSkyLight`); set `lighting: { light }` to reuse an existing [`computeSceneLight`](rendering.md#scene-lighting) handle (it stays yours to dispose), or `{ light: false }` to skip the volume entirely |
 | `shaderScale` | `1` | Screen-space shader density (the end portal), as in [`renderBlock`](standard-api.md#renderblockargs) |

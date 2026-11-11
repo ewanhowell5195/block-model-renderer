@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { prepareAssets, renderBlock, renderItem, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, readFile, listDirectory, readTexture, computeSceneLight, createScene, getThree } from "../src/node.js"
+import { prepareAssets, disposeCache, renderBlock, renderItem, parseBlockstate, parseItemDefinition, resolveModelData, loadModel, readFile, listDirectory, readTexture, computeSceneLight, createScene, getThree } from "../src/node.js"
 import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
 const jar = await loadMojangJar()
@@ -72,11 +72,69 @@ test("ignoreAtlases on prepareAssets lifts the atlas rules for blocks, items and
   assert.deepEqual(widths, [2, 16])
 })
 
-test("prepared assets refuse a second version instead of ignoring it", async () => {
-  const pinned = await prepareAssets([jar], { version: "1.21.4" })
+test("a version on prepared assets gives a view that shares the packs", async () => {
+  const base = await prepareAssets([jar], { cache: true })
+  const view = await prepareAssets(base, { version: "1.20.1" })
+  assert.notEqual(view, base)
+  assert.equal(view.version, "1.20.1")
+  assert.equal(base.version, undefined)
+  assert.equal(view.length, base.length)
+  for (let i = 0; i < base.length; i++) assert.equal(view[i], base[i])
+  assert.notEqual(view.cache, base.cache)
+  assert.equal(await prepareAssets(base, { version: "1.20.1" }), view)
+  assert.equal(await prepareAssets(view, { version: "1.20.1" }), view)
+  const other = await prepareAssets(base, { version: "1.8.9" })
+  assert.equal(other.version, "1.8.9")
+  assert.notEqual(other, view)
+  assert.equal((await prepareAssets([jar])).cache, undefined)
+  assert.equal((await prepareAssets(await prepareAssets([jar]), { version: "1.20.1" })).cache, undefined)
+})
+
+test("assets that have a version give views for other versions and keep their own", async () => {
+  const pinned = await prepareAssets([jar], { version: "1.21.4", cache: true })
   assert.equal(await prepareAssets(pinned, { version: "1.21.4" }), pinned)
-  await assert.rejects(prepareAssets(pinned, { version: "1.20.1" }), { message: "these assets are prepared for version 1.21.4; prepare the sources again to use version 1.20.1" })
-  await assert.rejects(prepareAssets(assets, { version: "1.20.1" }), /cached assets resolve versioned behavior at prepare time/)
-  const loose = await prepareAssets([jar])
-  assert.equal((await prepareAssets(loose, { version: "1.20.1" })).version, "1.20.1")
+  const moved = await prepareAssets(pinned, { version: "1.20.1" })
+  assert.equal(moved.version, "1.20.1")
+  assert.equal(pinned.version, "1.21.4")
+  assert.equal(await prepareAssets(moved, { version: "1.21.4" }), pinned)
+  const again = await prepareAssets(moved, { version: "1.8.9" })
+  assert.equal(await prepareAssets(pinned, { version: "1.8.9" }), again)
+  const size = { width: 32, height: 32 }
+  const direct = await prepareAssets([jar], { version: "1.8.9", cache: true })
+  for (const id of ["white_bed", "oak_stairs"]) {
+    assert.deepEqual(await renderBlock({ id, assets: pinned, version: "1.8.9", ...size }), await renderBlock({ id, assets: direct, ...size }), id)
+  }
+  const [own] = await parseBlockstate(pinned, "oak_stairs")
+  assert.equal(own.version, "1.21.4")
+})
+
+test("a version given per call renders like assets prepared for that version", async () => {
+  const base = await prepareAssets([jar], { cache: true })
+  const size = { width: 32, height: 32 }
+  for (const version of ["1.8.9", "1.21.4"]) {
+    const direct = await prepareAssets([jar], { version, cache: true })
+    for (const id of ["oak_stairs", "white_bed", "chest", "cactus"]) {
+      assert.deepEqual(await renderBlock({ id, assets: base, version, ...size }), await renderBlock({ id, assets: direct, ...size }), `${id} in ${version}`)
+    }
+    assert.deepEqual(await renderItem({ id: "bow", assets: base, version, ...size }), await renderItem({ id: "bow", assets: direct, ...size }))
+    const [viaCall] = await parseBlockstate(base, "oak_stairs", { version })
+    assert.equal(viaCall.version, version)
+    const handle = await createScene(base, [{ id: "oak_stairs", pos: [0, 0, 0] }], { version, lighting: "item" })
+    const pinned = await createScene(direct, [{ id: "oak_stairs", pos: [0, 0, 0] }], { lighting: "item" })
+    assert.equal(handle.tris, pinned.tris)
+    handle.dispose()
+    pinned.dispose()
+  }
+  const [plain] = await parseBlockstate(base, "oak_stairs")
+  assert.equal(plain.version, undefined)
+  assert.equal(base.version, undefined)
+})
+
+test("disposeCache on the prepared assets empties the caches of their version views", async () => {
+  const base = await prepareAssets([jar], { cache: true })
+  await renderBlock({ id: "stone", assets: base, version: "1.20.1", width: 16, height: 16 })
+  const view = await prepareAssets(base, { version: "1.20.1" })
+  assert.ok(view.cache.models.size > 0)
+  disposeCache(base)
+  assert.equal(view.cache.models.size, 0)
 })

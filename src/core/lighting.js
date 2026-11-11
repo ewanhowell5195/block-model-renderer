@@ -123,8 +123,8 @@ export async function computeSceneLight(assets, blocks, opts = {}) {
   const count = flat ? blocks.raw.length >> 2 : Array.isArray(blocks) ? blocks.length : 0
   if (!count) throw new Error("computeSceneLight requires an array of blocks, or a { palette, raw } run")
   if (assets == null || assets.length === 0) throw new Error("computeSceneLight requires assets")
-  assets = scopedCache(await prepareAssets(assets))
-  const version = opts.version
+  assets = scopedCache(await prepareAssets(assets, { version: opts.version }))
+  const version = assets.version
   const occCache = assets.cache.occlusion
   const defaultsMode = opts.defaults ?? assets.defaults
   const defaults = await defaultBlockstates(assets, defaultsMode)

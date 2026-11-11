@@ -17,6 +17,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 |---|---|---|
 | `id` | required | The block id (e.g. `"oak_log"`, `"stone"`). Namespace optional |
 | `assets` | required | The assets source, see [Assets](assets.md) and [Asset sources](#asset-sources) below. Vanilla assets aren't bundled, so provide a base pack |
+| `version` | | The [Minecraft version](assets.md#minecraft-version) to render as, when it differs from the one the assets were prepared with |
 | `properties` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `nbt` | | Block entity data rendered with the block: an item frame's `{ Item, ItemRotation, Invisible }`, a shelf's `{ Items, align_items_to_bottom }`, a banner's `{ patterns }` (legacy `Patterns` codes work too), or a player head's `{ profile }` ([Player heads](scenes.md#player-heads)). Held items bake in like block geometry, with the item's `fixed`/`on_shelf` display applied; glow frame items render fullbright; `Invisible: 1` drops the frame itself and keeps the item; enchanted items get the [glint](scenes.md#item-definitions) |
 | `mapArt` | | `(id, { pos, facing, nbt }) => canvas` for framed maps: return a drawn canvas (any canvas or image type) for the frame's map face, or nothing to render the `filled_map` item in a normal frame instead. `id` is the item's `minecraft:map_id` (`null` when absent); [`renderMapColors`](scenes.md#map-art) turns real save bytes into the canvas. Results cache per map id in the assets cache, nothing included, first one wins, until [`disposeMapArt`](scenes.md#map-art). An error thrown by the callback rejects the render |
@@ -88,7 +89,7 @@ Renders an item by id using its item definition.
 | `id` | required | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn, or `{ enchantments: { sharpness: 5 } }` for the enchantment glint). See [Item definitions](scenes.md#item-definitions) for what's supported |
 | `display` | `{ type: "fallback", display: "gui" }` | Display transform, deferring to the model's own `gui` display. See [Display transforms](models.md#display-transforms) |
-| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
+| `assets`, `version`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderModel(args)`
 
@@ -98,7 +99,7 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 |---|---|---|
 | `model` | required | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
 | `display` | `"gui"` | The model's own gui transform, or none if it doesn't define one. Unlike [`renderBlock`](#renderblockargs) nothing is imposed on a model that carries no transform, so item models render face-on like the game. Pass [`DISPLAYS.block`](models.md#displays) for the isometric look |
-| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
+| `assets`, `version`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderTexture(args)`
 

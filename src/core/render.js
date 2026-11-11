@@ -65,7 +65,7 @@ export async function getCullFaces({ id, properties, neighbors, assets, version,
   if (AIR_BLOCKS.test(id)) return new Set()
   if (assets == null || assets.length === 0) throw new Error("getCullFaces requires the assets option")
   if (typeof neighbors === "function") neighbors = faceNeighbors(neighbors)
-  assets = scopedCache(await prepareAssets(assets))
+  assets = scopedCache(await prepareAssets(assets, { version }))
   defaults ??= assets.defaults
   const rules = await blockRules(assets)
   let selfP
@@ -94,7 +94,7 @@ export async function getCullFaces({ id, properties, neighbors, assets, version,
 export async function fullyOccludes({ id, properties, assets, version, defaults } = {}) {
   if (!id || AIR_BLOCKS.test(id)) return false
   if (assets == null || assets.length === 0) throw new Error("fullyOccludes requires the assets option")
-  assets = scopedCache(await prepareAssets(assets))
+  assets = scopedCache(await prepareAssets(assets, { version }))
   defaults ??= assets.defaults
   const m = (await occlusionMasks(assets, await blockRules(assets), id, properties, version, defaults)).neighbor
   if (!m) return false
@@ -122,7 +122,7 @@ export async function renderBlock(args = {}) {
     rotateFlat: true
   }
 
-  args.assets = await prepareAssets(args.assets)
+  args.assets = await prepareAssets(args.assets, { version: args.version })
   const assets = scopedCache(args.assets)
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
@@ -151,7 +151,7 @@ export async function renderItem(args = {}) {
     display: "gui"
   }
 
-  args.assets = await prepareAssets(args.assets)
+  args.assets = await prepareAssets(args.assets, { version: args.version })
   const assets = scopedCache(args.assets)
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
@@ -170,7 +170,7 @@ export async function renderTexture(args = {}) {
   if (!args.texture) throw new Error("renderTexture requires the texture option")
   if (args.assets == null || args.assets.length === 0) throw new Error("renderTexture requires the assets option")
 
-  args.assets = await prepareAssets(args.assets)
+  args.assets = await prepareAssets(args.assets, { version: args.version })
   const texture = await readTexture(args.assets, args.texture)
   let frames = texture?.frames
   if (args.tint && frames) frames = frames.map(f => applyTint(f, args.tint))
@@ -216,7 +216,7 @@ export async function renderModel(args = {}) {
   if (args.assets == null || args.assets.length === 0) throw new Error("renderModel requires the assets option")
   args.display ??= "gui"
 
-  args.assets = await prepareAssets(args.assets)
+  args.assets = await prepareAssets(args.assets, { version: args.version })
   const { scene, camera } = makeModelScene()
   scene.userData.ephemeral = true
 

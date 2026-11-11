@@ -386,7 +386,7 @@ async function endSkyTexture(assets) {
 }
 
 export async function createSky(assets, args = {}) {
-  assets = await prepareAssets(assets)
+  assets = await prepareAssets(assets, { version: args.version })
   const modern = !assets.version || !isBefore(assets.version, "1.21.11")
   const dimension = args.dimension && typeof args.dimension === "object"
     ? { ...DIMENSIONS.overworld, ...args.dimension }

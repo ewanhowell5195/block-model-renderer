@@ -35,6 +35,7 @@ The same logic as a standalone helper, for building your own scenes with [`loadM
 |---|---|---|
 | `id` | required | The block id |
 | `assets` | required | The assets source |
+| `version` | | The [Minecraft version](assets.md#minecraft-version) to use, when it differs from the one the assets were prepared with |
 | `properties` | `{}` | The block's blockstate property values |
 | `neighbors` | | The six face neighbors as an object keyed `up`, `down`, `north`, `south`, `west`, `east`, where each value is `{ id, ...properties }`, an id string, or `true` to force-cull that side. Or the `([x, y, z]) => block` lookup [`renderBlock`](standard-api.md#renderblockargs) takes, which is asked for the six face offsets |
 

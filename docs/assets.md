@@ -126,6 +126,21 @@ const assets = await prepareAssets(sources, { version: "1.21.11" })
 
 Without it, calls made with the assets render [unversioned](versions.md#without-a-version).
 
+A version can also be applied after preparing. On assets that are already prepared, `prepareAssets` resolves a view for the version you pass: it shares the opened packs, keeps its own cache, and leaves the original as it was, whether or not the original has a version of its own. Asking for the same version again resolves the same view.
+
+```js
+const assets = await prepareAssets(sources, { cache: true })
+const legacy = await prepareAssets(assets, { version: "1.8.9" })
+```
+
+Every function that takes assets takes `version` as well, which resolves the same view:
+
+```js
+await renderBlock({ id: "cactus", assets, version: "1.8.9" })
+```
+
+[`disposeCache`](#prepareassetsassets-options) on the original assets empties the caches of its views too.
+
 ### Translucency detection
 
 Whether a texture renders blended (water, stained glass, ice) or solid is decided by inspecting its pixels, since packs can't declare it: a texture counts as translucent when any pixel's alpha falls strictly between the cutoffs. The defaults treat alpha at or below 5 as cutout (discarded anyway) and at or above 240 as opaque, so textures exported at 98% opacity or with anti-aliased edges render solid like the game's cutout pass instead of joining the sorted transparent pass. Tune per prepared assets when a pack draws the line somewhere else:
