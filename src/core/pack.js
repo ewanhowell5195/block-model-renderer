@@ -33,6 +33,7 @@ export async function packScene(handle, opts = {}) {
       spec = { kind: "data", data, w: img.width, h: img.height, format: tex.format, linear: tex.magFilter === THREE.LinearFilter }
     } else {
       const img = tex.image
+      if (typeof createImageBitmap !== "function") throw new Error("packScene transfers textures as ImageBitmaps, which only browsers and web workers have. On Node, pack scenes built on an adopted shared atlas, which carry page references instead")
       const bitmap = await createImageBitmap(img)
       transfers.push(bitmap)
       spec = {
@@ -79,7 +80,7 @@ export async function packScene(handle, opts = {}) {
       spec = {
         kind: "shader", ...common,
         vertexShader: mat.vertexShader, fragmentShader: mat.fragmentShader,
-        defines: { ...(mat.defines ?? {}) }, clipping: !!mat.clipping,
+        defines: { ...(mat.defines ?? {}) }, clipping: !!mat.clipping, derivatives: !!mat.extensions?.derivatives,
         uniforms: await packUniforms(mat.uniforms)
       }
     } else if (mat.isLineBasicMaterial) {
@@ -192,7 +193,7 @@ export function reviveScene(payload, opts = {}) {
       for (const [k, u] of Object.entries(spec.uniforms)) uniforms[k] = reviveUniform(u)
       mat = new THREE.ShaderMaterial({
         vertexShader: spec.vertexShader, fragmentShader: spec.fragmentShader,
-        defines: { ...spec.defines }, uniforms, clipping: spec.clipping
+        defines: { ...spec.defines }, uniforms, clipping: spec.clipping, extensions: { derivatives: !!spec.derivatives }
       })
     } else if (spec.kind === "line") {
       mat = new THREE.LineBasicMaterial()
