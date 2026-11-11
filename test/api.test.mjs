@@ -138,3 +138,16 @@ test("disposeCache on the prepared assets empties the caches of their version vi
   disposeCache(base)
   assert.equal(view.cache.models.size, 0)
 })
+
+test("a version id that is not a release leaves the assets unversioned", async () => {
+  for (const version of ["24w14a", "23w13a_or_b", "1.RV-Pre1", "3D Shareware v1.34", "b1.7.3", "fabric-loader-0.16.10-1.21.4"]) {
+    assert.equal((await prepareAssets([jar], { version })).version, undefined, version)
+    const [model] = await parseBlockstate(assets, "stone", { version })
+    assert.equal(model.version, undefined, version)
+  }
+  for (const version of ["1.16.2-pre1", "1.14 Pre-Release 1", "26.3-snapshot-5"]) {
+    assert.equal((await prepareAssets([jar], { version })).version, version)
+  }
+  const [cactus] = await parseBlockstate(assets, "cactus", { version: "1.14 Pre-Release 1" })
+  assert.equal(cactus.model, "minecraft:block/cactus")
+})

@@ -23,14 +23,22 @@ export function isImage(data) {
 
 const beforeMemo = new Map()
 
+function versionParts(version) {
+  const match = /^\d+(\.\d+)*(?![.\da-z])/i.exec(version)
+  return match && match[0].split(".").map(Number)
+}
+
+export function isKnownVersion(version) {
+  return typeof version === "string" && versionParts(version) !== null
+}
+
 export function isBefore(version, target) {
   const key = version + "\0" + target
   let r = beforeMemo.get(key)
   if (r !== undefined) return r
-  const parse = s => s.split("-")[0].split(".").map(n => +n || 0)
-  const a = parse(version), b = parse(target)
+  const a = versionParts(version), b = versionParts(target)
   r = false
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+  for (let i = 0; a && i < Math.max(a.length, b.length); i++) {
     const av = a[i] ?? 0, bv = b[i] ?? 0
     if (av !== bv) { r = av < bv; break }
   }

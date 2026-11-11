@@ -1,4 +1,4 @@
-import { platform, loadImage, toBytes, isImage, parseJson, textDecoder, normalize, resolveNamespace, isBefore } from "./platform.js"
+import { platform, loadImage, toBytes, isImage, parseJson, textDecoder, normalize, resolveNamespace, isBefore, isKnownVersion } from "./platform.js"
 import { parseZip, parseZipSlices, zipEntryData } from "../zip.js"
 import fallbackData from "./data/fallbacks.json" with { type: "json" }
 import defaultBlockstatesData from "./data/default_blockstates.json" with { type: "json" }
@@ -242,7 +242,7 @@ function builtinFallbackFiles() {
 export async function prepareAssets(assets, opts) {
   if (assets == null || assets.length === 0) throw new Error("prepareAssets requires assets")
   if (Array.isArray(assets) && assets.prepared) {
-    if (opts?.version && opts.version !== assets.version) assets = await versionView(assets, opts.version)
+    if (isKnownVersion(opts?.version) && opts.version !== assets.version) assets = await versionView(assets, opts.version)
     if (opts?.cache && !assets.cache) assets.cache = makeCache()
     if (opts?.translucency) assets.translucency = opts.translucency
     if (opts?.defaults) assets.defaults = opts.defaults
@@ -269,7 +269,7 @@ export async function prepareAssets(assets, opts) {
   prepared.tables = {}
   if (opts?.cache) prepared.cache = makeCache()
   if (opts?.translucency) prepared.translucency = opts.translucency
-  if (opts?.version) prepared.version = opts.version
+  if (isKnownVersion(opts?.version)) prepared.version = opts.version
   if (opts?.defaults) prepared.defaults = opts.defaults
   if (opts?.ignoreAtlases) prepared.ignoreAtlases = true
   if (opts?.proxy !== undefined) prepared.proxy = opts.proxy

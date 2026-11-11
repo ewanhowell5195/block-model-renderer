@@ -1132,7 +1132,7 @@ export async function parseBlockstate(assets, blockstate, args) {
   if (assets == null || assets.length === 0) throw new Error("parseBlockstate requires assets")
   let data = args?.properties ?? {}
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
-  const version = args?.version ?? assets.version
+  const version = assets.version
   const ignoreAtlases = args?.ignoreAtlases ?? assets.ignoreAtlases
   const defaultsMode = args?.defaults ?? assets.defaults
   const defaults = await defaultBlockstates(assets, defaultsMode)
@@ -1450,7 +1450,7 @@ function itemHasFoil(item, rules) {
 async function blockEntityItemModels(assets, block, data, args) {
   const nbt = args.nbt
   const out = []
-  const version = args.version ?? assets.version
+  const version = assets.version
   const context = block.endsWith("shelf") ? "on_shelf" : "fixed"
   const glintRules = await itemRules(assets)
   const itemArgs = id => ({
@@ -1702,7 +1702,7 @@ export async function parseItemDefinition(assets, itemId, args) {
   }
   const display = args?.display ?? "gui"
   assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
-  const version = args?.version ?? assets.version
+  const version = assets.version
   const ignoreAtlases = args?.ignoreAtlases ?? assets.ignoreAtlases
 
   const { namespace, item } = resolveNamespace(itemId)
@@ -2668,7 +2668,7 @@ export async function loadModel(assets, model, args) {
   if (parent) parent.userData.lightSwitches = lightSwitches
   const block = args?.block ? { ...args.block, neighbors: args.neighbors ? neighborLookup(args.neighbors) : args.block.neighbors ?? neighborLookup() } : null
   if (args?.version || !Array.isArray(assets) || !assets.prepared) assets = await prepareAssets(assets, args?.version ? { version: args.version } : undefined)
-  if (!model.version && (args?.version ?? assets.version)) model.version = args?.version ?? assets.version
+  if (!model.version && assets.version) model.version = assets.version
 
   let blockEmission = 0
   if (args?.emission != null) {
