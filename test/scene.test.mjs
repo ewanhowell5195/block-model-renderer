@@ -62,12 +62,20 @@ test("scenes spread past the dense cell grid still cull between neighbours", asy
   const b = await createScene([jar], cube(3000, 3000), { lighting: "item" })
   const both = await createScene([jar], cube(0, 0).concat(cube(3000, 3000)), { lighting: "item" })
   assert.equal(both.tris, a.tris + b.tris)
-  const far = await createScene([jar], cube(2000000, -30000000).concat(cube(2003000, -29997000)), { lighting: "item" })
-  assert.equal(far.tris, a.tris + b.tris)
-  a.dispose()
-  b.dispose()
-  both.dispose()
-  far.dispose()
+  for (const handle of [a, b, both]) handle.dispose()
+})
+
+test("sparse scenes far from the origin keep every cell", async () => {
+  const cube = (ox, oz) => {
+    const out = []
+    for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) for (let z = 0; z < 8; z++) out.push({ id: "diamond_block", pos: [ox + x, y, oz + z] })
+    return out
+  }
+  for (const [x, z] of [[2000000, 0], [-20000000, 20000000]]) {
+    const far = await createScene([jar], cube(x, z).concat(cube(x + 3000, z + 3000)), { lighting: "item" })
+    assert.equal(far.tris, 24)
+    far.dispose()
+  }
 })
 
 test("buried cells are skipped without changing the geometry", async () => {
