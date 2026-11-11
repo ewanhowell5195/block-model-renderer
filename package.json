@@ -71,8 +71,8 @@
   },
   "peerDependencies": {
     "gl": "^8.1.6",
-    "headless-three": "^1.9.0",
-    "sharp": "^0.34.5",
+    "headless-three": "^1.10.0",
+    "sharp": "^0.35.5",
     "skia-canvas": "^4.0.0",
     "three": ">=0.152.0"
   },
@@ -97,8 +97,8 @@
     "@types/three": "^0.162.0",
     "esbuild": "^0.28.1",
     "gl": "^8.1.6",
-    "headless-three": "^1.9.0",
-    "sharp": "^0.34.5",
+    "headless-three": "^1.10.0",
+    "sharp": "^0.35.5",
     "skia-canvas": "^4.0.0",
     "typescript": "^5.9.3"
   }
