@@ -36,6 +36,23 @@ test("blockPalette widens to 32-bit past 65535 states", async () => {
   handle.dispose()
 })
 
+test("equal properties in separate objects share a palette entry", async () => {
+  const axes = ["y", "y", "x", "y", "x", "z"]
+  const shared = { x: { axis: "x" }, y: { axis: "y" }, z: { axis: "z" } }
+  const fresh = axes.map((axis, i) => ({ id: "oak_log", properties: { axis }, pos: [i, 0, 0] }))
+  const reused = axes.map((axis, i) => ({ id: "oak_log", properties: shared[axis], pos: [i, 0, 0] }))
+  fresh.push({ id: "birch_log", properties: { axis: "y" }, pos: [6, 0, 0] }, { id: "oak_log", pos: [7, 0, 0] }, { id: "oak_log", properties: {}, pos: [8, 0, 0] })
+  reused.push({ id: "birch_log", properties: shared.y, pos: [6, 0, 0] }, { id: "oak_log", pos: [7, 0, 0] }, { id: "oak_log", properties: {}, pos: [8, 0, 0] })
+  const a = await createScene([jar], fresh, { lighting: "item" })
+  const b = await createScene([jar], reused, { lighting: "item" })
+  assert.deepEqual(Array.from(a.blockPalette), [0, 0, 1, 0, 1, 2, 3, 4, 5])
+  assert.deepEqual(Array.from(b.blockPalette), Array.from(a.blockPalette))
+  assert.deepEqual(a.palette.map(p => p.properties), b.palette.map(p => p.properties))
+  assert.equal(a.tris, b.tris)
+  a.dispose()
+  b.dispose()
+})
+
 test("block nbt with BigInt longs keys and builds", async () => {
   const bees = anger => ({ bees: [{ entity_data: { anger_end_time: anger } }] })
   const frame = { Item: { id: "minecraft:compass", count: 1, components: { "minecraft:custom_data": { stamp: 123456789012345n } } } }

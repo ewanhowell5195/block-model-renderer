@@ -162,6 +162,41 @@ function cloneTemplate(src, rebind) {
   return out
 }
 
+function sameProperties(seen, properties) {
+  const keys = seen.keys, vals = seen.vals
+  let i = 0
+  for (const k in properties) {
+    if (k !== keys[i] || properties[k] !== vals[i]) return false
+    i++
+  }
+  return i === keys.length
+}
+
+function valuesKey(properties) {
+  let key = ""
+  for (const k in properties) key += String(properties[k]) + "\0"
+  return key
+}
+
+function seenState(states, properties) {
+  if (states.last && sameProperties(states.last, properties)) return states.last.pi
+  const bucket = states.byValues.get(valuesKey(properties))
+  if (bucket) for (let i = 0; i < bucket.length; i++) {
+    if (!sameProperties(bucket[i], properties)) continue
+    states.last = bucket[i]
+    return states.last.pi
+  }
+  return -1
+}
+
+function rememberState(states, properties, pi) {
+  const keys = Object.keys(properties), key = valuesKey(properties)
+  states.last = { keys, vals: keys.map(k => properties[k]), pi }
+  const bucket = states.byValues.get(key)
+  if (bucket) bucket.push(states.last)
+  else states.byValues.set(key, [states.last])
+}
+
 function cullsAway(group) {
   let away = true
   group.traverse(o => {
@@ -308,7 +343,7 @@ export async function createScene(assets, blocks, args = {}) {
     blockPalette = wide
   }
   const NO_PROPS = {}
-  const piMemo = new WeakMap(), bioMemo = new WeakMap()
+  const piMemo = { byProps: new WeakMap(), seen: new Map() }, bioMemo = new WeakMap()
   const idInfo = new Map()
   const infoOf = rawId => {
     let info = idInfo.get(rawId)
@@ -385,13 +420,25 @@ export async function createScene(assets, blocks, args = {}) {
         let memo = piMemo
         if (bioObj) {
           memo = bioMemo.get(biome)
-          if (!memo) bioMemo.set(biome, memo = new WeakMap())
+          if (!memo) bioMemo.set(biome, memo = { byProps: new WeakMap(), seen: new Map() })
         }
-        let byId = memo.get(po)
-        if (!byId) memo.set(po, byId = new Map())
         const bk = biome == null || bioObj ? id : id + "\0" + JSON.stringify(biome)
-        pi = byId.get(bk)
-        if (pi === undefined) byId.set(bk, pi = stateIndex(id, b.properties, biome))
+        let byId = memo.byProps.get(po)
+        pi = byId?.get(bk)
+        if (pi === undefined) {
+          let states = null
+          if (po !== NO_PROPS) {
+            states = memo.seen.get(bk)
+            if (!states) memo.seen.set(bk, states = { last: null, byValues: new Map() })
+          }
+          pi = states ? seenState(states, po) : -1
+          if (pi < 0) {
+            pi = stateIndex(id, b.properties, biome)
+            if (!byId) memo.byProps.set(po, byId = new Map())
+            byId.set(bk, pi)
+            if (states) rememberState(states, po, pi)
+          }
+        }
       }
       place(i, pi, b.pos[0], b.pos[1], b.pos[2], b.overlay, b.context === true)
     }
