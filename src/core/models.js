@@ -1820,7 +1820,7 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
       if (prop === "custom_model_data") raw = data["custom_model_data"]?.strings?.[def.index ?? 0]
       else if (prop === "component") raw = data[normalize(def.component)]
       else if (prop === "block_state") raw = data.block_state?.[def.block_state_property]
-      else if (prop === "charge") {
+      else if (prop === "charge_type") {
         const projectiles = data.charged_projectiles ?? []
         if (!projectiles.length) raw = "none"
         else if (projectiles.some(p => normalize(typeof p === "string" ? p : p?.id ?? "") === "firework_rocket")) raw = "rocket"
