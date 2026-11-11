@@ -41,13 +41,18 @@ async function makeFolderEntry(folderPath, indexed = false) {
   if (indexed) {
     try { files = new Set((await fs.promises.readdir(folderPath, { recursive: true })).map(p => p.split(path.sep).join("/"))) } catch {}
   }
+  function inside(file) {
+    const rel = path.relative(folderPath, path.join(folderPath, file))
+    return !rel.startsWith("..") && !path.isAbsolute(rel)
+  }
   const entry = {
     path: folderPath,
     async read(file) {
-      if (files && !files.has(file)) return null
+      if (files ? !files.has(file) : !inside(file)) return null
       try { return await fs.promises.readFile(path.join(folderPath, file)) } catch { return null }
     },
     async list(dir) {
+      if (!inside(dir)) return []
       try { return await fs.promises.readdir(path.join(folderPath, dir)) } catch { return [] }
     }
   }
