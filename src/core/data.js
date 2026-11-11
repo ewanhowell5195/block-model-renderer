@@ -169,7 +169,7 @@ export const builtinColors = buildColorTables([baseColors])
 export const builtinItemRules = buildItemRules([baseItems])
 
 export async function blockRules(assets) {
-  return assets.blockRules ??= (async () => {
+  return (assets.tables ?? assets).blockRules ??= (async () => {
     const [waterlogging, culling, lighting, offsets] = await Promise.all([
       readLayers("assets/block-model-renderer/waterlogging.json", assets, baseWaterlogging),
       readLayers("assets/block-model-renderer/culling.json", assets, baseCulling),
@@ -182,14 +182,14 @@ export async function blockRules(assets) {
 }
 
 export async function colorTables(assets) {
-  return assets.colorTables ??= (async () => {
+  return (assets.tables ?? assets).colorTables ??= (async () => {
     const layers = await readLayers("assets/block-model-renderer/colors.json", assets, baseColors)
     return layers.length === 1 ? builtinColors : buildColorTables(layers)
   })()
 }
 
 export async function itemRules(assets) {
-  return assets.itemRules ??= (async () => {
+  return (assets.tables ?? assets).itemRules ??= (async () => {
     const layers = await readLayers("assets/block-model-renderer/items.json", assets, baseItems)
     return layers.length === 1 ? builtinItemRules : buildItemRules(layers)
   })()

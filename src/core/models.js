@@ -727,7 +727,7 @@ function defaultBlockstateTable(layers) {
 }
 
 export async function defaultBlockstates(assets, mode) {
-  const tables = await (assets.defaultBlockstates ??= (async () => {
+  const tables = await ((assets.tables ?? assets).defaultBlockstates ??= (async () => {
     const base = await defaultBlockstateLayer(assets, "assets/block-model-renderer/default_blockstates.json")
     const preferred = await defaultBlockstateLayer(assets, "assets/block-model-renderer/default_blockstates_preferred.json")
     return { game: defaultBlockstateTable([base]), preferred: defaultBlockstateTable([preferred, base]) }
@@ -1377,7 +1377,8 @@ export async function getBiomeTint(assets, mapName, biome) {
 }
 
 function colormapPixels(assets, mapName) {
-  const cache = assets.cache ? (assets.cache.colormapPixels ??= new Map()) : null
+  const store = assets.cache && !assets.cache.ephemeral ? assets.cache : assets.tables ?? assets.cache
+  const cache = store ? (store.colormapPixels ??= new Map()) : null
   let pixels = cache?.get(mapName)
   if (!pixels) {
     pixels = readFile(`assets/minecraft/textures/colormap/${mapName}.png`, assets).then(buf => buf ? platform.decodeToRaw(buf) : null)

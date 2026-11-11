@@ -235,6 +235,7 @@ export async function prepareAssets(assets, opts) {
   prepared.push(await zipEntryFromFiles(await builtinFallbackFiles()))
   prepared.prepared = true
   prepared.atlasMembership = new Map()
+  prepared.tables = {}
   if (opts?.cache) prepared.cache = makeCache()
   if (opts?.translucency) prepared.translucency = opts.translucency
   if (opts?.version) prepared.version = opts.version
