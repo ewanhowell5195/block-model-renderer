@@ -972,13 +972,16 @@ function sceneHandle({ group, palette, blockPalette, templates, blockTemplate, b
 }
 
 const WARM_SINGLES = ["stone", "lava", "water", "red_stained_glass", "end_portal", "end_gateway", "bell", "white_banner", "shulker_box", "chest"].map((id, i) => ({ id, pos: [i * 2, 0, 0] }))
-const WARM_RUNS = []
-for (let x = 0; x < 6; x++) for (let z = 0; z < 6; z++) WARM_RUNS.push({ id: "stone", pos: [x, 0, z] }, { id: "lava", pos: [x + 8, 0, z] }, { id: "water", pos: [x + 16, 0, z] }, { id: "red_stained_glass", pos: [x + 24, 0, z] })
+const WARM_RUNS = [], WARM_VARIANTS = []
+for (let x = 0; x < 6; x++) for (let z = 0; z < 6; z++) {
+  WARM_RUNS.push({ id: "oak_planks", pos: [x, 0, z] }, { id: "lava", pos: [x + 8, 0, z] }, { id: "water", pos: [x + 16, 0, z] }, { id: "red_stained_glass", pos: [x + 24, 0, z] })
+  WARM_VARIANTS.push({ id: "stone", pos: [x, 0, z] })
+}
 
 export async function warmShaders(assets, renderer, args = {}) {
   if (!renderer?.compile) throw new Error("warmShaders requires a WebGLRenderer")
   const { scene = null, camera = new THREE.PerspectiveCamera(), blocks, ...sceneArgs } = args
-  const lists = blocks ? [blocks] : sceneArgs.sharedAtlas ? [WARM_SINGLES, WARM_RUNS] : [WARM_SINGLES]
+  const lists = blocks ? [blocks] : sceneArgs.sharedAtlas ? [WARM_SINGLES, WARM_RUNS, WARM_VARIANTS] : [WARM_SINGLES]
   const handles = []
   for (const list of lists) {
     const handle = await createScene(assets, list, sceneArgs)

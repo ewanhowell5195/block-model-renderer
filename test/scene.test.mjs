@@ -5,19 +5,22 @@ import { loadMojangJar } from "../examples/node/mojang-jar.js"
 
 const jar = await loadMojangJar()
 
-test("warmShaders compiles single blocks, and merged runs too on a shared atlas", async () => {
+test("warmShaders compiles single blocks, and merged runs with and without variants on a shared atlas", async () => {
   const assets = await prepareAssets([jar], { cache: true })
   const compiled = []
   const renderer = {
     info: { programs: [] },
     compile(group) {
-      let meshes = 0, tiled = false
+      let meshes = 0, tiled = false, plainOpaque = false, lookup = false
       group.traverse(o => {
         if (!o.isMesh) return
         meshes++
-        if (o.geometry.attributes.tileRect) tiled = true
+        if (!o.geometry.attributes.tileRect) return
+        tiled = true
+        if ("TILE_LOOKUP" in o.material.defines) lookup = true
+        else if (!o.material.transparent && o.material.side === 0) plainOpaque = true
       })
-      compiled.push({ meshes, tiled })
+      compiled.push({ meshes, tiled, plainOpaque, lookup })
     }
   }
   const plain = await warmShaders(assets, renderer)
@@ -27,7 +30,8 @@ test("warmShaders compiles single blocks, and merged runs too on a shared atlas"
   plain.dispose()
   const shared = createSharedAtlas()
   const warmed = await warmShaders(assets, renderer, { sharedAtlas: shared })
-  assert.deepEqual(compiled.slice(1).map(c => c.tiled), [false, true])
+  assert.deepEqual(compiled.slice(1).map(c => c.tiled), [false, true, true])
+  assert.deepEqual(compiled.slice(2).map(c => [c.plainOpaque, c.lookup]), [[true, false], [false, true]])
   assert.equal(warmed.programs, 0)
   warmed.dispose()
   shared.dispose()
