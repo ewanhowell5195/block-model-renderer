@@ -445,17 +445,18 @@ export async function createScene(assets, blocks, args = {}) {
   }
 
   const sigIds = (assets.cache.sigIds ??= new Map())
-  const variantLoaders = activeLoaders().filter(l => l.variantKey && l.match)
+  const loaders = activeLoaders()
+  const variantLoaders = loaders.filter(l => l.variantKey && l.match)
   const cullEnv = (version ?? "") + "\u0000" + (defaults ?? "") + "\u0001"
-  const buryCache = (assets.cache.buried ??= new Map())
+  const buryCache = loaders.length ? new Map() : (assets.cache.buried ??= new Map())
   const palFull = new Uint8Array(palette.length), palBury = new Uint8Array(palette.length)
-  async function modelsCullAway(models) {
+  async function modelsCullAway(entry, models) {
     const g = new THREE.Group()
-    for (const model of models) await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false, version, defaults })
+    for (const model of models) await loadModel(g, assets, await resolveModelData(assets, model), { display: {}, animate: false, block: { id: entry.id, properties: entry.properties ?? {} }, version, defaults })
     return cullsAway(g)
   }
   async function pickModelsCullAway(entry) {
-    if (!entry.rolls) return modelsCullAway(entry.models)
+    if (!entry.rolls) return modelsCullAway(entry, entry.models)
     const picks = entry.rolls.lists.reduce((n, l) => n * l.weights.length, 1)
     if (picks > 64) return false
     const seen = new Set()
@@ -464,7 +465,7 @@ export async function createScene(assets, blocks, args = {}) {
       if (seen.has(pick)) continue
       seen.add(pick)
       const models = await parseBlockstate(assets, entry.id, { data: entry.properties ?? {}, pos: [x, 0, 0], ignoreAtlases: args.ignoreAtlases, version, defaults })
-      if (!await modelsCullAway(models)) return false
+      if (!await modelsCullAway(entry, models)) return false
     }
     return seen.size === picks
   }
