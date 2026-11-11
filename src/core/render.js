@@ -1,7 +1,7 @@
-import { platform, render, THREE, loadTexture } from "./platform.js"
+import { platform, THREE, loadTexture } from "./platform.js"
 import { prepareAssets, scopedCache, getMissingImage } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
-import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock } from "./models.js"
+import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, restoreShaderSalt, shaderSaltNow, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock } from "./models.js"
 import { selfCulls } from "./culling.js"
 import { occludingFaces, faceIsEmpty, faceCovered } from "./occlusion.js"
 import { computeAnimationTimeline, lcmTicks, collectAnimated, applyFrame, applyTint, readTexture } from "./animation.js"
@@ -10,7 +10,7 @@ import { faceNeighbors } from "./neighbors.js"
 
 const OPPOSITE = { down: "up", up: "down", north: "south", south: "north", east: "west", west: "east" }
 
-let verifiedPrograms = 0
+const verifiedPrograms = new WeakSet()
 
 function buffersEqual(a, b) {
   if (a.length !== b.length) return false
@@ -18,6 +18,38 @@ function buffersEqual(a, b) {
     if (a[i] !== b[i]) return false
   }
   return true
+}
+
+function verifyPrograms(frameRenderer, scene, camera) {
+  if (frameRenderer.programs().every(p => verifiedPrograms.has(p))) return
+  const salt = shaderSaltNow()
+  let prev = frameRenderer.readPixels()
+  for (let attempt = 0; attempt < 3; attempt++) {
+    bumpShaderSalt(scene)
+    frameRenderer.renderFrame(scene, camera)
+    const cur = frameRenderer.readPixels()
+    const agreed = buffersEqual(prev, cur)
+    prev = cur
+    if (agreed) {
+      if (attempt === 0) restoreShaderSalt(scene, salt)
+      break
+    }
+  }
+  for (const p of frameRenderer.programs()) verifiedPrograms.add(p)
+}
+
+function releaseEphemeral(scene) {
+  if (!scene.userData.ephemeral) return
+  scene.traverse(obj => {
+    if (!obj.isMesh && !obj.isLineSegments) return
+    obj.geometry?.dispose()
+    for (const mat of [].concat(obj.material ?? [])) {
+      if (mat.map && !mat.map.userData?.cached) mat.map.dispose()
+      for (const uniform of Object.values(mat.uniforms ?? {})) {
+        if (uniform?.value?.isTexture && !uniform.value.userData?.cached) uniform.value.dispose()
+      }
+    }
+  })
 }
 
 export async function getCullFaces({ id, blockstates, neighbors, assets, version, defaults } = {}) {
@@ -354,16 +386,14 @@ export async function renderModelScene(scene, camera, args) {
   const finalPath = animFormat ? adjustPathForFormat(args?.path, animFormat, args?.format) : args?.path
 
   if (!hasAnimation) {
-    const buffer = await render({
-      scene,
-      camera,
-      width: baseWidth,
-      height: baseHeight,
-      path: finalPath,
-      format: finalFormat,
-      output: args?.output ?? OUTPUT_DEFAULTS[finalFormat],
-      background: args?.background
-    })
+    const still = platform.createFrameRenderer({ width: baseWidth, height: baseHeight, background: args?.background, camera })
+    applyShaderSalt(scene)
+    still.renderFrame(scene, camera)
+    verifyPrograms(still, scene, camera)
+    const data = still.readPixels()
+    releaseEphemeral(scene)
+    const buffer = await platform.encodeStill({ data, width: baseWidth, height: baseHeight, format: finalFormat, output: args?.output ?? OUTPUT_DEFAULTS[finalFormat] })
+    if (finalPath) await platform.writeFile(finalPath, buffer)
     return args?.animated ? { buffer, format: "png" } : buffer
   }
 
@@ -424,25 +454,14 @@ export async function renderModelScene(scene, camera, args) {
       for (const mat of collected.shaders) mat.uniforms.GameTime.value = (t % 24000) / 24000
 
       frameRenderer.renderFrame(scene, camera)
-      if (f === 0 && frameRenderer.programCount && frameRenderer.programCount() > verifiedPrograms) {
-        let prev = frameRenderer.readPixels()
-        for (let attempt = 0; attempt < 3; attempt++) {
-          bumpShaderSalt(scene)
-          frameRenderer.renderFrame(scene, camera)
-          const cur = frameRenderer.readPixels()
-          const agreed = buffersEqual(prev, cur)
-          prev = cur
-          if (agreed) break
-        }
-        verifiedPrograms = frameRenderer.programCount()
-      }
+      if (f === 0) verifyPrograms(frameRenderer, scene, camera)
       stacked.set(frameRenderer.readPixels(), f * width * height * 4)
     }
   } finally {
     if (dynamicLoop) setDynamicClock(null)
   }
 
-  frameRenderer.dispose()
+  releaseEphemeral(scene)
 
   const MAX_DELAY = 65535
   const frameSize = width * height * 4

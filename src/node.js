@@ -204,11 +204,14 @@ setPlatform({
         }
         return flipped
       },
-      programCount() {
-        return renderer.info.programs.length
-      },
-      dispose() {}
+      programs() {
+        return renderer.info.programs
+      }
     }
+  },
+
+  encodeStill({ data, width, height, format, output }) {
+    return sharp(data, { raw: { width, height, channels: 4, premultiplied: true } }).toFormat(format ?? "png", output).toBuffer()
   },
 
   encodeAnimated({ data, width, height, pages, format, delay, output }) {

@@ -3237,6 +3237,11 @@ export function bumpShaderSalt(scene) {
   patchShaderSalt(scene)
 }
 
+export function restoreShaderSalt(scene, salt) {
+  shaderSalt = salt
+  patchShaderSalt(scene)
+}
+
 export function tintVec(input, fallback) {
   if (input == null) input = fallback
   if (Array.isArray(input)) return new THREE.Vector3(input[0], input[1], input[2])
