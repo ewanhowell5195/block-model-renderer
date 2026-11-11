@@ -298,12 +298,22 @@ export function disposeCache(assets) {
   for (const v of Object.values(c)) if (v instanceof Map) v.clear()
 }
 
-export async function exportModelCache(assets) {
+export const MASK_DIRS = ["east", "west", "up", "down", "south", "north"]
+
+export async function exportCache(assets) {
   assets = await prepareAssets(assets)
-  return { files: Array.from(assets.cache?.jsonText ?? []), models: Array.from(assets.cache?.models ?? []) }
+  const cache = assets.cache
+  const occlusion = []
+  for (const [key, masks] of cache?.occlusion ?? []) {
+    if (!masks) { occlusion.push([key, null]); continue }
+    const packed = {}
+    for (const dir of MASK_DIRS) packed[dir] = masks[dir]
+    occlusion.push([key, packed])
+  }
+  return { files: Array.from(cache?.jsonText ?? []), models: Array.from(cache?.models ?? []), occlusion }
 }
 
-export async function importModelCache(assets, data) {
+export async function importCache(assets, data) {
   assets = await prepareAssets(assets)
   const cache = assets.cache
   if (!cache || !data) return 0
@@ -317,6 +327,15 @@ export async function importModelCache(assets, data) {
   for (const [key, model] of data.models ?? []) {
     if (typeof key !== "string" || cache.models.has(key) || model == null || typeof model !== "object") continue
     cache.models.set(key, model)
+    added++
+  }
+  for (const [key, packed] of Array.isArray(data.occlusion) ? data.occlusion : []) {
+    if (typeof key !== "string" || cache.occlusion.has(key)) continue
+    if (packed == null) { cache.occlusion.set(key, null); added++; continue }
+    if (!MASK_DIRS.every(dir => packed[dir] instanceof Uint16Array && packed[dir].length === 16)) continue
+    const masks = {}
+    for (const dir of MASK_DIRS) masks[dir] = packed[dir]
+    cache.occlusion.set(key, masks)
     added++
   }
   return added

@@ -1,5 +1,5 @@
 import { platform, THREE, loadTexture } from "./platform.js"
-import { prepareAssets, scopedCache, getMissingImage } from "./assets.js"
+import { prepareAssets, scopedCache, getMissingImage, MASK_DIRS } from "./assets.js"
 import { sortObjectOnce } from "./sorting.js"
 import { parseBlockstate, parseItemDefinition, resolveModelData, loadModel, AIR_BLOCKS, applyShaderSalt, bumpShaderSalt, restoreShaderSalt, shaderSaltNow, buildOcclusionModel, occlusionStateKey, DYNAMIC_LOOPS, dynamicFrame, setDynamicClock, freezeDynamics } from "./models.js"
 import { selfCulls } from "./culling.js"
@@ -88,8 +88,6 @@ export async function getCullFaces({ id, properties, neighbors, assets, version,
   return cull
 }
 
-const MASK_DIRS = ["east", "west", "up", "down", "south", "north"]
-
 export async function fullyOccludes({ id, properties, assets, version, defaults } = {}) {
   if (!id || AIR_BLOCKS.test(id)) return false
   if (assets == null || assets.length === 0) throw new Error("fullyOccludes requires the assets option")
@@ -103,42 +101,6 @@ export async function fullyOccludes({ id, properties, assets, version, defaults 
     for (let v = 0; v < 16; v++) if (mask[v] !== 0xffff) return false
   }
   return true
-}
-
-export async function exportOcclusionCache(assets) {
-  assets = await prepareAssets(assets)
-  const cache = assets.cache?.occlusion
-  if (!cache) return []
-  const out = []
-  for (const [k, m] of cache) {
-    if (!m) { out.push([k, null]); continue }
-    const packed = {}
-    for (const d of MASK_DIRS) packed[d] = m[d]
-    out.push([k, packed])
-  }
-  return out
-}
-
-export async function importOcclusionCache(assets, entries) {
-  assets = await prepareAssets(assets)
-  const cache = assets.cache?.occlusion
-  if (!cache || !Array.isArray(entries)) return 0
-  let added = 0
-  for (const [k, m] of entries) {
-    if (typeof k !== "string" || cache.has(k)) continue
-    if (m == null) { cache.set(k, null); added++; continue }
-    const masks = {}
-    let ok = true
-    for (const d of MASK_DIRS) {
-      const a = m[d]
-      if (!(a instanceof Uint16Array) || a.length !== 16) { ok = false; break }
-      masks[d] = a
-    }
-    if (!ok) continue
-    cache.set(k, masks)
-    added++
-  }
-  return added
 }
 
 const OUTPUT_DEFAULTS = {

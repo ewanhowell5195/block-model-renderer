@@ -317,7 +317,7 @@ setPlatform({
 
 export {
   wasmStatus, COLORS, isWaterloggable, isWaterlogged, getLightEmission, computeSceneLight, getCullFaces, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, prepareAssets, disposeCache, listDirectory, readFile,
-  renderBlock, renderItem, renderModel, renderTexture, fullyOccludes, exportOcclusionCache, importOcclusionCache, exportModelCache, importModelCache,
+  renderBlock, renderItem, renderModel, renderTexture, fullyOccludes, exportCache, importCache,
   makeModelScene, renderModelScene, createSky, createClouds, createFog, rebindUniforms,
   parseBlockstate, parseItemDefinition, resolveModelData, loadModel, createScene, warmShaders, isFlatModel, getBiomeTint,
   fluidHeights, fluidTypeOf, ModelLoader,

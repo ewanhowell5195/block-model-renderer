@@ -812,7 +812,7 @@ export interface MapColors {
 // #endregion
 // #region Culling
 
-/** A serialized occlusion cache entry: a state key and its per-direction masks. */
+/** One occlusion entry of an exported {@link CacheData}: a state key and its per-direction masks. */
 export type OcclusionCacheEntry = [string, Record<Direction, Uint16Array> | null]
 
 export interface GetCullFacesArgs {
@@ -1381,32 +1381,37 @@ export function prepareAssets(assets: AssetsInput, options?: PrepareAssetsOption
  */
 export function disposeCache(assets: AssetsInput): void
 
-/** An exported model cache, as {@link exportModelCache} resolves to. Structured-cloneable and JSON-serializable. */
-export interface ModelCacheData {
+/**
+ * An exported cache, as {@link exportCache} resolves to. Structured-cloneable.
+ * `files` and `models` are JSON-serializable too; `occlusion` holds typed arrays.
+ */
+export interface CacheData {
   /** The blockstate and model files read so far, by path. `null` marks a file the packs don't have. */
   files: [string, { text: string, hintIndex: number } | null][]
   /** The resolved models, by model id or inline model JSON. */
   models: [string, Record<string, any>][]
+  /** The computed occlusion masks, by block state. */
+  occlusion: OcclusionCacheEntry[]
 }
 
 /**
- * The blockstate and model data cached on prepared assets, to copy to a
- * worker's assets or persist for the next session. Only valid for the same pack
- * stack, in the same order, and the same version.
+ * The blockstate files, model data and occlusion masks cached on prepared
+ * assets, to copy to a worker's assets or persist for the next session. Only
+ * valid for the same pack stack, in the same order, and the same version.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#sharing-the-model-cache
  */
-export function exportModelCache(assets: AssetsInput): Promise<ModelCacheData>
+export function exportCache(assets: AssetsInput): Promise<CacheData>
 
 /**
- * Seed prepared assets (with `cache: true`) from an exported model cache.
- * Existing keys are kept.
+ * Seed prepared assets (with `cache: true`) from an exported cache. Existing
+ * keys are kept, and any of the three parts may be left out.
  *
  * @returns How many entries were added.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#sharing-the-model-cache
  */
-export function importModelCache(assets: AssetsInput, data: ModelCacheData): Promise<number>
+export function importCache(assets: AssetsInput, data: Partial<CacheData>): Promise<number>
 
 /**
  * Read one file through the same layered, filtered view of the assets the
@@ -1514,25 +1519,6 @@ export function getCullFaces(args: GetCullFacesArgs): Promise<Set<Direction>>
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/culling.md#fullyoccludesargs
  */
 export function fullyOccludes(args: FullyOccludesArgs): Promise<boolean>
-
-/**
- * Serialize the computed occlusion masks so an app can persist them (IndexedDB,
- * a file) and skip the cold pass next session. Only valid for the same effective
- * pack stack, so key your copy by the pack list it was exported under.
- *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/culling.md#persisting-the-occlusion-cache
- */
-export function exportOcclusionCache(assets: AssetsInput): Promise<OcclusionCacheEntry[]>
-
-/**
- * Seed prepared assets with previously exported occlusion masks. Existing keys
- * are kept.
- *
- * @returns How many entries were added.
- *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/culling.md#persisting-the-occlusion-cache
- */
-export function importOcclusionCache(assets: AssetsInput, entries: OcclusionCacheEntry[]): Promise<number>
 
 /**
  * Flood-fill Minecraft's block and sky light over a scene's block grid and pack
