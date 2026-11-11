@@ -3964,6 +3964,11 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
         uniform sampler2D lightAo;
         uniform vec2 lightVolTex;
         uniform float lightVolCols;
+        #if __VERSION__ >= 300 || defined(GL_EXT_shader_texture_lod)
+          #define lightTexel(map, uv) texture2DLodEXT(map, uv, 0.0)
+        #else
+          #define lightTexel(map, uv) texture2D(map, uv)
+        #endif
         vec2 sampleLightVol(vec3 p) {
           p = clamp(p, vec3(0.0), lightVolSize);
           float y0 = floor(p.y);
@@ -3972,8 +3977,8 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
           vec2 xz = vec2(p.x, p.z) + 0.5;
           vec2 uv0 = vec2(mod(y0, lightVolCols) * tile.x, floor(y0 / lightVolCols) * tile.y) + xz;
           vec2 uv1 = vec2(mod(y1, lightVolCols) * tile.x, floor(y1 / lightVolCols) * tile.y) + xz;
-          vec2 l0 = texture2D(lightVol, uv0 / lightVolTex).rg;
-          vec2 l1 = texture2D(lightVol, uv1 / lightVolTex).rg;
+          vec2 l0 = lightTexel(lightVol, uv0 / lightVolTex).rg;
+          vec2 l1 = lightTexel(lightVol, uv1 / lightVolTex).rg;
           return mix(l0, l1, p.y - y0);
         }
         uniform bool aoEnabled;
@@ -3984,7 +3989,7 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
             c = clamp(c, vec3(-1.0), lightVolSize) + 1.0;
             vec2 tile = lightVolSize.xz + 2.0;
             vec2 uv = vec2(mod(c.y, lightAoCols) * tile.x, floor(c.y / lightAoCols) * tile.y) + c.xz + 0.5;
-            return floor(texture2D(lightAo, uv / lightAoTex) * 255.0 + 0.5);
+            return floor(lightTexel(lightAo, uv / lightAoTex) * 255.0 + 0.5);
           }
           float aoShade(float bits, float place) {
             return mod(floor(bits / place), 2.0) > 0.5 ? 0.2 : 1.0;
@@ -3999,7 +4004,7 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
             c = clamp(c, vec3(0.0), lightVolSize - 1.0);
             vec2 tile = lightVolSize.xz + 1.0;
             vec2 uv = vec2(mod(c.y, lightVolCols) * tile.x, floor(c.y / lightVolCols) * tile.y) + c.xz + 0.5;
-            return dot(texture2D(lightAo, uv / lightVolTex), lightAoMask) > 0.5 ? 0.2 : 1.0;
+            return dot(lightTexel(lightAo, uv / lightVolTex), lightAoMask) > 0.5 ? 0.2 : 1.0;
           }
           float aoCorner(vec3 base, vec3 da, vec3 db, vec3 axis, float sa, float sb, float sc) {
             bool blockedA = aoShade(base + da + axis) < 0.5;
@@ -4199,7 +4204,7 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
     depthWrite: !blend || translucent === true,
     side: doubleSided === "back" ? THREE.BackSide : doubleSided ? THREE.DoubleSide : THREE.FrontSide,
     clipping: true,
-    extensions: { derivatives: true }
+    extensions: { derivatives: true, shaderTextureLOD: true }
   })
   if (!uvOffset) material.userData.atlasTiling = true
   return material

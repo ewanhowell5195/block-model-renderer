@@ -111,15 +111,6 @@ test("the neighbour texture holds every cell's clamped neighbours on both kernel
   assert.ok(borderBits > 1000)
 })
 
-function nearestAo(handle) {
-  const u = handle.light.uniforms.lightAo, image = u.value.image
-  const texture = new THREE.DataTexture(image.data, image.width, image.height)
-  texture.minFilter = texture.magFilter = THREE.NearestFilter
-  texture.needsUpdate = true
-  u.value = texture
-  return texture
-}
-
 const VIEWS = [["ortho", -0.785, 0.524, 1], ["ortho", 2.513, 1.047, 2.5], ["ortho", 4.1, -0.45, 1.3], ["persp", 0.9, 0.35, 0.6], ["persp", 3.6, 0.9, 0.25]]
 
 async function shoot(handle, drift = [0, 0, 0]) {
@@ -163,7 +154,6 @@ for (const wasm of [true, false]) {
     test(`the neighbour texture shades every pixel like per-cell reads: ${name}, ${wasm ? "wasm" : "js"}`, async () => {
       const classic = await forced(false, wasm, () => createScene(assets, blocks, { lighting: "world", ...opts }))
       const near = await forced(true, wasm, () => createScene(assets, blocks, { lighting: "world", ...opts }))
-      const exact = nearestAo(classic)
       let materials = 0
       near.group.traverse(o => {
         for (const m of [].concat(o.material ?? [])) {
@@ -180,7 +170,6 @@ for (const wasm of [true, false]) {
       near.lightSwitches.ambientOcclusion.value = false
       const flat = await shoot(near, drift)
       assert.ok(differing(flat[0], got[0]) > 50)
-      exact.dispose()
       classic.dispose()
       near.dispose()
     })

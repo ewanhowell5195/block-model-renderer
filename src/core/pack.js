@@ -81,7 +81,7 @@ export async function packScene(handle, opts = {}) {
       spec = {
         kind: "shader", ...common,
         vertexShader: mat.vertexShader, fragmentShader: mat.fragmentShader,
-        defines: { ...(mat.defines ?? {}) }, clipping: !!mat.clipping, derivatives: !!mat.extensions?.derivatives,
+        defines: { ...(mat.defines ?? {}) }, clipping: !!mat.clipping, derivatives: !!mat.extensions?.derivatives, textureLod: !!mat.extensions?.shaderTextureLOD,
         uniforms: await packUniforms(mat.uniforms)
       }
     } else if (mat.isLineBasicMaterial) {
@@ -194,7 +194,7 @@ export function reviveScene(payload, opts = {}) {
       for (const [k, u] of Object.entries(spec.uniforms)) uniforms[k] = reviveUniform(u)
       mat = new THREE.ShaderMaterial({
         vertexShader: spec.vertexShader, fragmentShader: spec.fragmentShader,
-        defines: { ...spec.defines }, uniforms, clipping: spec.clipping, extensions: { derivatives: !!spec.derivatives }
+        defines: { ...spec.defines }, uniforms, clipping: spec.clipping, extensions: { derivatives: !!spec.derivatives, shaderTextureLOD: !!spec.textureLod }
       })
     } else if (spec.kind === "line") {
       mat = new THREE.LineBasicMaterial()
