@@ -1,4 +1,4 @@
-import { THREE, Canvas, loadImage, parseJson } from "./platform.js"
+import { platform, THREE, Canvas, loadImage, parseJson } from "./platform.js"
 import { readFile } from "./assets.js"
 import { subUpload, subFlush } from "./subtex.js"
 import { COLORS } from "./colors.js"
@@ -153,6 +153,11 @@ export function buildAnimation(image, meta) {
   for (let i = 0; i < frameCount; i++) {
     const sx = (i % cols) * cropW
     const sy = Math.floor(i / cols) * cropH
+    const slice = platform.sliceImage?.(image, sx, sy, cropW, cropH)
+    if (slice) {
+      stripFrames.push(slice)
+      continue
+    }
     const canvas = new Canvas(cropW, cropH)
     const ctx = canvas.getContext("2d", { willReadFrequently: true })
     ctx.drawImage(image, sx, sy, cropW, cropH, 0, 0, cropW, cropH)
@@ -340,7 +345,7 @@ const _framePixels = new WeakMap()
 function framePixels(c) {
   let d = _framePixels.get(c)
   if (!d) {
-    d = c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data
+    d = platform.imagePixels?.(c) ?? c.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data
     _framePixels.set(c, d)
   }
   return d

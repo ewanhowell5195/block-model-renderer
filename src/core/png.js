@@ -1,3 +1,5 @@
+import { platform } from "./platform.js"
+
 const SIG = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
 
 function chunks(bytes) {
@@ -38,6 +40,7 @@ export function pngInfo(bytes) {
 }
 
 async function inflateZlib(parts) {
+  if (platform?.inflateZlib) return platform.inflateZlib(parts)
   const stream = new DecompressionStream("deflate")
   const writer = stream.writable.getWriter()
   for (const part of parts) writer.write(part).catch(() => {})
@@ -87,8 +90,6 @@ async function rawScanlines(info) {
   return data ? { data, rowBytes, channels } : null
 }
 
-// { opaque, translucent } from the file bytes, or null when the fast path
-// can't answer (not a PNG, interlaced, 16-bit, exotic filters)
 function classifyPixels(pixels, min, max) {
   let opaque = true
   for (let i = 3; i < pixels.length; i += 4) {
@@ -99,6 +100,8 @@ function classifyPixels(pixels, min, max) {
   return { opaque, translucent: false }
 }
 
+// { opaque, translucent } from the file bytes, or null when the fast path
+// can't answer (not a PNG, interlaced, 16-bit, exotic filters)
 export async function classifyPngAlpha(bytes, cutoff, pixels) {
   const info = pngInfo(bytes)
   if (!info || info.interlace !== 0) return null

@@ -1183,7 +1183,7 @@ export function createSharedAtlas(opts = {}) {
 
 function paddedSprite(src, w, h) {
   const cw = w + 2, ch = h + 2
-  const out = new ImageData(cw, ch)
+  const out = new (platform.ImageData ?? ImageData)(cw, ch)
   const d = out.data
   for (let y = 0; y < ch; y++) {
     const sy = Math.min(h - 1, Math.max(0, y - 1))

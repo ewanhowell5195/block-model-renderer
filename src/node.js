@@ -4,6 +4,7 @@ import path from "node:path"
 import fs from "node:fs"
 import os from "node:os"
 import { setPlatform, parsePackFilter, zipAssets, zipAssetsFromSlices, overridesRole } from "./core.js"
+import { decodePng } from "./core/png.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -31,7 +32,21 @@ function setCanvasGPU(enabled) {
   canvasGPU = !!enabled
 }
 
-const { THREE, loadTexture, render } = (await getTHREE({ Canvas, Image, ImageData }))
+const { THREE, loadTexture: loadCanvasTexture, render } = (await getTHREE({ Canvas, Image, ImageData }))
+
+class PixelImage extends ImageData {
+  toJSON() {
+    return {}
+  }
+}
+
+function loadTexture(input) {
+  if (!(input instanceof ImageData)) return loadCanvasTexture(input)
+  const tex = new THREE.Texture(input)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.needsUpdate = true
+  return tex
+}
 
 let frameCtx = null, frameRenderer = null, frameSize = null
 const pinnedPrograms = new WeakSet()
@@ -115,6 +130,7 @@ setPlatform({
   loadTexture,
   render,
   Canvas,
+  ImageData,
   loadImage(data) {
     if (data != null && typeof data === "object" && typeof data.width === "number" && typeof data.height === "number") {
       if (data instanceof Canvas || data instanceof Image) return data
@@ -125,6 +141,25 @@ setPlatform({
       return canvas
     }
     return loadImage(data)
+  },
+  async loadPixelImage(data) {
+    const png = await decodePng(data).catch(() => null)
+    return png ? new PixelImage(png.data, png.width, png.height) : null
+  },
+  imagePixels(image) {
+    return image instanceof ImageData ? image.data : null
+  },
+  inflateZlib(parts) {
+    return zlib.inflateSync(parts.length === 1 ? parts[0] : Buffer.concat(parts))
+  },
+  sliceImage(image, x, y, width, height) {
+    if (!(image instanceof ImageData) || x < 0 || y < 0 || x + width > image.width || y + height > image.height) return null
+    const out = new Uint8ClampedArray(width * height * 4)
+    for (let row = 0; row < height; row++) {
+      const from = ((y + row) * image.width + x) * 4
+      out.set(image.data.subarray(from, from + width * 4), row * width * 4)
+    }
+    return new PixelImage(out, width, height)
   },
   maxAnimationPixels: 268402689,
   batchedMesh: false,

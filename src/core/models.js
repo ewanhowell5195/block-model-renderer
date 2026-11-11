@@ -1715,7 +1715,7 @@ async function resolveItemModel(assets, def, data, display, accTransform, versio
   return []
 }
 
-async function loadMinecraftTexture(path, assets, type) {
+async function loadMinecraftTexture(path, assets, type, drawn) {
   if (type === "block" || type === "item") {
     const atlases = await getAtlasesContaining(path, assets)
     const allowed = type === "block" ? ["blocks"] : ["blocks", "items"]
@@ -1725,7 +1725,7 @@ async function loadMinecraftTexture(path, assets, type) {
   const buf = await readFile(path, assets)
   if (!buf) return { image: await getMissingImage(assets) }
 
-  const image = await loadImage(buf)
+  const image = (drawn || isImage(buf) ? null : await platform.loadPixelImage?.(buf)) ?? await loadImage(buf)
   const cls = isImage(buf) ? null : await classifyPngAlpha(buf, assets.translucency, platform.imagePixels?.(image)).catch(() => null)
   const srcHash = isImage(buf) ? null : hashBytes(buf)
 
@@ -2465,7 +2465,7 @@ export async function loadModel(scene, assets, model, args) {
       loaded = await loadPalettedTexture(resolveTexturePath(id), source.palette, assets)
     } else if (id) {
       const path = resolveTexturePath(id)
-      loaded = await loadMinecraftTexture(path, assets, shouldIgnoreAtlases(model) ? undefined : model.type)
+      loaded = await loadMinecraftTexture(path, assets, shouldIgnoreAtlases(model) ? undefined : model.type, lighting === "scene")
     } else {
       loaded = { image: await getMissingImage(assets) }
     }
