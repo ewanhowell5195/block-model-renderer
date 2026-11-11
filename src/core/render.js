@@ -220,7 +220,7 @@ export async function renderTexture(args = {}) {
   scene.userData.ephemeral = true
 
   const tex = await loadTexture(frame)
-  tex.colorSpace = THREE.SRGBColorSpace
+  tex.colorSpace = THREE.NoColorSpace
   tex.magFilter = THREE.NearestFilter
   tex.minFilter = THREE.NearestFilter
   tex.generateMipmaps = false
@@ -232,7 +232,12 @@ export async function renderTexture(args = {}) {
 
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(16 * (width / height), 16),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+    new THREE.ShaderMaterial({
+      uniforms: { map: { value: tex } },
+      vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: "uniform sampler2D map; varying vec2 vUv; void main() { gl_FragColor = texture2D(map, vUv); }",
+      transparent: true
+    })
   )
   scene.add(mesh)
 
