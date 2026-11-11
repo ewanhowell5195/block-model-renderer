@@ -1,8 +1,8 @@
 # Fluids
 
-Water and lava render like any other block: [`renderBlock({ id: "water", assets })`](standard-api.md#renderblockargs) just works, and waterloggable blocks given `{ waterlogged: true }` in their `blockstates` gain the water layer automatically. A standalone render uses the still texture at the game's resting height.
+Water and lava render like any other block: [`renderBlock({ id: "water", assets })`](standard-api.md#renderblockargs) just works, and waterloggable blocks given `{ waterlogged: true }` in their `properties` gain the water layer automatically. A standalone render uses the still texture at the game's resting height.
 
-In the world a fluid's shape depends on its surroundings: each surface corner averages with the neighboring fluid columns, rising to full height against taller fluid and dipping where the fluid falls away, a flowing surface angles its texture along the flow, sides pressed against glass or leaves switch to the overlay texture, and faces shared with the same fluid disappear. To get all of that, give [`loadModel`](scenes.md#loadmodelscene-assets-model-args) the surrounding blocks:
+In the world a fluid's shape depends on its surroundings: each surface corner averages with the neighboring fluid columns, rising to full height against taller fluid and dipping where the fluid falls away, a flowing surface angles its texture along the flow, sides pressed against glass or leaves switch to the overlay texture, and faces shared with the same fluid disappear. To get all of that, give [`loadModel`](scenes.md#loadmodelassets-model-args) the surrounding blocks:
 
 ```js
 import { parseBlockstate, resolveModelData, loadModel } from "block-model-renderer"
@@ -17,11 +17,12 @@ const around = new Map([
   ["0,0,1", { id: "glass" }]
 ])
 
-for (const model of await parseBlockstate(assets, "water", { data: { level: "2" } })) {
+for (const model of await parseBlockstate(assets, "water", { properties: { level: "2" } })) {
   const data = await resolveModelData(assets, model)
-  await loadModel(scene, assets, data, {
+  await loadModel(assets, data, {
     lighting: "world",
-    neighbors: ([x, y, z]) => around.get(`${x},${y},${z}`) ?? null
+    neighbors: ([x, y, z]) => around.get(`${x},${y},${z}`) ?? null,
+    parent: scene
   })
 }
 ```
@@ -58,9 +59,9 @@ fluidTypeOf("stone")                               // null
 
 ## `fluidHeights(assets, type, neighbors)`
 
-The vanilla surface calculation as a standalone helper: exactly what [`loadModel`](scenes.md#loadmodelscene-assets-model-args) computes internally from `neighbors`.
+The vanilla surface calculation as a standalone helper: exactly what [`loadModel`](scenes.md#loadmodelassets-model-args) computes internally from `neighbors`.
 
-Use it to compute a block's surface shape once and share it: a waterlogged block is several models needing the same shape (pass the result to each [`loadModel`](scenes.md#loadmodelscene-assets-model-args) as its `fluidHeights` arg), and across a scene, cells with identical results can share one built model instead of rebuilding geometry per block.
+Use it to compute a block's surface shape once and share it: a waterlogged block is several models needing the same shape (pass the result to each [`loadModel`](scenes.md#loadmodelassets-model-args) as its `fluidHeights` arg), and across a scene, cells with identical results can share one built model instead of rebuilding geometry per block.
 
 ```js
 import { parseBlockstate, resolveModelData, loadModel, fluidTypeOf, fluidHeights } from "block-model-renderer"
@@ -71,9 +72,9 @@ const heights = await fluidHeights(assets, type, ([x, y, z]) => water.has(`${x},
 
 // a waterlogged fence resolves to two models, the fence and its water layer:
 // both share the one precomputed shape
-for (const model of await parseBlockstate(assets, "oak_fence", { data: { waterlogged: "true" } })) {
+for (const model of await parseBlockstate(assets, "oak_fence", { properties: { waterlogged: "true" } })) {
   const data = await resolveModelData(assets, model)
-  await loadModel(scene, assets, data, { lighting: "world", fluidHeights: heights })
+  await loadModel(assets, data, { lighting: "world", fluidHeights: heights, parent: scene })
 }
 ```
 
@@ -83,7 +84,7 @@ for (const model of await parseBlockstate(assets, "oak_fence", { data: { waterlo
 | `type` | `"water"` or `"lava"`, or `null` for a non-fluid (this is [`fluidTypeOf`](#fluidtypeofid-properties)'s return, passed straight through) |
 | `neighbors` | The surrounding blocks, as the offset lookup shown above |
 
-Returns an object you can pass to [`loadModel`](scenes.md#loadmodelscene-assets-model-args) as its `fluidHeights` arg (or `null` when `type` was `null`):
+Returns an object you can pass to [`loadModel`](scenes.md#loadmodelassets-model-args) as its `fluidHeights` arg (or `null` when `type` was `null`):
 
 | Field | Description |
 |---|---|

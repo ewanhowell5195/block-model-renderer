@@ -56,7 +56,7 @@ The kinds a model can declare with `dynamic`, and the `part` names each animates
 
 ### Item components
 
-Extra fields that can be passed through the `components` arg on [`renderItem`](standard-api.md#renderitemargs), or the `data` arg on [`parseItemDefinition`](scenes.md#parseitemdefinitionassets-id-args). These aren't real Minecraft item components, they stand in for runtime context that the game would normally provide:
+Extra fields that can be passed through the `components` arg on [`renderItem`](standard-api.md#renderitemargs) or [`parseItemDefinition`](scenes.md#parseitemdefinitionassets-id-args). These aren't real Minecraft item components, they stand in for runtime context that the game would normally provide:
 
 | Field | Example | Description |
 |---|---|---|
@@ -68,14 +68,14 @@ Any future non-component select properties vanilla adds will work without render
 
 ## Default blockstates
 
-Blockstate properties you don't pass to [`renderBlock`](standard-api.md#renderblockargs) are filled in for you, and the filled values merge with whatever `blockstates` you do provide, per property. There are two tables behind that, because "the caller didn't say" and "the data left it out because it was default" are different questions:
+Blockstate properties you don't pass to [`renderBlock`](standard-api.md#renderblockargs) are filled in for you, and the filled values merge with whatever `properties` you do provide, per property. There are two tables behind that, because "the caller didn't say" and "the data left it out because it was default" are different questions:
 
 ```
 assets/block-model-renderer/default_blockstates.json            every block's real default state
 assets/block-model-renderer/default_blockstates_preferred.json  overrides for how blocks look
 ```
 
-The base file is each block's actual default state, the one the game gives a freshly placed block. The preferred file sits on top of it and holds only the values the renderer would rather show: stairs facing the camera, crops fully grown, vines with a face attached. `defaults: "game"` skips the preferred overlay, for data whose format omits properties that are at their default (26.3+ structure and worldgen files). Pass it per call to [`parseBlockstate`](scenes.md#parseblockstateassets-id-args), [`renderBlock`](standard-api.md#renderblockargs) or [`createScene`](scenes.md#createsceneassets-blocks-args), or pin it for everything sharing one assets instance with [`prepareAssets(sources, { defaults: "game" })`](assets.md#default-blockstate-mode). Both files are pack files, so any pack can extend or override them:
+The base file is each block's actual default state, the one the game gives a freshly placed block. The preferred file sits on top of it and holds only the values the renderer would rather show: stairs facing the camera, crops fully grown, vines with a face attached. `defaults: "game"` skips the preferred overlay, for data whose format omits properties that are at their default (26.3+ structure and worldgen files). Set it with [`prepareAssets(sources, { defaults: "game" })`](assets.md#default-blockstate-mode). Both files are pack files, so any pack can extend or override them:
 
 ```json
 {
@@ -98,7 +98,7 @@ The base file is each block's actual default state, the one the game gives a fre
 
 Declare a modded block in the base file: that one entry serves both modes. Only reach for the preferred file when the block's real default and its best-looking default genuinely differ.
 
-Lookup order for a property: the `blockstates` option → the first matching preferred `blocks` rule → the first matching base `blocks` rule → preferred `properties` → base `properties`, with the two preferred tiers skipped in `defaults: "game"`.
+Lookup order for a property: the `properties` option → the first matching preferred `blocks` rule → the first matching base `blocks` rule → preferred `properties` → base `properties`, with the two preferred tiers skipped in `defaults: "game"`.
 
 The base file is generated from the game by `tools/generate/generate.js`, so it covers every vanilla block for the version it was built from. Blocks it doesn't know fall through to `properties`, which means an unrecognised modded block still resolves rather than failing.
 
@@ -228,7 +228,7 @@ Everything a loader object can hold. The hooks are detailed below.
 | `replaceElements` | If `true`, suppresses the standard `elements` build for matched models, so the format fully owns its geometry instead of adding alongside |
 | [`mergeKey`](#mergekeykey-values-merged-stack) | Optional. Claim and merge a custom model json key across the parent chain |
 | [`match`](#matchmodel) | Which resolved models this loader builds for |
-| [`build`](#build-group-model-assets-args-block-helpers) | Optional. Add your own three.js geometry to a matched model |
+| [`build`](#build-group-model-assets-args-block-helpers-) | Optional. Add your own three.js geometry to a matched model |
 | [`variantKey`](#variantkeymodel-block) | Optional. Key placement variants apart so caches don't share geometry |
 
 ### `mergeKey(key, values, merged, stack)`
@@ -271,7 +271,7 @@ The `helpers` object:
 |---|---|
 | `THREE` | The three.js instance the library uses |
 | `lighting` | The active [lighting mode](rendering.md#lighting-modes) |
-| [`readFile(path, hint?)`](assets.md#readfilepath-assets-hint) | Read any file from the asset stack (obj files, custom json, whatever the format needs) |
+| [`readFile(path, hint?)`](assets.md#readfileassets-path-hint) | Read any file from the asset stack (obj files, custom json, whatever the format needs) |
 | `loadTexture(id, tint?)` | Load a texture by id with the standard caching, animation frames, and optional tint |
 | `resolveTexture(ref)` | Follow `#slot` references through the model's texture map |
 | `buildElements(elements)` | Run an array of vanilla-format elements through the standard cube pipeline (uv defaults, face rotation, uvlock, cullfaces, rotation with rescale, mesh merging) and get back a group to add. For formats that are "vanilla elements, chosen differently", so they don't reimplement cube building |
@@ -353,7 +353,7 @@ const above = block.neighbors([0, 1, 0])
 const [north, south] = block.neighbors([[0, 0, -1], [0, 0, 1]])
 ```
 
-Offsets are world-space `[x, y, z]`, unaffected by the model's `x`/`y` rotation, and can reach any distance. In [`createScene`](scenes.md#createsceneassets-blocks-args) the lookup covers the whole scene, including `context` blocks. [`renderBlock`](standard-api.md#renderblockargs) and [`loadModel`](scenes.md#loadmodelscene-assets-model-args) answer from their `neighbors` arg, so callers there control what's visible. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
+Offsets are world-space `[x, y, z]`, unaffected by the model's `x`/`y` rotation, and can reach any distance. In [`createScene`](scenes.md#createsceneassets-blocks-args) the lookup covers the whole scene, including `context` blocks. [`renderBlock`](standard-api.md#renderblockargs) and [`loadModel`](scenes.md#loadmodelassets-model-args) answer from their `neighbors` arg, so callers there control what's visible. `block` is `null` when the caller gave no placement info, so loaders should fall back to a sensible default variant.
 
 A loader whose output varies by placement must implement [`variantKey`](#variantkeymodel-block), reading `block.neighbors` the same way `build` does. [`createScene`](scenes.md#createsceneassets-blocks-args) builds one model per block state and reuses it for every placement, unless a loader with a `variantKey` claims one of the state's models: then each block's key picks which build it shares, and blocks with the same key share one. Only blocks those loaders claim pay for the lookup.
 

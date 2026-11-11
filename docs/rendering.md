@@ -82,11 +82,11 @@ Each dimension carries the game's lightmap attributes; pass an object as `dimens
 | `fogColor` | `#C0D8FF` | `#330808` | `#181318` | The base fog colour, what `fog` fades terrain into. The overworld's follows the day/night curve and the sunrise glow, like the sky's |
 | `skyColor` | `#78A7FF` | `#000000` | `#000000` | The base sky colour, mixed into the fog colour at short render distances as the game does |
 
-Colors can be a hex number, a `"#rrggbb"` string, an `[r, g, b]` array of `0`-`1` floats, or a `THREE.Color`. The presets are exported as `LIGHT_DIMENSIONS` if you need the values. The day/night curve runs in the shader from a shared uniform, `handle.daytime` on a `createScene` result and `scene.userData.daytime` after `loadModel`, so a live cycle is just `handle.daytime.value = tick` per frame, with no rebuild.
+Colors can be a hex number, a `"#rrggbb"` string, an `[r, g, b]` array of `0`-`1` floats, or a `THREE.Color`. The presets are exported as `LIGHT_DIMENSIONS` if you need the values. The day/night curve runs in the shader from a shared uniform, `handle.daytime` on a `createScene` result and `parent.userData.daytime` on the `parent` given to `loadModel`, so a live cycle is just `handle.daytime.value = tick` per frame, with no rebuild.
 
 ### Lighting switches
 
-Face shading, ambient occlusion and the lightmap can be switched on a built scene with no rebuild. They are shared uniforms: `handle.lightSwitches` on a `createScene` or `reviveScene` result, and `scene.userData.lightSwitches` after `loadModel`:
+Face shading, ambient occlusion and the lightmap can be switched on a built scene with no rebuild. They are shared uniforms: `handle.lightSwitches` on a `createScene` or `reviveScene` result, and `parent.userData.lightSwitches` on the `parent` given to `loadModel`:
 
 ```js
 const switches = handle.lightSwitches
@@ -125,7 +125,7 @@ await createScene(assets, blocks, { lighting: { fog: { distance: 12, color: "#c0
 
 Terrain fades into the fog colour over the last stretch before the render distance, with the overworld's faint distance haze on top, matching the game's two fog terms.
 
-The built scene keeps a fog handle, `handle.fog` on a `createScene` result and `scene.userData.fog` after `loadModel`. The same three settings are assignable on it at any time with no rebuild, and `update()` re-reads an object anchor's position after it moves. `fog` also accepts a handle, so one made by [`createSky`](#createskyassets-args) can be shared with the blocks, and `createFog(config, dimension?)` makes one on its own for scenes built elsewhere (a worker's scene rebinds to it by uniform name, like `daytime`):
+The built scene keeps a fog handle, `handle.fog` on a `createScene` result and `parent.userData.fog` on the `parent` given to `loadModel`. The same three settings are assignable on it at any time with no rebuild, and `update()` re-reads an object anchor's position after it moves. `fog` also accepts a handle, so one made by [`createSky`](#createskyassets-args) can be shared with the blocks, and `createFog(config, dimension?)` makes one on its own for scenes built elsewhere (a worker's scene rebinds to it by uniform name, like `daytime`):
 
 ```js
 const fog = handle.fog
@@ -148,7 +148,7 @@ A light volume also enables the game's smooth-lighting ambient occlusion: faces 
 ```js
 const group = new THREE.Group()
 for (const model of await parseBlockstate(assets, "stone")) {
-  await loadModel(group, assets, await resolveModelData(assets, model), { lighting: "scene" })
+  await loadModel(assets, await resolveModelData(assets, model), { lighting: "scene", parent: group })
 }
 scene.add(group)
 scene.add(new THREE.AmbientLight(0xffffff, 0.6))
@@ -159,20 +159,18 @@ scene.add(new THREE.DirectionalLight(0xffffff, 1))
 
 `"world"` lighting on its own shades every face as if it stood under open sky, with `daytime` scaling the whole scene evenly. [`computeSceneLight`](#scene-lighting) adds real per-block light: torches and other emitters glow, light falls off with distance and wraps around corners, and interiors and overhangs darken because the sky can't reach them. It runs Minecraft's flood fill over the scene's block grid and packs the result into a light volume texture the `"world"` shader samples per fragment, so the gradients are smooth and merged geometry from [`optimizeScene`](optimization.md#scene-optimization) is lit correctly with no extra draw calls.
 
-### `computeSceneLight(blocks, options)`
+### `computeSceneLight(assets, blocks, options?)`
 
 | Option | Default | Description |
 |---|---|---|
+| `assets` | required | The assets source |
 | `blocks` | required | The scene's blocks, each `{ id, properties?, pos: [x, y, z] }` (`{ x, y, z }` fields work too), or a flat `{ palette, raw }` run as [`createScene`](scenes.md#createsceneassets-blocks-args) takes. Cell coordinates, as in [`optimizeScene`](optimization.md#scene-optimization) placements |
-| `options.assets` | required | The assets source |
-| `options.version` | | Minecraft version, as in [`renderBlock`](standard-api.md#renderblockargs) |
-| `options.defaults` | | Which [default blockstates](extending.md#default-blockstates) fill properties a block doesn't set, as in [`renderBlock`](standard-api.md#renderblockargs) |
 | `options.dimension` | `"overworld"` | The dimension, as in [world lighting](#world-lighting): dimensions without sky light (the nether) skip the sky seeding, so their volumes carry block light only |
 | `options.externalOcclusion` | | `(x, y, z) => boolean` over cell coordinates, as on [`createScene`](scenes.md#createsceneassets-blocks-args). Empty cells it reports as occluded count as full opaque blocks in the volume, so dropped buried blocks don't read as dark air at the corners around them |
 | `options.onProgress` | | `(done, total)` while the scene's blocks are processed, for progress bars. The flood fill after the last call is quick |
 | `options.release` | `false` | Drops `blockLight` and `skyLight`, and the texture's CPU copy once it's uploaded, as on [`optimizeScene`](optimization.md#releasing-cpu-copies). `lightAt` then throws |
 
-Pass the result to every [`loadModel`](scenes.md#loadmodelscene-assets-model-args) call in the scene through the world lighting config:
+Pass the result to every [`loadModel`](scenes.md#loadmodelassets-model-args) call in the scene through the world lighting config:
 
 ```js
 import { computeSceneLight, loadModel } from "block-model-renderer"
@@ -181,10 +179,10 @@ const blocks = [
   { id: "stone", pos: [0, 0, 0] },
   { id: "torch", pos: [0, 1, 0] }
 ]
-const light = await computeSceneLight(blocks, { assets })
+const light = await computeSceneLight(assets, blocks)
 for (const block of blocks) {
   // build as usual, passing the same light to each block
-  await loadModel(scene, assets, resolved, { lighting: { light } })
+  await loadModel(assets, resolved, { lighting: { light }, parent: scene })
 }
 ```
 
@@ -224,7 +222,7 @@ scene.add(sky.group)
 
 | Option | Default | Description |
 |---|---|---|
-| `assets` | required | The assets source, as in [`renderBlock`](standard-api.md#renderblockargs). The sky textures come from the pack stack |
+| `assets` | required | The assets source, as in [`renderBlock`](standard-api.md#renderblockargs). The sky textures come from the pack stack, and the assets' [version](assets.md#minecraft-version) picks the sun and moon texture layout: `environment/celestial/` from 1.21.11, `environment/` before it, each falling back to the other |
 | `args.dimension` | `"overworld"` | `"overworld"` for the day/night sky, `"the_end"` for the End's tiled skybox, `"the_nether"` for its fog with no sky. An object overrides the parts (`skybox`, `skyColor`, `fogColor`), and also colours the fog made from `args.fog` |
 | `args.daytime` | `"noon"` | The time of day, as in [world lighting](#world-lighting). Pass a scene's `daytime` to share one uniform with the blocks |
 | `args.moonPhase` | `0` | The moon phase, `0` (full moon) to `7`, in the game's order. Also settable on the handle |
@@ -233,7 +231,6 @@ scene.add(sky.group)
 | `args.fogColor` | the dimension's | The base fog color, what the sky fades to at the horizon |
 | `args.distance` | `camera.far * 0.9` | How far out the sky sits in world units. The default stays inside the far plane of whichever camera renders it |
 | `args.horizonFade` | `false` | Fade the sun and moon out below the horizon, over the game's 13500-14000 nightfall window and the matching angles at their other crossings. Off by default: the game keeps drawing them and lets terrain do the hiding |
-| `args.version` | | The Minecraft version, which picks the sun and moon texture layout: `environment/celestial/` from 1.21.11, `environment/` before it, each falling back to the other |
 | `args.tick` | `false` | Advance the day/night clock in real time, 20 ticks a second like the game, wrapping at 24000. Off, `daytime` only moves when you set it. Also settable on the handle |
 | `args.fog` | | The [fog](#fog): a scene's fog handle, or the same number or object `createScene` takes. The sky fades to the fog colour within the render distance, and the fog colour takes on the sky colour at short distances, as in the game |
 | `args.sunriseGlow` | `"camera"` | The horizon's sunrise glow, `"camera"`, `"pixel"` or a fixed `0` to `1`, as the fog's [`sunriseGlow`](#fog). With a fog, the sky follows the fog's setting. Also settable on the handle |

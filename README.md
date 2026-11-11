@@ -114,7 +114,7 @@ A quick preview of the most-used [`renderBlock`](docs/standard-api.md#renderbloc
 |---|---|---|
 | `id` | required | The block id (e.g. `"oak_log"`, `"stone"`) |
 | `assets` | required | The assets source: pack folders, zips, virtual handlers, or a layered stack of them. Vanilla assets aren't bundled, so provide a base pack. See [Assets](docs/assets.md) |
-| `blockstates` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
+| `properties` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `width`, `height` | `256` | Output size in pixels |
 | `path` | | Node: save the output to this file path |
 | `canvas` | | Browser: a canvas (or several) to draw into |
@@ -128,15 +128,15 @@ The full documentation lives in [`docs/`](docs/):
 
 | Doc | Covers |
 |---|---|
-| [API reference](docs/api.md) | Every export in one place, grouped and linked to its full docs |
+| [API reference](docs/api.md) | Every export in one place, grouped and linked to its full docs, and [migrating from 2.x](docs/api.md#migrating-from-2x) |
 | [Standard API](docs/standard-api.md) | The render functions on both platforms: all options, file and buffer output, animated WebP/GIF, canvases, animation players, providing three.js |
 | [Advanced API](docs/advanced-api.md) | Upgradable renders, batch rendering from worker pools, syncing the animation clock, the frame cache, texture players |
 | [Rendering](docs/rendering.md) | How a render looks: backgrounds, lighting modes, [`computeSceneLight`](docs/api.md) volumes, the [sky](docs/rendering.md#sky) and [clouds](docs/rendering.md#clouds) |
 | [Models](docs/models.md) | Model-level behavior: display transforms, model-inspection helpers, the tint tables |
-| [Assets](docs/assets.md) | Asset sources, pack layering, virtual handlers, [`prepareAssets`](docs/api.md) and caching, the bundled packs, file access |
+| [Assets](docs/assets.md) | Asset sources, pack layering, virtual handlers, [`prepareAssets`](docs/api.md) and caching, exporting and importing the cache, the bundled packs, file access |
 | [Fluids](docs/fluids.md) | Water and lava surface shaping, [`fluidTypeOf`](docs/api.md), [`fluidHeights`](docs/api.md) |
 | [Building scenes](docs/scenes.md) | The low-level API: [`createScene`](docs/api.md), blockstate and item definition parsing, [`loadModel`](docs/api.md), dynamic models, map art |
-| [Culling](docs/culling.md) | Hidden-face culling, [`getCullFaces`](docs/api.md), [`fullyOccludes`](docs/api.md), persisting the occlusion cache |
+| [Culling](docs/culling.md) | Hidden-face culling, [`getCullFaces`](docs/api.md), [`fullyOccludes`](docs/api.md) |
 | [Scene optimization](docs/optimization.md) | [`optimizeScene`](docs/api.md), translucent sorting, packed scenes and shared atlases for worker builds |
 | [Extending](docs/extending.md) | Non-vanilla model and blockstate fields, default blockstates, custom model loaders |
 | [Legacy Minecraft versions](docs/versions.md) | The `version` option and the era-specific behavior it enables |

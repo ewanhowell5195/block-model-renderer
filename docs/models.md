@@ -4,7 +4,7 @@ Model-level behavior and data: posing a model with display transforms, inspectin
 
 ## Display transforms
 
-The `display` option controls how the model is rotated, translated, and scaled before rendering. The render functions and [`loadModel`](scenes.md#loadmodelscene-assets-model-args) both take it.
+The `display` option controls how the model is rotated, translated, and scaled before rendering. The render functions and [`loadModel`](scenes.md#loadmodelassets-model-args) both take it.
 
 It takes a **string**, naming a context in the model's own `display` block (`"gui"`, `"fixed"`, `"ground"`, `"firstperson_righthand"`, etc.), or an **object**:
 

@@ -17,7 +17,7 @@ Renders a block by its id using the resource pack's blockstates and models.
 |---|---|---|
 | `id` | required | The block id (e.g. `"oak_log"`, `"stone"`). Namespace optional |
 | `assets` | required | The assets source, see [Assets](assets.md) and [Asset sources](#asset-sources) below. Vanilla assets aren't bundled, so provide a base pack |
-| `blockstates` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
+| `properties` | `{}` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `nbt` | | Block entity data rendered with the block: an item frame's `{ Item, ItemRotation, Invisible }`, a shelf's `{ Items, align_items_to_bottom }`, a banner's `{ patterns }` (legacy `Patterns` codes work too), or a player head's `{ profile }` ([Player heads](scenes.md#player-heads)). Held items bake in like block geometry, with the item's `fixed`/`on_shelf` display applied; glow frame items render fullbright; `Invisible: 1` drops the frame itself and keeps the item; enchanted items get the [glint](scenes.md#item-definitions) |
 | `mapArt` | | `(id, { pos, facing, nbt }) => canvas` for framed maps: return a drawn canvas (any canvas or image type) for the frame's map face, or nothing to render the `filled_map` item in a normal frame instead. `id` is the item's `minecraft:map_id` (`null` when absent); [`renderMapColors`](scenes.md#map-art) turns real save bytes into the canvas. Results cache per map id in the assets cache, nothing included, first one wins, until [`disposeMapArt`](scenes.md#map-art). An error thrown by the callback rejects the render |
 | `seed` | | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. The picks don't match the game's. Omit to pick from `pos` instead, or to take the first variant without one |
@@ -47,13 +47,7 @@ Default display:
 | `neighbors` | | A lookup `([x, y, z]) => block` for the blocks around this one, called with offsets from it and returning `{ id, ...properties }` or `null`. Faces they hide are dropped, fluid surfaces shape themselves from it, and [placement-aware loaders](extending.md#placement-aware-models) read it. See [Culling hidden faces](culling.md#culling-hidden-faces) and [Fluids](fluids.md) |
 | `cull` | | Explicit set of face directions to drop; overrides `neighbors`. See [Culling hidden faces](culling.md#culling-hidden-faces) |
 
-**Asset interpretation:**
-
-| Option | Default | Description |
-|---|---|---|
-| `version` | | Minecraft version the assets are for. Enables era-appropriate behavior (see [Legacy Minecraft versions](versions.md#legacy-minecraft-versions)) |
-| `defaults` | `"preferred"` | Which [default blockstates](extending.md#default-blockstates) fill properties you don't pass. `"preferred"` layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone |
-| `ignoreAtlases` | `false` | Render without enforcing texture atlas membership rules (which atlas a model's textures may come from) |
+The Minecraft version, the default blockstate mode and the atlas rules come from the assets, set with [`prepareAssets`](assets.md#prepareassetsassets-options).
 
 **Output size and animation:**
 
@@ -94,7 +88,7 @@ Renders an item by id using its item definition.
 | `id` | required | The item id (e.g. `"diamond_sword"`, `"apple"`). Namespace optional |
 | `components` | `{}` | Item components used by the item definition (e.g. `{ using_item: true }` on a `bow` to show it drawn, or `{ enchantments: { sharpness: 5 } }` for the enchantment glint). See [Item definitions](scenes.md#item-definitions) for what's supported |
 | `display` | `{ type: "fallback", display: "gui" }` | Display transform, deferring to the model's own `gui` display. See [Display transforms](models.md#display-transforms) |
-| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
+| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderModel(args)`
 
@@ -104,11 +98,11 @@ Renders a custom model JSON directly, bypassing blockstate or item definition lo
 |---|---|---|
 | `model` | required | A model JSON object (inherits from `parent` if specified, supports all vanilla model features) |
 | `display` | `"gui"` | The model's own gui transform, or none if it doesn't define one. Unlike [`renderBlock`](#renderblockargs) nothing is imposed on a model that carries no transform, so item models render face-on like the game. Pass [`DISPLAYS.block`](models.md#displays) for the isometric look |
-| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `ignoreAtlases`, `version`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
+| `assets`, `width`, `height`, `background`, `animated`, `maxAnimationFrames`, `lighting`, `emission`, `cull`, `shaderScale`, `path`, `format`, `output`, `animatedWidth`, `animatedHeight`, `animatedOutput`, `canvas`, `x`, `y`, `clear`, `cache`, `cacheBudget`, `pauseOffscreen`, `upgradable` | | Same as [`renderBlock`](#renderblockargs) |
 
 ## `renderTexture(args)`
 
-Renders a texture on its own: the flat image, pixel-crisp, with animated textures playing per their `.mcmeta`. The texture-drawing counterpart to `renderBlock`, when you want the art rather than a model (see [`readTexture`](assets.md#readtexturepath-assets-opts) for the raw frames instead).
+Renders a texture on its own: the flat image, pixel-crisp, with animated textures playing per their `.mcmeta`. The texture-drawing counterpart to `renderBlock`, when you want the art rather than a model (see [`readTexture`](assets.md#readtextureassets-path-opts) for the raw frames instead).
 
 On Node the output goes through the standard pipeline: a buffer back, a file via `path`, animated WebP/GIF via `animated`. In the browser it's a plain 2d canvas draw returning the canvas (the one you passed, or a fresh one); with `animated: true` it returns a simplified [texture player](advanced-api.md#texture-players) instead.
 
@@ -271,7 +265,7 @@ The player keeps painting frames into its canvas on Minecraft's 50ms tick clock.
 
 The [array `canvas`](#multiple-canvases) form works here too: `player.canvas` is then the array you passed, and the player keeps playing as long as at least one of its canvases is visible.
 
-To freeze everything at once, pause the clock itself with [`pauseAnimations()`](#browser-only-exports) and continue with [`resumeAnimations()`](#browser-only-exports). Unlike `player.pause()` (which snaps back onto the running clock when resumed, to stay in phase with everything else), pausing the clock resumes seamlessly from the frozen moment: every player and [`loadModel`](scenes.md#loadmodelscene-assets-model-args) scene picks up exactly where it stopped, still in phase with each other.
+To freeze everything at once, pause the clock itself with [`pauseAnimations()`](#browser-only-exports) and continue with [`resumeAnimations()`](#browser-only-exports). Unlike `player.pause()` (which snaps back onto the running clock when resumed, to stay in phase with everything else), pausing the clock resumes seamlessly from the frozen moment: every player and [`loadModel`](scenes.md#loadmodelassets-model-args) scene picks up exactly where it stopped, still in phase with each other.
 
 | Member | Description |
 |---|---|
@@ -327,7 +321,18 @@ On Node three.js comes with `headless-three`; in the browser it's a peer depende
    ```
 3. A `THREE` global, if you made one
 
-The recommended version is **0.162.0**, the version the renderer is built and tested against. Other versions from ~0.152 up will probably work, but if a newer three shifts colors or breaks behavior, adjusting for it is on you. Versions below the supported floor technically work too, your mileage may vary: the renderer opts out of modern three's color management and lighting anyway, so on old versions that setup becomes a no-op and core rendering has been seen working fine as far back as r129, but nothing below 0.152 is tested or supported. The instance the library resolved is re-exported (`import { THREE } from "block-model-renderer"`, populated after the first call, or `await getThree()`); build your own scenes from it rather than a second three copy.
+The recommended version is **0.162.0**, the version the renderer is built and tested against. Other versions from ~0.152 up will probably work, but if a newer three shifts colors or breaks behavior, adjusting for it is on you. Versions below the supported floor technically work too, your mileage may vary: the renderer opts out of modern three's color management and lighting anyway, so on old versions that setup becomes a no-op and core rendering has been seen working fine as far back as r129, but nothing below 0.152 is tested or supported.
+
+## `getThree()`
+
+Resolves the three.js instance the library uses, on both platforms: in the browser the one resolved [above](#providing-threejs-browser), on Node the one `headless-three` provides, which Node scenes are built with. Build your own scenes from it rather than a second three copy.
+
+```js
+import { getThree } from "block-model-renderer"
+
+const THREE = await getThree()
+const group = new THREE.Group()
+```
 
 ## Asset sources
 
@@ -387,12 +392,9 @@ Setting [`configure({ assetsUrl: false })`](#browser-only-exports) skips the bun
 | Export | Description |
 |---|---|
 | `configure({ THREE, assetsUrl, clockStart })` | Optional overrides, call before first use (`three` is accepted too). See [Providing three.js](#providing-threejs-browser), [Asset sources](#in-the-browser), and [Syncing the animation clock](advanced-api.md#syncing-the-animation-clock) |
-| `getThree()` | Resolves and returns the three instance the library uses. See [Providing three.js](#providing-threejs-browser) |
-| `THREE` | The same instance as a live binding (populated after first use) |
+| `THREE` | The instance [`getThree()`](#getthree) resolves, as a live binding (populated after first use) |
 | `pauseAnimations()` / `resumeAnimations(clockStart?)` | Pause and resume the page-global animation clock. See [Animated renders](#animated-renders-browser). Resuming with a `clockStart` rebases onto that absolute epoch instead of the locally measured pause, for [multi-context sync](advanced-api.md#syncing-the-animation-clock) |
-| `createAnimator(root)` | Manual animation control for [`loadModel`](scenes.md#loadmodelscene-assets-model-args) scenes. See [Animation in the browser](scenes.md#animation-browser) |
-
-[`makeModelScene()`](scenes.md#makemodelscene) is async in the browser, since three resolves lazily.
+| `createAnimator(root)` | Manual animation control for [`loadModel`](scenes.md#loadmodelassets-model-args) scenes. See [Animation in the browser](scenes.md#animation-browser) |
 
 ## Node-only exports
 

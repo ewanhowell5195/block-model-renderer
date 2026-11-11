@@ -138,7 +138,7 @@ export function renderModelScene(scene: THREE.Scene, camera: FitAspect<THREE.Cam
  * The group carries the model it was built from as `userData.model`, and meshes
  * that map to one element carry it as `userData.element`.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#loadmodelscene-assets-model-args
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#loadmodelassets-model-args
  */
 export function loadModel(assets: AssetsInput, model: ResolvedModel, args?: LoadModelArgs): Promise<THREE.Group>
 
@@ -177,7 +177,7 @@ export function createSky(assets: AssetsInput, args?: CreateSkyOptions): Promise
  *
  * @returns The texture data, or `null` if the texture is missing.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#readtexturepath-assets-opts
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#readtextureassets-path-opts
  */
 export function readTexture(assets: AssetsInput, path: string, opts?: ReadTextureOptions<NodeImage>): Promise<TextureData<NodeImage> | null>
 
@@ -197,7 +197,7 @@ export function renderMapColors(assets: AssetsInput, colors: Uint8Array | number
  * headless-three provides, which every scene on Node is built with. Build your
  * own scenes from it rather than a second three copy.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/standard-api.md#providing-threejs-browser
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/standard-api.md#getthree
  */
 export function getThree(): Promise<typeof THREE>
 

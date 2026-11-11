@@ -689,8 +689,8 @@ export interface SpecialPose {
 
 /**
  * Shared lighting switches, as `lightSwitches` on a {@link createScene} or
- * {@link reviveScene} result and `scene.userData.lightSwitches` after
- * {@link loadModel}. Setting a `value` takes effect on the next frame with no rebuild.
+ * {@link reviveScene} result and `parent.userData.lightSwitches` on the
+ * `parent` given to {@link loadModel}. Setting a `value` takes effect on the next frame with no rebuild.
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/rendering.md#lighting-switches
  */
@@ -1325,7 +1325,7 @@ export interface TextureRenderInput {
  *
  * @typeParam TImage The platform's image type: an `ImageBitmap` or canvas in the browser, a skia-canvas `Image` on Node.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#readtexturepath-assets-opts
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#readtextureassets-path-opts
  */
 export interface TextureData<TImage = unknown> {
   /** The texture image, or the first frame when animated. */
@@ -1398,7 +1398,7 @@ export interface CacheData {
  * assets, to copy to a worker's assets or persist for the next session. Only
  * valid for the same pack stack, in the same order, and the same version.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#sharing-the-model-cache
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#exporting-and-importing-the-cache
  */
 export function exportCache(assets: AssetsInput): Promise<CacheData>
 
@@ -1408,7 +1408,7 @@ export function exportCache(assets: AssetsInput): Promise<CacheData>
  *
  * @returns How many entries were added.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#sharing-the-model-cache
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#exporting-and-importing-the-cache
  */
 export function importCache(assets: AssetsInput, data: Partial<CacheData>): Promise<number>
 
@@ -1420,7 +1420,7 @@ export function importCache(assets: AssetsInput, data: Partial<CacheData>): Prom
  * @param hint Only look in the entry at this index. Use a previous read's `hintIndex` to pair related lookups.
  * @returns The bytes with `.path` and `.hintIndex`, or `undefined` if not found.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#readfilepath-assets-hint
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#readfileassets-path-hint
  */
 export function readFile(assets: AssetsInput, path: string, hint?: number): Promise<AssetFile | undefined>
 
@@ -1428,7 +1428,7 @@ export function readFile(assets: AssetsInput, path: string, hint?: number): Prom
  * List the files in a directory across every assets entry, merging results and
  * respecting filters.
  *
- * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#listdirectorydir-assets
+ * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/assets.md#listdirectoryassets-dir
  */
 export function listDirectory(assets: AssetsInput, dir: string): Promise<string[]>
 

@@ -1,12 +1,13 @@
 # Legacy Minecraft versions
 
-The `version` option tells the renderer what Minecraft version the assets are for, so it can apply era-appropriate behavior automatically. Older versions had quirks that modern ones don't, and this lets the renderer handle them transparently.
+The `version` option of [`prepareAssets`](assets.md#minecraft-version) tells the renderer what Minecraft version the assets are for, so it can apply era-appropriate behavior automatically. Older versions had quirks that modern ones don't, and this lets the renderer handle them transparently.
 
 ```js
+const assets = await prepareAssets(sources, { version: "1.8.9" })
+
 await renderBlock({
   id: "cactus",
   assets,
-  version: "1.8.9",
   path: "cactus.png"
 })
 ```
@@ -17,7 +18,7 @@ await renderBlock({
 
 ## Triggered behaviors
 
-Each threshold below only kicks in when the `version` you pass falls in its range. Anything you don't pass a `version` for uses the modern behavior (with the coexistence rules [below](#without-a-version)).
+Each threshold below only kicks in when the assets' `version` falls in its range. Assets prepared without a `version` use the modern behavior (with the coexistence rules [below](#without-a-version)).
 
 | Assets from | What changes | Why |
 |---|---|---|
@@ -34,6 +35,6 @@ Each threshold below only kicks in when the `version` you pass falls in its rang
 
 ## Without a `version`
 
-Everything that can coexist works at once: when the format replaces one field with another, both the old and new forms are supported simultaneously, and the newer form wins if a model carries both. Only behaviors that directly conflict fall back to the modern rules. So an unversioned render still falls back to `models/item/<id>.json`, still converts the old display names, and resolves renamed item definition properties (`holder_type`, `shift_down`) as their current names; passing a `version` turns those into strict era rules instead (a 1.21.4+ game never reads `models/item`, a 1.9+ game ignores the old display names).
+Everything that can coexist works at once: when the format replaces one field with another, both the old and new forms are supported simultaneously, and the newer form wins if a model carries both. Only behaviors that directly conflict fall back to the modern rules. So an unversioned render still falls back to `models/item/<id>.json`, still converts the old display names, and resolves renamed item definition properties (`holder_type`, `shift_down`) as their current names; setting a `version` turns those into strict era rules instead (a 1.21.4+ game never reads `models/item`, a 1.9+ game ignores the old display names).
 
-The option is accepted by every entry point ([`renderBlock`](standard-api.md#renderblockargs), [`renderItem`](standard-api.md#renderitemargs), [`renderModel`](standard-api.md#rendermodelargs), [`parseBlockstate`](scenes.md#parseblockstateassets-id-args), [`parseItemDefinition`](scenes.md#parseitemdefinitionassets-id-args), [`loadModel`](scenes.md#loadmodelscene-assets-model-args)) and is also propagated onto model objects as `model.version`, so manually constructed models can carry it through too. The version also sticks to the prepared assets, from the first versioned call or up front with [`prepareAssets(sources, { version })`](assets.md#prepareassetsassets-options), and a call that passes no `version` of its own uses the assets' one: pinning the assets once versions every render made with them. Pass `version: false` to opt a single call out of that and render unversioned despite the pin. With [`{ cache: true }`](assets.md#caching) up front is the only option: a render-call `version` that doesn't match the cached assets' version throws.
+The assets' version is propagated onto model objects as `model.version`, and a model that already carries its own [`version`](extending.md#model-json) keeps it, so manually constructed models can be versioned individually.

@@ -92,22 +92,39 @@ disposeCache(oldAssets)
 
 Caching stays enabled after a dispose; it just repopulates. Don't dispose while something from those assets is still rendering (a live player, a scene on screen).
 
-#### Sharing the model cache
+#### Exporting and importing the cache
 
-The blockstate and model files a cache has read, and the models it has resolved, can be copied to another prepared assets instance, such as a worker's, or persisted for the next session:
+The blockstate and model files a cache has read, the models it has resolved, and the [occlusion masks](culling.md#culling-hidden-faces) it has computed can be copied to another prepared assets instance, such as a worker's, or persisted for the next session:
 
 | Export | Description |
 |---|---|
-| `exportModelCache(assets)` | The cached file text and resolved models as `{ files, models }`, structured-cloneable and JSON-serializable |
-| `importModelCache(assets, data)` | Seed a prepared assets instance (with `cache: true`) from an export. Existing keys are kept; returns how many entries were added |
+| `exportCache(assets)` | Resolves the cache as `{ files, models, occlusion }` |
+| `importCache(assets, data)` | Seeds a prepared assets instance (with `cache: true`) from an export. Any of the three parts can be left out, and existing keys are kept. Resolves the number of entries added |
 
-An export is only valid for the same pack stack, in the same order, and the same version. Pair it with the [occlusion cache](culling.md#persisting-the-occlusion-cache): with both imported, a cold scene of 1,200 different block states builds in under half the time.
+```js
+import { prepareAssets, exportCache, importCache } from "block-model-renderer"
+
+const data = await exportCache(assets)
+worker.postMessage({ cache: data })
+
+// in the worker
+const assets = await prepareAssets(sources, { cache: true })
+await importCache(assets, msg.cache)
+```
+
+`files` and `models` survive JSON. `occlusion` holds typed arrays, so it needs structured clone (`postMessage`) or a store that keeps typed arrays, such as IndexedDB.
+
+An export is only valid for the same pack stack, in the same order, and the same version.
 
 ### Minecraft version
 
-Pass `{ version: "1.21.11" }` to pin the Minecraft version the assets are for, for the asset-level era behaviors in [Legacy Minecraft versions](versions.md) (the armor trim palette locations, the [versioned override packs](#versioned-packs)). Without it, the first render that passes a `version` stamps it onto the prepared assets, and with no version at all both the modern and legacy forms are probed.
+Pass `{ version }` to set the Minecraft version the assets are for. Every call made with the prepared assets then applies the era behaviors in [Legacy Minecraft versions](versions.md), and the [versioned override packs](#versioned-packs) activate from it:
 
-With [`{ cache: true }`](#caching) the version must be decided here: the cross-call cache isn't version-aware, so a render-call `version` that doesn't match the prepared assets' version throws instead of silently mixing cached resolutions from two eras.
+```js
+const assets = await prepareAssets(sources, { version: "1.21.11" })
+```
+
+Without it, calls made with the assets render [unversioned](versions.md#without-a-version).
 
 ### Translucency detection
 
@@ -119,13 +136,21 @@ const assets = await prepareAssets(sources, { translucency: { min: 5, max: 240 }
 
 ### Default blockstate mode
 
-Which [default blockstates](extending.md#default-blockstates) fill properties a block doesn't carry can be pinned per prepared assets, so every render, scene and light pass through them agrees without threading an option:
+Which [default blockstates](extending.md#default-blockstates) fill properties a block doesn't carry is set per prepared assets, for every render, scene and light pass made with them:
 
 ```js
 const assets = await prepareAssets(sources, { cache: true, defaults: "game" })
 ```
 
-`"preferred"` (the default) layers the preferred overrides over each block's real default state; `"game"` uses the real default state alone, for block data whose format omits properties that are at their default. A `defaults` passed to an individual call still wins over the assets-level one, so an app can render its scenes in one mode and its item icons in the other.
+`"preferred"` (the default) layers the preferred overrides over each block's real default state; `"game"` uses the real default state alone, for block data whose format omits properties that are at their default. To use both modes, prepare the sources once for each.
+
+### Atlas rules
+
+`{ ignoreAtlases: true }` skips the [texture atlas rules](scenes.md#loadmodelassets-model-args) for every block and item rendered with the prepared assets:
+
+```js
+const assets = await prepareAssets(sources, { ignoreAtlases: true })
+```
 
 ### Proxy
 
@@ -150,7 +175,7 @@ Blocks that vanilla never renders from resource pack models at all: the [technic
 
 Blocks where the game draws an entity model on top of whatever the blockstate produces (vanilla's own blockstates for them point at stub models with no geometry). Here your packs stay fully in effect: [`parseBlockstate`](scenes.md#parseblockstateassets-id-args) returns the models your blockstates resolve to plus the bundled overlay models together, the same layering the game draws. Remodel the block in your pack and both render.
 
-An overlay only applies to blocks your packs have a blockstate for, so a block that doesn't exist in the version you load (copper chests in 1.21.1) renders as missing and isn't listed by [`listDirectory`](#listdirectorydir-assets). Before 1.13, when these blocks had no blockstates, the overlays render on their own (see [versions](versions.md#triggered-behaviors)).
+An overlay only applies to blocks your packs have a blockstate for, so a block that doesn't exist in the version you load (copper chests in 1.21.1) renders as missing and isn't listed by [`listDirectory`](#listdirectoryassets-dir). Before 1.13, when these blocks had no blockstates, the overlays render on their own (see [versions](versions.md#triggered-behaviors)).
 
 The following categories are covered:
 
@@ -168,11 +193,11 @@ The following categories are covered:
 * Shulker Boxes
 * Tridents
 
-These packs stay out of your way in the `minecraft` namespace: their blockstates only resolve through [`readFile`](#readfilepath-assets-hint) when nothing else provides the file (cushions, for example, have no vanilla blockstate), their atlas definitions merge in, and everything else they ship lives under the `block-model-renderer` namespace.
+These packs stay out of your way in the `minecraft` namespace: their blockstates only resolve through [`readFile`](#readfileassets-path-hint) when nothing else provides the file (cushions, for example, have no vanilla blockstate), their atlas definitions merge in, and everything else they ship lives under the `block-model-renderer` namespace.
 
 #### Versioned packs
 
-Blocks that vanilla has since moved from entity models to block models live in versioned packs alongside the main ones, named for the last version they apply to: `additional_26.1` carries the bed and sign models, since both used entity models until 26.2. A versioned pack only activates when the [`version` option](versions.md#legacy-minecraft-versions) falls at or below its name; without a `version` it is inert, so modern renders always use the real vanilla models. With [`{ cache: true }`](#caching) assets, pass the version to `prepareAssets`: a render-call `version` that doesn't match the cached assets' pinned version [throws](#minecraft-version), since the cache would otherwise mix resolutions from before and after the pack activates.
+Blocks that vanilla has since moved from entity models to block models live in versioned packs alongside the main ones, named for the last version they apply to: `additional_26.1` carries the bed and sign models, since both used entity models until 26.2. A versioned pack only activates when the assets' [`version`](#minecraft-version) falls at or below its name; without a `version` it is inert, so modern renders always use the real vanilla models.
 
 ### Fallback pack (lowest priority)
 
@@ -182,37 +207,37 @@ A second bundled pack sits at the very bottom of the stack, beneath vanilla. It 
 
 Helpers for reading through the same layered, filtered view of the assets that the renderer uses.
 
-### `readFile(path, assets, hint?)`
+### `readFile(assets, path, hint?)`
 
 Reads a file from the assets, walking entries in order and respecting filters. Atlas-generated virtual sprites (armor trims, unstitched regions) resolve here too.
 
 | Argument | Description |
 |---|---|
-| `path` | The file path, relative to the pack root (e.g. `"assets/minecraft/textures/block/stone.png"`) |
 | `assets` | The assets source |
+| `path` | The file path, relative to the pack root (e.g. `"assets/minecraft/textures/block/stone.png"`) |
 | `hint` | If set, only look in the entry at this index. Use `buf.hintIndex` from a previous read to pair related lookups (like a PNG and its mcmeta) |
 
 Returns a `Uint8Array` (a `Buffer` on Node) with `.path` and `.hintIndex` fields, or `undefined` if not found.
 
-### `listDirectory(dir, assets)`
+### `listDirectory(assets, dir)`
 
 Lists files in a directory across all assets entries, merging results and respecting filters.
 
 | Argument | Description |
 |---|---|
-| `dir` | The directory path, relative to the pack root |
 | `assets` | The assets source |
+| `dir` | The directory path, relative to the pack root |
 
 Returns a list of filenames.
 
-### `readTexture(path, assets, opts?)`
+### `readTexture(assets, path, opts?)`
 
-Reads a texture for drawing yourself, when you want an image rather than a model: GUI sprites, map decorations, particles, item art. [`readFile`](#readfilepath-assets-hint) gives the raw PNG bytes; this gives a ready image, and animated textures also work: the `.mcmeta` is read alongside, slicing the sheet into frames with the game's rules (frame size from `animation.width`/`height`, square by the smaller image dimension when absent; row-major frame indexing; a `frames` list with per-entry times falling back to `frametime`, default 1 tick; `interpolate` blending). To render a texture instead of drawing it yourself, see [`renderTexture`](standard-api.md#rendertextureargs).
+Reads a texture for drawing yourself, when you want an image rather than a model: GUI sprites, map decorations, particles, item art. [`readFile`](#readfileassets-path-hint) gives the raw PNG bytes; this gives a ready image, and animated textures also work: the `.mcmeta` is read alongside, slicing the sheet into frames with the game's rules (frame size from `animation.width`/`height`, square by the smaller image dimension when absent; row-major frame indexing; a `frames` list with per-entry times falling back to `frametime`, default 1 tick; `interpolate` blending). To render a texture instead of drawing it yourself, see [`renderTexture`](standard-api.md#rendertextureargs).
 
 | Argument | Description |
 |---|---|
-| `path` | The texture path, relative to the pack root |
 | `assets` | The assets source |
+| `path` | The texture path, relative to the pack root |
 | `opts.onChange(frame)` | Browser only: called whenever the displayed frame changes, on the shared animation clock (so `pauseAnimations` freezes it). Fires only on real changes, so redraw from it without polling. `current` is updated before each call |
 
 Returns `null` if the texture is missing, else:
@@ -243,7 +268,7 @@ The disk-backed form with a custom byte source: `slice(start, end)` returns a `P
 
 ### `parseZip(bytes)`
 
-The low-level reader behind [`zipAssets`](#zipassetsinput). Takes a `Uint8Array`/`ArrayBuffer`. Useful for enumerating paths outside the `assets/` tree (e.g. the structures inside a client jar), then reading them through [`readFile`](#readfilepath-assets-hint), which handles decompression.
+The low-level reader behind [`zipAssets`](#zipassetsinput). Takes a `Uint8Array`/`ArrayBuffer`. Useful for enumerating paths outside the `assets/` tree (e.g. the structures inside a client jar), then reading them through [`readFile`](#readfileassets-path-hint), which handles decompression.
 
 Returns a `Map` from each file path to its raw entry:
 

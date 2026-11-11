@@ -1,6 +1,6 @@
 # Scene optimization
 
-Building a world out of per-block [`loadModel`](scenes.md#loadmodelscene-assets-model-args) groups works, but every block is its own meshes and draw calls. `optimizeScene` merges the whole scene into a handful of draw calls, with far fewer polygons, so a wall of different blocks becomes roughly one draw call:
+Building a world out of per-block [`loadModel`](scenes.md#loadmodelassets-model-args) groups works, but every block is its own meshes and draw calls. `optimizeScene` merges the whole scene into a handful of draw calls, with far fewer polygons, so a wall of different blocks becomes roughly one draw call:
 
 ```js
 import { parseBlockstate, resolveModelData, loadModel, getCullFaces, optimizeScene } from "block-model-renderer"
@@ -9,19 +9,15 @@ import { parseBlockstate, resolveModelData, loadModel, getCullFaces, optimizeSce
 const grid = {
   "0,0,0": { id: "stone" },
   "1,0,0": { id: "stone" },
-  "0,1,0": { id: "oak_log", blockstates: { axis: "y" } }
+  "0,1,0": { id: "oak_log", properties: { axis: "y" } }
 }
 
-// the six face offsets, and a getter that reads a cell's neighbors off the grid
-const FACES = { down: [0,-1,0], up: [0,1,0], north: [0,0,-1], south: [0,0,1], west: [-1,0,0], east: [1,0,0] }
+// a lookup that reads the blocks around a cell off the grid
 function neighborsAt([x, y, z]) {
-  const n = {}
-  for (const dir in FACES) {
-    const [dx, dy, dz] = FACES[dir]
+  return ([dx, dy, dz]) => {
     const cell = grid[`${x + dx},${y + dy},${z + dz}`]
-    if (cell) n[dir] = cell.blockstates ? { id: cell.id, ...cell.blockstates } : cell.id
+    return cell ? { id: cell.id, ...cell.properties } : null
   }
-  return n
 }
 
 // build each distinct block state once (it can resolve to several models) and reuse it
@@ -30,8 +26,8 @@ async function groupFor(block) {
   const key = JSON.stringify(block)
   if (!groups.has(key)) {
     const group = new THREE.Group()
-    for (const model of await parseBlockstate(assets, block.id, { data: block.blockstates })) {
-      await loadModel(group, assets, await resolveModelData(assets, model))
+    for (const model of await parseBlockstate(assets, block.id, { properties: block.properties })) {
+      await loadModel(assets, await resolveModelData(assets, model), { parent: group })
     }
     groups.set(key, group)
   }
@@ -45,7 +41,7 @@ for (const key in grid) {
   placements.push({
     pos,
     group: await groupFor(block),
-    cull: await getCullFaces({ id: block.id, blockstates: block.blockstates, neighbors: neighborsAt(pos), assets })
+    cull: await getCullFaces({ id: block.id, properties: block.properties, neighbors: neighborsAt(pos), assets })
   })
 }
 
@@ -55,9 +51,9 @@ const optimized = await optimizeScene(placements, {
 threeScene.add(optimized.group)
 ```
 
-Each placement is `{ pos, group, cull }`: `pos` is the block's `[x, y, z]` cell coordinate (16 units per cell), `group` is [`loadModel`](scenes.md#loadmodelscene-assets-model-args) output, and `cull` is an optional `Set` of face directions hidden at that placement (from [`getCullFaces`](culling.md#getcullfacesargs)). Above, the two stone blocks cull their touching faces and the log culls its underside, so those faces never reach the merged mesh.
+Each placement is `{ pos, group, cull }`: `pos` is the block's `[x, y, z]` cell coordinate (16 units per cell), `group` is [`loadModel`](scenes.md#loadmodelassets-model-args) output, and `cull` is an optional `Set` of face directions hidden at that placement (from [`getCullFaces`](culling.md#getcullfacesargs)). Above, the two stone blocks cull their touching faces and the log culls its underside, so those faces never reach the merged mesh.
 
-Share one `group` reference across placements of the same block state, as `groupFor` caches here; it's classified once and instanced per placement. That sharing is why `cull` lives on the placement rather than being baked in at [`loadModel`](scenes.md#loadmodelscene-assets-model-args) time.
+Share one `group` reference across placements of the same block state, as `groupFor` caches here; it's classified once and instanced per placement. That sharing is why `cull` lives on the placement rather than being baked in at [`loadModel`](scenes.md#loadmodelassets-model-args) time.
 
 You *can* cull the other way, pre-culling a separate group per placement and passing those with no `cull` field, and it renders the same. But then no two placements share a build, so you're back to one build per block instead of one per block state. Passing `cull` per placement keeps the single shared build and drops each instance's hidden faces as it merges, which is far cheaper for anything bigger than a handful of blocks.
 
@@ -85,7 +81,7 @@ A built scene keeps a CPU copy of what it uploads to the GPU. A scene that is on
 |---|---|
 | Opaque merged geometry | Translucent geometry, which the [sorter](#translucent-sorting) rewrites |
 | Atlas pages the scene built | [Shared atlas](#shared-atlases) pages, which belong to the handle |
-| The light volume `createScene` computes, as with [`computeSceneLight`'s](rendering.md#computescenelightblocks-options) own `release` | A light volume passed in as `lighting: { light }` |
+| The light volume `createScene` computes, as with [`computeSceneLight`'s](rendering.md#computescenelightassets-blocks-options) own `release` | A light volume passed in as `lighting: { light }` |
 
 Released atlas pages aren't cached for reuse by later scenes. Their animated textures keep playing only through [`setAnimationRenderer`](#atlas-animation)'s subimage uploads, and hold still without it.
 
@@ -95,14 +91,14 @@ A released scene can't be raycast, packed with [`packScene`](#packing-scenes-acr
 
 Translucent faces (water, stained glass, ice) blend, and blending is order dependent: they must draw far-to-near or things behind show through things in front. The render functions handle this automatically against their fixed camera. [`optimizeScene`](#scene-optimization) attaches a movement-gated sorter to its merged translucent meshes: whenever the live camera has moved `resortDistance` units (default 16, one block) since a mesh last sorted, its triangles re-sort far-to-near, budgeted to about 50,000 triangles a frame (always at least one mesh), longest-waiting mesh first.
 
-For your own live scenes (a model viewer orbiting a [`loadModel`](scenes.md#loadmodelscene-assets-model-args) group), attach the same behavior manually:
+For your own live scenes (a model viewer orbiting a [`loadModel`](scenes.md#loadmodelassets-model-args) group), attach the same behavior manually:
 
 ```js
-import { sortTranslucent } from "block-model-renderer"
+import { createTranslucentSorter } from "block-model-renderer"
 
-const handle = sortTranslucent(modelGroup, { resortDistance: 16 })
-handle.sort(camera) // force a sort now (before a one-frame capture)
-handle.detach()     // stop sorting (when discarding the scene)
+const sorter = createTranslucentSorter(modelGroup, { resortDistance: 16 })
+sorter.sort(camera) // force a sort now (before a one-frame capture)
+sorter.detach()     // stop sorting (when discarding the scene)
 ```
 
 It traverses the object, hooks every mesh with translucent materials, and needs nothing per-frame from you: the renderer hands it the camera on draw.
@@ -115,11 +111,18 @@ Faces merged on a shared atlas repeat their texture in the library's shader: suc
 
 | Export | Description |
 |---|---|
-| `createSharedAtlas({ size?, headroom?, renderer?, animate? })` | The atlas handle. With a `renderer`, page updates upload as GPU subimages instead of full re-uploads. `animate: true` makes the atlas [tick its own animated regions](#atlas-animation). `texture(sig, page)` resolves a page's texture (what revived scenes reference); `dispose()` frees the pages and stops the animator. Page size auto-picks at stitch time (below); pass `size` to force one, or `headroom` to set how much of the page the stitch leaves free (default `0.25`, clamped to `0.95`) |
-| `stitchSharedAtlas(shared, assets, opts?)` | Stitch every sprite the packs' atlas definition files list into the atlas up front, the way the game builds its block atlas at startup. `opts.atlases` picks the definitions (default `["blocks", "items"]`, merged into the one atlas), `onProgress(done, total)` reports, `shouldCancel()` aborts (resolving `null`). Unless the handle was given an explicit `size`, the page size is picked from the measured sprite area so the stitch leaves the handle's `headroom` fraction of a page free (a quarter of it by default, capped by GPU limits) for runtime textures. After this, scenes are pure rect lookups: no stitching cost, and every scene shares the exact same coordinates |
-| `exportSharedAtlasLayout(shared)` | The atlas's coordinate table as a structured-cloneable `{ size, pages, rects }` (no pixels, on the order of 150KB for the vanilla pack). Send it to workers once |
-| `adoptSharedAtlasLayout(shared, layout)` | Turn a fresh handle into a pixel-less adopter of that layout: scenes built against it bake UVs to the fixed coordinates, and `packScene` emits page references only. Adopters never stitch locally; textures missing from the layout either go through `requestSpace` (below) or fall back to per-material textures |
-| `insertSharedTextures(shared, items)` | Add runtime textures (sign text, patterned banners, map art) to a live atlas. `items` is `[{ key, image, frames?, times?, interpolate? }]`: `key` is your stable content hash, `image` a bitmap or canvas, and the optional frame fields register the region as animated. Already-present keys dedup to the existing rect; passed bitmaps are closed. Returns `{ rects, pages }` to merge into worker layouts |
+| `createSharedAtlas({ size?, headroom?, renderer?, animate? })` | The atlas handle. With a `renderer`, page updates upload as GPU subimages instead of full re-uploads. `animate: true` makes the atlas [tick its own animated regions](#atlas-animation). Page size auto-picks at stitch time (below); pass `size` to force one, or `headroom` to set how much of the page the stitch leaves free (default `0.25`, clamped to `0.95`) |
+
+The handle's methods:
+
+| Method | Description |
+|---|---|
+| `stitch(assets, opts?)` | Stitch every sprite the packs' atlas definition files list into the atlas up front, the way the game builds its block atlas at startup. `opts.atlases` picks the definitions (default `["blocks", "items"]`, merged into the one atlas), `onProgress(done, total)` reports, `shouldCancel()` aborts. Resolves the handle, or `null` when cancelled. Unless the handle was given an explicit `size`, the page size is picked from the measured sprite area so the stitch leaves the handle's `headroom` fraction of a page free (a quarter of it by default, capped by GPU limits) for runtime textures. After this, scenes are pure rect lookups: no stitching cost, and every scene shares the exact same coordinates |
+| `exportLayout()` | The atlas's coordinate table as a structured-cloneable `{ size, pages, rects }` (no pixels, on the order of 150KB for the vanilla pack). Send it to workers once |
+| `adoptLayout(layout)` | Turn a fresh handle into a pixel-less adopter of that layout, returning the handle: scenes built against it bake UVs to the fixed coordinates, and `packScene` emits page references only. Adopters never stitch locally; textures missing from the layout either go through `requestSpace` (below) or fall back to per-material textures |
+| `insert(items)` | Add runtime textures (sign text, patterned banners, map art) to a live atlas. `items` is `[{ key, image, frames?, times?, interpolate? }]`: `key` is your stable content hash, `image` a bitmap or canvas, and the optional frame fields register the region as animated. Already-present keys dedup to the existing rect; passed bitmaps are closed. Resolves `{ rects, pages }` to merge into worker layouts |
+| `texture(sig, page)` | Resolves a page's texture (what revived scenes reference) |
+| `dispose()` | Frees the pages and stops the animator |
 
 ### Packing scenes across workers
 
@@ -128,18 +131,18 @@ For streaming-scale apps, scenes build in web workers and ship to the main threa
 | Export | Description |
 |---|---|
 | `packScene(handle, { sharedAtlas? })` | Pack a `createScene` handle's group into `{ payload, transfers }` for `postMessage`. Geometry attributes, index buffers, material specs, uniforms, instanced meshes (billboards included), and bounds all ship as transferables; textures ship as bitmaps, except shared-atlas pages which ship as `{ sig, page }` references |
-| `reviveScene(payload, { atlas?, release? })` | Rebuild a packed payload into `{ group, light, lightSwitches, dispose() }` of live meshes. `light` is the scene's light volume as `{ uniforms }`, or `null`, which world lighting takes as `lighting: { light }`. `atlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain opaque meshes only; translucent ones keep theirs for the sorter), roughly a third of a big scene's heap |
+| `reviveScene(payload, { sharedAtlas?, release? })` | Rebuild a packed payload into `{ group, light, lightSwitches, dispose() }` of live meshes. `light` is the scene's light volume as `{ uniforms, setOffset }`, or `null`: world lighting takes it as `lighting: { light }`, and its `setOffset` is called like a built scene's [`light.setOffset`](rendering.md#computescenelightassets-blocks-options). `sharedAtlas` is the handle that page references resolve against: the main thread's stitched `createSharedAtlas`. `release` drops CPU-side geometry arrays after GPU upload (plain opaque meshes only; translucent ones keep theirs for the sorter), roughly a third of a big scene's heap |
 
 The whole flow:
 
 ```js
 // main, once: stitch, export the layout, send it to each worker
 const shared = createSharedAtlas({ renderer, animate: true })
-await stitchSharedAtlas(shared, assets)
-worker.postMessage({ type: "init", layout: exportSharedAtlasLayout(shared) })
+await shared.stitch(assets)
+worker.postMessage({ type: "init", layout: shared.exportLayout() })
 
 // worker, once: adopt the layout; scenes bake UVs against the fixed coordinates
-const atlas = adoptSharedAtlasLayout(createSharedAtlas(), msg.layout)
+const atlas = createSharedAtlas().adoptLayout(msg.layout)
 
 // worker, per scene: build, pack (page references only), post
 const handle = await createScene(assets, blocks, { sharedAtlas: atlas, animate: false, batchDynamics: false })
@@ -148,11 +151,11 @@ postMessage({ scene: scene.payload }, scene.transfers)
 handle.dispose()
 
 // main, per scene: revive against the stitched atlas, add
-const tile = reviveScene(msg.scene, { atlas: shared, release: true })
+const tile = reviveScene(msg.scene, { sharedAtlas: shared, release: true })
 world.add(tile.group)
 ```
 
-Revived groups are inert data, not `createScene` handles: no palette, no light handle, no [dynamic model](scenes.md#dynamic-models) rigs (dynamic parts can't cross the thread boundary as live objects; build those separately on the main thread; the main thread's own scenes can keep stitching into the same live atlas). Billboards re-attach their camera-facing behavior on revive.
+Revived groups are inert data, not `createScene` handles: no palette, no light levels, no [dynamic model](scenes.md#dynamic-models) rigs (dynamic parts can't cross the thread boundary as live objects; build those separately on the main thread; the main thread's own scenes can keep stitching into the same live atlas). Billboards re-attach their camera-facing behavior on revive.
 
 A revived scene keeps one set of [lighting switches](rendering.md#lighting-switches) for all its materials, returned as `lightSwitches`.
 
@@ -175,15 +178,15 @@ atlas.requestSpace = async items => {
 }
 
 // main, on that message: stitch them in, reply with the rects
-const res = await insertSharedTextures(shared, msg.items)
+const res = await shared.insert(msg.items)
 reply({ rects: res.rects, pages: res.pages })
 ```
 
-`items` is `[{ key, image, w, h, frames, times, interpolate }]` and the resolved value is `insertSharedTextures`' `{ rects, pages }`; the granted rects merge into the worker's layout automatically, so the scene packs them as page references like everything else. Duplicate content across workers dedups to one rect on the main thread. Textures that stay unresolved (a failed request, glint, repeat-wrapping textures) fall back to per-material textures, which pack as bitmaps and still render correctly.
+`items` is `[{ key, image, w, h, frames, times, interpolate }]` and the resolved value is `insert`'s `{ rects, pages }`; the granted rects merge into the worker's layout automatically, so the scene packs them as page references like everything else. Duplicate content across workers dedups to one rect on the main thread. Textures that stay unresolved (a failed request, glint, repeat-wrapping textures) fall back to per-material textures, which pack as bitmaps and still render correctly.
 
 ### Atlas animation
 
-[`createSharedAtlas({ animate: true })`](#shared-atlases) gives the atlas its own player at `shared.animation` (`playing`, `play()`, `pause()`), auto-playing on creation. It ticks every animated region on the pages at the game's 20Hz, budgeted so one tick never uploads an unbounded number of regions, and picks up regions added later (a `stitchSharedAtlas` run, `insertSharedTextures`, live scene builds) automatically. Call `setAnimationRenderer(renderer)` (below) so the frame updates upload as GPU subimages.
+[`createSharedAtlas({ animate: true })`](#shared-atlases) gives the atlas its own player at `shared.animation` (`playing`, `play()`, `pause()`), auto-playing on creation. It ticks every animated region on the pages at the game's 20Hz, budgeted so one tick never uploads an unbounded number of regions, and picks up regions added later (a `stitch` run, `insert`, live scene builds) automatically. Call `setAnimationRenderer(renderer)` (below) so the frame updates upload as GPU subimages.
 
 To drive animation yourself instead, the schedule helpers work on any animated textures or atlas pages:
 
@@ -200,10 +203,10 @@ Running the standard render functions themselves across a worker pool, and keepi
 
 ## Warming shaders
 
-A scene's first frame compiles every shader program it uses, which stalls the page for a few hundred milliseconds. `warmShaders(renderer, assets, args?)` compiles them ahead of time, in the background where the browser supports it, by building a small set of blocks that covers every program vanilla blocks produce:
+A scene's first frame compiles every shader program it uses, which stalls the page for a few hundred milliseconds. `warmShaders(assets, renderer, args?)` compiles them ahead of time, in the background where the browser supports it, by building a small set of blocks that covers every program vanilla blocks produce:
 
 ```js
-const warmed = await warmShaders(renderer, assets, { scene, camera, sharedAtlas, lighting: "world" })
+const warmed = await warmShaders(assets, renderer, { scene, camera, sharedAtlas, lighting: "world" })
 // ...build and render scenes...
 warmed.dispose()
 ```

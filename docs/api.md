@@ -1,22 +1,20 @@
 # API reference
 
-Every export the package provides, grouped by area, with a link to where each is documented in full. The import is the same on Node and in the browser (`import { ... } from "block-model-renderer"`) except for the [browser-only](#browser-only) and [Node-only](#node-only) exports at the bottom.
+Every export the package provides, grouped by area, with a link to where each is documented in full. The import is the same on Node and in the browser (`import { ... } from "block-model-renderer"`) except for the [browser-only](#browser-only) and [Node-only](#node-only) exports.
 
 ```js
 import {
   // rendering
   renderBlock, renderItem, renderModel, renderTexture, getCullFaces, fullyOccludes,
-  exportOcclusionCache, importOcclusionCache,
   // assets and files
-  prepareAssets, readFile, listDirectory, readTexture, zipAssets, zipAssetsFromSlices, parseZip, disposeCache, exportModelCache, importModelCache,
+  prepareAssets, readFile, listDirectory, readTexture, zipAssets, zipAssetsFromSlices, parseZip, disposeCache, exportCache, importCache,
   // model data
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
-  makeModelScene, createScene, createSky, createClouds, createFog, loadModel, poseSpecial, resumeSpecial, renderModelScene, optimizeScene, sortTranslucent, warmShaders,
+  makeModelScene, getThree, createScene, createSky, createClouds, createFog, loadModel, poseSpecial, resumeSpecial, renderModelScene, optimizeScene, createTranslucentSorter, warmShaders,
   computeSceneLight, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS, resolveProfile,
   // shared atlases, packing, animation
-  createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures,
-  packScene, reviveScene, rebindUniforms, setAnimationRenderer, collectAnimated, buildSchedules, evaluateAnimation,
+  createSharedAtlas, packScene, reviveScene, rebindUniforms, setAnimationRenderer, collectAnimated, buildSchedules, evaluateAnimation,
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
@@ -24,7 +22,7 @@ import {
   // extending
   ModelLoader,
   // browser only
-  configure, getThree, THREE, pauseAnimations, resumeAnimations, createAnimator,
+  configure, THREE, pauseAnimations, resumeAnimations, createAnimator,
   // Node only
   setCanvasGPU
 } from "block-model-renderer"
@@ -40,23 +38,21 @@ import {
 | `renderTexture(args)` | Render a texture by path, animated per its mcmeta. [Details](standard-api.md#rendertextureargs) |
 | `getCullFaces(args)` | Which faces a block's neighbors hide, for [culling](culling.md#culling-hidden-faces). [Details](culling.md#getcullfacesargs) |
 | `fullyOccludes(args)` | Whether a block state is a full occluding cube, for world-scale preprocessing. [Details](culling.md#fullyoccludesargs) |
-| `exportOcclusionCache(assets)` | Serialize the computed occlusion masks for persistence. [Details](culling.md#persisting-the-occlusion-cache) |
-| `importOcclusionCache(assets, entries)` | Seed a prepared assets instance with persisted masks. [Details](culling.md#persisting-the-occlusion-cache) |
 
 ## Assets and files
 
 | Export | Description |
 |---|---|
 | `prepareAssets(assets, options?)` | Normalize asset sources once for reuse. [Details](assets.md#prepareassetsassets-options) |
-| `readFile(path, assets, hint?)` | Read one file from a set of asset sources. [Details](assets.md#readfilepath-assets-hint) |
-| `listDirectory(dir, assets)` | List a directory across layered sources. [Details](assets.md#listdirectorydir-assets) |
-| `readTexture(path, assets, opts?)` | Read a texture as ready-to-draw frames. [Details](assets.md#readtexturepath-assets-opts) |
+| `readFile(assets, path, hint?)` | Read one file from a set of asset sources. [Details](assets.md#readfileassets-path-hint) |
+| `listDirectory(assets, dir)` | List a directory across layered sources. [Details](assets.md#listdirectoryassets-dir) |
+| `readTexture(assets, path, opts?)` | Read a texture as ready-to-draw frames. [Details](assets.md#readtextureassets-path-opts) |
 | `zipAssets(input)` | Wrap a zip (bytes, `Blob`, or `File`) as an asset source. [Details](assets.md#zipassetsinput) |
 | `zipAssetsFromSlices(slice, size)` | Wrap a zip read on demand through a slice callback, for huge files. [Details](assets.md#zipassetsfromslicesslice-size) |
 | `parseZip(bytes)` | Parse a zip into its entries. [Details](assets.md#parsezipbytes) |
 | `disposeCache(assets)` | Free textures and GPU data cached on prepared assets. [Details](assets.md#caching) |
-| `exportModelCache(assets)` | The cached blockstate and model data, for workers or persistence. [Details](assets.md#sharing-the-model-cache) |
-| `importModelCache(assets, data)` | Seed a prepared assets instance with an exported model cache. [Details](assets.md#sharing-the-model-cache) |
+| `exportCache(assets)` | The cached blockstate files, model data and occlusion masks, for workers or persistence. [Details](assets.md#exporting-and-importing-the-cache) |
+| `importCache(assets, data)` | Seed a prepared assets instance with an exported cache. [Details](assets.md#exporting-and-importing-the-cache) |
 
 ## Model data
 
@@ -70,34 +66,31 @@ import {
 
 | Export | Description |
 |---|---|
-| `makeModelScene()` | Create an empty scene (async on the web, sync on Node). [Details](scenes.md#makemodelscene) |
+| `makeModelScene()` | Create an empty scene and camera. [Details](scenes.md#makemodelscene) |
+| `getThree()` | Resolve the three.js instance the library uses, to build your own scenes from. [Details](standard-api.md#getthree) |
 | `createScene(assets, blocks, args?)` | Build a whole block scene in one call: parsing, culling, fluids, lighting, and optimization. [Details](scenes.md#createsceneassets-blocks-args) |
 | `createSky(assets, args?)` | Build the game's sky: the gradient, the pack's sun and moon, stars, and the sunrise glow, on one day/night clock. [Details](rendering.md#createskyassets-args) |
 | `createClouds(assets, args?)` | Build the game's cloud layer from the pack's cloud texture, drifting on its own clock. [Details](rendering.md#createcloudsassets-args) |
 | `createFog(config, dimension?)` | Make a fog handle on its own, to share between scenes and a sky. [Details](rendering.md#fog) |
-| `loadModel(scene, assets, model, args?)` | Build a model's geometry into a scene. [Details](scenes.md#loadmodelscene-assets-model-args) |
+| `loadModel(assets, model, args?)` | Build a model's geometry as a group. [Details](scenes.md#loadmodelassets-model-args) |
 | `poseSpecial(root, pose)` | Manually pose a dynamic model (chest lid, shulker lid, enchanting book); books animate and lids `.open()`/`.close()` on their own. [Details](scenes.md#dynamic-models) |
 | `resumeSpecial(root)` | Hand an auto animation held by `poseSpecial` back to its own clock. [Details](scenes.md#resumespecialroot) |
 | `renderModelScene(scene, camera, args?)` | Render a scene to output. [Details](scenes.md#rendermodelscenescene-camera-args) |
 | `optimizeScene(placements, options?)` | Merge the whole scene into a handful of draw calls, with far fewer polygons. [Details](optimization.md#scene-optimization) |
-| `sortTranslucent(group, options?)` | Depth-sort a group's translucent faces for a moving camera. [Details](optimization.md#translucent-sorting) |
-| `warmShaders(renderer, assets, args?)` | Compile the shader programs scenes will use before the first one renders. [Details](optimization.md#warming-shaders) |
+| `createTranslucentSorter(object, options?)` | Depth-sort an object's translucent faces for a moving camera. [Details](optimization.md#translucent-sorting) |
+| `warmShaders(assets, renderer, args?)` | Compile the shader programs scenes will use before the first one renders. [Details](optimization.md#warming-shaders) |
 | `renderMapColors(assets, colors)` | Render a save's map color bytes into a 128×128 canvas through the vanilla palette. [Details](scenes.md#map-art) |
 | `MAP_COLORS` | The vanilla map palette, `{ base, shade, names }`. [Details](scenes.md#map-art) |
 | `mapIdOf(item)` | The map id from an item's components, `null` when absent. [Details](scenes.md#map-art) |
 | `disposeMapArt(assets)` | Clear the cached framed-map art. [Details](scenes.md#map-art) |
 | `resolveProfile(assets, profile)` | Resolve a player profile to its skin and cape through Mojang's API. [Details](scenes.md#player-heads) |
-| `computeSceneLight(blocks, options)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](rendering.md#scene-lighting) |
+| `computeSceneLight(assets, blocks, options?)` | Flood-fill block and sky light for a scene, for torch-lit `"world"` lighting. [Details](rendering.md#scene-lighting) |
 
 ## Shared atlases, packing, animation
 
 | Export | Description |
 |---|---|
-| `createSharedAtlas(opts?)` | An atlas pool shared across scenes, for worker builds and streaming; `animate: true` makes it tick its own regions. [Details](optimization.md#shared-atlases) |
-| `stitchSharedAtlas(shared, assets, opts?)` | Stitch every pack sprite into the atlas up front, like the game's startup stitch. [Details](optimization.md#shared-atlases) |
-| `exportSharedAtlasLayout(shared)` | The atlas's coordinate table, structured-cloneable for workers. [Details](optimization.md#shared-atlases) |
-| `adoptSharedAtlasLayout(shared, layout)` | Adopt a layout pixel-free so worker scenes bake UVs against fixed coordinates. [Details](optimization.md#shared-atlases) |
-| `insertSharedTextures(shared, items)` | Add runtime textures (sign text, banners), animated included, to a live atlas. [Details](optimization.md#shared-atlases) |
+| `createSharedAtlas(opts?)` | An atlas pool shared across scenes, for worker builds and streaming. Its handle stitches the packs' sprites up front, exports and adopts layouts for workers, and inserts runtime textures; `animate: true` makes it tick its own regions. [Details](optimization.md#shared-atlases) |
 | `packScene(handle, opts?)` | Pack a built scene into transferable data for `postMessage`. [Details](optimization.md#packing-scenes-across-workers) |
 | `reviveScene(payload, opts?)` | Rebuild a packed scene into live meshes. [Details](optimization.md#packing-scenes-across-workers) |
 | `rebindUniforms(target, source)` | Bind a scene's light volume, time of day, fog and lighting switches onto separately built meshes. [Details](optimization.md#packing-scenes-across-workers) |
@@ -142,8 +135,7 @@ Not exported on Node.
 | Export | Description |
 |---|---|
 | `configure({ THREE, assetsUrl, clockStart })` | Provide the three.js instance, the bundled `assets.zip` URL (`false` skips the bundled assets entirely), and/or a shared animation clock epoch. [Details](standard-api.md#browser-only-exports) |
-| `getThree()` | Resolve and return the three.js instance the library uses. [Details](standard-api.md#providing-threejs-browser) |
-| `THREE` | Live binding to that instance, populated after first use. [Details](standard-api.md#providing-threejs-browser) |
+| `THREE` | Live binding to the instance [`getThree()`](standard-api.md#getthree) resolves, populated after first use. [Details](standard-api.md#browser-only-exports) |
 | `pauseAnimations()` / `resumeAnimations(clockStart?)` | Pause and resume the page-global animation clock, optionally rebasing onto a [shared epoch](advanced-api.md#syncing-the-animation-clock). [Details](standard-api.md#animated-renders-browser) |
 | `createAnimator(root)` | Manual animation control for `loadModel` scenes. [Details](scenes.md#animation-browser) |
 
@@ -154,3 +146,33 @@ Not exported in the browser.
 | Export | Description |
 |---|---|
 | `setCanvasGPU(enabled)` | Let skia-canvas draw 2D canvases on the GPU, off by default. [Details](standard-api.md#node-only-exports) |
+
+## Migrating from 2.x
+
+The old option names and argument orders throw an error that names the new form.
+
+| 2.x | 3.0 |
+|---|---|
+| `renderBlock({ blockstates })`, `getCullFaces({ blockstates })` | `{ properties }` |
+| `parseBlockstate(assets, id, { data })` | `parseBlockstate(assets, id, { properties })` |
+| `parseItemDefinition(assets, id, { data })` | `parseItemDefinition(assets, id, { components })` |
+| `version`, `defaults`, `ignoreAtlases` passed per call, `version: false` | Set once: `prepareAssets(sources, { version, defaults, ignoreAtlases })` |
+| `readFile(path, assets, hint?)` | `readFile(assets, path, hint?)` |
+| `listDirectory(dir, assets)` | `listDirectory(assets, dir)` |
+| `readTexture(path, assets, opts?)` | `readTexture(assets, path, opts?)` |
+| `computeSceneLight(blocks, { assets, ...options })` | `computeSceneLight(assets, blocks, options?)` |
+| `warmShaders(renderer, assets, args?)` | `warmShaders(assets, renderer, args?)` |
+| `loadModel(scene, assets, model, args)` | `loadModel(assets, model, { ...args, parent: scene })` |
+| `loadModel(null, assets, model, args)` | `loadModel(assets, model, args)` |
+| `makeModelScene()` synchronous on Node | `await makeModelScene()` on both platforms |
+| `getThree()` browser only | `await getThree()` on both platforms |
+| `exportModelCache(assets)`, `exportOcclusionCache(assets)` | `exportCache(assets)`, resolving `{ files, models, occlusion }` |
+| `importModelCache(assets, data)`, `importOcclusionCache(assets, entries)` | `importCache(assets, data)` |
+| `sortTranslucent(object, options)` | `createTranslucentSorter(object, options)` |
+| `stitchSharedAtlas(shared, assets, opts)` | `shared.stitch(assets, opts)` |
+| `exportSharedAtlasLayout(shared)` | `shared.exportLayout()` |
+| `adoptSharedAtlasLayout(shared, layout)` | `shared.adoptLayout(layout)` |
+| `insertSharedTextures(shared, items)` | `shared.insert(items)` |
+| `reviveScene(payload, { atlas })` | `reviveScene(payload, { sharedAtlas })` |
+| A revived scene's `light` is `{ uniforms }` | `{ uniforms, setOffset }` |
+| `getCullFaces({ neighbors })` takes the six-face object | Also takes the `([x, y, z]) => block` lookup |

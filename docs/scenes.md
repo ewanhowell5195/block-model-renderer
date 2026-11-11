@@ -13,12 +13,12 @@ import {
 } from "block-model-renderer"
 
 const assets = await prepareAssets("C:/Users/ewanh/AppData/Roaming/.minecraft/resourcepacks/vanilla")
-const { scene, camera } = makeModelScene()
+const { scene, camera } = await makeModelScene()
 const models = await parseBlockstate(assets, "oak_log")
 
 for (const model of models) {
   const resolved = await resolveModelData(assets, model)
-  await loadModel(scene, assets, resolved)
+  await loadModel(assets, resolved, { parent: scene })
 }
 
 const buffer = await renderModelScene(scene, camera, {
@@ -78,13 +78,7 @@ Options, grouped by what they affect. How the scene looks:
 | `origin` | `[0, 0, 0]` | The world coordinates of position `0, 0, 0`, for a scene built away from its real position. Weighted variants and `randomOffset` are picked from world coordinates, so they match the game |
 | `randomOffset` | `false` | Shift the blocks the game offsets by position (grass, ferns, flowers, bamboo, pointed dripstone) the same way it does |
 
-Asset interpretation:
-
-| Option | Default | Description |
-|---|---|---|
-| `version` | | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
-| `defaults` | `"preferred"` | Which [default blockstates](extending.md#default-blockstates) fill properties a block entry doesn't set. `"preferred"` layers the preferred overrides over each block's real default state (stairs face the camera, crops grown); `"game"` uses the real default state alone, for block data whose format omits properties that are at their default (26.3+ structure and worldgen files) |
-| `ignoreAtlases` | `false` | Skip texture atlas membership rules |
+The Minecraft version, the default blockstate mode and the atlas rules come from the assets, set with [`prepareAssets`](assets.md#prepareassetsassets-options).
 
 The optimize pass:
 
@@ -100,7 +94,7 @@ The build itself:
 |---|---|---|
 | `onProgress` | | `(stage, done, total)` progress callback, see below |
 | `shouldCancel` | | Checked between work slices; return `true` to abort. A cancelled `createScene` resolves `null` |
-| `animate` | `true` | Browser: auto-play texture animations, like [`loadModel`](#loadmodelscene-assets-model-args). On Node, animated output goes through [`renderModelScene`](#rendermodelscenescene-camera-args) as usual |
+| `animate` | `true` | Browser: auto-play texture animations, like [`loadModel`](#loadmodelassets-model-args). On Node, animated output goes through [`renderModelScene`](#rendermodelscenescene-camera-args) as usual |
 | `keepTemplates` | `false` | Retain the internal per-state template groups and return them on the handle, for tooling that needs per-block geometry (collision, hit-testing). Holds their memory for the scene's lifetime |
 | `externalOcclusion` | | `(x, y, z) => boolean` over cell coordinates outside `blocks`. Return `true` to treat that absent cell as a full occluder: faces pressed against it cull, and the automatic light volume counts it as a full opaque block, so a thinned scene (buried blocks dropped) lights its corners as if they were still there. For building a chunk of a larger world where the surroundings exist but aren't in this scene |
 
@@ -146,16 +140,13 @@ Resolves a blockstate to a list of model references, picking variants or multipa
 |---|---|
 | `assets` | The assets source |
 | `id` | The blockstate id |
-| `args.data` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
+| `args.properties` | Blockstate property values (e.g. `{ axis: "y", half: "top" }`) |
 | `args.seed` | Seeded randomness for weighted blockstate variants: a number, and the same seed always picks the same variants. The picks don't match the game's. Omit to pick from `pos` instead, or to take the first variant without one |
 | `args.biome` | Biome tinting for the colormap tints and water: one `{ temperature, downfall, tint, combine, weight, water }` biome, or an array of them for a weighted blend. Same as [`renderBlock`](standard-api.md#renderblockargs) |
 | `args.nbt` | Block entity data rendered with the block, same shape as [`renderBlock`](standard-api.md#renderblockargs)'s `nbt`. Its models come back appended to the list |
 | `args.mapArt` | Map art callback for framed maps, as on [`renderBlock`](standard-api.md#renderblockargs). See [Map art](#map-art) |
 | `args.pos` | The block's world position `[x, y, z]`. Without a `seed`, weighted variants are picked from it exactly as the game picks them. Also used by `randomOffset` and passed through to the `mapArt` callback |
-| `args.randomOffset` | Shift the blocks the game offsets by position (grass, flowers, bamboo, pointed dripstone) the same way it does, from `pos`. The block's model references get an `offset` in blocks, `[x, y, z]`, which [`loadModel`](#loadmodelscene-assets-model-args) applies |
-| `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
-| `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
-| `args.defaults` | Which [default blockstates](extending.md#default-blockstates) fill properties `data` doesn't set: `"preferred"` (default) layers the preferred overrides over the block's real default state, `"game"` uses the real default state alone |
+| `args.randomOffset` | Shift the blocks the game offsets by position (grass, flowers, bamboo, pointed dripstone) the same way it does, from `pos`. The block's model references get an `offset` in blocks, `[x, y, z]`, which [`loadModel`](#loadmodelassets-model-args) applies |
 
 Returns a list of model references, one per matching model.
 
@@ -163,16 +154,14 @@ Properties you don't pass fall back to the [default blockstates](extending.md#de
 
 ## `parseItemDefinition(assets, id, args?)`
 
-Resolves an item definition to a list of model references, walking conditions, selects, and range dispatch based on the given properties.
+Resolves an item definition to a list of model references, walking conditions, selects, and range dispatch based on the given components.
 
 | Argument | Description |
 |---|---|
 | `assets` | The assets source |
 | `id` | The item id |
-| `args.data` | Item components used by the definition |
+| `args.components` | Item components used by the definition |
 | `args.display` | Display context, used by `display_context` selects and tint color resolution |
-| `args.ignoreAtlases` | Skip texture atlas membership rules for the returned models |
-| `args.version` | Minecraft version the assets are for. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
 Returns a list of model references.
 
@@ -182,8 +171,8 @@ The full item definition format is supported. What that means in practice:
 
 * **Model types**: `model`, `composite`, `condition`, `select`, `range_dispatch`, `special`, and `bundle/selected_item`. Nested `transformation` fields compose down the tree
 * **Special models** (`type: "special"`) render through the [bundled overrides](assets.md#bundled-packs): banners, chests, shulker boxes, heads and skulls, conduits, decorated pots, shields, tridents, copper golem statues, and the end portal cube. Runtime state like `openness`, `chest_type`, banner `color`, and statue `pose` is honored, as are `banner_patterns` (on both banners and shields) and a shield's `base_color`, each pattern layered in its dye color the way the game builds them. A player head's `profile` component renders that player's skin ([Player heads](#player-heads))
-* **Select properties**: `custom_model_data` (strings), `component`, `block_state`, `charge`, `trim_material`, `display_context` (fed from `args.display`), `local_time` (formatted from the actual current time using the definition's pattern), plus any plain string property looked up in `args.data` by name, so future vanilla additions work without renderer updates
-* **Condition properties**: `custom_model_data` (flags), `has_component`, and any plain boolean property in `args.data`
+* **Select properties**: `custom_model_data` (strings), `component`, `block_state`, `charge`, `trim_material`, `display_context` (fed from `args.display`), `local_time` (formatted from the actual current time using the definition's pattern), plus any plain string property looked up in `args.components` by name, so future vanilla additions work without renderer updates
+* **Condition properties**: `custom_model_data` (flags), `has_component`, and any plain boolean property in `args.components`
 * **Tint sources**: `team`, `dye`, `map_color`, `potion` (with the vanilla effect color blending), `custom_model_data` (colors), `firework` (color averaging), `grass`/`foliage`/`dry_foliage` (sampled from the colormaps), and `constant`/`default` values
 * **Enchantment glint**: items that shimmer in game render with the animated glint overlay: anything with a non-empty `enchantments` component (or legacy `Enchantments` nbt on frame and shelf items), the always-glinting items (extracted from the game into `items.json`, extendable by packs like the other [block data files](extending.md#block-data-and-colors)), and a compass with a `lodestone_tracker`. An explicit `enchantment_glint_override` component wins both ways: `true` forces the glint, `false` removes it. The pattern comes from `minecraft/textures/misc/enchanted_glint_item.png` (resource packs can override it; a vanilla fallback is bundled)
 
@@ -209,21 +198,20 @@ resolved.generated // true, and resolved.elements holds the extruded quads
 
 ## `makeModelScene()`
 
-Creates a fresh three.js scene and orthographic camera configured for block rendering. Async in the browser, sync on Node.
+Creates a fresh three.js scene and orthographic camera configured for block rendering.
 
-Returns `{ scene, camera }`.
+Resolves `{ scene, camera }`.
 
 The returned camera has a `fitAspect = true` flag that tells [`renderModelScene`](#rendermodelscenescene-camera-args) to adjust the camera's frustum to match the output aspect ratio (so non-square renders aren't squished). Set the same property on your own camera (`camera.fitAspect = true`) if you want the same behavior. Works for both `OrthographicCamera` and `PerspectiveCamera`. Without the flag, the camera is left exactly as you configured it.
 
-## `loadModel(scene, assets, model, args?)`
+## `loadModel(assets, model, args?)`
 
-Builds a resolved model's geometry and materials as a three.js group. If `scene` is non-null, the group is also added to it; pass `null` to just get the group back without touching any scene.
+Builds a resolved model's geometry and materials as a three.js group, and adds it to `args.parent` when one is given.
 
 Texture atlas rules are enforced here: if `model.type` is `"block"` or `"item"` and `model.ignore_atlas_restrictions` isn't set, the model is replaced with the missing-model placeholder when any face texture is in the wrong atlas. Set `model.ignore_atlas_restrictions = true` on the model to bypass.
 
 | Argument | Description |
 |---|---|
-| `scene` | The three.js scene to add the model to, or `null` to skip adding it |
 | `assets` | The assets source |
 | `model` | A resolved model (from [`resolveModelData`](#resolvemodeldataassets-model)) |
 
@@ -249,9 +237,9 @@ How the group is built:
 
 | Option | Description |
 |---|---|
+| `args.parent` | An object to add the built group to, such as a scene or a group. Models loaded into the same parent share one time of day, fog and set of [lighting switches](rendering.md#lighting-switches) |
 | `args.animate` | Browser only. `false` disables the automatic animator (see [Animation](#animation-browser)); drive it yourself with [`createAnimator`](#animation-browser). Default `true` |
 | `args.mergeElements` | `false` keeps one mesh per model element instead of merging them into shared geometry, for tooling that edits or inspects individual cubes (a model editor). More draw calls, and no per-element `userData.collision` boxes, since the merge pass is what produces those. Default `true` |
-| `args.version` | Minecraft version the assets are for. Sets `model.version` if not already present. See [Legacy Minecraft versions](versions.md#legacy-minecraft-versions) |
 
 Returns a `THREE.Group` containing the loaded model.
 
@@ -259,15 +247,15 @@ The group carries the resolved model it was built from as `userData.model`. This
 
 ### Animation (browser)
 
-In the browser, a model loaded with [`loadModel`](#loadmodelscene-assets-model-args) animates on its own. Its textures and the end portal shader advance every time the scene is drawn, driven off the page-global clock via `onBeforeRender`, so nothing per-frame is yours to do: if your app already has a render loop (as any interactive three.js scene does), the animation just plays. Only a one-off render freezes it, since a single draw captures a single frame.
+In the browser, a model loaded with [`loadModel`](#loadmodelassets-model-args) animates on its own. Its textures and the end portal shader advance every time the scene is drawn, driven off the page-global clock via `onBeforeRender`, so nothing per-frame is yours to do: if your app already has a render loop (as any interactive three.js scene does), the animation just plays. Only a one-off render freezes it, since a single draw captures a single frame.
 
-For manual control (scrubbing, pausing, or driving from your own clock), pass `{ animate: false }` to [`loadModel`](#loadmodelscene-assets-model-args) and use [`createAnimator(root)`](#animation-browser). It scans the object once and `update(ms?)` advances everything animated in it (defaulting to the global clock); `animator.animated` is `false` if there's nothing to animate.
+For manual control (scrubbing, pausing, or driving from your own clock), pass `{ animate: false }` to [`loadModel`](#loadmodelassets-model-args) and use [`createAnimator(root)`](#animation-browser). It scans the object once and `update(ms?)` advances everything animated in it (defaulting to the global clock); `animator.animated` is `false` if there's nothing to animate.
 
 ```js
 import { loadModel, createAnimator } from "block-model-renderer"
 
 // opt out of the automatic animator, then drive it yourself
-const group = await loadModel(scene, assets, resolved, { animate: false })
+const group = await loadModel(assets, resolved, { animate: false, parent: scene })
 const animator = createAnimator(group)
 
 // scrub to a fixed moment (2s in) and render one frozen frame:
@@ -304,7 +292,7 @@ The manual setter, for driving a pose yourself. Calling it cancels the automatic
 
 | Argument | Description |
 |---|---|
-| `root` | A group whose `userData.dynamic` is set: [`loadModel`](#loadmodelscene-assets-model-args) output for a dynamic model, or any clone of one |
+| `root` | A group whose `userData.dynamic` is set: [`loadModel`](#loadmodelassets-model-args) output for a dynamic model, or any clone of one |
 | `pose` | The pose values for that model kind (below). Omitted fields fall back to the rest pose |
 
 The pose fields per kind (`root.userData.dynamic`):
@@ -321,7 +309,7 @@ The pose fields per kind (`root.userData.dynamic`):
 | `"piglin_head"` | `{ left, right }` | How far each ear is raised, 0-1 (0 is the resting droop) |
 | `"shulker_box"` | `{ openness }` | Opening progress 0-1: lifts the lid 8 voxels while twisting it 270°, linear like the game |
 
-Models opt in with the `dynamic` and `part` [extension fields](extending.md#dynamic-models), and [`loadModel`](#loadmodelscene-assets-model-args) applies the model's initial `pose` on build (a chest special's `openness` ends up there).
+Models opt in with the `dynamic` and `part` [extension fields](extending.md#dynamic-models), and [`loadModel`](#loadmodelassets-model-args) applies the model's initial `pose` on build (a chest special's `openness` ends up there).
 
 ### `resumeSpecial(root)`
 
@@ -345,7 +333,7 @@ Renders a scene to an image buffer. Takes all the same output options as [`rende
 
 Returns an image buffer, or `{ buffer, format }` when `args.animated` is truthy. In the browser it returns a canvas or player instead, honoring the browser `canvas`/placement options.
 
-Translucent faces in the scene are depth-sorted once against the given camera before rendering, so water behind glass draws correctly. For live scenes where the camera moves, see [`sortTranslucent`](optimization.md#translucent-sorting).
+Translucent faces in the scene are depth-sorted once against the given camera before rendering, so water behind glass draws correctly. For live scenes where the camera moves, see [`createTranslucentSorter`](optimization.md#translucent-sorting).
 
 ## Map art
 
