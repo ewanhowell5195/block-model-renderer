@@ -326,8 +326,8 @@ export interface FogConfig {
   color?: ColorInput
   /** Where distances are measured from. Default the rendering camera. */
   anchor?: AnchorInput | null
-  /** A fixed `0` to `1` strength for the sunrise and sunset glow in the fog color. Default `null`, which follows how directly the camera faces the sun. */
-  sunriseGlow?: number | null
+  /** How the fog color takes on the sunrise and sunset glow: `"camera"` by how directly the camera faces the sun, `"pixel"` by each pixel's direction from the anchor, or a fixed `0` to `1` strength. Default `"camera"`. */
+  sunriseGlow?: "camera" | "pixel" | number | null
 }
 
 /** A render distance in chunks, a {@link FogConfig}, or a {@link FogHandle} to share. */
@@ -347,8 +347,8 @@ export interface FogHandle {
   color: THREE.Vector3 | ColorInput
   /** Where distances are measured from, or `null` for the rendering camera. */
   anchor: THREE.Object3D | THREE.Vector3 | null
-  /** The fixed sunrise glow strength, or `null` to follow the camera. */
-  sunriseGlow: number | null
+  /** The sunrise glow setting: `"pixel"`, a fixed strength, or `null` to follow the camera. Assigning `"camera"` sets `null`. */
+  sunriseGlow: "camera" | "pixel" | number | null
   /** Re-read an object anchor's position after it moves. */
   update(): void
 }
@@ -746,8 +746,8 @@ export interface CreateSkyOptions {
   horizonFade?: boolean
   /** The Minecraft version the assets are for, which picks the sun and moon texture layout. */
   version?: string
-  /** The horizon's share of the sunrise glow, `0` to `1`, instead of taking it from the camera's direction. With a fog, the sky follows the fog's setting. */
-  sunriseGlow?: number | null
+  /** The horizon's sunrise glow: `"camera"`, `"pixel"`, or a fixed `0` to `1` share. With a fog, the sky follows the fog's setting. Default `"camera"`. */
+  sunriseGlow?: "camera" | "pixel" | number | null
   /** Advance the day/night clock in real time, 20 ticks a second. Default `false`. */
   tick?: boolean
   /** The fog the sky fades into: a scene's {@link FogHandle}, or the same value world lighting takes. */
@@ -768,8 +768,8 @@ export interface SkyHandle {
   moonPhase: number
   /** The tilt of the sun and moon's path, in degrees off overhead. Assignable. */
   angle: number
-  /** The fixed sunrise glow amount, or `null` to follow the camera. Assignable. */
-  sunriseGlow: number | null
+  /** The sunrise glow setting: `"pixel"`, a fixed amount, or `null` to follow the camera. Assignable, and `"camera"` sets `null`. */
+  sunriseGlow: "camera" | "pixel" | number | null
   /** Whether the clock advances on its own. Assignable. */
   tick: boolean
   /** The fog handle, or `null`. Pass it to scenes as `lighting.fog` so the blocks share it. */
@@ -1830,7 +1830,7 @@ export function getLightEmission(id: string, properties?: BlockProperties, resol
  *
  * @see https://github.com/ewanhowell5195/block-model-renderer/blob/master/docs/scenes.md#map-art
  */
-export function mapIdOf(item: Record<string, any>): string | number | null
+export function mapIdOf(item: Record<string, any>): number | null
 
 /** A player profile: a username, or the shape the game saves. */
 export type PlayerProfile = string | {
