@@ -230,9 +230,19 @@ function detectMaxAtlas() {
   return _maxAtlas
 }
 
+const orientCorner = (oc, ha, hb) => (((oc & 1 ? hb : ha) ^ (oc >> 1 & 1)) << 1) | ((oc & 1 ? ha : hb) ^ (oc >> 2))
+
+function orientCode(orient) {
+  const o = orient[0]
+  if (o < 0) return -1
+  const oc = (orient[2] >> 1 === o >> 1 ? 1 : 0) | (o >> 1 << 1) | ((o & 1) << 2)
+  for (let k = 1; k < 4; k++) if (orient[k] !== orientCorner(oc, k >> 1, k & 1)) return -1
+  return oc
+}
+
 let _ef = null
 const _fa = new Float64Array(6), _fb = new Float64Array(6), _fu = new Float64Array(6), _fv = new Float64Array(6), _fo = new Int8Array(4)
-function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
+function extractFlat(geo, grp, mw, nm, tex, mat, cull, tiled) {
   _ef ??= new THREE.Vector3()
   const pos = geo.attributes.position, uv = geo.attributes.uv, nrm = geo.attributes.normal, idx = geo.index, n = grp.count
   if (!uv || n > 6) return null
@@ -274,13 +284,17 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
   if (sub.sw < 1 || sub.sh < 1) return null
   if (Math.abs(umin * tw - sub.sx) > 1e-3 || Math.abs((1 - vmax) * th - sub.sy) > 1e-3 || Math.abs(du * tw - sub.sw) > 1e-3 || Math.abs(dv * th - sub.sh) > 1e-3) return null
   const verts = new Array(n), orient = _fo.fill(-1)
+  let clash = false
   for (let k = 0; k < n; k++) {
     const ha = Math.abs(A[k] - a1) < 0.01 ? 1 : 0, hb = Math.abs(B[k] - b1) < 0.01 ? 1 : 0, u = (U[k] - umin) / du, v = (V[k] - vmin) / dv
     const ur = Math.round(u), vr = Math.round(v)
     if (Math.abs(u - ur) > 1e-3 || Math.abs(v - vr) > 1e-3) return null
     verts[k] = { ha, hb, u, v }
+    if (orient[ha * 2 + hb] >= 0 && orient[ha * 2 + hb] !== ur * 2 + vr) clash = true
     orient[ha * 2 + hb] = ur * 2 + vr
   }
+  const oc = tiled && !clash ? orientCode(orient) : -1
+  if (tiled && oc < 0) return null
   const srcHash = hashTexture(tex)
   const col = geo.attributes.color
   let tint = null
@@ -289,15 +303,15 @@ function extractFlat(geo, grp, mw, nm, tex, mat, cull) {
     if (col.array[a] !== 255 || col.array[a + 1] !== 255 || col.array[a + 2] !== 255) tint = [col.array[a], col.array[a + 1], col.array[a + 2]]
   }
   const { id: sigId, sig } = atlasSigs(mat)
-  const cellKey = `${sigId}:${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${Math.round(wa * 100)}x${Math.round(wb * 100)}:${orient.join("")}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
-  return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig, tex, mat, srcHash, cull, cellKey, tint }
+  const cellKey = `${sigId}:${srcHash}:${sub.sx},${sub.sy},${sub.sw},${sub.sh}:${Math.round(wa * 100)}x${Math.round(wb * 100)}:${tiled ? "" : orient.join("")}:${faceDataOf(mat)?.join(",") ?? ""}:${tint ?? ""}`
+  return { na, ns, pa, pb, pc, a0, b0, wa, wb, uAxisIsPa, sub, verts, sig, tex, mat, srcHash, cull, cellKey, tint, oc }
 }
 
 function extractFlats(geo, grp, mw, nm, tex, mat, cull, tiled) {
   if (grp.count % 6) return null
   const out = []
   for (let s = grp.start; s < grp.start + grp.count; s += 6) {
-    const flat = extractFlat(geo, { start: s, count: 6 }, mw, nm, tex, mat, cull)
+    const flat = extractFlat(geo, { start: s, count: 6 }, mw, nm, tex, mat, cull, tiled)
     if (!flat) return null
     flat.tiled = tiled
     out.push({ flat, start: s, count: 6 })
@@ -375,7 +389,7 @@ function faceCulled(f, cm, cull) {
 }
 
 function scanCells(scan, from, to) {
-  const { placeGroup, placeCull, groupTd, culls, cullMask, P, base, cellIds, gridIndex, gridNames, grids, cellRuns } = scan
+  const { placeGroup, placeCull, groupTd, culls, cullMask, P, base, cellIds, gridIndex, gridNames, grids, cellRuns, cellOrients } = scan
   for (let i = from; i < to; i++) {
     const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
     if (!td) continue
@@ -407,16 +421,59 @@ function scanCells(scan, from, to) {
         g = gridNames.get(sk) ?? -1
         if (g < 0) gridNames.set(sk, g = grids.length)
       }
-      if (g === grids.length) grids.push({ f, wpc, phaseA, phaseB, index: g })
+      if (g === grids.length) grids.push({ f, wpc, phaseA, phaseB, index: g, mixed: false })
+      else if (f.oc !== grids[g].f.oc && !grids[g].mixed) scan.mixed = grids[g].mixed = true
       cellRuns.push3(g, Math.round((wa0 - phaseA) / f.wa), Math.round((wb0 - phaseB) / f.wb))
+      if (cellOrients) cellOrients.push(f.oc)
     }
   }
 }
 
-const TILED_SPAN = 4096, TILED_SORT_SPAN = 32
+function hashCell(g, i, j) {
+  let h = Math.imul(g, 0x9e3779b1) ^ Math.imul(i, 0x85ebca6b) ^ Math.imul(j, 0xc2b2ae35)
+  h = Math.imul(h ^ (h >>> 16), 0x27d4eb2d)
+  return h ^ (h >>> 15)
+}
+
+function indexOrients(grids, cells) {
+  let n = 0
+  for (let c = 0; c < cells.length; c += 3) if (grids[cells[c]].mixed) n++
+  let cap = 1024
+  while (cap < n * 2) cap *= 2
+  const slots = new Int32Array(cap).fill(-1), mask = cap - 1
+  for (let c = 0; c < cells.length; c += 3) {
+    const g = cells[c], i = cells[c + 1], j = cells[c + 2]
+    if (!grids[g].mixed) continue
+    let h = hashCell(g, i, j) & mask, s
+    while ((s = slots[h]) >= 0 && (cells[s] !== g || cells[s + 1] !== i || cells[s + 2] !== j)) h = (h + 1) & mask
+    if (s < 0) slots[h] = c
+  }
+  return { slots, mask, cells }
+}
+
+const MIXED = 8
+
+function chunkOrient(scan, g, i0, i1, j0, j1) {
+  const { slots, mask, cells } = scan.orientIndex, orients = scan.cellOrients.a, out = scan.quadOrients, at = out.length
+  let first = -1, mixed = false
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    let h = hashCell(g, i, j) & mask, s
+    while ((s = slots[h]) >= 0 && (cells[s] !== g || cells[s + 1] !== i || cells[s + 2] !== j)) h = (h + 1) & mask
+    if (s < 0) throw new Error(`merged quad covers cell ${i},${j} that grid ${g} never placed`)
+    const oc = orients[s / 3]
+    if (first < 0) first = oc
+    else if (oc !== first) mixed = true
+    out.push(oc)
+  }
+  if (mixed) return MIXED
+  out.length = at
+  return first
+}
+
+const TILED_SPAN = 4096, TILED_SORT_SPAN = 32, MIXED_SPAN = 32
 
 function splitQuads(scan, from, to) {
-  const { grids, rectRun, rectAt, maxTile, tiles, atlasGroups, cutoff, greedyQuads } = scan
+  const { grids, rectRun, rectAt, maxTile, tiles, atlasGroups, cutoff, greedyQuads, quadOrients } = scan
   for (let gi = from; gi < to; gi++) {
     const grid = grids[gi], f = grid.f
     let tile = f.tile
@@ -431,7 +488,7 @@ function splitQuads(scan, from, to) {
       if (!tile) tiles.set(tileKey, tile = { sig, grp, f, content, ur: 0, vr: 0, pseudo: null })
       f.tile = tile
     }
-    const span = tile.grp.translucent ? TILED_SORT_SPAN : TILED_SPAN
+    const span = Math.min(tile.grp.translucent ? TILED_SORT_SPAN : TILED_SPAN, grid.mixed ? MIXED_SPAN : TILED_SPAN)
     const maxA = f.tiled ? span : Math.max(1, Math.floor(maxTile / f.sub.sw)), maxB = f.tiled ? span : Math.max(1, Math.floor(maxTile / f.sub.sh))
     for (let ri = rectAt[grid.index], rEnd = rectAt[grid.index + 1]; ri < rEnd; ri += 5) {
       const i0 = rectRun[ri + 1], i1 = rectRun[ri + 2], j0 = rectRun[ri + 3], j1 = rectRun[ri + 4]
@@ -443,7 +500,8 @@ function splitQuads(scan, from, to) {
         const ur = f.uAxisIsPa ? Na : Nb, vr = f.uAxisIsPa ? Nb : Na
         if (ur > tile.ur) tile.ur = ur
         if (vr > tile.vr) tile.vr = vr
-        greedyQuads.push({ tile, ur, vr, f, wpc: grid.wpc, wALo, wAHi, wBLo, wBHi })
+        const at = grid.mixed ? quadOrients.length : 0, oc = grid.mixed ? chunkOrient(scan, grid.index, ci, ei, cj, ej) : f.oc
+        greedyQuads.push({ tile, ur, vr, f, wpc: grid.wpc, wALo, wAHi, wBLo, wBHi, ca: Na, cb: Nb, oc, at, lx: -1, ly: -1 })
       }
     }
   }
@@ -718,6 +776,7 @@ class GrowU8 {
     if (GROW_IN_PLACE) { this.a = new Uint8Array(this.a.buffer.transfer(n)); return }
     const b = new Uint8Array(n); b.set(this.a); this.a = b
   }
+  push(x) { this.ensure(1); this.a[this.length++] = x }
   push3(x, y, z) { this.ensure(3); const a = this.a, l = this.length; a[l] = x; a[l + 1] = y; a[l + 2] = z; this.length = l + 3 }
   append(v) { if (!v.length) return; this.ensure(v.length); this.a.set(v, this.length); this.length += v.length }
 }
@@ -770,22 +829,23 @@ function quadLayout(f) {
   return { corners, index }
 }
 
-function emitQuads(quads, from, to) {
+function emitQuads(quads, from, to, orients) {
   for (let i = from; i < to; i++) {
     const q = quads[i], f = q.f, tile = q.tile, out = tile.acc.out, rect = tile.rect, size = tile.size
-    const P = out.position, N = out.normal, U = out.uv, T = out.color, F = out.faceData, I = out.index, R = f.tiled ? out.tileRect : null
+    const P = out.position, N = out.normal, U = out.uv, T = out.color, F = out.faceData, I = out.index, R = f.tiled ? out.tileRect : null, L = out.tileLookup
     const na = f.na, pa = f.pa, pb = f.pb, sub = f.sub, tint = f.tint, nv = f.ns * out.unit
     const tr = tint ? tint[0] : 255, tg = tint ? tint[1] : 255, tb = tint ? tint[2] : 255
     const fe = !F ? 0 : out.bytes ? Math.round(f.fd[0] * 15) : f.fd[0] * 15, ff = F ? f.fd[1] : 0
     const corners = f.layout.corners, order = f.layout.index
-    const split = f.tiled && !R
-    const ca = !split ? 1 : f.uAxisIsPa ? q.ur : q.vr, cb = !split ? 1 : f.uAxisIsPa ? q.vr : q.ur
+    const split = f.tiled && (!R || (q.oc === MIXED && q.lx < 0))
+    const ca = split ? q.ca : 1, cb = split ? q.cb : 1
     const ox = tile.direct ? rect.x + sub.sx : rect.x, oy = tile.direct ? rect.y + sub.sy : rect.y
     const rw = tile.direct ? sub.sw : sub.sw * q.ur, rh = tile.direct ? sub.sh : sub.sh * q.vr
     let v0 = out.verts, i0 = out.indices
     for (let a = 0; a < ca; a++) for (let b = 0; b < cb; b++) {
       const aLo = split ? q.wALo + a * f.wa : q.wALo, aHi = split ? q.wALo + (a + 1) * f.wa : q.wAHi
       const bLo = split ? q.wBLo + b * f.wb : q.wBLo, bHi = split ? q.wBLo + (b + 1) * f.wb : q.wBHi
+      const oc = split && q.oc === MIXED ? orients[q.at + b * q.ca + a] : q.oc
       for (let c = 0; c < corners.length; c++) {
         const vert = corners[c], o3 = (v0 + c) * 3, o2 = (v0 + c) * 2
         P[o3 + na] = q.wpc
@@ -794,9 +854,14 @@ function emitQuads(quads, from, to) {
         N[o3 + na] = nv
         if (R) {
           const o4 = (v0 + c) * 4
-          U[o2] = q.ur + Math.round(vert.u) * 0.5
-          U[o2 + 1] = q.vr + Math.round(vert.v) * 0.5
+          U[o2] = (split ? 1 : q.ca) + vert.ha * 0.5 + (oc & 1) * 0.25 + (oc >> 1 & 1) * 0.125
+          U[o2 + 1] = (split ? 1 : q.cb) + vert.hb * 0.5 + (oc >> 2 & 1) * 0.25 + (oc >> 3) * 0.125
           R[o4] = ox; R[o4 + 1] = oy; R[o4 + 2] = rw; R[o4 + 3] = rh
+          if (oc === MIXED) { L[o2] = q.lx; L[o2 + 1] = q.ly }
+        } else if (split) {
+          const to = orientCorner(oc, vert.ha, vert.hb)
+          U[o2] = (ox + (to >> 1) * rw) / size.w
+          U[o2 + 1] = 1 - (oy + (1 - (to & 1)) * rh) / size.h
         } else {
           U[o2] = (ox + vert.u * rw) / size.w
           U[o2 + 1] = 1 - (oy + (1 - vert.v) * rh) / size.h
@@ -841,7 +906,7 @@ function dedupMesh(acc) {
   return { index, src, verts: w, indices: n }
 }
 
-const VERTEX_BYTES = 28, TILE_BYTES = 8
+const VERTEX_BYTES = 28, TILE_BYTES = 8, LOOKUP_VERTEX_BYTES = 4, LOOKUP_MAX = 4096
 function meshBytes(acc, quads, vertexBytes) {
   const verts = acc.dedup.verts + quads * 4
   return verts * vertexBytes + (acc.dedup.indices + quads * 6) * (verts <= 65536 ? 2 : 4)
@@ -884,12 +949,50 @@ function packMesh(acc) {
       faceData[o * 2 + 1] = F[s2 + 1]
     }
   }
-  const out = { position, normal, uv, color, faceData, tileRect: acc.tiled ? new Uint16Array(verts * 4) : null, index: new (verts <= 65536 ? Uint16Array : Uint32Array)(n + acc.quads * 6), verts: w, indices: n, unit: byteNormals ? 127 : 32767, bytes }
+  const out = { position, normal, uv, color, faceData, tileRect: acc.tiled ? new Uint16Array(verts * 4) : null, tileLookup: acc.lookup ? new Uint16Array(verts * 2) : null, index: new (verts <= 65536 ? Uint16Array : Uint32Array)(n + acc.quads * 6), verts: w, indices: n, unit: byteNormals ? 127 : 32767, bytes }
   out.index.set(index)
   return out
 }
 
-const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0, quads: 0, quadVerts: 0, quadFaceData: false, quadBytes: true, tiled: false, tiledQuads: 0, tiledCells: 0, dedup: null, out: null })
+const makeAcc = () => ({ P: new GrowF32(), N: new GrowF32(), U: new GrowF32(), F: new GrowF32(), T: new GrowU8(), need: 0, needF: 0, quads: 0, quadVerts: 0, quadFaceData: false, quadBytes: true, tiled: false, tiledQuads: 0, tiledCells: 0, lookup: false, lookupQuads: 0, lookupCells: 0, dedup: null, out: null })
+
+function releaseLookup(texture) {
+  const { width, height } = texture.image
+  texture.image = { data: null, width, height }
+}
+
+function packLookup(quads, orients, stride, release) {
+  const rows = Array.from({ length: MIXED_SPAN + 1 }, () => [])
+  let area = 0
+  for (const q of quads) {
+    if (q.oc !== MIXED || !q.tile.acc.lookup) continue
+    rows[q.cb].push(q)
+    area += q.ca * q.cb
+  }
+  if (!area) return null
+  let width = MIXED_SPAN
+  while (width < LOOKUP_MAX && width * width < area) width *= 2
+  let x = 0, y = 0, shelf = 0
+  for (let h = MIXED_SPAN; h > 0; h--) for (const q of rows[h]) {
+    if (x + q.ca > width) { y += shelf; x = 0; shelf = 0 }
+    if (y + h > LOOKUP_MAX) continue
+    if (!shelf) shelf = h
+    q.lx = x
+    q.ly = y
+    x += q.ca
+  }
+  const height = y + shelf, data = new Uint8Array(width * height * stride)
+  for (const row of rows) for (const q of row) {
+    if (q.lx < 0) continue
+    for (let b = 0; b < q.cb; b++) for (let a = 0; a < q.ca; a++) data[((q.ly + b) * width + q.lx + a) * stride] = orients[q.at + b * q.ca + a]
+  }
+  const texture = new THREE.DataTexture(data, width, height, stride === 1 ? THREE.RedFormat : THREE.RGBAFormat)
+  texture.minFilter = texture.magFilter = THREE.NearestFilter
+  texture.generateMipmaps = false
+  texture.needsUpdate = true
+  if (release) texture.onUpdate = releaseLookup
+  return { texture, size: new THREE.Vector2(width, height) }
+}
 
 const BAKE_STRIDE = 13
 
@@ -1363,6 +1466,7 @@ function optimizedHandle({ group, drawCalls, tris, created, sorter }) {
       for (const g of created.geometries) { try { g.dispose() } catch {} }
       for (const m of created.materials) { try { m.dispose() } catch {} }
       for (const e of created.atlasEntries) { try { releaseAtlas(e) } catch {} }
+      for (const t of created.lookups) { try { t.dispose() } catch {} }
       group.removeFromParent()
     }
   }
@@ -1663,7 +1767,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     for (let a = 0; a < 3; a++) if (P[i * 3 + a] < base[a]) base[a] = P[i * 3 + a]
   }
   for (let a = 0; a < 3; a++) base[a] = Number.isFinite(base[a]) ? Math.floor(base[a]) : 0
-  const cellScan = { placeGroup, placeCull, groupTd, culls, cullMask, P, base, cellIds, gridIndex, gridNames, grids, cellRuns }
+  const cellOrients = shared ? new GrowU8() : null
+  const cellScan = { placeGroup, placeCull, groupTd, culls, cullMask, P, base, cellIds, gridIndex, gridNames, grids, cellRuns, cellOrients, mixed: false }
   for (let i = 0; i < placeCount; i += 4096) {
     const to = Math.min(i + 4096, placeCount)
     scanCells(cellScan, i, to)
@@ -1684,7 +1789,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   const tiles = new Map()
   const maxTile = grids.length && !shared ? Math.max(64, maxAtlas() >> 5) : 0
   stage(2500)
-  const quadScan = { grids, rectRun, rectAt, maxTile, tiles, atlasGroups, cutoff, greedyQuads }
+  const quadOrients = shared ? new GrowU8() : null
+  const quadScan = { grids, rectRun, rectAt, maxTile, tiles, atlasGroups, cutoff, greedyQuads, quadOrients, cellOrients, orientIndex: cellScan.mixed ? indexOrients(grids, cellData) : null }
   for (let i = 0; i < grids.length; i += 1024) {
     const to = Math.min(i + 1024, grids.length)
     splitQuads(quadScan, i, to)
@@ -1700,7 +1806,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
 
   const atlases = new Map()
-  const created = { textures: [], materials: [], atlasEntries: [], geometries: [] }
+  const created = { textures: [], materials: [], atlasEntries: [], geometries: [], lookups: [] }
   stage(800)
   let ai = 0
   for (const [sig, grp] of atlasGroups) {
@@ -1939,10 +2045,23 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   }
   for (const q of greedyQuads) {
     if (!q.f.tiled) continue
-    q.tile.acc.tiledQuads++
-    q.tile.acc.tiledCells += q.ur * q.vr
+    const acc = q.tile.acc
+    acc.tiledQuads++
+    acc.tiledCells += q.ca * q.cb
+    if (q.oc !== MIXED) continue
+    acc.lookupQuads++
+    acc.lookupCells += q.ca * q.cb
   }
-  for (const { acc } of packs) acc.tiled = acc.tiledQuads > 0 && meshBytes(acc, acc.tiledQuads, VERTEX_BYTES + TILE_BYTES) <= meshBytes(acc, acc.tiledCells, VERTEX_BYTES)
+  const lookupStride = platform.webgl2?.() ? 1 : 4
+  for (const { acc } of packs) {
+    if (!acc.tiledQuads) continue
+    const split = meshBytes(acc, acc.tiledQuads - acc.lookupQuads + acc.lookupCells, VERTEX_BYTES + TILE_BYTES)
+    const looked = acc.lookupQuads ? meshBytes(acc, acc.tiledQuads, VERTEX_BYTES + TILE_BYTES + LOOKUP_VERTEX_BYTES) + acc.lookupCells * lookupStride : Infinity
+    acc.tiled = Math.min(split, looked) <= meshBytes(acc, acc.tiledCells, VERTEX_BYTES)
+    acc.lookup = acc.tiled && looked < split
+  }
+  const lookup = quadOrients?.length ? packLookup(greedyQuads, quadOrients.a, lookupStride, !!opts.release) : null
+  if (lookup) created.lookups.push(lookup.texture)
   for (const q of greedyQuads) {
     const f = q.f, acc = q.tile.acc
     if (!f.layout) {
@@ -1950,7 +2069,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       f.fd = faceDataOf(f.mat)
       f.fdBytes = !f.fd || byteFaceData(f.fd[0], f.fd[1])
     }
-    const count = f.tiled && !acc.tiled ? q.ur * q.vr : 1
+    const count = f.tiled && (!acc.tiled || (q.oc === MIXED && q.lx < 0)) ? q.ca * q.cb : 1
     acc.quads += count
     acc.quadVerts += f.layout.corners.length * count
     if (f.fd) acc.quadFaceData = true
@@ -1963,7 +2082,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
 
   stage(1500)
   for (let i = 0; i < greedyQuads.length; i += 4096) {
-    emitQuads(greedyQuads, i, Math.min(i + 4096, greedyQuads.length))
+    emitQuads(greedyQuads, i, Math.min(i + 4096, greedyQuads.length), quadOrients?.a)
     report(i / greedyQuads.length)
     await breathe()
     if (shouldCancel?.()) return null
@@ -1981,6 +2100,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     geo.setAttribute("color", new THREE.BufferAttribute(packed.color, 3, true))
     if (packed.faceData) geo.setAttribute("faceData", new THREE.BufferAttribute(packed.faceData, 2))
     if (packed.tileRect) geo.setAttribute("tileRect", new THREE.BufferAttribute(packed.tileRect, 4))
+    if (packed.tileLookup) geo.setAttribute("tileLookup", new THREE.BufferAttribute(packed.tileLookup, 2))
     geo.setIndex(new THREE.BufferAttribute(packed.index, 1))
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity
     for (let i = 0; i < pd.length; i += 3) {
@@ -2011,6 +2131,11 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     if (acc.out.tileRect) {
       material.defines = { ...material.defines, TILED: "" }
       material.uniforms.atlasSize = { value: new THREE.Vector2(size.w, size.h) }
+    }
+    if (acc.out.tileLookup) {
+      material.defines.TILE_LOOKUP = ""
+      material.uniforms.tileLookupMap = { value: lookup.texture }
+      material.uniforms.tileLookupSize = { value: lookup.size }
     }
     addMesh(acc.out, material)
   }

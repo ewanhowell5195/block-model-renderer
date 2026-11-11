@@ -3823,6 +3823,10 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
         attribute vec4 tileRect;
         varying vec4 vTileRect;
         varying vec2 vTileSpan;
+        #ifdef TILE_LOOKUP
+          attribute vec2 tileLookup;
+          varying vec2 vTileLookup;
+        #endif
       #endif
       #ifdef LIGHT_VOLUME
         uniform vec3 lightVolOrigin;
@@ -3838,8 +3842,27 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
         #endif
         #ifdef TILED
           vTileRect = tileRect;
-          vTileSpan = tileRect.z > 0.5 ? floor(uv) : vec2(0.0);
-          if (tileRect.z > 0.5) vUv = (uv - vTileSpan) * 2.0 * vTileSpan;
+          vTileSpan = vec2(0.0);
+          #ifdef TILE_LOOKUP
+            vTileLookup = vec2(-1.0);
+          #endif
+          if (tileRect.z > 0.5) {
+            vec2 tileSpan = floor(uv);
+            vec2 tileBits = floor((uv - tileSpan) * 8.0 + 0.5);
+            vec2 tileCorner = step(3.5, tileBits);
+            tileBits -= tileCorner * 4.0;
+            vec2 tileTurn = step(1.5, tileBits);
+            tileBits -= tileTurn * 2.0;
+            #ifdef TILE_LOOKUP
+              if (tileBits.y > 0.5) vTileLookup = tileLookup;
+            #endif
+            if (tileTurn.x > 0.5) {
+              tileSpan = tileSpan.yx;
+              tileCorner = tileCorner.yx;
+            }
+            vTileSpan = tileSpan;
+            vUv = abs(tileCorner - vec2(tileBits.x, tileTurn.y)) * tileSpan;
+          }
         #endif
         ${parseInt(THREE.REVISION) >= 159 ? "#include <batching_vertex>" : ""}
         vec4 pos = vec4(position, 1.0);
@@ -3922,6 +3945,11 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
         uniform vec2 atlasSize;
         varying vec4 vTileRect;
         varying vec2 vTileSpan;
+        #ifdef TILE_LOOKUP
+          uniform sampler2D tileLookupMap;
+          uniform vec2 tileLookupSize;
+          varying vec2 vTileLookup;
+        #endif
       #endif
       #ifdef LIGHT_VOLUME
         varying vec3 vLightPos;
@@ -3972,7 +4000,19 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
             vec4 tile = floor(vTileRect + 0.5);
             vec2 span = floor(vTileSpan + 0.5);
             vec2 at = clamp(texUv, vec2(0.0), span);
-            vec2 px = clamp(mix(fract(at), vec2(1.0), step(span, at)) * tile.zw, vec2(0.015625), tile.zw - 0.015625);
+            vec2 within = mix(fract(at), vec2(1.0), step(span, at));
+            #ifdef TILE_LOOKUP
+              if (vTileLookup.x > -0.5) {
+                float turn = texture2D(tileLookupMap, (floor(vTileLookup + 0.5) + min(floor(at), span - 1.0) + 0.5) / tileLookupSize).r;
+                turn = floor(turn * 255.0 + 0.5);
+                vec2 flip = vec2(0.0, step(3.5, turn));
+                turn -= flip.y * 4.0;
+                flip.x = step(1.5, turn);
+                if (turn - flip.x * 2.0 > 0.5) within = within.yx;
+                within = abs(within - flip);
+              }
+            #endif
+            vec2 px = clamp(within * tile.zw, vec2(0.015625), tile.zw - 0.015625);
             texUv = vec2(tile.x + px.x, atlasSize.y - tile.y - tile.w + px.y) / atlasSize;
             uvEdge = vec2(0.0);
           }

@@ -61,6 +61,39 @@ test("a revived scene keeps the faces it repeats in the shader", async () => {
   shared.dispose()
 })
 
+test("a revived scene keeps the lookup its merged variants read their orientation from", async () => {
+  const blocks = []
+  for (let x = 0; x < 8; x++) for (let z = 0; z < 8; z++) blocks.push({ id: "stone", pos: [x, 0, z] })
+  const shared = createSharedAtlas()
+  const handle = await createScene(assets, blocks, { lighting: "world", sharedAtlas: shared })
+  let built
+  handle.group.traverse(o => { if (o.isMesh) built = o })
+  const { payload } = await packScene(handle, { sharedAtlas: shared })
+  const tile = reviveScene(payload, { sharedAtlas: shared })
+  const [mesh] = tile.group.children
+  assert.equal(mesh.geometry.index.count, 36)
+  assert.ok(mesh.geometry.attributes.tileLookup.array instanceof Uint16Array)
+  assert.deepEqual(mesh.geometry.attributes.tileLookup.array, built.geometry.attributes.tileLookup.array)
+  assert.ok("TILE_LOOKUP" in mesh.material.defines)
+  const lookup = mesh.material.uniforms.tileLookupMap.value, source = built.material.uniforms.tileLookupMap.value
+  assert.ok(lookup.isDataTexture)
+  assert.notEqual(lookup, source)
+  assert.equal(lookup.format, source.format)
+  assert.equal(lookup.magFilter, THREE.NearestFilter)
+  assert.equal(lookup.image.width, source.image.width)
+  assert.equal(lookup.image.height, source.image.height)
+  assert.deepEqual(lookup.image.data, source.image.data)
+  assert.ok(lookup.image.data.some(v => v > 0))
+  assert.equal(mesh.material.uniforms.tileLookupSize.value.x, source.image.width)
+  assert.equal(mesh.material.uniforms.tileLookupSize.value.y, source.image.height)
+  let freed = 0
+  lookup.addEventListener("dispose", () => freed++)
+  tile.dispose()
+  assert.equal(freed, 1)
+  handle.dispose()
+  shared.dispose()
+})
+
 test("a shared atlas stitches, shares its layout and takes textures through its own methods", async () => {
   const shared = createSharedAtlas()
   assert.equal(await shared.stitch(assets, { atlases: ["blocks"] }), shared)
