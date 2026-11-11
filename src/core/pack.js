@@ -4,6 +4,7 @@ import { lightOffsetSetter } from "./lighting.js"
 
 const LIGHT_UNIFORM = /^light(Vol|Ao)/
 const LIGHT_SWITCHES = Object.keys(makeLightSwitches())
+const RELEASED = "packScene needs the scene's CPU copies, and this scene was built with release, which dropped them once it was drawn. Build it without release to pack it"
 
 export async function packScene(handle, opts = {}) {
   const shared = opts.sharedAtlas ?? null
@@ -29,11 +30,13 @@ export async function packScene(handle, opts = {}) {
     if (pageRef) spec = { kind: "page", sig: pageRef.sig, page: pageRef.page }
     else if (tex.isDataTexture) {
       const img = tex.image
+      if (!img.data) throw new Error(RELEASED)
       const data = img.data.slice()
       transfers.push(data.buffer)
       spec = { kind: "data", data, w: img.width, h: img.height, format: tex.format, linear: tex.magFilter === THREE.LinearFilter }
     } else {
       const img = tex.image
+      if (img.constructor === Object) throw new Error(RELEASED)
       if (typeof createImageBitmap !== "function") throw new Error("packScene transfers textures as ImageBitmaps, which only browsers and web workers have. On Node, pack scenes built on an adopted shared atlas, which carry page references instead")
       const bitmap = await createImageBitmap(img)
       transfers.push(bitmap)
@@ -110,12 +113,14 @@ export async function packScene(handle, opts = {}) {
     const attrs = {}
     for (const [name, attr] of Object.entries(geo.attributes)) {
       if (name === "instanceMatrix") continue
+      if (!attr.array) throw new Error(RELEASED)
       const array = attr.array.slice()
       transfers.push(array.buffer)
       attrs[name] = { array, itemSize: attr.itemSize, normalized: !!attr.normalized }
     }
     let index = null
     if (geo.index) {
+      if (!geo.index.array) throw new Error(RELEASED)
       const array = geo.index.array.slice()
       transfers.push(array.buffer)
       index = { array }

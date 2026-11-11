@@ -151,3 +151,22 @@ test("a revived scene's light takes an offset like a built scene's", async () =>
   handle.dispose()
   shared.dispose()
 })
+
+test("packScene names release when a drawn scene has dropped its copies", async () => {
+  const shared = createSharedAtlas()
+  const blocks = [{ id: "stone", pos: [0, 0, 0] }, { id: "dirt", pos: [1, 0, 0] }]
+  const lit = await createScene(assets, blocks, { lighting: "world", sharedAtlas: shared, release: true })
+  const volume = lit.light.uniforms.lightVol.value
+  volume.onUpdate(volume)
+  await assert.rejects(packScene(lit, { sharedAtlas: shared }), /built with release/)
+  const plain = await createScene(assets, blocks, { sharedAtlas: shared, release: true })
+  plain.group.traverse(o => {
+    if (!o.isMesh) return
+    for (const attr of Object.values(o.geometry.attributes)) attr.onUploadCallback()
+    o.geometry.index.onUploadCallback()
+  })
+  await assert.rejects(packScene(plain, { sharedAtlas: shared }), /built with release/)
+  lit.dispose()
+  plain.dispose()
+  shared.dispose()
+})
