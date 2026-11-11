@@ -13,14 +13,14 @@ import {
   parseBlockstate, parseItemDefinition, resolveModelData,
   // scenes
   makeModelScene, createScene, createSky, createClouds, createFog, loadModel, poseSpecial, resumeSpecial, renderModelScene, optimizeScene, sortTranslucent,
-  computeSceneLight, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS,
+  computeSceneLight, renderMapColors, disposeMapArt, mapIdOf, MAP_COLORS, resolveProfile,
   // shared atlases, packing, animation
   createSharedAtlas, stitchSharedAtlas, exportSharedAtlasLayout, adoptSharedAtlasLayout, insertSharedTextures,
   packScene, reviveScene, rebindUniforms, setAnimationRenderer, collectAnimated, buildSchedules, evaluateAnimation,
   // fluids
   fluidTypeOf, fluidHeights,
   // helpers and data
-  isWaterloggable, isWaterlogged, isFlatModel, getLightEmission, getBiomeTint, COLORS, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS,
+  isWaterloggable, isWaterlogged, isFlatModel, getLightEmission, getBiomeTint, COLORS, DISPLAYS, LIGHT_DIMENSIONS, SKIP_BLOCKS, TECHNICAL_BLOCKS, wasmStatus,
   // extending
   ModelLoader,
   // browser only

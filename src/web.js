@@ -33,7 +33,7 @@ function init() {
     if (!three) three = globalThis.THREE
     if (!three) {
       initPromise = null
-      throw new Error('three not found. Install/bundle three, add an import map entry for "three", or pass it with configure({ three })')
+      throw new Error('three not found. Install/bundle three, add an import map entry for "three", or pass it with configure({ THREE })')
     }
     THREE = three
     setPlatform(makePlatform())

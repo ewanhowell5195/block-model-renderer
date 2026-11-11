@@ -207,4 +207,4 @@ JavaScript fallbacks are. Both paths produce identical output; setting
 `globalThis.__BMR_NO_WASM = true` forces the JavaScript ones.
 
 Rebuild the module with `npm run build:wasm`, which needs the Rust toolchain and
-`wasm-pack`. The build output is committed, so publishing does not need either.
+`wasm-pack`. The build output is committed, so installing from the repository needs neither.

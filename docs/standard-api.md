@@ -310,7 +310,7 @@ Beyond playback there's more player machinery, covered in the [Advanced API](adv
 
 ## Providing three.js (browser)
 
-On Node three.js comes with the package; in the browser it's a peer dependency you supply, resolved lazily on first use:
+On Node three.js comes with `headless-three`; in the browser it's a peer dependency you supply, resolved lazily on first use:
 
 1. An instance passed via [`configure`](#browser-only-exports) before the first render:
    ```js
