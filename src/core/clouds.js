@@ -58,13 +58,13 @@ const vertexShader = `
   varying vec3 vFog;
   void main() {
     #ifdef USE_INSTANCING
-      vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
+      vec4 local = instanceMatrix * vec4(position, 1.0);
     #else
-      vec4 world = modelMatrix * vec4(position, 1.0);
+      vec4 local = vec4(position, 1.0);
     #endif
     vColor = cloudColor.rgb * shade;
-    vFog = world.xyz - fogCenter;
-    gl_Position = projectionMatrix * viewMatrix * world;
+    vFog = local.xyz - fogCenter;
+    gl_Position = projectionMatrix * viewMatrix * (modelMatrix * local);
   }
 `
 
@@ -336,7 +336,6 @@ export async function createClouds(assets, args = {}) {
     else if (anchor) cameraPos.copy(anchor.pos)
     else if (view) cameraPos.setFromMatrixPosition(view.matrixWorld)
     else return
-    uniforms.fogCenter.value.copy(cameraPos)
     const now = performance.now()
     if (ticking && last >= 0) time += (now - last) / 50
     last = now
@@ -348,6 +347,7 @@ export async function createClouds(assets, args = {}) {
     placeTiles(cloudX, cloudZ)
     const bottom = height - origin[1] - 0.5
     layer.position.set((camX - cloudX) * UNIT, bottom * UNIT, (camZ - cloudZ) * UNIT)
+    uniforms.fogCenter.value.copy(cameraPos).sub(layer.position)
     const inside = fancy && camY >= bottom && camY <= bottom + THICKNESS
     for (const mesh of shells) mesh.count = tiles
     for (const mesh of interiors) {

@@ -117,6 +117,21 @@ test("renderModelScene follows its camera and leaves the anchor unset", async ()
   assert.equal(center.x - first, 80)
 })
 
+test("cloud fog is measured in the layer's units under a scaled parent", async () => {
+  const pack = [await cloudPack(PATTERNS.ring)]
+  const centers = []
+  for (const scale of [1, 0.25]) {
+    const clouds = await createClouds(pack, { tick: false })
+    const { scene } = makeModelScene()
+    scene.scale.setScalar(scale)
+    scene.add(clouds.group)
+    scene.updateMatrixWorld(true)
+    clouds.update([40 * scale, 3000 * scale, 30 * scale])
+    centers.push(meshes(clouds)[0].material.uniforms.fogCenter.value.toArray())
+  }
+  assert.deepEqual(centers[1], centers[0])
+})
+
 test("fast clouds and a pack with no cloud texture render", async () => {
   for (const [assets, args] of [[[await cloudPack(PATTERNS.ring)], { fancy: false }], [[{ read: () => null }], {}]]) {
     const clouds = await createClouds(assets, args)
