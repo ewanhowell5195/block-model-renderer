@@ -2927,7 +2927,7 @@ export async function loadModel(scene, assets, model, args) {
   const replaceElements = modelLoaders.some(l => l.replaceElements && l.match?.(model))
   for (const element of replaceElements ? [] : model.elements || []) {
     if (!(await buildElement(element, containerGroup))) {
-      return await loadModel(scene, assets, await resolveModelData(assets, "block-model-renderer:missing"), { display })
+      return await loadModel(scene, assets, await resolveModelData(assets, "block-model-renderer:missing"), { ...args, display })
     }
   }
 
