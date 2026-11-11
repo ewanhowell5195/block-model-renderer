@@ -1,6 +1,6 @@
 import { THREE, Canvas, loadImage, normalize, isBefore } from "./platform.js"
 import { prepareAssets, readFile } from "./assets.js"
-import { parseDaytime, makeThreeTexture, tintVec, FOG_CURVE, fogSkyMix, makeFog, LIGHT_DIMENSIONS } from "./models.js"
+import { parseDaytime, makeThreeTexture, tintVec, FOG_CURVE, fogSkyMix, createFog } from "./models.js"
 
 const DAY = 24000
 const SKY_RADIUS = 512
@@ -397,7 +397,7 @@ export async function createSky(assets, args = {}) {
     : { value: parseDaytime(args.daytime) }
 
   const baseSky = tintVec(args.skyColor ?? dimension.skyColor)
-  const fog = args.fog == null ? null : makeFog(args.fog, LIGHT_DIMENSIONS[normalize(args.dimension ?? "overworld")] ?? LIGHT_DIMENSIONS.overworld)
+  const fog = args.fog == null ? null : createFog(args.fog, args.dimension)
   const baseFog = args.fogColor != null ? tintVec(args.fogColor) : fog ? fog.uniforms.fogBase.value : tintVec(dimension.fogColor)
   const skyColor = baseSky.clone()
   const fogColor = baseFog.clone()
