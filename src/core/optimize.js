@@ -362,6 +362,121 @@ function faceCulled(f, cm, cull) {
   return b < 64 ? (cm & b) !== 0 : !!cull?.has(f.cull)
 }
 
+function scanCells(scan, from, to) {
+  const { placeGroup, placeCull, groupTd, culls, cullMask, P, base, cellIds, gridIndex, gridNames, grids, cellRuns } = scan
+  for (let i = from; i < to; i++) {
+    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
+    if (!td) continue
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
+    if (!td.mergeFree && (td.mergeBits & ~cm) === 0) continue
+    const o3 = i * 3, merge = td.merge
+    for (let k = 0; k < merge.length; k++) {
+      const f = merge[k]
+      if (cm && f.cb && (f.cb < 64 ? (cm & f.cb) !== 0 : cull.has(f.cull))) continue
+      let cid = f.cid
+      if (cid === undefined) {
+        cid = cellIds.get(f.cellKey)
+        if (cid === undefined) cellIds.set(f.cellKey, cid = cellIds.size)
+        f.cid = cid
+      }
+      const wpc = f.pc + P[o3 + f.na] * 16
+      const wa0 = f.a0 + P[o3 + f.pa] * 16, wb0 = f.b0 + P[o3 + f.pb] * 16
+      const phaseA = posMod(wa0, f.wa), phaseB = posMod(wb0, f.wb)
+      const wq = Math.round((f.pc + (P[o3 + f.na] - base[f.na]) * 16) * 100), pa = Math.round(phaseA * 100), pb = Math.round(phaseB * 100)
+      const key = pa >= 0 && pa < 2048 && pb >= 0 && pb < 2048 && wq > -1e8 && wq < 1e8
+        ? ((wq * 2048 + pa) * 2048 + pb) * 8 + f.na * 2 + (f.ns > 0 ? 1 : 0)
+        : f.na + "|" + wq + "|" + f.ns + "|" + pa + "|" + pb
+      let g
+      if (typeof key === "number") {
+        g = gridIndex.get(cid, key)
+        if (g < 0) gridIndex.set(cid, key, g = grids.length)
+      } else {
+        const sk = cid + "#" + key
+        g = gridNames.get(sk) ?? -1
+        if (g < 0) gridNames.set(sk, g = grids.length)
+      }
+      if (g === grids.length) grids.push({ f, wpc, phaseA, phaseB, index: g })
+      cellRuns.push3(g, Math.round((wa0 - phaseA) / f.wa), Math.round((wb0 - phaseB) / f.wb))
+    }
+  }
+}
+
+function splitQuads(scan, from, to) {
+  const { grids, rectRun, rectAt, maxTile, tiles, atlasGroups, cutoff, greedyQuads } = scan
+  for (let gi = from; gi < to; gi++) {
+    const grid = grids[gi], f = grid.f
+    let tile = f.tile
+    if (!tile) {
+      const translucent = isTranslucent(f.tex, cutoff)
+      const sig = f.sig + (translucent ? "|T" : "|O")
+      let grp = atlasGroups.get(sig)
+      if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: f.mat, translucent })
+      const content = f.srcHash + ":" + f.sub.sx + "," + f.sub.sy + "," + f.sub.sw + "," + f.sub.sh
+      const tileKey = sig + "#" + content
+      tile = tiles.get(tileKey)
+      if (!tile) tiles.set(tileKey, tile = { sig, grp, f, content, ur: 0, vr: 0, pseudo: null })
+      f.tile = tile
+    }
+    const maxA = Math.max(1, Math.floor(maxTile / f.sub.sw)), maxB = Math.max(1, Math.floor(maxTile / f.sub.sh))
+    for (let ri = rectAt[grid.index], rEnd = rectAt[grid.index + 1]; ri < rEnd; ri += 5) {
+      const i0 = rectRun[ri + 1], i1 = rectRun[ri + 2], j0 = rectRun[ri + 3], j1 = rectRun[ri + 4]
+      for (let ci = i0; ci <= i1; ci += maxA) for (let cj = j0; cj <= j1; cj += maxB) {
+        const ei = Math.min(ci + maxA - 1, i1), ej = Math.min(cj + maxB - 1, j1)
+        const Na = ei - ci + 1, Nb = ej - cj + 1
+        const wALo = grid.phaseA + ci * f.wa, wAHi = grid.phaseA + (ei + 1) * f.wa
+        const wBLo = grid.phaseB + cj * f.wb, wBHi = grid.phaseB + (ej + 1) * f.wb
+        const ur = f.uAxisIsPa ? Na : Nb, vr = f.uAxisIsPa ? Nb : Na
+        if (ur > tile.ur) tile.ur = ur
+        if (vr > tile.vr) tile.vr = vr
+        greedyQuads.push({ tile, ur, vr, f, wpc: grid.wpc, wALo, wAHi, wBLo, wBHi })
+      }
+    }
+  }
+}
+
+function countBakes(bake, placeCount) {
+  const { placeGroup, placeCull, groupTd, culls, cullMask, planFor, touched } = bake
+  for (let i = 0; i < placeCount; i++) {
+    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
+    if (!td || td.inert) continue
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
+    const need = planFor(td, cm, cull).need
+    for (let k = 0; k < need.length; k++) {
+      const [acc, n, nF] = need[k]
+      if (acc.need === 0) touched.push(acc)
+      acc.need += n
+      acc.needF += nF
+    }
+  }
+}
+
+function bakeCells(bake, from, to) {
+  const { placeGroup, placeCull, groupTd, culls, cullMask, P, bakes, planFor, placeExtras, blockT, full, nmat } = bake
+  for (let i = from; i < to; i++) {
+    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
+    if (!td || td.inert) continue
+    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
+    const { faces, meshes, offs } = planFor(td, cm, cull), B = bakes.buf
+    if (!faces.length && td.simple) continue
+    const tx = P[i * 3] * 16, ty = P[i * 3 + 1] * 16, tz = P[i * 3 + 2] * 16
+    let fullFor = null
+    for (let k = 0; k < faces.length; k++) {
+      const f = faces[k], off = offs[k]
+      if (off >= 0) {
+        appendBaked(B, off, f.count, !!f.fd, tx, ty, tz, f.acc)
+        continue
+      }
+      if (fullFor !== meshes[k]) {
+        fullFor = meshes[k]
+        full.multiplyMatrices(blockT.makeTranslation(tx, ty, tz), fullFor.matrix)
+        nmat.getNormalMatrix(full)
+      }
+      appendGroup(fullFor.geo, f.start, f.count, full, nmat, f.rect, f.sw, f.sh, f.acc, f.fd)
+    }
+    if (!td.simple) placeExtras(td, i)
+  }
+}
+
 const rectsOverlap = (f, g) => f.a0 < g.a0 + g.wa - 0.01 && g.a0 < f.a0 + f.wa - 0.01 && f.b0 < g.b0 + g.wb - 0.01 && g.b0 < f.b0 + f.wb - 0.01
 
 const atlasCache = new Map()
@@ -1485,46 +1600,13 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     for (let a = 0; a < 3; a++) if (P[i * 3 + a] < base[a]) base[a] = P[i * 3 + a]
   }
   for (let a = 0; a < 3; a++) base[a] = Number.isFinite(base[a]) ? Math.floor(base[a]) : 0
-  let scanned = 0
-  for (let i = 0; i < placeCount; i++) {
-    if (++scanned % 4096 === 0) {
-      report(scanned / placeCount)
-      await breathe()
-      if (shouldCancel?.()) return null
-    }
-    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
-    if (!td) continue
-    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
-    if (!td.mergeFree && (td.mergeBits & ~cm) === 0) continue
-    const o3 = i * 3, merge = td.merge
-    for (let k = 0; k < merge.length; k++) {
-      const f = merge[k]
-      if (cm && f.cb && (f.cb < 64 ? (cm & f.cb) !== 0 : cull.has(f.cull))) continue
-      let cid = f.cid
-      if (cid === undefined) {
-        cid = cellIds.get(f.cellKey)
-        if (cid === undefined) cellIds.set(f.cellKey, cid = cellIds.size)
-        f.cid = cid
-      }
-      const wpc = f.pc + P[o3 + f.na] * 16
-      const wa0 = f.a0 + P[o3 + f.pa] * 16, wb0 = f.b0 + P[o3 + f.pb] * 16
-      const phaseA = posMod(wa0, f.wa), phaseB = posMod(wb0, f.wb)
-      const wq = Math.round((f.pc + (P[o3 + f.na] - base[f.na]) * 16) * 100), pa = Math.round(phaseA * 100), pb = Math.round(phaseB * 100)
-      const key = pa >= 0 && pa < 2048 && pb >= 0 && pb < 2048 && wq > -1e8 && wq < 1e8
-        ? ((wq * 2048 + pa) * 2048 + pb) * 8 + f.na * 2 + (f.ns > 0 ? 1 : 0)
-        : f.na + "|" + wq + "|" + f.ns + "|" + pa + "|" + pb
-      let g
-      if (typeof key === "number") {
-        g = gridIndex.get(cid, key)
-        if (g < 0) gridIndex.set(cid, key, g = grids.length)
-      } else {
-        const sk = cid + "#" + key
-        g = gridNames.get(sk) ?? -1
-        if (g < 0) gridNames.set(sk, g = grids.length)
-      }
-      if (g === grids.length) grids.push({ f, wpc, phaseA, phaseB, index: g })
-      cellRuns.push3(g, Math.round((wa0 - phaseA) / f.wa), Math.round((wb0 - phaseB) / f.wb))
-    }
+  const cellScan = { placeGroup, placeCull, groupTd, culls, cullMask, P, base, cellIds, gridIndex, gridNames, grids, cellRuns }
+  for (let i = 0; i < placeCount; i += 4096) {
+    const to = Math.min(i + 4096, placeCount)
+    scanCells(cellScan, i, to)
+    report(to / placeCount)
+    await breathe()
+    if (shouldCancel?.()) return null
   }
   const cellData = cellRuns.data()
   let rectRun = !grids.length ? new Int32Array(0) : sparseCells(cellData, grids.length) ? null : greedyMeshFast(cellData, grids.length)
@@ -1539,40 +1621,13 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   const tiles = new Map()
   const maxTile = grids.length ? Math.max(64, maxAtlas() >> 5) : 0
   stage(2500)
-  let gi = 0
-  for (const grid of grids) {
-    if ((++gi & 255) === 0) {
-      report(gi / grids.length)
-      await breathe()
-      if (shouldCancel?.()) return null
-    }
-    const f = grid.f
-    let tile = f.tile
-    if (!tile) {
-      const translucent = isTranslucent(f.tex, cutoff)
-      const sig = f.sig + (translucent ? "|T" : "|O")
-      let grp = atlasGroups.get(sig)
-      if (!grp) atlasGroups.set(sig, grp = { textures: new Set(), repMat: f.mat, translucent })
-      const content = f.srcHash + ":" + f.sub.sx + "," + f.sub.sy + "," + f.sub.sw + "," + f.sub.sh
-      const tileKey = sig + "#" + content
-      tile = tiles.get(tileKey)
-      if (!tile) tiles.set(tileKey, tile = { sig, grp, f, content, ur: 0, vr: 0, pseudo: null })
-      f.tile = tile
-    }
-    const maxA = Math.max(1, Math.floor(maxTile / f.sub.sw)), maxB = Math.max(1, Math.floor(maxTile / f.sub.sh))
-    for (let ri = rectAt[grid.index], rEnd = rectAt[grid.index + 1]; ri < rEnd; ri += 5) {
-      const i0 = rectRun[ri + 1], i1 = rectRun[ri + 2], j0 = rectRun[ri + 3], j1 = rectRun[ri + 4]
-      for (let ci = i0; ci <= i1; ci += maxA) for (let cj = j0; cj <= j1; cj += maxB) {
-        const ei = Math.min(ci + maxA - 1, i1), ej = Math.min(cj + maxB - 1, j1)
-        const Na = ei - ci + 1, Nb = ej - cj + 1
-        const wALo = grid.phaseA + ci * f.wa, wAHi = grid.phaseA + (ei + 1) * f.wa
-        const wBLo = grid.phaseB + cj * f.wb, wBHi = grid.phaseB + (ej + 1) * f.wb
-        const ur = f.uAxisIsPa ? Na : Nb, vr = f.uAxisIsPa ? Nb : Na
-        if (ur > tile.ur) tile.ur = ur
-        if (vr > tile.vr) tile.vr = vr
-        greedyQuads.push({ tile, ur, vr, f, wpc: grid.wpc, wALo, wAHi, wBLo, wBHi })
-      }
-    }
+  const quadScan = { grids, rectRun, rectAt, maxTile, tiles, atlasGroups, cutoff, greedyQuads }
+  for (let i = 0; i < grids.length; i += 1024) {
+    const to = Math.min(i + 1024, grids.length)
+    splitQuads(quadScan, i, to)
+    report(to / grids.length)
+    await breathe()
+    if (shouldCancel?.()) return null
   }
   for (const tile of tiles.values()) {
     const tf = tile.f, img = tf.tex.image, sub = tf.sub
@@ -1743,18 +1798,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     if (!(cm & 64)) plans.set(cm, plan)
     return plan
   }
-  for (let i = 0; i < placeCount; i++) {
-    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
-    if (!td || td.inert) continue
-    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
-    const need = planFor(td, cm, cull).need
-    for (let k = 0; k < need.length; k++) {
-      const [acc, n, nF] = need[k]
-      if (acc.need === 0) touched.push(acc)
-      acc.need += n
-      acc.needF += nF
-    }
-  }
+  const bake = { placeGroup, placeCull, groupTd, culls, cullMask, P, bakes, planFor, placeExtras, blockT, full, nmat, touched }
+  countBakes(bake, placeCount)
   for (const acc of touched) {
     acc.P.reserve(acc.P.length + acc.need * 3)
     acc.N.reserve(acc.N.length + acc.need * 3)
@@ -1764,34 +1809,16 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     acc.need = 0
     acc.needF = 0
   }
-  for (let i = 0; i < placeCount; i++) {
-    if ((i & 8191) === 8191) {
-      report((i + 1) / placeCount)
-      await breathe()
-      if (shouldCancel?.()) return null
-    }
-    const td = placeGroup[i] < 0 ? undefined : groupTd[placeGroup[i]]
-    if (!td || td.inert) continue
-    const cull = placeCull[i] < 0 ? null : culls[placeCull[i]], cm = placeCull[i] < 0 ? 0 : cullMask[placeCull[i]]
-    const { faces, meshes, offs } = planFor(td, cm, cull), B = bakes.buf
-    if (!faces.length && td.simple) continue
+  for (let i = 0; i < placeCount; i += 8192) {
+    const to = Math.min(i + 8192, placeCount)
+    bakeCells(bake, i, to)
+    report(to / placeCount)
+    await breathe()
+    if (shouldCancel?.()) return null
+  }
+  function placeExtras(td, i) {
     const px = P[i * 3], py = P[i * 3 + 1], pz = P[i * 3 + 2]
-    const tx = px * 16, ty = py * 16, tz = pz * 16
-    blockT.makeTranslation(tx, ty, tz)
-    let fullFor = null
-    for (let k = 0; k < faces.length; k++) {
-      const f = faces[k], off = offs[k]
-      if (off >= 0) {
-        appendBaked(B, off, f.count, !!f.fd, tx, ty, tz, f.acc)
-        continue
-      }
-      if (fullFor !== meshes[k]) {
-        fullFor = meshes[k]
-        full.multiplyMatrices(blockT, fullFor.matrix)
-        nmat.getNormalMatrix(full)
-      }
-      appendGroup(fullFor.geo, f.start, f.count, full, nmat, f.rect, f.sw, f.sh, f.acc, f.fd)
-    }
+    blockT.makeTranslation(px * 16, py * 16, pz * 16)
     for (const l of td.lines ?? []) {
       const key = matSignature(l.material) + "|" + (l.material?.color?.getHexString?.() ?? "") + "|" + (l.material?.opacity ?? 1) + "|" + !!l.material?.transparent
       let bucket = lineBuckets.get(key)
