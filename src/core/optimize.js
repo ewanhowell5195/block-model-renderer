@@ -5,7 +5,7 @@ import { wasmReady, greedyMeshFast, settleWasm } from "./fast.js"
 import { buildSchedules, evaluateAnimation } from "./animation.js"
 import { listAtlasSprites } from "./assets.js"
 import { createTranslucentSorter } from "./sorting.js"
-import { mipLevels, alignUp, readPixels, extrudeCell, blit, spriteMips, toImageData, useMipmaps, MIP_INSET } from "./mipmaps.js"
+import { mipLevels, mipSizes, webgl1, alignUp, readPixels, extrudeCell, blit, spriteMips, toImageData, useMipmaps, MIP_INSET } from "./mipmaps.js"
 
 const nextTask = globalThis.scheduler?.yield
   ? () => scheduler.yield()
@@ -19,7 +19,7 @@ const STITCH_LOADS = 16
 
 const matMap = m => m.uniforms?.map?.value ?? m.map
 const insetTo = (t, span, inset) => inset ? Math.min(Math.max(t, inset), span - inset) : t
-const mippedDefines = grp => grp.translucent ? { MIPMAPPED: "" } : { MIPMAPPED: "", CUTOUT: "" }
+const mippedDefines = (grp, levels) => grp.translucent ? { MIPMAPPED: levels } : { MIPMAPPED: levels, CUTOUT: "" }
 
 const geoHashes = new WeakMap()
 function geoHash(geo) {
@@ -603,7 +603,11 @@ async function buildMippedAtlas(items, maxAtlas, breathe, levels) {
     sizes[ai].w = Math.max(sizes[ai].w, x)
     sizes[ai].h = Math.max(sizes[ai].h, y + rowH)
   }
-  const pages = sizes.map(s => Array.from({ length: levels + 1 }, (_, k) => new Uint8ClampedArray((s.w >> k) * (s.h >> k) * 4)))
+  if (webgl1()) for (const s of sizes) {
+    s.w = 2 ** Math.ceil(Math.log2(s.w))
+    s.h = 2 ** Math.ceil(Math.log2(s.h))
+  }
+  const pages = sizes.map(s => mipSizes(s.w, s.h, levels).map(([w, h]) => new Uint8ClampedArray(w * h * 4)))
   const byHash = new Map()
   let drawn = 0
   for (const it of items) {
@@ -612,7 +616,7 @@ async function buildMippedAtlas(items, maxAtlas, breathe, levels) {
     chain.forEach((level, k) => blit(level, pages[it.ai][k], sizes[it.ai].w >> k, it.px >> k, it.py >> k))
     byHash.set(hashTexture(it.t), { ai: it.ai, x: it.px, y: it.py, w: it.w, h: it.h, cw: it.cw, ch: it.ch, inset: MIP_INSET })
   }
-  const chains = pages.map((page, i) => page.map((data, k) => platform.imageFromPixels(data, sizes[i].w >> k, sizes[i].h >> k)))
+  const chains = pages.map((page, i) => mipSizes(sizes[i].w, sizes[i].h, levels).map(([width, height], k) => platform.imageFromPixels?.(page[k], width, height) ?? toImageData({ data: page[k], width, height })))
   return { sizes, byHash, chains }
 }
 
@@ -1313,6 +1317,7 @@ function makeAtlasPlayer(shared) {
 }
 
 export function createSharedAtlas(opts = {}) {
+  if (opts.mipmaps && opts.size != null && webgl1() && opts.size & (opts.size - 1)) throw new Error(`createSharedAtlas: mipmaps on WebGL1 need a power of two size, got ${opts.size}`)
   const shared = {
     size: opts.size ?? 2048,
     autoSize: opts.size == null,
@@ -1373,7 +1378,7 @@ async function mippedLocate(shared, sheet, tex, key) {
   let page = sheet.pages[sheet.pages.length - 1]
   if (page && page.x + cw > shared.size) { page.y += page.rowH; page.x = 0; page.rowH = 0 }
   if (!page || page.y + ch > shared.size) {
-    const chain = Array.from({ length: levels + 1 }, (_, k) => new Canvas(shared.size >> k, shared.size >> k))
+    const chain = mipSizes(shared.size, shared.size, levels).map(([w, h]) => new Canvas(w, h))
     const texture = await loadTexture(chain[0])
     useMipmaps(texture, chain)
     texture.colorSpace = tex.colorSpace ?? THREE.NoColorSpace
@@ -1924,7 +1929,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
           for (const k of REBIND_UNIFORMS) {
             if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
           }
-          m.defines = { ...m.defines, FACE_ATTRS: "", ...(levels ? mippedDefines(grp) : {}) }
+          m.defines = { ...m.defines, FACE_ATTRS: "", ...(levels ? mippedDefines(grp, levels) : {}) }
         }
         else {
           m.map = pg.texture
@@ -1965,7 +1970,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         for (const k of REBIND_UNIFORMS) {
           if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
         }
-        m.defines = { ...m.defines, FACE_ATTRS: "", ...(levels ? mippedDefines(grp) : {}) }
+        m.defines = { ...m.defines, FACE_ATTRS: "", ...(levels ? mippedDefines(grp, levels) : {}) }
       }
       else {
         m.map = a
@@ -2225,10 +2230,8 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
     tris += packed.index.length / 3
   }
   for (const { acc, material, size } of packs) {
-    if (acc.out.tileRect) {
-      material.defines = { ...material.defines, TILED: "" }
-      material.uniforms.atlasSize = { value: new THREE.Vector2(size.w, size.h) }
-    }
+    if (acc.out.tileRect) material.defines = { ...material.defines, TILED: "" }
+    if (acc.out.tileRect || levels && size) material.uniforms.atlasSize = { value: new THREE.Vector2(size.w, size.h) }
     if (acc.out.tileLookup) {
       material.defines.TILE_LOOKUP = ""
       material.uniforms.tileLookupMap = { value: lookup.texture }

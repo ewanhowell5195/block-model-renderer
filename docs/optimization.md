@@ -206,7 +206,7 @@ Running the standard render functions themselves across a worker pool, and keepi
 Without mipmaps, distant textures shimmer and form moiré patterns as the camera moves. `mipmaps` (`0` to `4`, default `0`) gives atlases that many smaller copies, each half the size of the last, built per sprite so neighbouring sprites never bleed into each other. Like the game's Mipmap Levels setting, `4` takes a 16 pixel sprite down to a single pixel.
 
 - Set it on [`optimizeScene`](#scene-optimization) or [`createScene`](scenes.md#createsceneassets-blocks-args) for a scene's own atlases, or on [`createSharedAtlas`](#shared-atlases) for its pages.
-- It needs WebGL2. Node rendering throws when asked for it.
+- On WebGL1, including Node rendering, atlas pages round up to power of two sizes, and the renderer needs the `EXT_shader_texture_lod` extension.
 - Each sprite's copies are built the way the game builds them, including the `mipmap_strategy` and `alpha_cutoff_bias` fields of its `.mcmeta` `texture` section. Cutout sprites (leaves, flowers, crops) keep the same share of visible pixels at every size, and discard below half opacity instead of a tenth.
 - Textures that don't go through an atlas, such as un-optimized [`loadModel`](scenes.md#loadmodelassets-model-args) groups, aren't mipmapped.
 

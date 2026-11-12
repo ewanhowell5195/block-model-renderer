@@ -13,8 +13,14 @@ const DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]]
 export function mipLevels(value, owner) {
   const levels = value ?? 0
   if (!Number.isInteger(levels) || levels < 0 || levels > MAX_MIPMAPS) throw new Error(`${owner}: mipmaps must be a whole number of levels from 0 to ${MAX_MIPMAPS}, got ${value}`)
-  if (levels && platform.mipmaps === false) throw new Error(`${owner}: mipmaps need WebGL2, which Node rendering doesn't have`)
   return levels
+}
+
+export const webgl1 = () => platform.webgl2?.() === false
+
+export function mipSizes(width, height, levels) {
+  const count = webgl1() ? Math.log2(Math.max(width, height)) : levels
+  return Array.from({ length: count + 1 }, (_, k) => [Math.max(width >> k, 1), Math.max(height >> k, 1)])
 }
 
 export function mipSettings(meta, path) {

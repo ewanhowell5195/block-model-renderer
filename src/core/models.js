@@ -3975,8 +3975,10 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
       #ifdef FACE_ATTRS
         varying vec2 vFaceData;
       #endif
-      #ifdef TILED
+      #if defined(TILED) || defined(MIPMAPPED)
         uniform vec2 atlasSize;
+      #endif
+      #ifdef TILED
         varying vec4 vTileRect;
         varying vec2 vTileSpan;
         #ifdef TILE_LOOKUP
@@ -4094,7 +4096,16 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
         #endif
         if (texUv.x < -uvEdge.x || texUv.x > 1.0 + uvEdge.x || texUv.y < -uvEdge.y || texUv.y > 1.0 + uvEdge.y) discard;
         #ifdef MIPMAPPED
-          vec4 texColor = textureGrad(map, texUv, gradX, gradY);
+          #if __VERSION__ >= 300
+            vec4 texColor = textureGrad(map, texUv, gradX, gradY);
+          #else
+            float reach = max(length(gradX * atlasSize), length(gradY * atlasSize)) / (exp2(float(MIPMAPPED)) * 0.97);
+            if (reach > 1.0) {
+              gradX /= reach;
+              gradY /= reach;
+            }
+            vec4 texColor = texture2DGradEXT(map, texUv, gradX, gradY);
+          #endif
         #else
           vec4 texColor = texture2D(map, texUv);
         #endif
