@@ -521,6 +521,8 @@ export interface CreateSceneOptions {
   /** Passed through to the optimize pass. */
   maxAtlas?: number
   /** Passed through to the optimize pass. */
+  mipmaps?: number
+  /** Passed through to the optimize pass. */
   translucency?: TranslucencyCutoffs
   /** A {@link createSharedAtlas} handle whose pages the scene's textures resolve against. */
   sharedAtlas?: SharedAtlas
@@ -861,6 +863,8 @@ export interface Placement {
 export interface OptimizeSceneOptions {
   /** Override the atlas size ceiling, otherwise auto-detected from the canvas and GPU limits. */
   maxAtlas?: number
+  /** Mip levels for the scene's own atlases, `0` to `4`. Needs WebGL2. Ignored with a `sharedAtlas`, which has its own. Default `0`. */
+  mipmaps?: number
   /** Pixel cutoffs for textures that didn't come from the asset pipeline. */
   translucency?: TranslucencyCutoffs
   /** How far the camera must move before translucent meshes re-sort. Default `16`, one block. */
@@ -910,6 +914,8 @@ export interface CreateSharedAtlasOptions {
   size?: number
   /** How much of a page the stitch leaves free for runtime textures. Default `0.25`, clamped to `0.95`. */
   headroom?: number
+  /** Mip levels for the pages, `0` to `4`. Needs WebGL2. Default `0`. */
+  mipmaps?: number
   /** With a renderer, page updates upload as GPU subimages instead of full re-uploads. */
   renderer?: THREE.WebGLRenderer
   /** Give the atlas its own player that ticks its animated regions at 20Hz. */
@@ -934,6 +940,8 @@ export interface SharedAtlas {
   size: number
   /** How much of a page the stitch leaves free. */
   headroom: number
+  /** The pages' mip levels. */
+  mipmaps: number
   /** The renderer page updates upload through, if any. */
   renderer: THREE.WebGLRenderer | null
   /** The atlas's player, or `null` without `animate: true`. */
@@ -985,6 +993,7 @@ export interface StitchSharedAtlasOptions {
 /** An atlas's coordinate table, structured-cloneable for workers. */
 export interface SharedAtlasLayout {
   size: number
+  mipmaps: number
   pages: number
   rects: unknown
 }

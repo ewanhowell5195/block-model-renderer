@@ -57,7 +57,7 @@ Share one `group` reference across placements of the same block state, as `group
 
 You *can* cull the other way, pre-culling a separate group per placement and passing those with no `cull` field, and it renders the same. But then no two placements share a build, so you're back to one build per block instead of one per block state. Passing `cull` per placement keeps the single shared build and drops each instance's hidden faces as it merges, which is far cheaper for anything bigger than a handful of blocks.
 
-Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), `batchDynamics: false` forces dynamic parts to `InstancedMesh` instead of `BatchedMesh` (what [worker builds](#packing-scenes-across-workers) need, since a revived `BatchedMesh` draws garbage), `release: true` drops the CPU copies of what has been uploaded to the GPU (see [Releasing CPU copies](#releasing-cpu-copies)), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). [`createScene`](scenes.md#createsceneassets-blocks-args) passes all of these through. `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
+Options: `maxAtlas` overrides the atlas size ceiling (auto-detected from the canvas and GPU limits), `mipmaps` gives the scene's own atlases [mip levels](#mipmaps), `translucency` sets the pixel cutoffs for textures that didn't come from the asset pipeline, `resortDistance` tunes translucent re-sorting (below), `batchDynamics: false` forces dynamic parts to `InstancedMesh` instead of `BatchedMesh` (what [worker builds](#packing-scenes-across-workers) need, since a revived `BatchedMesh` draws garbage), `release: true` drops the CPU copies of what has been uploaded to the GPU (see [Releasing CPU copies](#releasing-cpu-copies)), and `onProgress(done, total)` / `shouldCancel()` support long builds (cancelling resolves `null`). [`createScene`](scenes.md#createsceneassets-blocks-args) passes all of these through. `onProgress` reports progress across all internal stages, weighted by typical cost, on a fixed scale: use `done / total` as the fraction complete rather than reading the numbers as counts of anything.
 
 The result:
 
@@ -111,14 +111,14 @@ Faces merged on a shared atlas repeat their texture in the library's shader: suc
 
 | Export | Description |
 |---|---|
-| `createSharedAtlas({ size?, headroom?, renderer?, animate? })` | The atlas handle. With a `renderer`, page updates upload as GPU subimages instead of full re-uploads. `animate: true` makes the atlas [tick its own animated regions](#atlas-animation). Page size auto-picks at stitch time (below); pass `size` to force one, or `headroom` to set how much of the page the stitch leaves free (default `0.25`, clamped to `0.95`) |
+| `createSharedAtlas({ size?, headroom?, mipmaps?, renderer?, animate? })` | The atlas handle. With a `renderer`, page updates upload as GPU subimages instead of full re-uploads. `animate: true` makes the atlas [tick its own animated regions](#atlas-animation). `mipmaps` gives the pages [mip levels](#mipmaps), and applies to every scene built on the handle. Page size auto-picks at stitch time (below); pass `size` to force one, or `headroom` to set how much of the page the stitch leaves free (default `0.25`, clamped to `0.95`) |
 
 The handle's methods:
 
 | Method | Description |
 |---|---|
 | `stitch(assets, opts?)` | Stitch every sprite the packs' atlas definition files list into the atlas up front, the way the game builds its block atlas at startup. `opts.atlases` picks the definitions (default `["blocks", "items"]`, merged into the one atlas), `onProgress(done, total)` reports, `shouldCancel()` aborts. Resolves the handle, or `null` when cancelled. Unless the handle was given an explicit `size`, the page size is picked from the measured sprite area so the stitch leaves the handle's `headroom` fraction of a page free (a quarter of it by default, capped by GPU limits) for runtime textures. After this, scenes are pure rect lookups: no stitching cost, and every scene shares the exact same coordinates |
-| `exportLayout()` | The atlas's coordinate table as a structured-cloneable `{ size, pages, rects }` (no pixels, on the order of 150KB for the vanilla pack). Send it to workers once |
+| `exportLayout()` | The atlas's coordinate table as a structured-cloneable `{ size, mipmaps, pages, rects }` (no pixels, on the order of 150KB for the vanilla pack). Send it to workers once |
 | `adoptLayout(layout)` | Turn a fresh handle into a pixel-less adopter of that layout, returning the handle: scenes built against it bake UVs to the fixed coordinates, and `packScene` emits page references only. Adopters never stitch locally; textures missing from the layout either go through `requestSpace` (below) or fall back to per-material textures |
 | `insert(items)` | Add runtime textures (sign text, patterned banners, map art) to a live atlas. `items` is `[{ key, image, frames?, times?, interpolate? }]`: `key` is your stable content hash, `image` a bitmap or canvas, and the optional frame fields register the region as animated. Already-present keys dedup to the existing rect; passed bitmaps are closed. Resolves `{ rects, pages }` to merge into worker layouts |
 | `texture(sig, page)` | Resolves a page's texture (what revived scenes reference) |
@@ -200,6 +200,15 @@ To drive animation yourself instead, the schedule helpers work on any animated t
 The game runs at 20Hz and interpolated textures look right up to 60Hz. Regions only re-blend and re-upload when their evaluated frame actually changes.
 
 Running the standard render functions themselves across a worker pool, and keeping the animation clock in sync between contexts, are covered in the [Advanced API](advanced-api.md#batch-rendering-from-workers).
+
+## Mipmaps
+
+Without mipmaps, distant textures shimmer and form moiré patterns as the camera moves. `mipmaps` (`0` to `4`, default `0`) gives atlases that many smaller copies, each half the size of the last, built per sprite so neighbouring sprites never bleed into each other. Like the game's Mipmap Levels setting, `4` takes a 16 pixel sprite down to a single pixel.
+
+- Set it on [`optimizeScene`](#scene-optimization) or [`createScene`](scenes.md#createsceneassets-blocks-args) for a scene's own atlases, or on [`createSharedAtlas`](#shared-atlases) for its pages.
+- It needs WebGL2. Node rendering throws when asked for it.
+- Each sprite's copies are built the way the game builds them, including the `mipmap_strategy` and `alpha_cutoff_bias` fields of its `.mcmeta` `texture` section. Cutout sprites (leaves, flowers, crops) keep the same share of visible pixels at every size, and discard below half opacity instead of a tenth.
+- Textures that don't go through an atlas, such as un-optimized [`loadModel`](scenes.md#loadmodelassets-model-args) groups, aren't mipmapped.
 
 ## Warming shaders
 

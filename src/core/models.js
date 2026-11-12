@@ -6,6 +6,7 @@ import { prepareAssets, readFile, readFileAll, readJsonText, overlaysStandalone,
 import { resolveProfile } from "./profiles.js"
 import { buildAnimation, lcmTicks } from "./animation.js"
 import { classifyPngAlpha, hashBytes } from "./png.js"
+import { mipSettings } from "./mipmaps.js"
 import { modelLoaders, activeLoaders, shadings } from "./loaders.js"
 import { mapArtFor, mapIdOf } from "./maps.js"
 import { neighborLookup } from "./neighbors.js"
@@ -1970,15 +1971,15 @@ async function loadMinecraftTexture(path, assets, type, drawn) {
   const srcHash = isImage(buf) ? null : hashBytes(buf)
 
   const metaBuf = await readFile(assets, path + ".mcmeta", buf.hintIndex)
-  if (!metaBuf) return { image, cls, srcHash }
+  if (!metaBuf) return { image, cls, srcHash, mip: mipSettings(null, path) }
   let meta
   try {
-    meta = parseJson(metaBuf).animation ?? {}
+    meta = parseJson(metaBuf)
   } catch {
-    return { image, cls, srcHash }
+    return { image, cls, srcHash, mip: mipSettings(null, path) }
   }
 
-  return { ...buildAnimation(image, meta), cls, srcHash }
+  return { ...buildAnimation(image, meta.animation ?? {}), cls, srcHash, mip: mipSettings(meta, path) }
 }
 
 async function loadPalettedTexture(path, palette, assets) {
@@ -2499,6 +2500,7 @@ export async function loadSpriteTexture(path, assets) {
     texture.userData.opaque = loaded.cls.opaque
   }
   if (loaded.srcHash != null) texture.userData.srcHash = loaded.srcHash + "_" + loaded.image.width + "x" + loaded.image.height
+  if (loaded.mip) texture.userData.mip = loaded.mip
   if (loaded.animated && loaded.frames) {
     texture.userData.frames = loaded.frames
     texture.userData.times = loaded.times
@@ -2755,6 +2757,7 @@ export async function loadModel(assets, model, args) {
       texture.userData.translucent = imageIsTranslucent(image, assets.translucency)
     }
     if (loaded.srcHash != null) texture.userData.srcHash = (tint ? loaded.srcHash + "t" + tint : loaded.srcHash) + "_" + image.width + "x" + image.height
+    if (loaded.mip) texture.userData.mip = loaded.mip
     if (loaded.animated && frames) {
       texture.userData.frames = frames
       texture.userData.times = loaded.times
@@ -4053,6 +4056,10 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
           vec2 texUv = vUv;
         #endif
         vec2 uvEdge = fwidth(texUv) * 0.5;
+        #ifdef MIPMAPPED
+          vec2 gradX = dFdx(vUv);
+          vec2 gradY = dFdy(vUv);
+        #endif
         #ifdef TILED
           if (vTileSpan.x > 0.5) {
             vec4 tile = floor(vTileRect + 0.5);
@@ -4066,19 +4073,37 @@ function makeMaterial(texture, assets, shader, doubleSided, shadeEnabled, lightC
                 vec2 flip = vec2(0.0, step(3.5, turn));
                 turn -= flip.y * 4.0;
                 flip.x = step(1.5, turn);
-                if (turn - flip.x * 2.0 > 0.5) within = within.yx;
+                if (turn - flip.x * 2.0 > 0.5) {
+                  within = within.yx;
+                  #ifdef MIPMAPPED
+                    gradX = gradX.yx;
+                    gradY = gradY.yx;
+                  #endif
+                }
                 within = abs(within - flip);
               }
             #endif
             vec2 px = clamp(within * tile.zw, vec2(0.015625), tile.zw - 0.015625);
             texUv = vec2(tile.x + px.x, atlasSize.y - tile.y - tile.w + px.y) / atlasSize;
             uvEdge = vec2(0.0);
+            #ifdef MIPMAPPED
+              gradX *= tile.zw / atlasSize;
+              gradY *= tile.zw / atlasSize;
+            #endif
           }
         #endif
         if (texUv.x < -uvEdge.x || texUv.x > 1.0 + uvEdge.x || texUv.y < -uvEdge.y || texUv.y > 1.0 + uvEdge.y) discard;
-        vec4 texColor = texture2D(map, texUv);
+        #ifdef MIPMAPPED
+          vec4 texColor = textureGrad(map, texUv, gradX, gradY);
+        #else
+          vec4 texColor = texture2D(map, texUv);
+        #endif
         #ifdef CUTOUT
-          if (texColor.a < 0.1) discard;
+          #ifdef MIPMAPPED
+            if (texColor.a < 0.5) discard;
+          #else
+            if (texColor.a < 0.1) discard;
+          #endif
           texColor.a = 1.0;
         #endif
         if (texColor.a < 0.01) discard;

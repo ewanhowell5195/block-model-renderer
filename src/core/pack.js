@@ -1,6 +1,7 @@
 import { THREE, Canvas } from "./platform.js"
 import { makeLightSwitches, setInstanceHook } from "./models.js"
 import { lightOffsetSetter } from "./lighting.js"
+import { useMipmaps } from "./mipmaps.js"
 
 const LIGHT_UNIFORM = /^light(Vol|Ao)/
 const LIGHT_SWITCHES = Object.keys(makeLightSwitches())
@@ -40,8 +41,10 @@ export async function packScene(handle, opts = {}) {
       if (typeof createImageBitmap !== "function") throw new Error("packScene transfers textures as ImageBitmaps, which only browsers and web workers have. On Node, pack scenes built on an adopted shared atlas, which carry page references instead")
       const bitmap = await createImageBitmap(img)
       transfers.push(bitmap)
+      const mipmaps = tex.mipmaps?.length > 1 ? await Promise.all(tex.mipmaps.slice(1).map(level => createImageBitmap(level))) : null
+      if (mipmaps) transfers.push(...mipmaps)
       spec = {
-        kind: "bitmap", bitmap,
+        kind: "bitmap", bitmap, mipmaps,
         nearest: tex.magFilter === THREE.NearestFilter,
         repeat: tex.wrapS === THREE.RepeatWrapping,
         colorSpace: tex.colorSpace,
@@ -153,6 +156,13 @@ export async function packScene(handle, opts = {}) {
   return { payload: { meshes, materials, textures }, transfers }
 }
 
+function bitmapCanvas(bitmap) {
+  const canvas = new Canvas(bitmap.width, bitmap.height)
+  canvas.getContext("2d").drawImage(bitmap, 0, 0)
+  bitmap.close?.()
+  return canvas
+}
+
 export function reviveScene(payload, opts = {}) {
   const mirror = opts.sharedAtlas ?? null
   const release = opts.release ? function () { this.array = null } : null
@@ -168,15 +178,14 @@ export function reviveScene(payload, opts = {}) {
       owned.textures.push(tex)
       return tex
     }
-    const canvas = new Canvas(spec.bitmap.width, spec.bitmap.height)
-    canvas.getContext("2d").drawImage(spec.bitmap, 0, 0)
-    spec.bitmap.close?.()
+    const canvas = bitmapCanvas(spec.bitmap)
     const tex = new THREE.Texture(canvas)
     tex.magFilter = tex.minFilter = spec.nearest ? THREE.NearestFilter : THREE.LinearFilter
     if (spec.repeat) tex.wrapS = tex.wrapT = THREE.RepeatWrapping
     tex.colorSpace = spec.colorSpace ?? THREE.SRGBColorSpace
     tex.flipY = spec.flipY
     tex.generateMipmaps = false
+    if (spec.mipmaps) useMipmaps(tex, [canvas].concat(spec.mipmaps.map(bitmapCanvas)))
     tex.needsUpdate = true
     owned.textures.push(tex)
     return tex

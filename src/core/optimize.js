@@ -5,6 +5,7 @@ import { wasmReady, greedyMeshFast, settleWasm } from "./fast.js"
 import { buildSchedules, evaluateAnimation } from "./animation.js"
 import { listAtlasSprites } from "./assets.js"
 import { createTranslucentSorter } from "./sorting.js"
+import { mipLevels, alignUp, readPixels, extrudeCell, blit, spriteMips, toImageData, useMipmaps, MIP_INSET } from "./mipmaps.js"
 
 const nextTask = globalThis.scheduler?.yield
   ? () => scheduler.yield()
@@ -17,6 +18,8 @@ const nextTask = globalThis.scheduler?.yield
 const STITCH_LOADS = 16
 
 const matMap = m => m.uniforms?.map?.value ?? m.map
+const insetTo = (t, span, inset) => inset ? Math.min(Math.max(t, inset), span - inset) : t
+const mippedDefines = grp => grp.translucent ? { MIPMAPPED: "" } : { MIPMAPPED: "", CUTOUT: "" }
 
 const geoHashes = new WeakMap()
 function geoHash(geo) {
@@ -577,14 +580,48 @@ function releaseAtlas(entry) {
 function releaseImage(texture) {
   const { width, height } = texture.image
   texture.image = { width, height }
+  if (texture.mipmaps?.length) texture.mipmaps = texture.mipmaps.map(level => ({ width: level.width, height: level.height }))
 }
 
-async function buildAtlas(textures, maxAtlas, breathe, owned) {
+async function buildMippedAtlas(items, maxAtlas, breathe, levels) {
+  let area = 0, widest = 0
+  for (const it of items) {
+    it.cw = alignUp(it.w, levels)
+    it.ch = alignUp(it.h, levels)
+    area += it.cw * it.ch
+    widest = Math.max(widest, it.cw)
+  }
+  items.sort((a, b) => b.ch - a.ch)
+  const pageW = alignUp(Math.min(maxAtlas, Math.max(widest, Math.ceil(Math.sqrt(area)))), levels)
+  let ai = 0, x = 0, y = 0, rowH = 0
+  const sizes = [{ w: 0, h: 0 }]
+  for (const it of items) {
+    if (x + it.cw > pageW) { y += rowH; x = 0; rowH = 0 }
+    if (y + it.ch > maxAtlas) { ai++; x = 0; y = 0; rowH = 0; sizes[ai] = { w: 0, h: 0 } }
+    it.ai = ai; it.px = x; it.py = y
+    x += it.cw; rowH = Math.max(rowH, it.ch)
+    sizes[ai].w = Math.max(sizes[ai].w, x)
+    sizes[ai].h = Math.max(sizes[ai].h, y + rowH)
+  }
+  const pages = sizes.map(s => Array.from({ length: levels + 1 }, (_, k) => new Uint8ClampedArray((s.w >> k) * (s.h >> k) * 4)))
+  const byHash = new Map()
+  let drawn = 0
+  for (const it of items) {
+    if (++drawn % 64 === 0) await breathe?.()
+    const chain = spriteMips(extrudeCell(readPixels(it.img), it.w, it.h, it.cw, it.ch), it.cw, it.ch, levels, it.t.userData?.mip)
+    chain.forEach((level, k) => blit(level, pages[it.ai][k], sizes[it.ai].w >> k, it.px >> k, it.py >> k))
+    byHash.set(hashTexture(it.t), { ai: it.ai, x: it.px, y: it.py, w: it.w, h: it.h, cw: it.cw, ch: it.ch, inset: MIP_INSET })
+  }
+  const chains = pages.map((page, i) => page.map((data, k) => platform.imageFromPixels(data, sizes[i].w >> k, sizes[i].h >> k)))
+  return { sizes, byHash, chains }
+}
+
+async function buildAtlas(textures, maxAtlas, breathe, owned, levels = 0) {
   const pad = 1
   const rep = new Map()
   for (const t of textures) { const h = hashTexture(t); if (!rep.has(h)) rep.set(h, t) }
   const colorSpace = textures[0].colorSpace ?? THREE.NoColorSpace
-  const cacheKey = Array.from(rep.keys()).sort().join("|") + "\0" + maxAtlas + "\0" + colorSpace
+  const cacheKey = Array.from(rep.keys()).sort().join("|") + "\0" + maxAtlas + "\0" + colorSpace + "\0" + levels
   let entry = owned ? null : atlasCache.get(cacheKey)
   if (entry) {
     atlasCache.delete(cacheKey)
@@ -595,6 +632,18 @@ async function buildAtlas(textures, maxAtlas, breathe, owned) {
     return { atlases: entry.atlases, rects, sizes: entry.sizes, entry }
   }
   const items = Array.from(rep.values()).map(t => ({ t, img: t.image, w: t.image.width, h: t.image.height }))
+  if (levels) {
+    const { sizes, byHash, chains } = await buildMippedAtlas(items, maxAtlas, breathe, levels)
+    const atlases = []
+    for (const chain of chains) {
+      const a = await loadTexture(chain[0])
+      useMipmaps(a, chain)
+      a.colorSpace = colorSpace
+      a.needsUpdate = true
+      atlases.push(a)
+    }
+    return finishAtlas(textures, owned, cacheKey, atlases, sizes, byHash)
+  }
   items.sort((a, b) => b.h - a.h)
   let area = 0, widest = 0
   for (const it of items) {
@@ -657,9 +706,13 @@ async function buildAtlas(textures, maxAtlas, breathe, owned) {
     a.needsUpdate = true
     atlases.push(a)
   }
+  return finishAtlas(textures, owned, cacheKey, atlases, sizes, byHash)
+}
+
+function finishAtlas(textures, owned, cacheKey, atlases, sizes, byHash) {
   const rects = new Map()
   for (const t of textures) rects.set(t, byHash.get(hashTexture(t)))
-  entry = { atlases, sizes, byHash, users: 1, owned, bytes: sizes.reduce((n, s) => n + s.w * s.h * 4, 0) }
+  const entry = { atlases, sizes, byHash, users: 1, owned, bytes: sizes.reduce((n, s) => n + s.w * s.h * (atlases[0]?.mipmaps?.length ? 16 / 3 : 4), 0) }
   if (owned) return { atlases, rects, sizes, entry }
   atlasCache.set(cacheKey, entry)
   sweepAtlasCache()
@@ -860,11 +913,11 @@ function emitQuads(quads, from, to, orients) {
           if (oc === MIXED) { L[o2] = q.lx; L[o2 + 1] = q.ly }
         } else if (split) {
           const to = orientCorner(oc, vert.ha, vert.hb)
-          U[o2] = (ox + (to >> 1) * rw) / size.w
-          U[o2 + 1] = 1 - (oy + (1 - (to & 1)) * rh) / size.h
+          U[o2] = (ox + insetTo((to >> 1) * rw, rw, rect.inset)) / size.w
+          U[o2 + 1] = 1 - (oy + insetTo((1 - (to & 1)) * rh, rh, rect.inset)) / size.h
         } else {
-          U[o2] = (ox + vert.u * rw) / size.w
-          U[o2 + 1] = 1 - (oy + (1 - vert.v) * rh) / size.h
+          U[o2] = (ox + insetTo(vert.u * rw, rw, rect.inset)) / size.w
+          U[o2 + 1] = 1 - (oy + insetTo((1 - vert.v) * rh, rh, rect.inset)) / size.h
         }
         T[o3] = tr; T[o3 + 1] = tg; T[o3 + 2] = tb
         if (F) { F[o2] = fe; F[o2 + 1] = ff }
@@ -1026,7 +1079,7 @@ function bakeFace(bakes, mesh, f) {
     if (len > 0) { const inv = 1 / len; nx *= inv; ny *= inv; nz *= inv }
     B[o + 3] = nx; B[o + 4] = ny; B[o + 5] = nz
     const u = ua[a2], v = ua[a2 + 1]
-    if (rect) { B[o + 6] = (rect.x + u * rect.w) / W; B[o + 7] = 1 - (rect.y + (1 - v) * rect.h) / H }
+    if (rect) { B[o + 6] = (rect.x + insetTo(u * rect.w, rect.w, rect.inset)) / W; B[o + 7] = 1 - (rect.y + insetTo((1 - v) * rect.h, rect.h, rect.inset)) / H }
     else { B[o + 6] = u; B[o + 7] = v }
     if (ca) { B[o + 8] = ca[a3]; B[o + 9] = ca[a3 + 1]; B[o + 10] = ca[a3 + 2] }
     else { B[o + 8] = 255; B[o + 9] = 255; B[o + 10] = 255 }
@@ -1084,7 +1137,7 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
       Na[nl] = nx; Na[nl + 1] = ny; Na[nl + 2] = nz
       nl += 3
       const u = ua[a2], v = ua[a2 + 1]
-      if (rect) { Ua[ul] = (rect.x + u * rect.w) / W; Ua[ul + 1] = 1 - (rect.y + (1 - v) * rect.h) / H }
+      if (rect) { Ua[ul] = (rect.x + insetTo(u * rect.w, rect.w, rect.inset)) / W; Ua[ul + 1] = 1 - (rect.y + insetTo((1 - v) * rect.h, rect.h, rect.inset)) / H }
       else { Ua[ul] = u; Ua[ul + 1] = v }
       ul += 2
       if (ca) { Ta[tl] = ca[a3]; Ta[tl + 1] = ca[a3 + 1]; Ta[tl + 2] = ca[a3 + 2] }
@@ -1106,7 +1159,7 @@ function appendGroup(geo, start, count, mat, nmat, rect, W, H, acc, fd) {
     const u = uv.getX(a), v = uv.getY(a)
     acc.P.push3(_v.x, _v.y, _v.z)
     acc.N.push3(_n.x, _n.y, _n.z)
-    if (rect) acc.U.push2((rect.x + u * rect.w) / W, 1 - (rect.y + (1 - v) * rect.h) / H)
+    if (rect) acc.U.push2((rect.x + insetTo(u * rect.w, rect.w, rect.inset)) / W, 1 - (rect.y + insetTo((1 - v) * rect.h, rect.h, rect.inset)) / H)
     else acc.U.push2(u, v)
     if (col) acc.T.push3(col.array[a * 3], col.array[a * 3 + 1], col.array[a * 3 + 2])
     else acc.T.push3(255, 255, 255)
@@ -1138,7 +1191,7 @@ async function stitchSharedAtlas(shared, assets, opts = {}) {
   if (cancelled) return null
   const texs = loaded.filter(tex => tex?.image)
   let area = 0
-  for (const tex of texs) area += (tex.image.width + 2) * (tex.image.height + 2)
+  for (const tex of texs) area += shared.mipmaps ? alignUp(tex.image.width, shared.mipmaps) * alignUp(tex.image.height, shared.mipmaps) : (tex.image.width + 2) * (tex.image.height + 2)
   if (shared.autoSize && !sheet.pages.length) {
     const cap = Math.min(detectMaxAtlas(), 8192)
     const fill = 1 - Math.min(Math.max(shared.headroom, 0), 0.95)
@@ -1162,12 +1215,14 @@ function exportSharedAtlasLayout(shared) {
   const sheet = shared.sheets.get("*")
   return {
     size: shared.size,
+    mipmaps: shared.mipmaps,
     pages: sheet?.pages.length ?? 0,
     rects: sheet ? Array.from(sheet.rects.entries()) : []
   }
 }
 
 function adoptSharedAtlasLayout(shared, layout) {
+  shared.mipmaps = mipLevels(layout.mipmaps, "adoptLayout")
   const pages = []
   for (let i = 0; i < layout.pages; i++) {
     pages.push({ canvas: null, ctx: null, texture: new THREE.Texture(), x: 0, y: layout.size, rowH: 0, index: i })
@@ -1262,6 +1317,7 @@ export function createSharedAtlas(opts = {}) {
     size: opts.size ?? 2048,
     autoSize: opts.size == null,
     headroom: opts.headroom ?? 0.25,
+    mipmaps: mipLevels(opts.mipmaps, "createSharedAtlas"),
     renderer: opts.renderer ?? null,
     serial: 0,
     sheets: new Map(),
@@ -1311,10 +1367,43 @@ function paddedSprite(src, w, h) {
   return out
 }
 
+async function mippedLocate(shared, sheet, tex, key) {
+  const levels = shared.mipmaps, iw = tex.image.width, ih = tex.image.height
+  const cw = alignUp(iw, levels), ch = alignUp(ih, levels)
+  let page = sheet.pages[sheet.pages.length - 1]
+  if (page && page.x + cw > shared.size) { page.y += page.rowH; page.x = 0; page.rowH = 0 }
+  if (!page || page.y + ch > shared.size) {
+    const chain = Array.from({ length: levels + 1 }, (_, k) => new Canvas(shared.size >> k, shared.size >> k))
+    const texture = await loadTexture(chain[0])
+    useMipmaps(texture, chain)
+    texture.colorSpace = tex.colorSpace ?? THREE.NoColorSpace
+    texture.needsUpdate = true
+    page = { canvas: chain[0], ctx: chain[0].getContext("2d"), texture, x: 0, y: 0, rowH: 0, index: sheet.pages.length }
+    sheet.pages.push(page)
+  }
+  const x = page.x, y = page.y
+  const cell = spriteMips(extrudeCell(readPixels(tex.image), iw, ih, cw, ch), cw, ch, levels, tex.userData?.mip).map(toImageData)
+  cell.forEach((level, k) => page.texture.mipmaps[k].getContext("2d").putImageData(level, x >> k, y >> k))
+  if (tex.userData?.frames) {
+    ;(page.texture.userData.regions ??= []).push({ x, y, w: iw, h: ih, cw, ch, levels, mip: tex.userData.mip, name: tex.userData.name, order: tex.userData.order, frames: tex.userData.frames, times: tex.userData.times, interpolate: !!tex.userData.interpolate })
+  }
+  let subbed = false
+  if (shared.renderer) {
+    try { subbed = cell.every((level, k) => subUpload(shared.renderer, page.texture, level, x >> k, y >> k, k)) } catch {}
+  }
+  if (!subbed) page.texture.needsUpdate = true
+  page.x += cw
+  page.rowH = Math.max(page.rowH, ch)
+  const r = { ai: page.index, x, y, w: iw, h: ih, cw, ch, inset: MIP_INSET, serial: ++shared.serial }
+  sheet.rects.set(key, r)
+  return r
+}
+
 async function sharedLocate(shared, sheet, tex) {
   const key = hashTexture(tex)
   let r = sheet.rects.get(key)
   if (r) return r
+  if (shared.mipmaps) return mippedLocate(shared, sheet, tex, key)
   const iw = tex.image.width, ih = tex.image.height
   const cw = iw + 2, ch = ih + 2
   let page = sheet.pages[sheet.pages.length - 1]
@@ -1499,6 +1588,7 @@ export async function optimizeScene(placements, opts = {}) {
 export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup, pos: P, culls, ci: placeCull }, opts = {}) {
   await wasmReady()
   const shared = opts.sharedAtlas ?? null
+  const levels = shared ? shared.mipmaps ?? 0 : mipLevels(opts.mipmaps, "optimizeScene")
   let maxAtlasSize = opts.maxAtlas
   const maxAtlas = () => maxAtlasSize ??= detectMaxAtlas()
   const cutoff = opts.translucency
@@ -1801,7 +1891,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
   for (const tile of tiles.values()) {
     const tf = tile.f, img = tf.tex.image, sub = tf.sub
     tile.direct = tf.tiled || (tile.ur === 1 && tile.vr === 1)
-    tile.pseudo = tile.direct ? tf.tex : { image: tiledSub(img, tile.content, sub, tile.ur, tile.vr), colorSpace: tf.tex.colorSpace }
+    tile.pseudo = tile.direct ? tf.tex : { image: tiledSub(img, tile.content, sub, tile.ur, tile.vr), colorSpace: tf.tex.colorSpace, userData: { mip: tf.tex.userData?.mip } }
     tile.grp.textures.add(tile.pseudo)
   }
 
@@ -1834,9 +1924,12 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
           for (const k of REBIND_UNIFORMS) {
             if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
           }
-          m.defines = { ...m.defines, FACE_ATTRS: "" }
+          m.defines = { ...m.defines, FACE_ATTRS: "", ...(levels ? mippedDefines(grp) : {}) }
         }
-        else m.map = pg.texture
+        else {
+          m.map = pg.texture
+          if (levels && !grp.translucent) m.alphaTest = 0.5
+        }
         if (grp.translucent && !m.transparent) {
           m.transparent = true
           m.depthWrite = false
@@ -1847,7 +1940,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       atlases.set(sig, { rects, sizes, materials, accs: sheet.pages.map(makeAcc) })
       continue
     }
-    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas(), breathe, !!opts.release)
+    const { atlases: ats, rects, sizes, entry } = await buildAtlas(Array.from(grp.textures), maxAtlas(), breathe, !!opts.release, levels)
     const regionLists = ats.map(() => [])
     const claimed = new Set()
     for (const t of grp.textures) {
@@ -1856,7 +1949,7 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
       const key = r.ai + ":" + r.x + "," + r.y
       if (claimed.has(key)) continue
       claimed.add(key)
-      regionLists[r.ai].push({ x: r.x, y: r.y, w: r.w, h: r.h, frames: t.userData.frames, times: t.userData.times, interpolate: !!t.userData.interpolate })
+      regionLists[r.ai].push({ x: r.x, y: r.y, w: r.w, h: r.h, ...(levels ? { cw: r.cw, ch: r.ch, levels, mip: t.userData.mip } : {}), frames: t.userData.frames, times: t.userData.times, interpolate: !!t.userData.interpolate })
     }
     regionLists.forEach((regions, i) => {
       if (regions.length) ats[i].userData.regions = regions
@@ -1872,9 +1965,12 @@ export async function optimizePlacements({ n: placeCount, groups, gi: placeGroup
         for (const k of REBIND_UNIFORMS) {
           if (grp.repMat.uniforms[k]) m.uniforms[k] = grp.repMat.uniforms[k]
         }
-        m.defines = { ...m.defines, FACE_ATTRS: "" }
+        m.defines = { ...m.defines, FACE_ATTRS: "", ...(levels ? mippedDefines(grp) : {}) }
       }
-      else m.map = a
+      else {
+        m.map = a
+        if (levels && !grp.translucent) m.alphaTest = 0.5
+      }
       if (grp.translucent && !m.transparent) {
         m.transparent = true
         m.depthWrite = false

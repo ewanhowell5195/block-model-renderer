@@ -168,6 +168,7 @@ setPlatform({
   },
   maxAnimationPixels: 268402689,
   batchedMesh: false,
+  mipmaps: false,
   webgl2: () => false,
 
   maxTextureSize() {

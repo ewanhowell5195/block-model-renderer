@@ -819,6 +819,7 @@ export async function createScene(assets, blocks, args = {}) {
     optimized = await optimizePlacements({ n, groups, gi, pos, culls: cullSets, ci }, {
       maxAtlas: args.maxAtlas, translucency: args.translucency, resortDistance: args.resortDistance, sliceMs,
       sharedAtlas: args.sharedAtlas,
+      mipmaps: args.mipmaps,
       batchDynamics: args.batchDynamics,
       release: args.release,
       onProgress: relayProgress(onProgress, stage),

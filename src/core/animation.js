@@ -3,6 +3,7 @@ import { readFile } from "./assets.js"
 import { subUpload, subFlush } from "./subtex.js"
 import { COLORS } from "./colors.js"
 import { isAutoDynamic } from "./models.js"
+import { extrudeCell, spriteMips, toImageData } from "./mipmaps.js"
 
 let _animRenderer = null
 export function setAnimationRenderer(renderer) { _animRenderer = renderer }
@@ -21,7 +22,32 @@ function drawPadded(ctx, image, x, y, w, h) {
   ctx.drawImage(image, w - 1, 0, 1, h, x + w, y, 1, h)
 }
 
+const _frameChains = new WeakMap()
+function frameChain(image, { w, h, cw, ch, levels, mip }) {
+  let chain = _frameChains.get(image)
+  if (!chain) {
+    chain = spriteMips(extrudeCell(framePixels(image), w, h, cw, ch), cw, ch, levels, mip).map(toImageData)
+    _frameChains.set(image, chain)
+  }
+  return chain
+}
+
+function applyMippedFrame(s, image) {
+  const { x, y } = s.region
+  const chain = frameChain(image, s.region)
+  const levels = s.tex.mipmaps
+  const drawn = typeof s.tex.image.getContext === "function"
+  if (drawn) chain.forEach((level, k) => levels[k].getContext("2d").putImageData(level, x >> k, y >> k))
+  if (_animRenderer) {
+    try {
+      if (chain.every((level, k) => subUpload(_animRenderer, s.tex, level, x >> k, y >> k, k))) return
+    } catch {}
+  }
+  if (drawn) s.tex.needsUpdate = true
+}
+
 export function applyFrame(s, image) {
+  if (s.region?.levels) return applyMippedFrame(s, image)
   if (s.region) {
     const { x, y, w, h } = s.region
     const atlas = s.tex.image
