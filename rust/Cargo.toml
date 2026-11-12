@@ -1,6 +1,6 @@
 [package]
 name = "block-model-renderer"
-version = "3.1.1"
+version = "3.2.0"
 edition = "2021"
 description = "Geometry kernels for block-model-renderer"
 license = "MPL-2.0"
