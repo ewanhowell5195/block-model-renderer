@@ -199,7 +199,6 @@ The following categories are covered:
 * Chests (including the copper chest family)
 * Conduits
 * Copper Golem Statues
-* Cushions
 * Decorated Pots
 * Enchanting Table Books (the floating book; the table is a real vanilla model)
 * Lectern Books (the open book on a lectern with `has_book`; the lectern is a real vanilla model)
@@ -208,7 +207,7 @@ The following categories are covered:
 * Shulker Boxes
 * Tridents
 
-These packs stay out of your way in the `minecraft` namespace: their blockstates only resolve through [`readFile`](#readfileassets-path-hint) when nothing else provides the file (cushions, for example, have no vanilla blockstate), their atlas definitions merge in, and everything else they ship lives under the `block-model-renderer` namespace.
+These packs stay out of your way in the `minecraft` namespace: from 1.13 [`readFile`](#readfileassets-path-hint) never returns their blockstates, their atlas definitions merge in, and everything else they ship lives under the `block-model-renderer` namespace.
 
 #### Versioned packs
 
